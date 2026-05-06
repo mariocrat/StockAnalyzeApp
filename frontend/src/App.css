@@ -1,0 +1,108 @@
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0b0e14;
+  color: #d1d4dc;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+}
+
+.sidebar {
+  width: 300px;
+  background-color: #131722;
+  padding: 20px;
+  border-right: 1px solid #2a2e39;
+  overflow-y: auto;
+}
+
+.search-box {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.search-box input {
+  width: 100%;
+  padding: 10px;
+  background: #2a2e39;
+  border: 1px solid #363c4e;
+  color: white;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.search-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #1e222d;
+  border: 1px solid #363c4e;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.search-results li {
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #2a2e39;
+}
+
+.search-results li:hover {
+  background: #2a2e39;
+}
+
+.theme-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #2a2e39;
+  cursor: pointer;
+}
+
+.theme-item:hover {
+  color: #2962ff;
+}
+
+.positive { color: #26a69a; }
+.negative { color: #ef5350; }
+
+.main-content {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.selected-stocks-pills {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.pill {
+  background: #2962ff;
+  padding: 5px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.pill:hover {
+  background: #1e4bd8;
+}
+
+.charts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2px; /* Very small gap simulating HTS closely packed charts */
+}
