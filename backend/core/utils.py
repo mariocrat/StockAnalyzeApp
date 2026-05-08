@@ -1,5 +1,8 @@
+import functools
+
 CHOSUNG_LIST = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ']
 
+@functools.lru_cache(maxsize=1000)
 def get_chosung(text: str) -> str:
     """
     Convert a Korean string to its initial consonants (Chosung).

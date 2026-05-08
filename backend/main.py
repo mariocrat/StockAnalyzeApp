@@ -4,12 +4,34 @@ from typing import List, Optional
 import uvicorn
 import pandas as pd
 import datetime
+from cachetools.func import ttl_cache
 
-from core.data_fetcher import get_all_theme_stocks, get_stock_ohlcv, get_macro_data, get_krx_themes
+from core.data_fetcher import get_all_theme_stocks, get_stock_ohlcv, get_macro_data, get_krx_themes, get_stock_names, get_theme_returns_historical
 from core.metrics import calculate_theme_rankings, get_stocks_in_theme
 from core.utils import get_chosung
 
-app = FastAPI(title="Stock Analysis API")
+from contextlib import asynccontextmanager
+import threading
+
+def _warm_cache():
+    """Pre-warm the theme cache so the first user request is instant."""
+    try:
+        today = datetime.date.today()
+        start = (today - datetime.timedelta(days=7)).strftime('%Y%m%d')
+        end = today.strftime('%Y%m%d')
+        print("[startup] Warming theme cache...")
+        calculate_theme_rankings(start, end)
+        print("[startup] Theme cache ready.")
+    except Exception as e:
+        print(f"[startup] Cache warm-up failed (non-fatal): {e}")
+
+@asynccontextmanager
+async def lifespan(app):
+    # Warm cache in a background thread so server starts instantly
+    threading.Thread(target=_warm_cache, daemon=True).start()
+    yield
+
+app = FastAPI(title="Stock Analysis API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,20 +70,30 @@ def calculate_indicators(df: pd.DataFrame, indicators: list):
     return df.where(pd.notnull(df), None)
 
 @app.get("/api/themes")
+@ttl_cache(maxsize=100, ttl=3600)
 def get_themes(start_date: str, end_date: str):
     df = calculate_theme_rankings(start_date, end_date)
     return df.to_dict(orient="records")
 
 @app.get("/api/theme_stocks")
+@ttl_cache(maxsize=1000, ttl=3600)
 def get_theme_stocks(tickers: str, start_date: str, end_date: str):
     # tickers is comma separated
     ticker_list = tickers.split(',')
     df = get_stocks_in_theme(ticker_list, start_date, end_date)
     return df.to_dict(orient="records")
 
+@app.get("/api/themes_historical")
+@ttl_cache(maxsize=50, ttl=1800)
+def get_themes_historical(start_date: str, end_date: str):
+    """Theme rankings using actual OHLCV returns for any given period (1W/1M/1Y/custom)."""
+    df = get_theme_returns_historical(start_date, end_date)
+    return df.to_dict(orient="records")
+
 @app.get("/api/search")
+@ttl_cache(maxsize=1000, ttl=3600)
 def search_stocks(q: str):
-    df = get_all_theme_stocks()
+    names_dict = get_stock_names("ALL")
     q = q.strip().lower()
     
     # Simple search
@@ -69,12 +101,14 @@ def search_stocks(q: str):
         return q in name.lower() or q in get_chosung(name)
         
     matches = []
-    for _, row in df.iterrows():
-        if is_match(row['Name']):
-            matches.append({"Ticker": row["Ticker"], "Name": row["Name"]})
+    for ticker, name in names_dict.items():
+        if is_match(name):
+            matches.append({"Ticker": ticker, "Name": name})
+            if len(matches) > 50:
+                break
             
     # Which themes contain these matches?
-    themes, _ = get_krx_themes()
+    themes, _, _ = get_krx_themes()   # 3-tuple now
     result = []
     for m in matches:
         matched_themes = [t for t, t_list in themes.items() if m["Ticker"] in t_list]
@@ -87,22 +121,75 @@ def search_stocks(q: str):
 
 @app.get("/api/stock/{ticker}")
 def get_stock_data(ticker: str, start_date: str, end_date: str, indicators: Optional[str] = None):
-    # indicators: comma separated
+    # Pad backwards by 365 days to ensure enough candles for MA-120
     dt_start = datetime.datetime.strptime(start_date, "%Y%m%d")
-    padded_start = (dt_start - datetime.timedelta(days=180)).strftime("%Y%m%d")
-    
+    padded_start = (dt_start - datetime.timedelta(days=365)).strftime("%Y%m%d")
+
     df = get_stock_ohlcv(ticker, padded_start, end_date)
     if df.empty:
         return {"data": []}
-        
+
+    df = df.copy()
+
+    # 1. Sort ascending (Lightweight Charts strict requirement)
+    df = df.sort_index(ascending=True)
+
+    # 2-a. Block zero-price rows (data errors, pre-listing placeholders)
+    df = df[(df['Open'] > 0) & (df['High'] > 0) & (df['Low'] > 0) & (df['Close'] > 0)]
+    if df.empty:
+        return {"data": []}
+
+    # 2-b. Noise killer: Korean market daily limit is ±30%.
+    #      Rows where any of High/Low/Close moved >35% vs previous Close → ffill
+    _prev_close = df['Close'].shift(1)
+    _noise = (
+        (df['Close'].sub(_prev_close).div(_prev_close).abs() > 0.35) |
+        (df['High'].sub(_prev_close).div(_prev_close).abs()  > 0.35) |
+        (df['Low'].sub(_prev_close).div(_prev_close).abs()   > 0.35)
+    )
+    # First row has no previous close → never flag it as noise
+    _noise.iloc[0] = False
+    if _noise.any():
+        df.loc[_noise, ['Open', 'High', 'Low', 'Close']] = float('nan')
+        df = df.ffill()
+
+    # MA 5/10/20/60/120 on full padded history
+    for ma in [5, 10, 20, 60, 120]:
+        df[f'MA_{ma}'] = df['Close'].rolling(window=ma).mean()
+
+    # Bollinger Bands (20, 2)
+    bb_std = df['Close'].rolling(window=20).std()
+    df['BB_Basis'] = df['Close'].rolling(window=20).mean()
+    df['BB_Upper'] = df['BB_Basis'] + 2 * bb_std
+    df['BB_Lower'] = df['BB_Basis'] - 2 * bb_std
+
+    # RSI(14) — Wilder's smoothing via EWM (com = period-1)
+    _delta    = df['Close'].diff()
+    _gain     = _delta.clip(lower=0).ewm(com=13, min_periods=14).mean()
+    _loss     = (-_delta.clip(upper=0)).ewm(com=13, min_periods=14).mean()
+    df['RSI_14'] = (100 - 100 / (1 + _gain / _loss.replace(0, float('nan')))).round(2)
+
     if indicators:
-        ind_list = indicators.split(',')
-        df = calculate_indicators(df, ind_list)
-        
+        df = calculate_indicators(df, indicators.split(','))
+
+    # 3. Slice back to the requested start date
     df = df[df.index >= dt_start]
-    
-    # Explicitly set Date column
+    if df.empty:
+        return {"data": []}
+
+    # 4. Fill NaN: forward-fill then back-fill (fixes MA gaps at edges)
+    df = df.ffill().bfill()
+
+    # 5. Drop any rows still missing core OHLC values
+    df = df.dropna(subset=['Open', 'High', 'Low', 'Close'])
+
+    # 6. Strict YYYY-MM-DD date strings (no time component, no timezone)
     df['Date'] = df.index.strftime('%Y-%m-%d')
+
+    # 7. Replace inf and residual NaN with None for clean JSON
+    df = df.replace([float('inf'), float('-inf')], None)
+    df = df.where(pd.notnull(df), None)
+
     return {"data": df.to_dict(orient="records")}
 
 @app.get("/api/macro")
