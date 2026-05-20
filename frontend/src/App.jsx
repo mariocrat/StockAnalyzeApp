@@ -8,15 +8,7 @@ const API_BASE = 'http://localhost:8000';
 // ── Helpers ───────────────────────────────────────────────────────────────
 const fmt8 = (d) => d.toISOString().split('T')[0].replace(/-/g, '');
 
-function periodDates(p) {
-  const end = new Date();
-  const start = new Date();
-  if (p === '1D') start.setDate(end.getDate() - 1);
-  else if (p === '1W') start.setDate(end.getDate() - 7);
-  else if (p === '1M') start.setMonth(end.getMonth() - 1);
-  else if (p === '1Y') start.setFullYear(end.getFullYear() - 1);
-  return { start: fmt8(start), end: fmt8(end) };
-}
+
 
 // ── Indicator definitions ─────────────────────────────────────────────────
 const IND_DEFS = [
@@ -27,6 +19,9 @@ const IND_DEFS = [
   { key: 'MA_120', label: 'MA 120', color: '#ff7043' },
   { key: 'BB',     label: 'BB',     color: '#b39ddb' },
   { key: 'RSI',    label: 'RSI',    color: '#26a69a' },
+  { key: 'MACD',   label: 'MACD',   color: '#2962ff' },
+  { key: 'STOCH',  label: 'Stoch',  color: '#ff5252' },
+  { key: 'ICHI',   label: 'Ichimoku',color: '#81c784' },
 ];
 
 const CHART_PERIODS  = ['1M', '3M', '6M', '1Y'];
@@ -34,6 +29,7 @@ const CANDLE_PERIODS = [
   { label: '일봉', value: 'D' },
   { label: '주봉', value: 'W' },
   { label: '월봉', value: 'M' },
+  { label: '년봉', value: 'Y' },
 ];
 const THEME_PERIODS = ['1D', '1W', '1M', '1Y'];
 
@@ -63,7 +59,7 @@ export default function App() {
   const [candlePeriod, setCandlePeriod] = useState('D');  // 일봉/주봉/월봉
   const [scaleMode,    setScaleMode]    = useState('linear'); // linear | log
   const [activeInds,   setActiveInds]   = useState({
-    MA_5: false, MA_10: false, MA_20: true, MA_60: false, MA_120: false, BB: false, RSI: false,
+    MA_5: false, MA_10: false, MA_20: false, MA_60: false, MA_120: false, BB: false, RSI: false, MACD: false, STOCH: false, ICHI: false
   });
   const [bbPeriod,     setBbPeriod]     = useState(20);
   const [bbMultiplier, setBbMultiplier] = useState(2);
@@ -75,19 +71,14 @@ export default function App() {
     setThemesLoading(true);
     try {
       let data;
-      if (period === '1D') {
-        const { start, end } = periodDates('1D');
-        const res = await axios.get(`${API_BASE}/api/themes`, { params: { start_date: start, end_date: end } });
-        data = res.data;
-      } else if (period === 'custom') {
+      if (period === 'custom') {
         if (!cStart || !cEnd) { setThemesLoading(false); return; }
-        const res = await axios.get(`${API_BASE}/api/themes_historical`, {
-          params: { start_date: cStart.replace(/-/g, ''), end_date: cEnd.replace(/-/g, '') }
+        const res = await axios.get(`${API_BASE}/api/themes`, {
+          params: { period: 'custom', start_date: cStart.replace(/-/g, ''), end_date: cEnd.replace(/-/g, '') }
         });
         data = res.data;
       } else {
-        const { start, end } = periodDates(period);
-        const res = await axios.get(`${API_BASE}/api/themes_historical`, { params: { start_date: start, end_date: end } });
+        const res = await axios.get(`${API_BASE}/api/themes`, { params: { period } });
         data = res.data;
       }
       setThemes(data || []);
@@ -99,18 +90,54 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    fetchThemes('1D', '', '');
-  }, [fetchThemes]);
+    if (themePeriod !== 'custom') {
+      fetchThemes(themePeriod, '', '');
+    }
+  }, [themePeriod, fetchThemes]);
 
   const handleThemePeriodChange = (p) => {
     setThemePeriod(p);
     setShowCustom(p === 'custom');
-    if (p !== 'custom') fetchThemes(p, '', '');
   };
+
+  // Reset theme and selected stocks when period changes
+  useEffect(() => {
+    setActiveTheme(null);
+    setSelectedStocks([]);
+  }, [themePeriod]);
 
   const handleCustomApply = () => {
     fetchThemes('custom', customStart, customEnd);
   };
+
+  // ── Stock data fetch ──────────────────────────────────────────────────
+  const fetchStockData = useCallback(async (ticker, name, currentCandlePeriod) => {
+    // Determine interval parameter
+    const intervalMap = { 'D': '1d', 'W': '1w', 'M': '1m', 'Y': '1y' };
+    const interval = intervalMap[currentCandlePeriod || candlePeriod] || '1d';
+    const cacheKey = `${ticker}_${interval}`;
+
+    if (stockData[cacheKey]) return; // already loaded for this interval
+    setLoadingStocks(prev => ({ ...prev, [ticker]: true }));
+    try {
+      // Backend now completely ignores start_date/end_date and returns 10-year data
+      // but we still pass dummy values for API requirements
+      const today = new Date();
+      const res = await axios.get(`${API_BASE}/api/stock/${ticker}`, {
+        params: { start_date: '20150101', end_date: fmt8(today), interval }
+      });
+      setStockData(prev => ({ ...prev, [cacheKey]: res.data?.data || [] }));
+    } catch (err) {
+      console.error(`[fetchStockData] ${ticker}`, err);
+    } finally {
+      setLoadingStocks(prev => ({ ...prev, [ticker]: false }));
+    }
+  }, [stockData, candlePeriod]);
+
+  // When candlePeriod changes, fetch data for all selected stocks
+  useEffect(() => {
+    selectedStocks.forEach(s => fetchStockData(s.ticker, s.name, candlePeriod));
+  }, [candlePeriod]); // eslint-disable-line
 
   // ── Theme click ───────────────────────────────────────────────────────
   const handleThemeClick = useCallback(async (e, theme) => {
@@ -125,27 +152,8 @@ export default function App() {
     // Default-select top-2 by return (already sorted by backend)
     const defaultSelected = tickers.slice(0, 2);
     setSelectedStocks(defaultSelected);
-    for (const s of defaultSelected) await fetchStockData(s.ticker, s.name);
-  }, []); // eslint-disable-line
-
-  // ── Stock data fetch ──────────────────────────────────────────────────
-  const fetchStockData = useCallback(async (ticker, name) => {
-    if (stockData[ticker]) return; // already loaded
-    setLoadingStocks(prev => ({ ...prev, [ticker]: true }));
-    try {
-      const today = new Date();
-      const start = new Date();
-      start.setFullYear(today.getFullYear() - 1);
-      const res = await axios.get(`${API_BASE}/api/stock/${ticker}`, {
-        params: { start_date: fmt8(start), end_date: fmt8(today) }
-      });
-      setStockData(prev => ({ ...prev, [ticker]: res.data?.data || [] }));
-    } catch (err) {
-      console.error(`[fetchStockData] ${ticker}`, err);
-    } finally {
-      setLoadingStocks(prev => ({ ...prev, [ticker]: false }));
-    }
-  }, [stockData]);
+    for (const s of defaultSelected) await fetchStockData(s.ticker, s.name, candlePeriod);
+  }, [fetchStockData, candlePeriod]);
 
   // ── Stock chip toggle ─────────────────────────────────────────────────
   const handleChipToggle = useCallback(async (e, stock) => {
@@ -156,9 +164,9 @@ export default function App() {
       setSelectedStocks(prev => prev.filter(s => s.ticker !== ticker));
     } else {
       setSelectedStocks(prev => [...prev, stock]);
-      await fetchStockData(ticker, name);
+      await fetchStockData(ticker, name, candlePeriod);
     }
-  }, [selectedStocks, fetchStockData]);
+  }, [selectedStocks, fetchStockData, candlePeriod]);
 
   // ── Global indicator toggle ───────────────────────────────────────────
   const toggleInd = useCallback((key) => {
@@ -186,8 +194,8 @@ export default function App() {
     if (!selectedStocks.some(s => s.ticker === ticker)) {
       setSelectedStocks(prev => [...prev, { ticker, name }]);
     }
-    await fetchStockData(ticker, name);
-  }, [selectedStocks, fetchStockData]);
+    await fetchStockData(ticker, name, candlePeriod);
+  }, [selectedStocks, fetchStockData, candlePeriod]);
 
   // ── Time-range sync across charts ────────────────────────────────────
   const handleTimeRangeChange = useCallback((sourceTicker, range) => {
@@ -231,7 +239,11 @@ export default function App() {
           />
           {showResults && searchResults.length > 0 && (
             <ul className="search-results">
-              {searchResults.map(r => {
+              {[...searchResults].sort((a, b) => {
+                const aName = a.Name || a.name || a.Ticker || a.ticker || '';
+                const bName = b.Name || b.name || b.Ticker || b.ticker || '';
+                return aName.localeCompare(bName);
+              }).map(r => {
                 const ticker = r.Ticker || r.ticker;
                 const name   = r.Name   || r.name || ticker;
                 return (
@@ -429,7 +441,8 @@ export default function App() {
         {/* ── Charts ──────────────────────────────────────────────────── */}
         <div className="charts-container">
           {selectedStocks.map(s => {
-            const data = stockData[s.ticker];
+            const cacheKey = `${s.ticker}_${{ 'D': '1d', 'W': '1w', 'M': '1m', 'Y': '1y' }[candlePeriod] || '1d'}`;
+            const data = stockData[cacheKey];
             if (!data) {
               return (
                 <div key={s.ticker} style={{

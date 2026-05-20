@@ -158,89 +158,116 @@ def get_theme_returns_historical(start_date: str, end_date: str):
     Theme averages computed via pandas groupby (vectorized).
     """
     themes, names, _ = get_krx_themes()
-    unique_tickers   = list({t for tlist in themes.values() for t in tlist})
+    
+    # Filter only 6-digit tickers
+    unique_tickers = list({t for tlist in themes.values() for t in tlist if isinstance(t, str) and t.isdigit() and len(t) == 6})
 
-    start_str = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}"
-    end_str   = (datetime.datetime.strptime(end_date, "%Y%m%d")
-                 + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    start_dt = pd.to_datetime(start_date)
+    end_dt = pd.to_datetime(end_date)
 
     return_dict: dict = {}
 
-    def _extract_returns(df_bulk, tickers, suffix):
-        """Extract open→close returns from a multi-ticker yfinance DataFrame."""
-        if df_bulk is None or df_bulk.empty:
-            return
-        cols = df_bulk.columns
-        for ticker in tickers:
-            sym = f"{ticker}{suffix}"
-            try:
-                if isinstance(cols, pd.MultiIndex):
-                    if sym not in cols.get_level_values(0):
+    from core.cache import get_cached_ohlcv, is_cache_ready
+    
+    if is_cache_ready():
+        # FAST PATH: Use global memory cache
+        for ticker in unique_tickers:
+            df_t = get_cached_ohlcv(ticker)
+            if df_t is not None and not df_t.empty:
+                try:
+                    df_filled = df_t.ffill().bfill()
+                    open_row = df_filled.loc[df_filled.index <= start_dt]
+                    close_row = df_filled.loc[df_filled.index <= end_dt]
+                    if not open_row.empty and not close_row.empty:
+                        open_p = open_row['Close'].iloc[-1]
+                        close_p = close_row['Close'].iloc[-1]
+                        if pd.notna(open_p) and pd.notna(close_p) and open_p > 0:
+                            return_dict[ticker] = round(((close_p / open_p) - 1) * 100, 2)
+                except Exception as e:
+                    pass
+    else:
+        # SLOW PATH / FALLBACK: Fallback to pykrx or yfinance if cache not ready yet
+        # Since this happens only during the first 10-20 seconds of server startup,
+        # we can just use the existing logic but with `show_errors=False`.
+        start_str = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}"
+        end_str   = (datetime.datetime.strptime(end_date, "%Y%m%d")
+                     + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+
+        def _extract_returns(df_bulk, tickers, suffix):
+            """Extract open→close returns from a multi-ticker yfinance DataFrame."""
+            if df_bulk is None or df_bulk.empty:
+                return
+            cols = df_bulk.columns
+            for ticker in tickers:
+                sym = f"{ticker}{suffix}"
+                try:
+                    if isinstance(cols, pd.MultiIndex):
+                        if sym not in cols.get_level_values(0):
+                            continue
+                        df_t = df_bulk[sym].dropna(how='all')
+                    else:
+                        df_t = df_bulk.dropna(how='all')
+                    close = df_t['Close'].dropna()
+                    if len(close) < 2:
                         continue
-                    df_t = df_bulk[sym].dropna(how='all')
-                else:
-                    df_t = df_bulk.dropna(how='all')
-                close = df_t['Close'].dropna()
-                if len(close) < 2:
-                    continue
-                open_p = df_t['Open'].dropna().iloc[0]
-                if open_p > 0:
-                    return_dict[ticker] = round(((close.iloc[-1] / open_p) - 1) * 100, 2)
-            except Exception:
-                pass
+                    open_p = df_t['Open'].dropna().iloc[0]
+                    if open_p > 0:
+                        return_dict[ticker] = round(((close.iloc[-1] / open_p) - 1) * 100, 2)
+                except Exception:
+                    pass
 
-    # ── 1. Bulk .KS download ──────────────────────────────────────────
-    import warnings
-    try:
-        ks_list = [f"{t}.KS" for t in unique_tickers]
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            df_ks = yf.download(ks_list, start=start_str, end=end_str,
-                                progress=False, auto_adjust=True,
-                                group_by='ticker', threads=True)
-        _extract_returns(df_ks, unique_tickers, '.KS')
-        print(f"[historical] .KS bulk: {len(return_dict)} returns")
-    except Exception as e:
-        print(f"[historical] .KS bulk failed: {e}")
-
-    # ── 2. Bulk .KQ for tickers not found ────────────────────────────
-    missing = [t for t in unique_tickers if t not in return_dict]
-    if missing:
+        # ── 1. Bulk .KS download ──────────────────────────────────────────
+        import warnings
         try:
-            kq_list = [f"{t}.KQ" for t in missing]
+            ks_list = [f"{t}.KS" for t in unique_tickers]
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                df_kq = yf.download(kq_list, start=start_str, end=end_str,
+                df_ks = yf.download(ks_list, start=start_str, end=end_str,
                                     progress=False, auto_adjust=True,
                                     group_by='ticker', threads=True)
-            _extract_returns(df_kq, missing, '.KQ')
-            print(f"[historical] .KQ bulk: {len(return_dict)} total returns")
+            _extract_returns(df_ks, unique_tickers, '.KS')
+            print(f"[historical] .KS bulk: {len(return_dict)} returns")
         except Exception as e:
-            print(f"[historical] .KQ bulk failed: {e}")
+            print(f"[historical] .KS bulk failed: {e}")
 
-    # ── 3. FDR fallback for any still-missing tickers ─────────────────
-    still_missing = [t for t in unique_tickers if t not in return_dict]
-    if still_missing:
-        import FinanceDataReader as fdr
-        import concurrent.futures
-        def _fdr_fetch(ticker):
+        # ── 2. Bulk .KQ for tickers not found ────────────────────────────
+        missing = [t for t in unique_tickers if t not in return_dict]
+        if missing:
             try:
-                df = fdr.DataReader(ticker, start=start_str, end=end_str)
-                if df is None or df.empty or len(df) < 2:
-                    return ticker, None
-                df.columns = [str(c).strip().capitalize() for c in df.columns]
-                op = df['Open'].iloc[0]
-                cl = df['Close'].iloc[-1]
-                if op > 0:
-                    return ticker, round(((cl / op) - 1) * 100, 2)
-            except Exception:
-                pass
-            return ticker, None
-        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as ex:
-            for t, r in ex.map(_fdr_fetch, still_missing):
-                if r is not None:
-                    return_dict[t] = r
-        print(f"[historical] FDR fallback: {len(return_dict)} total returns")
+                kq_list = [f"{t}.KQ" for t in missing]
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    df_kq = yf.download(kq_list, start=start_str, end=end_str,
+                                        progress=False, auto_adjust=True,
+                                        group_by='ticker', threads=True)
+                _extract_returns(df_kq, missing, '.KQ')
+                print(f"[historical] .KQ bulk: {len(return_dict)} total returns")
+            except Exception as e:
+                print(f"[historical] .KQ bulk failed: {e}")
+
+        # ── 3. FDR fallback for any still-missing tickers ─────────────────
+        still_missing = [t for t in unique_tickers if t not in return_dict]
+        if still_missing:
+            import FinanceDataReader as fdr
+            import concurrent.futures
+            def _fdr_fetch(ticker):
+                try:
+                    df = fdr.DataReader(ticker, start=start_str, end=end_str)
+                    if df is None or df.empty or len(df) < 2:
+                        return ticker, None
+                    df.columns = [str(c).strip().capitalize() for c in df.columns]
+                    op = df['Open'].iloc[0]
+                    cl = df['Close'].iloc[-1]
+                    if op > 0:
+                        return ticker, round(((cl / op) - 1) * 100, 2)
+                except Exception:
+                    pass
+                return ticker, None
+            with concurrent.futures.ThreadPoolExecutor(max_workers=20) as ex:
+                for t, r in ex.map(_fdr_fetch, still_missing):
+                    if r is not None:
+                        return_dict[t] = r
+            print(f"[historical] FDR fallback: {len(return_dict)} total returns")
 
     # ── 4. Vectorized theme averages via pandas groupby ───────────────
     rows = [{'Theme': tn, 'Ticker': t} for tn, tl in themes.items() for t in tl]
@@ -377,7 +404,7 @@ def get_stock_ohlcv(ticker: str, start_date: str, end_date: str):
                 warnings.simplefilter("ignore")
                 df = yf.download(
                     f"{ticker}{suffix}", start=start_dt_str, end=end_dt_str,
-                    progress=False, threads=False, auto_adjust=True
+                    progress=False, show_errors=False, threads=False, auto_adjust=True
                 )
             if df is not None and not df.empty:
                 if isinstance(df.columns, pd.MultiIndex):
@@ -407,7 +434,10 @@ def get_macro_data(start_date: str, end_date: str):
     end_dt = f"{end_date[:4]}-{end_date[4:6]}-{end_date[6:]}"
 
     tickers = ["USDKRW=X", "CL=F", "GC=F"]
-    data = yf.download(tickers, start=start_dt, end=end_dt)['Close']
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        data = yf.download(tickers, start=start_dt, end=end_dt, progress=False, show_errors=False)['Close']
     if not data.empty:
         data.columns = ['WTI', 'Gold', 'USD/KRW']
     return data
