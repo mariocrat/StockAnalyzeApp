@@ -61,8 +61,9 @@ export default function App() {
   const [activeInds,   setActiveInds]   = useState({
     MA_5: false, MA_10: false, MA_20: false, MA_60: false, MA_120: false, BB: false, RSI: false, MACD: false, STOCH: false, ICHI: false
   });
-  const [bbPeriod,     setBbPeriod]     = useState(20);
-  const [bbMultiplier, setBbMultiplier] = useState(2);
+  const [bbPeriod, setBbPeriod] = useState(20);
+  const [bbMultiplier, setBbMultiplier] = useState(2.0);
+  const [globalCandleCount, setGlobalCandleCount] = useState(120);
 
   const chartRefs = useRef({});
 
@@ -113,7 +114,7 @@ export default function App() {
   // ── Stock data fetch ──────────────────────────────────────────────────
   const fetchStockData = useCallback(async (ticker, name, currentCandlePeriod) => {
     // Determine interval parameter
-    const intervalMap = { 'D': '1d', 'W': '1w', 'M': '1m', 'Y': '1y' };
+    const intervalMap = { 'D': '1d', 'W': '1w', 'M': '1m', 'Y': '1y', '1D': '1d', '1W': '1w', '1M': '1m', '1Y': '1y' };
     const interval = intervalMap[currentCandlePeriod || candlePeriod] || '1d';
     const cacheKey = `${ticker}_${interval}`;
 
@@ -419,6 +420,24 @@ export default function App() {
                 );
               })}
             </div>
+            
+            <div style={separatorStyle} />
+
+            {/* 캔들 개수 (글로벌) */}
+            <div className="controls-group">
+              <span className="controls-label" title="보여줄 캔들 개수">봉 개수</span>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                <input
+                  type="number"
+                  value={globalCandleCount}
+                  onChange={(e) => setGlobalCandleCount(Number(e.target.value))}
+                  style={{
+                    width: '60px', background: '#2a2e39', color: '#fff', border: '1px solid #444', 
+                    borderRadius: '4px', padding: '4px', fontSize: '12px', textAlign: 'center'
+                  }}
+                />
+              </div>
+            </div>
 
             {/* BB params */}
             {activeInds.BB && (
@@ -441,7 +460,8 @@ export default function App() {
         {/* ── Charts ──────────────────────────────────────────────────── */}
         <div className="charts-container">
           {selectedStocks.map(s => {
-            const cacheKey = `${s.ticker}_${{ 'D': '1d', 'W': '1w', 'M': '1m', 'Y': '1y' }[candlePeriod] || '1d'}`;
+            const cacheKeyIntv = { 'D': '1d', 'W': '1w', 'M': '1m', 'Y': '1y', '1D': '1d', '1W': '1w', '1M': '1m', '1Y': '1y' }[candlePeriod] || '1d';
+            const cacheKey = `${s.ticker}_${cacheKeyIntv}`;
             const data = stockData[cacheKey];
             if (!data) {
               return (
@@ -465,9 +485,12 @@ export default function App() {
                 candlePeriod={candlePeriod}
                 scaleMode={scaleMode}
                 activeInds={activeInds}
-                bbPeriod={bbPeriod}
                 bbMultiplier={bbMultiplier}
+                globalCandleCount={globalCandleCount}
+                setGlobalCandleCount={setGlobalCandleCount}
                 onTimeRangeChange={handleTimeRangeChange}
+                onCandlePeriodChange={setCandlePeriod}
+                onRemove={() => setSelectedStocks(prev => prev.filter(st => st.ticker !== s.ticker))}
               />
             );
           })}

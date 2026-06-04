@@ -181,8 +181,8 @@ def get_theme_returns_historical(start_date: str, end_date: str):
                     if not open_row.empty and not close_row.empty:
                         open_p = open_row['Close'].iloc[-1]
                         close_p = close_row['Close'].iloc[-1]
-                        if pd.notna(open_p) and pd.notna(close_p) and open_p > 0:
-                            return_dict[ticker] = round(((close_p / open_p) - 1) * 100, 2)
+                        if pd.notna(open_p) and pd.notna(close_p) and open_p != 0:
+                            return_dict[ticker] = round(((close_p - open_p) / open_p) * 100, 2)
                 except Exception as e:
                     pass
     else:
@@ -211,8 +211,9 @@ def get_theme_returns_historical(start_date: str, end_date: str):
                     if len(close) < 2:
                         continue
                     open_p = df_t['Open'].dropna().iloc[0]
-                    if open_p > 0:
-                        return_dict[ticker] = round(((close.iloc[-1] / open_p) - 1) * 100, 2)
+                    close_p = close.iloc[-1]
+                    if pd.notna(open_p) and open_p != 0:
+                        return_dict[ticker] = round(((close_p - open_p) / open_p) * 100, 2)
                 except Exception:
                     pass
 
@@ -258,8 +259,8 @@ def get_theme_returns_historical(start_date: str, end_date: str):
                     df.columns = [str(c).strip().capitalize() for c in df.columns]
                     op = df['Open'].iloc[0]
                     cl = df['Close'].iloc[-1]
-                    if op > 0:
-                        return ticker, round(((cl / op) - 1) * 100, 2)
+                    if pd.notna(op) and pd.notna(cl) and op != 0:
+                        return ticker, round(((cl - op) / op) * 100, 2)
                 except Exception:
                     pass
                 return ticker, None
@@ -275,29 +276,36 @@ def get_theme_returns_historical(start_date: str, end_date: str):
     df_map['Return'] = df_map['Ticker'].map(return_dict)
     df_map['Name']   = df_map['Ticker'].map(names)
 
-    stats = (df_map.dropna(subset=['Return'])
-               .groupby('Theme')['Return']
+    # 1. 주가가 없는(NaN) 종목 버리기 (과감히 버림)
+    valid_df = df_map.dropna(subset=['Return']).copy()
+
+    # 2. 테마에 유효한 종목이 단 1개라도 있다면 평균 계산
+    stats = (valid_df.groupby('Theme')['Return']
                .mean()
                .round(2)
                .reset_index()
                .rename(columns={'Return': 'Avg Return (%)'}))
 
-    # Attach ticker lists per theme — each entry includes return_rate, sorted desc
+    # 3. 테마 목록에도 유효한 종목들만 포함시킴
     def _build_ticker_list(g):
         items = []
         for r in g.itertuples():
             items.append({
                 'ticker':      r.Ticker,
                 'name':        r.Name if pd.notna(r.Name) else r.Ticker,
-                'return_rate': round(r.Return, 2) if pd.notna(r.Return) else None,
+                'return_rate': round(r.Return, 2)
             })
-        # Sort: stocks with a return first (desc), then unknown last
-        items.sort(key=lambda x: (x['return_rate'] is None, -(x['return_rate'] or 0)))
+        items.sort(key=lambda x: -(x['return_rate'] or 0))
         return items
 
-    ticker_lists = (df_map.groupby('Theme').apply(_build_ticker_list).to_dict())
-    stats['Tickers']    = stats['Theme'].map(ticker_lists)
-    stats['Num Stocks'] = stats['Tickers'].apply(len)
+    if not valid_df.empty:
+        ticker_lists = valid_df.groupby('Theme').apply(_build_ticker_list).to_dict()
+        stats['Tickers'] = stats['Theme'].map(ticker_lists)
+        stats['Num Stocks'] = stats['Tickers'].apply(len)
+    else:
+        stats['Tickers'] = []
+        stats['Num Stocks'] = 0
+
     stats = stats.sort_values('Avg Return (%)', ascending=False).reset_index(drop=True)
     stats.insert(0, 'Rank', range(1, len(stats) + 1))
     return stats
