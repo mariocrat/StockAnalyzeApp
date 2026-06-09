@@ -1,5 +1,5 @@
 import pandas as pd
-from .data_fetcher import get_krx_themes, get_stock_ohlcv, get_market_cap_yf
+from .data_fetcher import get_krx_themes, get_stock_ohlcv, get_market_cap_yf, _clean_price_jumps
 from cachetools.func import ttl_cache
 
 
@@ -59,10 +59,11 @@ def get_stocks_in_theme(theme_tickers: tuple, start_date: str, end_date: str):
 
     for ticker in theme_tickers:
         df = get_stock_ohlcv(ticker, start_date, end_date)
+        df = _clean_price_jumps(df)
         name = names_dict.get(ticker, ticker)
 
         if not df.empty and len(df) >= 2:
-            start_price = df['Open'].iloc[0] if df['Open'].iloc[0] > 0 else df['Close'].iloc[0]
+            start_price = df['Close'].iloc[0]
             end_price = df['Close'].iloc[-1]
             ret = ((end_price / start_price) - 1) * 100 if start_price > 0 else 0
             vol = int(df['Volume'].iloc[-1])

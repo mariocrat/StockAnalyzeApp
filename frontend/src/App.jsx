@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import StockChart from './components/StockChart';
 import './App.css';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const fmt8 = (d) => d.toISOString().split('T')[0].replace(/-/g, '');
@@ -38,7 +38,9 @@ export default function App() {
   // ── Theme state ──────────────────────────────────────────────────────
   const [themes,          setThemes]         = useState([]);
   const [themesLoading,   setThemesLoading]  = useState(true);
+  const [themeError,      setThemeError]     = useState('');
   const [themePeriod,     setThemePeriod]    = useState('1D');
+  const [themeBasisText,  setThemeBasisText] = useState('장마감 기준');
   const [customStart,     setCustomStart]    = useState('');
   const [customEnd,       setCustomEnd]      = useState('');
   const [showCustom,      setShowCustom]     = useState(false);
@@ -57,19 +59,25 @@ export default function App() {
   // ── Global chart controls (lifted state) ─────────────────────────────
   const [chartPeriod,  setChartPeriod]  = useState('3M');
   const [candlePeriod, setCandlePeriod] = useState('D');  // 일봉/주봉/월봉
+  const [visibleCandleCount, setVisibleCandleCount] = useState('');
+  const [candleCountApplySeq, setCandleCountApplySeq] = useState(0);
   const [scaleMode,    setScaleMode]    = useState('linear'); // linear | log
   const [activeInds,   setActiveInds]   = useState({
     MA_5: false, MA_10: false, MA_20: false, MA_60: false, MA_120: false, BB: false, RSI: false, MACD: false, STOCH: false, ICHI: false
   });
   const [bbPeriod, setBbPeriod] = useState(20);
   const [bbMultiplier, setBbMultiplier] = useState(2.0);
-  const [globalCandleCount, setGlobalCandleCount] = useState(120);
 
   const chartRefs = useRef({});
+  const themeRequestSeq = useRef(0);
 
   // ── Fetch themes ─────────────────────────────────────────────────────
   const fetchThemes = useCallback(async (period, cStart, cEnd) => {
+    const requestId = themeRequestSeq.current + 1;
+    themeRequestSeq.current = requestId;
     setThemesLoading(true);
+    setThemeError('');
+    setThemes([]);
     try {
       let data;
       if (period === 'custom') {
@@ -82,11 +90,20 @@ export default function App() {
         const res = await axios.get(`${API_BASE}/api/themes`, { params: { period } });
         data = res.data;
       }
-      setThemes(data || []);
+      if (themeRequestSeq.current === requestId) {
+        setThemes(data || []);
+        const endDate = data?.[0]?.['End Date'];
+        if (endDate && /^\d{8}$/.test(String(endDate))) {
+          setThemeBasisText(`${String(endDate).slice(0, 4)}-${String(endDate).slice(4, 6)}-${String(endDate).slice(6, 8)} 장마감 기준`);
+        } else {
+          setThemeBasisText('장마감 기준');
+        }
+      }
     } catch (err) {
       console.error('[fetchThemes]', err);
+      if (themeRequestSeq.current === requestId) setThemeError('테마 상승률을 계산하지 못했습니다. 잠시 후 다시 눌러주세요.');
     } finally {
-      setThemesLoading(false);
+      if (themeRequestSeq.current === requestId) setThemesLoading(false);
     }
   }, []);
 
@@ -174,6 +191,21 @@ export default function App() {
     setActiveInds(prev => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
+  const handleCandlePeriodChange = useCallback((nextPeriod) => {
+    const normalized = ({ '1D': 'D', '1W': 'W', '1M': 'M', '1Y': 'Y' })[nextPeriod] || nextPeriod;
+    setCandlePeriod(normalized);
+  }, []);
+
+  const applyVisibleCandleCount = useCallback(() => {
+    setCandleCountApplySeq(seq => seq + 1);
+  }, []);
+
+  const handleChartPeriodChange = useCallback((nextPeriod) => {
+    setVisibleCandleCount('');
+    setCandleCountApplySeq(seq => seq + 1);
+    setChartPeriod(nextPeriod);
+  }, []);
+
   // ── Search ────────────────────────────────────────────────────────────
   const handleSearch = useCallback(async (q) => {
     setSearchQuery(q);
@@ -202,7 +234,9 @@ export default function App() {
   const handleTimeRangeChange = useCallback((sourceTicker, range) => {
     Object.entries(chartRefs.current).forEach(([t, ref]) => {
       if (t !== sourceTicker && ref?.setVisibleTimeRange) {
-        try { ref.setVisibleTimeRange(range); } catch (_) {}
+        try { ref.setVisibleTimeRange(range); } catch {
+          // Ignore stale chart refs during mount/unmount transitions.
+        }
       }
     });
   }, []);
@@ -278,6 +312,9 @@ export default function App() {
               onClick={() => handleThemePeriodChange('custom')}
             >직접입력</button>
           </div>
+          <div className="theme-basis-note">
+            {themeBasisText} · 매일 00:00~00:10 업데이트
+          </div>
 
           {/* Custom date range */}
           {showCustom && (
@@ -293,8 +330,12 @@ export default function App() {
         {/* Theme list */}
         {themesLoading ? (
           <div className="themes-loading">
-            {themePeriod === '1D' ? '로딩중…' : '수익률 계산 중… (최대 20초)'}
+            {themePeriod === '1D' ? '로딩중…' : '기간 수익률 준비 중…'}
           </div>
+        ) : themeError ? (
+          <div className="themes-loading">{themeError}</div>
+        ) : themes.length === 0 ? (
+          <div className="themes-loading">표시할 테마가 없습니다.</div>
         ) : (
           themes.map((theme, i) => {
             const ret = theme['Avg Return (%)'] ?? theme['Return'] ?? 0;
@@ -371,7 +412,7 @@ export default function App() {
               {CANDLE_PERIODS.map(p => (
                 <button key={p.value}
                   className={`ctrl-btn ${candlePeriod === p.value ? 'active' : ''}`}
-                  onClick={() => setCandlePeriod(p.value)}
+                  onClick={() => handleCandlePeriodChange(p.value)}
                 >{p.label}</button>
               ))}
             </div>
@@ -384,9 +425,33 @@ export default function App() {
               {CHART_PERIODS.map(p => (
                 <button key={p}
                   className={`ctrl-btn ${chartPeriod === p ? 'active' : ''}`}
-                  onClick={() => setChartPeriod(p)}
+                  onClick={() => handleChartPeriodChange(p)}
                 >{p}</button>
               ))}
+            </div>
+
+            <div style={separatorStyle} />
+
+            {/* 봉 개수 */}
+            <div className="controls-group">
+              <span className="controls-label">봉 개수</span>
+              <input
+                className="candle-count-input"
+                type="number"
+                min="1"
+                value={visibleCandleCount}
+                placeholder="자동"
+                onChange={(e) => setVisibleCandleCount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') applyVisibleCandleCount();
+                }}
+              />
+              <button
+                className={`ctrl-btn ${visibleCandleCount ? 'active' : ''}`}
+                onClick={applyVisibleCandleCount}
+              >
+                적용
+              </button>
             </div>
 
             <div style={separatorStyle} />
@@ -423,22 +488,6 @@ export default function App() {
             
             <div style={separatorStyle} />
 
-            {/* 캔들 개수 (글로벌) */}
-            <div className="controls-group">
-              <span className="controls-label" title="보여줄 캔들 개수">봉 개수</span>
-              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                <input
-                  type="number"
-                  value={globalCandleCount}
-                  onChange={(e) => setGlobalCandleCount(Number(e.target.value))}
-                  style={{
-                    width: '60px', background: '#2a2e39', color: '#fff', border: '1px solid #444', 
-                    borderRadius: '4px', padding: '4px', fontSize: '12px', textAlign: 'center'
-                  }}
-                />
-              </div>
-            </div>
-
             {/* BB params */}
             {activeInds.BB && (
               <>
@@ -462,7 +511,7 @@ export default function App() {
           {selectedStocks.map(s => {
             const cacheKeyIntv = { 'D': '1d', 'W': '1w', 'M': '1m', 'Y': '1y', '1D': '1d', '1W': '1w', '1M': '1m', '1Y': '1y' }[candlePeriod] || '1d';
             const cacheKey = `${s.ticker}_${cacheKeyIntv}`;
-            const data = stockData[cacheKey];
+            const data = stockData[cacheKey] || Object.entries(stockData).find(([key]) => key.startsWith(`${s.ticker}_`))?.[1];
             if (!data) {
               return (
                 <div key={s.ticker} style={{
@@ -483,13 +532,16 @@ export default function App() {
                 data={data}
                 chartPeriod={chartPeriod}
                 candlePeriod={candlePeriod}
+                visibleCandleCount={visibleCandleCount}
+                setVisibleCandleCount={setVisibleCandleCount}
+                candleCountApplySeq={candleCountApplySeq}
+                onApplyCandleCount={applyVisibleCandleCount}
                 scaleMode={scaleMode}
                 activeInds={activeInds}
                 bbMultiplier={bbMultiplier}
-                globalCandleCount={globalCandleCount}
-                setGlobalCandleCount={setGlobalCandleCount}
                 onTimeRangeChange={handleTimeRangeChange}
-                onCandlePeriodChange={setCandlePeriod}
+                onCandlePeriodChange={handleCandlePeriodChange}
+                onChartPeriodChange={handleChartPeriodChange}
                 onRemove={() => setSelectedStocks(prev => prev.filter(st => st.ticker !== s.ticker))}
               />
             );

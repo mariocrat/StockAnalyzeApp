@@ -44,3 +44,4 @@ frontend/.stylelintcache
 # Logs and databases
 *.sqlite3
 *.log
+backend/.cache/

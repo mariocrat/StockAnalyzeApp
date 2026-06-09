@@ -1,29 +1,206 @@
 import pandas as pd
 import yfinance as yf
-from pykrx import stock
 from cachetools.func import ttl_cache
 import datetime
+import json
+import re
+import time
+from pathlib import Path
+
+
+CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache"
+CACHE_DIR.mkdir(exist_ok=True)
+
+
+def _read_json_cache(name: str, ttl_seconds: int):
+    path = CACHE_DIR / name
+    try:
+        if not path.exists():
+            return None
+        if time.time() - path.stat().st_mtime > ttl_seconds:
+            return None
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        if payload == []:
+            return None
+        return payload
+    except Exception:
+        return None
+
+
+def _write_json_cache(name: str, payload):
+    path = CACHE_DIR / name
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    try:
+        with tmp_path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False)
+        tmp_path.replace(path)
+    except Exception:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def get_cached_theme_returns(start_date: str, end_date: str):
+    cache_name = f"theme_returns_v3_{start_date}_{end_date}.json"
+    cached = _read_json_cache(cache_name, ttl_seconds=3600*24*30)
+    if cached:
+        return pd.DataFrame(cached)
+    return pd.DataFrame()
+
+
+def get_latest_cached_theme_returns(
+    min_span_days: int | None = None,
+    max_span_days: int | None = None,
+):
+    candidates = []
+    for path in CACHE_DIR.glob("theme_returns_v3_*.json"):
+        stem = path.stem.replace("theme_returns_v3_", "")
+        try:
+            start_text, end_text = stem.split("_", 1)
+            start_dt = datetime.datetime.strptime(start_text, "%Y%m%d").date()
+            end_dt = datetime.datetime.strptime(end_text, "%Y%m%d").date()
+        except ValueError:
+            continue
+
+        span_days = (end_dt - start_dt).days
+        if min_span_days is not None and span_days < min_span_days:
+            continue
+        if max_span_days is not None and span_days > max_span_days:
+            continue
+        candidates.append((end_dt, path.stat().st_mtime, path.name))
+
+    for _, _, name in sorted(candidates, reverse=True):
+        cached = _read_json_cache(name, ttl_seconds=3600*24*14)
+        if cached:
+            return pd.DataFrame(cached)
+    return pd.DataFrame()
+
+
+def get_cached_naver_themes():
+    cached = _read_json_cache("naver_themes_v3.json", ttl_seconds=3600*24*7)
+    if cached:
+        return cached["themes"], cached["names"], cached["returns"]
+    return None
+
+
+def _read_covering_close_cache(start_date: str, end_date: str):
+    candidates = []
+    for path in CACHE_DIR.glob(f"naver_closes_*_{end_date}.json"):
+        stem = path.stem.replace("naver_closes_", "")
+        try:
+            cache_start, cache_end = stem.split("_", 1)
+        except ValueError:
+            continue
+        if cache_start <= start_date and cache_end == end_date:
+            candidates.append((cache_start, path.name))
+
+    for _, name in sorted(candidates):
+        cached = _read_json_cache(name, ttl_seconds=3600*24*30)
+        if cached:
+            return cached
+    return None
+
+
+def _clean_price_jumps(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove obvious split/source glitches before return calculations."""
+    if df is None or df.empty or 'Close' not in df.columns:
+        return pd.DataFrame()
+
+    out = df.copy().sort_index()
+    needed = [c for c in ['Open', 'High', 'Low', 'Close', 'Volume'] if c in out.columns]
+    out = out[needed]
+    out = out[pd.to_numeric(out['Close'], errors='coerce') > 0]
+    if out.empty:
+        return out
+
+    for col in ['Open', 'High', 'Low', 'Close']:
+        if col in out.columns:
+            out[col] = pd.to_numeric(out[col], errors='coerce')
+
+    prev_close = out['Close'].shift(1)
+    jump = out['Close'].sub(prev_close).div(prev_close).abs() > 0.35
+    if not jump.empty:
+        jump.iloc[0] = False
+    if jump.any():
+        cols = [c for c in ['Open', 'High', 'Low', 'Close'] if c in out.columns]
+        out.loc[jump, cols] = float('nan')
+        out[cols] = out[cols].ffill()
+        out = out.dropna(subset=['Close'])
+    return out
+
+
+@ttl_cache(maxsize=1, ttl=3600*24)
+def get_yfinance_suffix_map():
+    """Map KRX tickers to the yfinance suffix that usually resolves fastest."""
+    suffix_map = {}
+    try:
+        import FinanceDataReader as fdr
+        kospi = fdr.StockListing('KOSPI')[['Code']].dropna()
+        kosdaq = fdr.StockListing('KOSDAQ')[['Code']].dropna()
+        for code in kospi['Code']:
+            suffix_map[str(code).zfill(6)] = '.KS'
+        for code in kosdaq['Code']:
+            suffix_map[str(code).zfill(6)] = '.KQ'
+    except Exception:
+        pass
+    return suffix_map
+
+
+@ttl_cache(maxsize=1, ttl=3600*24)
+def get_naver_market_stock_names():
+    cached = _read_json_cache("naver_market_stocks_v2.json", ttl_seconds=3600*24)
+    if cached:
+        return cached
+
+    import requests
+    from bs4 import BeautifulSoup
+
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    names = {}
+
+    for sosok in (0, 1):
+        first_url = f"https://finance.naver.com/sise/sise_market_sum.naver?sosok={sosok}&page=1"
+        first_res = requests.get(first_url, headers=headers, timeout=8)
+        first_res.encoding = 'euc-kr'
+        first_soup = BeautifulSoup(first_res.text, 'html.parser')
+        pages = [1]
+        for a in first_soup.find_all('a', href=True):
+            href = a.get('href', '')
+            if 'sise_market_sum.naver' in href and 'page=' in href:
+                try:
+                    pages.append(int(href.split('page=')[-1].split('&')[0]))
+                except ValueError:
+                    pass
+
+        for page in range(1, max(pages) + 1):
+            if page == 1:
+                soup = first_soup
+            else:
+                url = f"https://finance.naver.com/sise/sise_market_sum.naver?sosok={sosok}&page={page}"
+                res = requests.get(url, headers=headers, timeout=8)
+                res.encoding = 'euc-kr'
+                soup = BeautifulSoup(res.text, 'html.parser')
+
+            for a in soup.find_all('a', href=lambda h: h and h.startswith('/item/main.naver?code=')):
+                ticker = a.get('href').split('code=')[1]
+                name = a.text.strip()
+                if ticker and ticker.isdigit() and len(ticker) == 6 and name:
+                    names[ticker] = name
+
+    _write_json_cache("naver_market_stocks_v2.json", names)
+    return names
 
 
 @ttl_cache(maxsize=1, ttl=3600*6)
 def get_stock_names(market="ALL"):
     """
     Get mapping of ticker -> stock name for all KRX listed stocks.
-    Chain: pykrx → FinanceDataReader → Naver theme names (fallback)
+    Chain: FinanceDataReader → pykrx → Naver theme names (fallback)
     """
-    # 1. Try pykrx
-    try:
-        today = datetime.datetime.today().strftime("%Y%m%d")
-        tickers = stock.get_market_ticker_list(today, market=market)
-        if not tickers:
-            raise ValueError("pykrx returned empty ticker list")
-        names = {ticker: stock.get_market_ticker_name(ticker) for ticker in tickers}
-        print(f"[get_stock_names] pykrx OK: {len(names)} stocks")
-        return names
-    except Exception as e:
-        print(f"[get_stock_names] pykrx failed ({e})")
-
-    # 2. Try FinanceDataReader
+    # 1. Try FinanceDataReader first. pykrx can print KRX login warnings in
+    # this environment even when we only need public ticker names.
     try:
         import FinanceDataReader as fdr
         kospi  = fdr.StockListing('KOSPI')[['Code', 'Name']].dropna()
@@ -35,7 +212,29 @@ def get_stock_names(market="ALL"):
     except Exception as e:
         print(f"[get_stock_names] FDR failed ({e})")
 
-    # 3. Last resort: Naver theme names (~200 stocks)
+    # 2. Try Naver market cap lists, which do not require KRX credentials.
+    try:
+        names = get_naver_market_stock_names()
+        if names:
+            print(f"[get_stock_names] Naver market OK: {len(names)} stocks")
+            return names
+    except Exception as e:
+        print(f"[get_stock_names] Naver market failed ({e})")
+
+    # 3. Try pykrx
+    try:
+        from pykrx import stock
+        today = datetime.datetime.today().strftime("%Y%m%d")
+        tickers = stock.get_market_ticker_list(today, market=market)
+        if not tickers:
+            raise ValueError("pykrx returned empty ticker list")
+        names = {ticker: stock.get_market_ticker_name(ticker) for ticker in tickers}
+        print(f"[get_stock_names] pykrx OK: {len(names)} stocks")
+        return names
+    except Exception as e:
+        print(f"[get_stock_names] pykrx failed ({e})")
+
+    # 4. Last resort: Naver theme names
     print("[get_stock_names] falling back to Naver theme names")
     _, names_from_themes, _ = get_krx_themes()
     return names_from_themes
@@ -57,21 +256,47 @@ def get_krx_themes():
     from bs4 import BeautifulSoup
     import concurrent.futures
 
+    cached = _read_json_cache("naver_themes_v3.json", ttl_seconds=3600*24*7)
+    if cached:
+        return cached["themes"], cached["names"], cached["returns"]
+
     url = 'https://finance.naver.com/sise/theme.naver'
     headers = {'User-Agent': 'Mozilla/5.0'}
 
     try:
-        res = requests.get(url, headers=headers)
-        res.encoding = 'euc-kr'
-        soup = BeautifulSoup(res.text, 'html.parser')
+        first_res = requests.get(url, headers=headers, timeout=8)
+        first_res.encoding = 'euc-kr'
+        first_soup = BeautifulSoup(first_res.text, 'html.parser')
+        page_numbers = [1]
+        for href in [a.get('href', '') for a in first_soup.find_all('a')]:
+            if 'theme.naver' in href and 'page=' in href:
+                try:
+                    page_numbers.append(int(href.split('page=')[-1].split('&')[0]))
+                except ValueError:
+                    pass
+        last_page = max(page_numbers)
 
-        links = soup.select('a[href^="/sise/sise_group_detail.naver?type=theme"]')
+        links = []
+        seen_hrefs = set()
+        for page in range(1, last_page + 1):
+            page_url = f"{url}?&page={page}"
+            page_res = first_res if page == 1 else requests.get(page_url, headers=headers, timeout=8)
+            page_res.encoding = 'euc-kr'
+            page_soup = first_soup if page == 1 else BeautifulSoup(page_res.text, 'html.parser')
+            for a in page_soup.find_all('a', href=lambda h: h and h.startswith('/sise/sise_group_detail.naver?type=theme')):
+                href = a.get('href')
+                if href in seen_hrefs:
+                    continue
+                if not a.text.strip():
+                    continue
+                seen_hrefs.add(href)
+                links.append(a)
+
         themes = {}
         names = {}
         theme_returns_map = {}
 
-        # Limit to top 30 themes for performance
-        theme_links = links[:30]
+        theme_links = links
 
         def fetch_theme_detail(a):
             theme_name = a.text.strip()
@@ -79,7 +304,7 @@ def get_krx_themes():
                 return None
 
             detail_url = 'https://finance.naver.com' + a['href']
-            detail_res = requests.get(detail_url, headers=headers)
+            detail_res = requests.get(detail_url, headers=headers, timeout=8)
             detail_res.encoding = 'euc-kr'
             detail_soup = BeautifulSoup(detail_res.text, 'html.parser')
 
@@ -116,12 +341,9 @@ def get_krx_themes():
                     local_names[ticker] = name
                     if rate is not None:
                         local_returns[ticker] = rate
-                    if len(tickers_list) >= 10:  # Top 10 stocks per theme
-                        break
-
             return theme_name, tickers_list, local_names, local_returns
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=24) as executor:
             results = list(executor.map(fetch_theme_detail, theme_links))
 
         for result in results:
@@ -132,6 +354,8 @@ def get_krx_themes():
                     names.update(l_names)
                     theme_returns_map[t_name] = l_returns
 
+        payload = {"themes": themes, "names": names, "returns": theme_returns_map}
+        _write_json_cache("naver_themes_v3.json", payload)
         return themes, names, theme_returns_map
 
     except Exception as e:
@@ -149,157 +373,106 @@ def get_krx_themes():
         )
 
 
-@ttl_cache(maxsize=50, ttl=1800)
 def get_theme_returns_historical(start_date: str, end_date: str):
     """
-    Vectorized theme return calculation.
-    Uses 2 bulk yfinance downloads (.KS + .KQ) instead of 200+ sequential FDR calls.
-    Falls back to FDR in parallel for any still-missing tickers.
-    Theme averages computed via pandas groupby (vectorized).
+    Calculate theme returns from Naver chart close prices.
+    The exact start/end cache is reused, but stale caches for other dates are
+    not treated as current values.
     """
-    themes, names, _ = get_krx_themes()
-    
-    # Filter only 6-digit tickers
-    unique_tickers = list({t for tlist in themes.values() for t in tlist if isinstance(t, str) and t.isdigit() and len(t) == 6})
+    cache_name = f"theme_returns_v3_{start_date}_{end_date}.json"
+    cached = _read_json_cache(cache_name, ttl_seconds=3600*24*30)
+    if cached:
+        return pd.DataFrame(cached)
 
-    start_dt = pd.to_datetime(start_date)
-    end_dt = pd.to_datetime(end_date)
+    themes, names, _ = get_krx_themes()
+    unique_tickers = list({
+        t
+        for tlist in themes.values()
+        for t in tlist
+        if isinstance(t, str) and t.isdigit() and len(t) == 6
+    })
+
+    close_rows_by_ticker = _read_covering_close_cache(start_date, end_date)
+    if close_rows_by_ticker is None:
+        import concurrent.futures
+        import requests
+
+        row_re = re.compile(r'\["(\d{8})",\s*[-\d.]+,\s*[-\d.]+,\s*[-\d.]+,\s*([-\d.]+),')
+        headers = {'User-Agent': 'Mozilla/5.0'}
+
+        def _fetch_closes(ticker: str):
+            url = (
+                "https://api.finance.naver.com/siseJson.naver"
+                f"?symbol={ticker}&requestType=1&startTime={start_date}"
+                f"&endTime={end_date}&timeframe=day"
+            )
+            try:
+                res = requests.get(url, headers=headers, timeout=8)
+                if res.status_code != 200:
+                    return ticker, []
+                rows = []
+                for date_text, close_text in row_re.findall(res.text):
+                    try:
+                        close = float(close_text)
+                    except ValueError:
+                        continue
+                    if close > 0:
+                        rows.append([date_text, close])
+                rows.sort(key=lambda item: item[0])
+                return ticker, rows
+            except Exception:
+                return ticker, []
+
+        close_rows_by_ticker = {}
+        max_workers = min(48, max(8, len(unique_tickers) // 40))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for ticker, rows_for_ticker in executor.map(_fetch_closes, unique_tickers):
+                if len(rows_for_ticker) >= 2:
+                    close_rows_by_ticker[ticker] = rows_for_ticker
+        _write_json_cache(f"naver_closes_{start_date}_{end_date}.json", close_rows_by_ticker)
 
     return_dict: dict = {}
+    for ticker, rows_for_ticker in close_rows_by_ticker.items():
+        period_rows = [
+            row for row in rows_for_ticker
+            if start_date <= row[0] <= end_date
+        ]
+        if len(period_rows) < 2:
+            continue
+        start_price = period_rows[0][1]
+        end_price = period_rows[-1][1]
+        if start_price > 0:
+            return_dict[ticker] = round(((end_price - start_price) / start_price) * 100, 2)
 
-    from core.cache import get_cached_ohlcv, is_cache_ready
-    
-    if is_cache_ready():
-        # FAST PATH: Use global memory cache
-        for ticker in unique_tickers:
-            df_t = get_cached_ohlcv(ticker)
-            if df_t is not None and not df_t.empty:
-                try:
-                    df_filled = df_t.ffill().bfill()
-                    open_row = df_filled.loc[df_filled.index <= start_dt]
-                    close_row = df_filled.loc[df_filled.index <= end_dt]
-                    if not open_row.empty and not close_row.empty:
-                        open_p = open_row['Close'].iloc[-1]
-                        close_p = close_row['Close'].iloc[-1]
-                        if pd.notna(open_p) and pd.notna(close_p) and open_p != 0:
-                            return_dict[ticker] = round(((close_p - open_p) / open_p) * 100, 2)
-                except Exception as e:
-                    pass
-    else:
-        # SLOW PATH / FALLBACK: Fallback to pykrx or yfinance if cache not ready yet
-        # Since this happens only during the first 10-20 seconds of server startup,
-        # we can just use the existing logic but with `show_errors=False`.
-        start_str = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}"
-        end_str   = (datetime.datetime.strptime(end_date, "%Y%m%d")
-                     + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
-
-        def _extract_returns(df_bulk, tickers, suffix):
-            """Extract open→close returns from a multi-ticker yfinance DataFrame."""
-            if df_bulk is None or df_bulk.empty:
-                return
-            cols = df_bulk.columns
-            for ticker in tickers:
-                sym = f"{ticker}{suffix}"
-                try:
-                    if isinstance(cols, pd.MultiIndex):
-                        if sym not in cols.get_level_values(0):
-                            continue
-                        df_t = df_bulk[sym].dropna(how='all')
-                    else:
-                        df_t = df_bulk.dropna(how='all')
-                    close = df_t['Close'].dropna()
-                    if len(close) < 2:
-                        continue
-                    open_p = df_t['Open'].dropna().iloc[0]
-                    close_p = close.iloc[-1]
-                    if pd.notna(open_p) and open_p != 0:
-                        return_dict[ticker] = round(((close_p - open_p) / open_p) * 100, 2)
-                except Exception:
-                    pass
-
-        # ── 1. Bulk .KS download ──────────────────────────────────────────
-        import warnings
-        try:
-            ks_list = [f"{t}.KS" for t in unique_tickers]
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                df_ks = yf.download(ks_list, start=start_str, end=end_str,
-                                    progress=False, auto_adjust=True,
-                                    group_by='ticker', threads=True)
-            _extract_returns(df_ks, unique_tickers, '.KS')
-            print(f"[historical] .KS bulk: {len(return_dict)} returns")
-        except Exception as e:
-            print(f"[historical] .KS bulk failed: {e}")
-
-        # ── 2. Bulk .KQ for tickers not found ────────────────────────────
-        missing = [t for t in unique_tickers if t not in return_dict]
-        if missing:
-            try:
-                kq_list = [f"{t}.KQ" for t in missing]
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    df_kq = yf.download(kq_list, start=start_str, end=end_str,
-                                        progress=False, auto_adjust=True,
-                                        group_by='ticker', threads=True)
-                _extract_returns(df_kq, missing, '.KQ')
-                print(f"[historical] .KQ bulk: {len(return_dict)} total returns")
-            except Exception as e:
-                print(f"[historical] .KQ bulk failed: {e}")
-
-        # ── 3. FDR fallback for any still-missing tickers ─────────────────
-        still_missing = [t for t in unique_tickers if t not in return_dict]
-        if still_missing:
-            import FinanceDataReader as fdr
-            import concurrent.futures
-            def _fdr_fetch(ticker):
-                try:
-                    df = fdr.DataReader(ticker, start=start_str, end=end_str)
-                    if df is None or df.empty or len(df) < 2:
-                        return ticker, None
-                    df.columns = [str(c).strip().capitalize() for c in df.columns]
-                    op = df['Open'].iloc[0]
-                    cl = df['Close'].iloc[-1]
-                    if pd.notna(op) and pd.notna(cl) and op != 0:
-                        return ticker, round(((cl - op) / op) * 100, 2)
-                except Exception:
-                    pass
-                return ticker, None
-            with concurrent.futures.ThreadPoolExecutor(max_workers=20) as ex:
-                for t, r in ex.map(_fdr_fetch, still_missing):
-                    if r is not None:
-                        return_dict[t] = r
-            print(f"[historical] FDR fallback: {len(return_dict)} total returns")
-
-    # ── 4. Vectorized theme averages via pandas groupby ───────────────
     rows = [{'Theme': tn, 'Ticker': t} for tn, tl in themes.items() for t in tl]
     df_map = pd.DataFrame(rows)
     df_map['Return'] = df_map['Ticker'].map(return_dict)
-    df_map['Name']   = df_map['Ticker'].map(names)
+    df_map['Name'] = df_map['Ticker'].map(names)
 
-    # 1. 주가가 없는(NaN) 종목 버리기 (과감히 버림)
     valid_df = df_map.dropna(subset=['Return']).copy()
 
-    # 2. 테마에 유효한 종목이 단 1개라도 있다면 평균 계산
     stats = (valid_df.groupby('Theme')['Return']
                .mean()
                .round(2)
                .reset_index()
                .rename(columns={'Return': 'Avg Return (%)'}))
 
-    # 3. 테마 목록에도 유효한 종목들만 포함시킴
     def _build_ticker_list(g):
         items = []
         for r in g.itertuples():
             items.append({
-                'ticker':      r.Ticker,
-                'name':        r.Name if pd.notna(r.Name) else r.Ticker,
+                'ticker': r.Ticker,
+                'name': r.Name if pd.notna(r.Name) else r.Ticker,
                 'return_rate': round(r.Return, 2)
             })
         items.sort(key=lambda x: -(x['return_rate'] or 0))
         return items
 
     if not valid_df.empty:
-        ticker_lists = valid_df.groupby('Theme').apply(_build_ticker_list).to_dict()
+        ticker_lists = {
+            theme: _build_ticker_list(group)
+            for theme, group in valid_df.groupby('Theme')
+        }
         stats['Tickers'] = stats['Theme'].map(ticker_lists)
         stats['Num Stocks'] = stats['Tickers'].apply(len)
     else:
@@ -308,8 +481,11 @@ def get_theme_returns_historical(start_date: str, end_date: str):
 
     stats = stats.sort_values('Avg Return (%)', ascending=False).reset_index(drop=True)
     stats.insert(0, 'Rank', range(1, len(stats) + 1))
+    stats['Start Date'] = start_date
+    stats['End Date'] = end_date
+    stats['Data Source'] = 'Naver chart close'
+    _write_json_cache(cache_name, stats.to_dict(orient="records"))
     return stats
-
 
 @ttl_cache(maxsize=100, ttl=3600*24)
 def get_all_theme_stocks():
@@ -333,6 +509,7 @@ def get_returns_for_period(start_date: str, end_date: str, market="ALL"):
     Returns a DataFrame with columns: Ticker, Return.
     """
     try:
+        from pykrx import stock
         df = stock.get_market_price_change_by_ticker(start_date, end_date, market=market)
         df = df.reset_index()
         df = df.rename(columns={
@@ -355,6 +532,7 @@ def get_returns_for_period(start_date: str, end_date: str, market="ALL"):
 def get_market_cap(date: str):
     """Get market cap for all stocks on a specific date."""
     try:
+        from pykrx import stock
         df_kospi = stock.get_market_cap(date, market="KOSPI").reset_index()
         df_kosdaq = stock.get_market_cap(date, market="KOSDAQ").reset_index()
         df = pd.concat([df_kospi, df_kosdaq], ignore_index=True)
@@ -399,7 +577,6 @@ def get_stock_ohlcv(ticker: str, start_date: str, end_date: str):
             # Strip time/tz from index → pure date
             df.index = pd.to_datetime(df.index).normalize().tz_localize(None)
             if not df.empty:
-                print(f"[get_stock_ohlcv] FDR OK {ticker}: {len(df)} rows")
                 return df
     except Exception as e:
         print(f"[get_stock_ohlcv] FDR failed for {ticker}: {e}")
@@ -423,7 +600,6 @@ def get_stock_ohlcv(ticker: str, start_date: str, end_date: str):
                 df = df.dropna(subset=['Close'])
                 df.index = pd.to_datetime(df.index).normalize().tz_localize(None)
                 if not df.empty:
-                    print(f"[get_stock_ohlcv] yfinance OK {ticker}{suffix}: {len(df)} rows")
                     return df
         except Exception as e:
             print(f"[get_stock_ohlcv] yfinance {suffix} failed for {ticker}: {e}")

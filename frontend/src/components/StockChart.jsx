@@ -55,9 +55,23 @@ const computeRSI = (candles, period=14) => {
 };
 
 function getVisibleRange(days) {
-  const e = new Date(), s = new Date();
-  s.setDate(e.getDate() - days);
-  return { from: s.toISOString().split('T')[0], to: e.toISOString().split('T')[0] };
+  const toDate = new Date();
+  const fromDate = new Date(toDate);
+  fromDate.setDate(fromDate.getDate() - days);
+  return {
+    from: fromDate.toISOString().slice(0, 10),
+    to: toDate.toISOString().slice(0, 10),
+  };
+}
+
+function normalizeChartTime(time) {
+  if (!time) return null;
+  if (typeof time === 'string') return time;
+  if (typeof time === 'number') return new Date(time * 1000).toISOString().slice(0, 10);
+  if (typeof time === 'object' && 'year' in time && 'month' in time && 'day' in time) {
+    return `${time.year}-${String(time.month).padStart(2, '0')}-${String(time.day).padStart(2, '0')}`;
+  }
+  return null;
 }
 
 // ── Imperative helper: apply all data to series ───────────────────────────
@@ -135,7 +149,9 @@ const StockChart = forwardRef(({
   data, ticker, name,
   chartPeriod, candlePeriod, scaleMode,
   activeInds, bbPeriod, bbMultiplier,
-  globalCandleCount, setGlobalCandleCount, onTimeRangeChange, onCandlePeriodChange, onRemove
+  visibleCandleCount, setVisibleCandleCount,
+  candleCountApplySeq, onApplyCandleCount,
+  onTimeRangeChange, onCandlePeriodChange, onChartPeriodChange, onRemove
 }, ref) => {
   const containerRef    = useRef(null);
   const tooltipRef      = useRef(null);
@@ -150,12 +166,59 @@ const StockChart = forwardRef(({
   const drawStateRef = useRef({
     isDragging: false,
     startPoint: null,
+    endPoint: null,
     tempLineSeries: null,
   });
   const [drawnLines, setDrawnLines] = React.useState([]); // For individual deletion UI
   const [localScale, setLocalScale] = React.useState(scaleMode);
+  const hasVisibleCandleCount = String(visibleCandleCount || '').trim() !== '';
+
+  const getDrawingPoint = (event) => {
+    const chart = stateRef.current.chart;
+    const candleSeries = stateRef.current.series.candle;
+    const chartEl = containerRef.current;
+    if (!chart || !candleSeries || !chartEl) return null;
+
+    const rect = chartEl.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    const time = normalizeChartTime(chart.timeScale().coordinateToTime(x));
+    const price = candleSeries.coordinateToPrice(y);
+    if (!time || price == null) return null;
+    return { time, price };
+  };
+
+  const finishTrendLine = () => {
+    if (drawMode !== 'trend' || !drawStateRef.current.isDragging) return;
+    const lineSeries = drawStateRef.current.tempLineSeries;
+    const { startPoint, endPoint } = drawStateRef.current;
+    if (lineSeries && startPoint && endPoint && startPoint.time !== endPoint.time) {
+      setDrawnLines(prev => [...prev, { id: Date.now(), type: 'trend', name: '추세선', obj: lineSeries }]);
+    } else if (lineSeries && stateRef.current.chart) {
+      try { stateRef.current.chart.removeSeries(lineSeries); } catch { /* ignore */ }
+    }
+    drawStateRef.current = { isDragging: false, startPoint: null, endPoint: null, tempLineSeries: null };
+    setDrawMode('none');
+  };
 
   useEffect(() => { setLocalScale(scaleMode); }, [scaleMode]);
+
+  const applyVisibleCandleCount = React.useCallback((countValue) => {
+    const count = Number(countValue);
+    const chart = stateRef.current.chart;
+    const candles = stateRef.current.currentCandles;
+    if (!chart || !candles?.length || !Number.isFinite(count) || count <= 0) return false;
+    const to = candles.length - 1;
+    const from = Math.max(0, to - Math.floor(count) + 1);
+    chart.timeScale().setVisibleLogicalRange({ from, to });
+    return true;
+  }, []);
+
+  const applyChartPeriodRange = React.useCallback(() => {
+    const chart = stateRef.current.chart;
+    if (!chart || !chartPeriod) return;
+    chart.timeScale().setVisibleRange(getVisibleRange(PERIOD_DAYS[chartPeriod] || 90));
+  }, [chartPeriod]);
 
   // Sync scroll options dynamically based on drawMode
   useEffect(() => {
@@ -172,7 +235,7 @@ const StockChart = forwardRef(({
             handleScale: { mouseWheel: true, pinch: false, axisPressedMouseMove: false }
           });
         }
-      } catch(err) { /* ignore */ }
+      } catch { /* ignore */ }
     }
   }, [drawMode]);
 
@@ -384,9 +447,10 @@ const StockChart = forwardRef(({
     // Trend line click handler removed in favor of drag-to-draw overlay
 
     // Initial zoom
-    const days = PERIOD_DAYS[chartPeriod] ?? 90;
-    try { chart.timeScale().setVisibleRange(getVisibleRange(days)); }
-    catch (err) { try { chart.timeScale().fitContent(); } catch(err2){ console.debug(err2); } }
+    try { applyChartPeriodRange(); }
+    catch {
+      try { chart.timeScale().fitContent(); } catch(err2){ console.debug(err2); }
+    }
 
     // Apply scale mode
     try {
@@ -405,15 +469,21 @@ const StockChart = forwardRef(({
   // ── candlePeriod → resample done via backend, just zoom out ────────
   useEffect(() => {
     if (!stateRef.current.chart || !chartPeriod) return;
-    try { stateRef.current.chart.timeScale().setVisibleRange(getVisibleRange(PERIOD_DAYS[chartPeriod] ?? 90)); } catch(err){ console.debug(err); }
+    try {
+      if (!hasVisibleCandleCount) applyChartPeriodRange();
+      else applyVisibleCandleCount(visibleCandleCount);
+    } catch(err){ console.debug(err); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candlePeriod]);
+  }, [candlePeriod, data, visibleCandleCount, candleCountApplySeq]);
 
   // ── chartPeriod → zoom only ───────────────────────────────────────────
   useEffect(() => {
     if (!stateRef.current.chart || !chartPeriod) return;
-    try { stateRef.current.chart.timeScale().setVisibleRange(getVisibleRange(PERIOD_DAYS[chartPeriod] ?? 90)); } catch(err){ console.debug(err); }
-  }, [chartPeriod]);
+    try {
+      if (!hasVisibleCandleCount) applyChartPeriodRange();
+      else applyVisibleCandleCount(visibleCandleCount);
+    } catch(err){ console.debug(err); }
+  }, [chartPeriod, candlePeriod, data, visibleCandleCount, candleCountApplySeq, hasVisibleCandleCount, applyChartPeriodRange, applyVisibleCandleCount]);
 
   // ── scaleMode ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -424,18 +494,6 @@ const StockChart = forwardRef(({
       });
     } catch(err){ console.debug(err); }
   }, [localScale]);
-
-  // ── globalCandleCount ────────────────────────────────────────────────
-  useEffect(() => {
-    if (!stateRef.current.chart || !stateRef.current.currentCandles?.length) return;
-    try {
-      const dataLength = stateRef.current.currentCandles.length;
-      stateRef.current.chart.timeScale().setVisibleLogicalRange({
-        from: dataLength - (globalCandleCount || 120),
-        to: dataLength - 1
-      });
-    } catch (err) { console.debug(err); }
-  }, [globalCandleCount, data]);
 
   // ── activeInds (local or global) → visibility ──────────────────────────
   useEffect(() => {
@@ -504,33 +562,78 @@ const StockChart = forwardRef(({
         
         {/* Fullscreen HTS Toggles */}
         {isFullscreen && (
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            {/* Period selector */}
-            <div style={{ display: 'flex', gap: '4px' }}>
-              {['1D', '1W', '1M', '1Y'].map(p => (
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+              <span style={{ color: '#8b93a5', fontSize: '11px', fontWeight: 600 }}>봉 기간</span>
+              {[
+                { label: '일', value: 'D' },
+                { label: '주', value: 'W' },
+                { label: '월', value: 'M' },
+                { label: '년', value: 'Y' },
+              ].map(p => (
+                <button
+                  key={p.value}
+                  onClick={() => onCandlePeriodChange && onCandlePeriodChange(p.value)}
+                  style={{
+                    background: candlePeriod === p.value ? '#2962ff' : '#2a2e39',
+                    color: '#fff', border: 'none', borderRadius: '4px',
+                    padding: '4px 8px', fontSize: '12px', cursor: 'pointer',
+                  }}
+                >{p.label}</button>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+              <span style={{ color: '#8b93a5', fontSize: '11px', fontWeight: 600 }}>차트 기간</span>
+              {['1M', '3M', '6M', '1Y'].map(p => (
                 <button
                   key={p}
-                  onClick={() => onCandlePeriodChange && onCandlePeriodChange(p)}
+                  onClick={() => {
+                    onChartPeriodChange && onChartPeriodChange(p);
+                  }}
                   style={{
-                    background: candlePeriod === p ? '#2962ff' : '#2a2e39',
+                    background: !hasVisibleCandleCount && chartPeriod === p ? '#2962ff' : '#2a2e39',
                     color: '#fff', border: 'none', borderRadius: '4px',
                     padding: '4px 8px', fontSize: '12px', cursor: 'pointer',
                   }}
                 >{p}</button>
               ))}
-              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginLeft: '4px' }}>
-                <input
-                  type="number"
-                  value={globalCandleCount || 120}
-                  onChange={(e) => setGlobalCandleCount && setGlobalCandleCount(Number(e.target.value))}
-                  style={{
-                    width: '50px', background: '#2a2e39', color: '#fff', border: '1px solid #444', 
-                    borderRadius: '4px', padding: '2px 4px', fontSize: '12px', textAlign: 'center'
-                  }}
-                  title="보여줄 캔들 개수"
-                />
-                <span style={{color: '#999', fontSize: '12px'}}>봉</span>
-              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+              <span style={{ color: '#8b93a5', fontSize: '11px', fontWeight: 600 }}>봉 개수</span>
+              <input
+                type="number"
+                min="1"
+                value={visibleCandleCount || ''}
+                placeholder="자동"
+                onChange={(e) => setVisibleCandleCount && setVisibleCandleCount(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onApplyCandleCount && onApplyCandleCount();
+                }}
+                style={{
+                  width: '56px',
+                  background: '#2a2e39',
+                  color: '#fff',
+                  border: '1px solid #444',
+                  borderRadius: '4px',
+                  padding: '3px 5px',
+                  fontSize: '12px',
+                  textAlign: 'center',
+                }}
+              />
+              <button
+                onClick={() => onApplyCandleCount && onApplyCandleCount()}
+                style={{
+                  background: hasVisibleCandleCount ? '#2962ff' : '#2a2e39',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                }}
+              >
+                적용
+              </button>
             </div>
             {/* Log/Linear Scale Toggle */}
             <button
@@ -545,16 +648,6 @@ const StockChart = forwardRef(({
             <div style={{ width: '1px', height: '16px', background: '#555' }} />
 
             {/* Drawing mode */}
-            <button
-              onClick={() => setDrawMode(drawMode === 'trend' ? 'none' : 'trend')}
-              style={{
-                background: drawMode === 'trend' ? '#ffeb3b' : '#333',
-                color: drawMode === 'trend' ? '#000' : '#fff',
-                border: 'none', borderRadius: '4px', padding: '4px 8px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold'
-              }}
-            >
-              ✏️ 추세선
-            </button>
             <button
               onClick={() => setDrawMode(drawMode === 'horizontal' ? 'none' : 'horizontal')}
               style={{
@@ -573,7 +666,7 @@ const StockChart = forwardRef(({
                   try {
                     if (item.type === 'trend') chart.removeSeries(item.obj);
                     else if (item.type === 'horizontal') stateRef.current.series.candle?.removePriceLine(item.obj);
-                  } catch(err) { /* ignore */ }
+                  } catch { /* ignore */ }
                 });
                 setDrawnLines([]);
                 setDrawMode('none');
@@ -603,7 +696,7 @@ const StockChart = forwardRef(({
                         try {
                           if (line.type === 'trend') chart.removeSeries(line.obj);
                           else if (line.type === 'horizontal') stateRef.current.series.candle?.removePriceLine(line.obj);
-                        } catch(err) { /* ignore */ }
+                        } catch { /* ignore */ }
                         setDrawnLines(prev => prev.filter(l => l.id !== line.id));
                       }}
                     >✕</span>
@@ -653,19 +746,17 @@ const StockChart = forwardRef(({
               const x = e.clientX - rect.left;
               const y = e.clientY - rect.top;
               
-              const time = chart.timeScale().coordinateToTime(x);
+              const time = normalizeChartTime(chart.timeScale().coordinateToTime(x));
               const price = stateRef.current.series.candle?.coordinateToPrice(y);
-              console.log("좌표:", x, y, time, price);
               if (!time || price == null) return;
               
               if (drawMode === 'trend') {
                 const startPt = { time, value: price };
-                const tempLine = chart.addLineSeries({
+                const tempLine = chart.addSeries(LineSeries, {
                   color: '#ffeb3b', lineWidth: 2, lineStyle: 0,
                   crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false
-                });
-                tempLine.setData([startPt, startPt]);
-                drawStateRef.current = { isDragging: true, startPoint: startPt, tempLineSeries: tempLine };
+                }, 0);
+                drawStateRef.current = { isDragging: true, startPoint: startPt, endPoint: null, tempLineSeries: tempLine };
               } else if (drawMode === 'horizontal') {
                 const priceLine = { price, color: '#ffeb3b', lineWidth: 2, lineStyle: 0, axisLabelVisible: true };
                 const lineObj = stateRef.current.series.candle?.createPriceLine(priceLine);
@@ -687,43 +778,96 @@ const StockChart = forwardRef(({
               const y = e.clientY - rect.top;
               
               // Allow drawing even outside the time bounds if possible, or fallback to start point
-              let time = chart.timeScale().coordinateToTime(x);
+              let time = normalizeChartTime(chart.timeScale().coordinateToTime(x));
               const price = stateRef.current.series.candle?.coordinateToPrice(y);
-              console.log("좌표(move):", x, y, time, price);
               if (price == null) return;
               
               const { startPoint, tempLineSeries } = drawStateRef.current;
               if (!time) time = startPoint.time; // Fallback if dragged out of time scale
+              const endPoint = { time, value: price };
+              if (startPoint.time === endPoint.time) return;
               
-              const sorted = [startPoint, { time, value: price }].sort((a, b) => {
+              const sorted = [startPoint, endPoint].sort((a, b) => {
                 if (a.time < b.time) return -1;
                 if (a.time > b.time) return 1;
                 return 0;
               });
               tempLineSeries.setData(sorted);
+              drawStateRef.current.endPoint = endPoint;
             } catch (err) {
               console.error("추세선 mousemove 에러:", err);
             }
           }}
-          onMouseUp={() => {
-            if (drawMode === 'trend' && drawStateRef.current.isDragging) {
-              setDrawnLines(prev => [...prev, { id: Date.now(), type: 'trend', name: '추세선', obj: drawStateRef.current.tempLineSeries }]);
-              drawStateRef.current.isDragging = false;
-              drawStateRef.current.startPoint = null;
-              drawStateRef.current.tempLineSeries = null;
-              setDrawMode('none');
-            }
-          }}
-          onMouseLeave={() => {
-            if (drawMode === 'trend' && drawStateRef.current.isDragging) {
-              setDrawnLines(prev => [...prev, { id: Date.now(), type: 'trend', name: '추세선', obj: drawStateRef.current.tempLineSeries }]);
-              drawStateRef.current.isDragging = false;
-              drawStateRef.current.startPoint = null;
-              drawStateRef.current.tempLineSeries = null;
-              setDrawMode('none');
-            }
-          }}
+          onMouseUp={finishTrendLine}
+          onMouseLeave={finishTrendLine}
         />
+        {drawMode !== 'none' && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 12,
+              cursor: 'crosshair',
+              background: 'transparent',
+              touchAction: 'none',
+            }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.currentTarget.setPointerCapture?.(e.pointerId);
+              const point = getDrawingPoint(e);
+              if (!point) return;
+
+              const chart = stateRef.current.chart;
+              if (drawMode === 'trend') {
+                const startPt = { time: point.time, value: point.price };
+                const tempLine = chart.addSeries(LineSeries, {
+                  color: '#ffeb3b',
+                  lineWidth: 2,
+                  lineStyle: 0,
+                  crosshairMarkerVisible: false,
+                  priceLineVisible: false,
+                  lastValueVisible: false,
+                }, 0);
+                drawStateRef.current = { isDragging: true, startPoint: startPt, endPoint: null, tempLineSeries: tempLine };
+              } else if (drawMode === 'horizontal') {
+                const lineObj = stateRef.current.series.candle?.createPriceLine({
+                  price: point.price,
+                  color: '#ffeb3b',
+                  lineWidth: 2,
+                  lineStyle: 0,
+                  axisLabelVisible: true,
+                });
+                if (lineObj) {
+                  setDrawnLines(prev => [...prev, { id: Date.now(), type: 'horizontal', name: `수평선 ${intFmt(point.price)}`, obj: lineObj }]);
+                }
+                setDrawMode('none');
+              }
+            }}
+            onPointerMove={(e) => {
+              if (drawMode !== 'trend' || !drawStateRef.current.isDragging) return;
+              e.preventDefault();
+              const point = getDrawingPoint(e);
+              if (!point) return;
+              const { startPoint, tempLineSeries } = drawStateRef.current;
+              if (!startPoint || !tempLineSeries) return;
+              const endPoint = { time: point.time, value: point.price };
+              if (startPoint.time === endPoint.time) return;
+              const sorted = [startPoint, { time: point.time, value: point.price }].sort((a, b) => {
+                if (a.time < b.time) return -1;
+                if (a.time > b.time) return 1;
+                return 0;
+              });
+              tempLineSeries.setData(sorted);
+              drawStateRef.current.endPoint = endPoint;
+            }}
+            onPointerUp={(e) => {
+              e.preventDefault();
+              finishTrendLine();
+            }}
+            onPointerCancel={finishTrendLine}
+            onLostPointerCapture={finishTrendLine}
+          />
+        )}
         
         <div ref={tooltipRef} style={{
           display: 'none', position: 'absolute', top: '8px', left: '8px', zIndex: 20,

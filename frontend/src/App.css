@@ -134,6 +134,13 @@ body {
   font-weight: 600;
 }
 
+.theme-basis-note {
+  margin-top: 6px;
+  color: #7c879a;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .custom-range-row {
   display: flex;
   gap: 6px;
@@ -215,7 +222,7 @@ body {
   color: #666;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0;
   margin-right: 2px;
 }
 
@@ -234,6 +241,22 @@ body {
   background: #2962ff;
   color: #fff;
   font-weight: 700;
+}
+
+.candle-count-input {
+  width: 56px;
+  padding: 4px 6px;
+  background: #1e222d;
+  border: 1px solid #363c4e;
+  color: #d1d4dc;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: center;
+  outline: none;
+}
+
+.candle-count-input:focus {
+  border-color: #2962ff;
 }
 
 .ind-toggle-label {

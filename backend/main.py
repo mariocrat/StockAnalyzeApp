@@ -1,12 +1,20 @@
-from fastapi import FastAPI, Query
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from typing import Optional
 import uvicorn
 import pandas as pd
 import datetime
 from cachetools.func import ttl_cache
 
-from core.data_fetcher import get_all_theme_stocks, get_stock_ohlcv, get_macro_data, get_krx_themes, get_stock_names, get_theme_returns_historical
+from core.data_fetcher import (
+    get_stock_ohlcv,
+    get_macro_data,
+    get_krx_themes,
+    get_stock_names,
+    get_theme_returns_historical,
+    get_cached_theme_returns,
+    get_latest_cached_theme_returns,
+)
 from core.metrics import calculate_theme_rankings, get_stocks_in_theme
 from core.utils import get_chosung
 
@@ -17,36 +25,47 @@ import logging
 # Suppress yfinance spam at startup
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 
-from core.cache import init_global_ohlcv_cache
+def _previous_weekday(day: datetime.date) -> datetime.date:
+    day = day - datetime.timedelta(days=1)
+    while day.weekday() >= 5:
+        day = day - datetime.timedelta(days=1)
+    return day
+
+def _last_completed_market_date(now: Optional[datetime.datetime] = None) -> datetime.date:
+    now = now or datetime.datetime.now()
+    today = now.date()
+    # Rankings are updated by the nightly cache cycle, so intraday and
+    # post-close sessions both keep using the previous trading day.
+    return _previous_weekday(today)
 
 def _warm_cache():
-    """Pre-warm the theme cache so the first user request is instant."""
+    """Pre-warm theme caches in the background."""
     try:
-        today = datetime.date.today()
-        start = (today - datetime.timedelta(days=7)).strftime('%Y%m%d')
-        end = today.strftime('%Y%m%d')
-        print("[startup] Warming theme cache...")
-        
-        # 1. Start global OHLCV download for 1-year data in background
-        init_global_ohlcv_cache()
-        
-        # 2. Warm up the 1D/1W endpoints
-        calculate_theme_rankings(start, end)
+        base_date = _last_completed_market_date()
+        print("[startup] Warming theme caches...")
+
+        for days in (1, 7, 30, 365):
+            start = (base_date - datetime.timedelta(days=days)).strftime('%Y%m%d')
+            end = base_date.strftime('%Y%m%d')
+            get_theme_returns_historical(start, end)
         print("[startup] Theme cache ready.")
     except Exception as e:
         print(f"[startup] Cache warm-up failed (non-fatal): {e}")
 
 @asynccontextmanager
 async def lifespan(app):
-    # Warm cache in a background thread so server starts instantly
-    threading.Thread(target=_warm_cache, daemon=True).start()
     yield
 
 app = FastAPI(title="Stock Analysis API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://127.0.0.1:5174",
+        "http://localhost:5174",
+        "http://127.0.0.1:4173",
+        "http://localhost:4173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,33 +102,49 @@ def calculate_indicators(df: pd.DataFrame, indicators: list):
 @app.get("/api/themes")
 @ttl_cache(maxsize=100, ttl=3600)
 def get_themes(period: str = "1D", start_date: Optional[str] = None, end_date: Optional[str] = None):
-    if period == "1D":
-        df = calculate_theme_rankings(None, None)
+    base_date = _last_completed_market_date()
+    period_days = {"1D": 1, "1W": 7, "1M": 30, "1Y": 365}
+    if period in period_days:
+        if period == "1D":
+            start_dt = _previous_weekday(base_date)
+        else:
+            start_dt = base_date - datetime.timedelta(days=period_days[period])
+        start_date = start_dt.strftime("%Y%m%d")
+        end_date = base_date.strftime("%Y%m%d")
+
+    if start_date and end_date:
+        fallback_spans = {
+            "1W": (4, 10),
+            "1M": (20, 45),
+            "1Y": (300, 420),
+        }
+        if period == "1D":
+            df = get_cached_theme_returns(start_date, end_date)
+            if df.empty:
+                df = get_theme_returns_historical(start_date, end_date)
+        elif period in fallback_spans:
+            df = get_cached_theme_returns(start_date, end_date)
+            if df.empty:
+                df = get_theme_returns_historical(start_date, end_date)
+        else:
+            df = pd.DataFrame()
+        if df.empty:
+            if period in fallback_spans:
+                min_span, max_span = fallback_spans[period]
+                df = get_latest_cached_theme_returns(
+                    min_span_days=min_span,
+                    max_span_days=max_span,
+                )
+            elif period == "1D":
+                df = get_latest_cached_theme_returns(max_span_days=3)
         return df.to_dict(orient="records")
-    else:
-        if period == "1W":
-            start_dt = datetime.date.today() - datetime.timedelta(days=7)
-            start_date = start_dt.strftime("%Y%m%d")
-            end_date = datetime.date.today().strftime("%Y%m%d")
-        elif period == "1M":
-            start_dt = datetime.date.today() - datetime.timedelta(days=30)
-            start_date = start_dt.strftime("%Y%m%d")
-            end_date = datetime.date.today().strftime("%Y%m%d")
-        elif period == "1Y":
-            start_dt = datetime.date.today() - datetime.timedelta(days=365)
-            start_date = start_dt.strftime("%Y%m%d")
-            end_date = datetime.date.today().strftime("%Y%m%d")
-        
-        if start_date and end_date:
-            df = get_theme_returns_historical(start_date, end_date)
-            return df.to_dict(orient="records")
-        return []
+    return []
 
 @app.get("/api/theme_stocks")
 @ttl_cache(maxsize=1000, ttl=3600)
 def get_theme_stocks(tickers: str, start_date: str, end_date: str):
     # tickers is comma separated
-    ticker_list = tickers.split(',')
+    ticker_list = tuple(t.strip() for t in tickers.split(',') if t.strip())
     df = get_stocks_in_theme(ticker_list, start_date, end_date)
     return df.to_dict(orient="records")
 
@@ -132,10 +167,15 @@ def search_stocks(q: str):
         
     matches = []
     for ticker, name in names_dict.items():
-        if is_match(name):
+        if q in ticker.lower() or is_match(name):
             matches.append({"Ticker": ticker, "Name": name})
-            if len(matches) > 50:
-                break
+    def sort_key(item):
+        name = item["Name"]
+        starts_with_hangul = bool(name) and '가' <= name[0] <= '힣'
+        return (not starts_with_hangul, name, item["Ticker"])
+
+    matches.sort(key=sort_key)
+    matches = matches[:50]
             
     # Which themes contain these matches?
     themes, _, _ = get_krx_themes()   # 3-tuple now
