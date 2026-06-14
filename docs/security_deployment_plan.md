@@ -1,0 +1,103 @@
+# AlphaMate 보안/배포 설계 메모
+
+## 권장 결론
+
+- 모바일 앱에는 OpenAI/Gemini API Key를 절대 넣지 않는다.
+- 앱은 광고 시청 완료와 매매복기 데이터를 서버에 보내고, 서버가 AI API를 호출한다.
+- 매매복기 원장은 기본적으로 서버 DB에 저장하지 않는다.
+- 사용자가 저장 기능을 명시적으로 켜기 전까지는 1회성 분석으로 처리한다.
+- 카카오/네이버 같은 간편 인증은 광고 보상 남용 방지, 사용량 제한, 사용자별 비용 통제를 위해 도입한다.
+
+## 권장 흐름
+
+1. 앱에서 사용자가 매매 기록을 입력한다.
+2. 사용자가 AI 분석 버튼을 누른다.
+3. 앱에서 보상형 광고를 표시한다.
+4. 앱은 광고 완료 토큰, 사용자 로그인 토큰, 매매 기록을 서버로 보낸다.
+5. 서버는 사용자 인증, 광고 보상 검증, 이용권 잔여량, 요청 제한, 비용 한도를 확인한다.
+6. 서버가 OpenAI/Gemini API를 호출한다.
+7. 서버는 분석 결과만 앱에 반환하고 매매 원장은 저장하지 않는다.
+
+## 현재 코드에 추가한 배포형 1회성 API
+
+- `POST /api/journal/review-once`
+- `POST /api/journal/ai-review-once`
+- `POST /api/journal/charts-once`
+
+위 API는 요청 본문으로 받은 매매 기록만 분석하고 SQLite에 저장하지 않는다.
+
+## 아직 필요한 배포 보안 작업
+
+- 사용자 인증: 카카오 로그인, 네이버 로그인, 또는 OIDC 기반 간편 로그인
+- 계정 매핑: `(provider, provider_user_id)`를 내부 사용자 ID에 연결하고, 카카오/네이버 계정 연결은 사용자 확인 후 처리
+- 사용자별 권한 저장소: 이용권, Pro 상태, 광고 보상, 일/월 사용량을 서버 DB에 저장
+- 광고 보상 검증: AdMob 서버 측 검증 또는 서버 자체 보상 검증
+- 사용량 제한: 사용자별, 기기별, IP별 일/월 제한
+- 비용 제한: OpenAI/Gemini 월 예산과 사용자별 호출 수 제한
+- HTTPS 강제
+- 서버 비밀값 관리: `.env`가 아닌 Cloud Secret Manager류 사용 권장
+- 앱 정상성 검증: Play Integrity API 검토
+- 서버 로그 마스킹: 매매 기록, API Key, Authorization 헤더 로그 금지
+- 데이터 삭제 정책: 기본은 1회성 분석 후 원문 즉시 폐기, 매매 이력 저장은 사용자 동의 기반으로 분리
+
+## 개인정보처리방침 초안 문구
+
+> AlphaMate는 사용자가 입력한 매매 기록, 종목명, 체결 가격, 수량, 메모를 매매복기 및 AI 분석 제공 목적으로 처리합니다.
+> AI 분석을 요청하는 경우 해당 입력 데이터와 차트 지표가 AI 분석 제공업체(OpenAI 또는 Google 등)에 전송될 수 있습니다.
+> 회사는 기본적으로 매매복기 원문을 서버에 저장하지 않으며, 분석 요청 처리 후 즉시 폐기합니다.
+> 사용자가 매매 이력 저장 기능을 켜는 경우, 해당 기록은 사용자 계정별로 저장되며 사용자는 앱에서 열람, 수정, 삭제할 수 있습니다.
+> 다만 서비스 안정성, 부정 이용 방지, 광고 보상 검증, 오류 분석을 위해 최소한의 접속 기록, 인증 식별자, 요청 시각, 처리 결과 상태를 일정 기간 보관할 수 있습니다.
+> 사용자는 AI 분석 요청 전 개인정보 및 민감한 투자 메모가 외부 AI 서비스로 전송될 수 있음을 확인하고 동의해야 합니다.
+
+## Google Play Data safety 작성 방향
+
+- AI 분석 요청 시 매매 데이터가 기기 밖 서버로 전송되므로 데이터 수집/처리에 해당한다.
+- Google Play는 앱이 수집, 공유, 보호하는 사용자 데이터와 SDK가 처리하는 데이터까지 개발자가 정확히 신고해야 한다.
+- 일시 처리(ephemeral processing)라도 기기 밖으로 전송되면 Data safety form에서 검토 대상이다.
+- AdMob SDK 사용으로 광고 식별자 및 광고 관련 데이터 처리가 발생할 수 있으므로 AdMob/Google SDK 안내에 맞춰 신고해야 한다.
+
+## 주의
+
+이 문서는 개발 설계용 초안이며 법률 자문이 아니다. 실제 Play Store 배포 전 개인정보보호법, 전자상거래/광고 정책, Google Play 정책 기준으로 최종 법률 검토가 필요하다.
+
+## 2026-06-13 개발용 AI 접근 관문
+
+현재 코드는 배포 구조를 미리 맞추기 위해 `POST /api/journal/ai-review-once` 앞에 개발용 접근 관문과 개발용 이용권 지갑을 둔다.
+
+- 앱은 AI 분석 요청 전에 개인정보/매매 기록 전송 동의를 받아야 한다.
+- 앱은 `Authorization: Bearer <token>` 헤더를 보낸다.
+- 앱은 요청 본문에 `ad_reward_token`과 `privacy_consent: true`를 함께 보낸다.
+- 서버는 인증 토큰, 광고 보상 토큰, 동의 여부, 이용권 잔여량을 확인한 뒤 OpenAI API를 호출한다.
+- 기본 개발값은 `dev-token`, `dev-ad-reward`이며, `ALPHAMATE_ENV=production`이면 개발 토큰은 비활성화된다.
+- 현재 개발용 지갑은 메모리 기반이라 서버 재시작 시 초기화된다. 운영 배포에서는 DB 또는 Redis로 교체해야 한다.
+
+개발 환경 변수:
+
+```env
+OPENAI_API_KEY=실제_OpenAI_Key
+OPENAI_BASIC_REVIEW_MODEL=gpt-5.4-mini
+OPENAI_ADVANCED_REVIEW_MODEL=gpt-5.5
+ALPHAMATE_ENV=development
+ALPHAMATE_DEV_AUTH_TOKEN=dev-token
+ALPHAMATE_DEV_AD_REWARD_TOKEN=dev-ad-reward
+ALPHAMATE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
+ALPHAMATE_ALLOW_ADVANCED_TICKET_FOR_BASIC=false
+```
+
+프론트 개발 환경 변수:
+
+```env
+VITE_DEV_AUTH_TOKEN=dev-token
+VITE_DEV_AD_REWARD_TOKEN=dev-ad-reward
+VITE_DEV_ACCESS_PLAN=free
+VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
+```
+
+운영 배포 때 교체해야 하는 부분:
+
+- `dev-token` 인증은 카카오/네이버 로그인 또는 OIDC 토큰 검증으로 교체한다.
+- `dev-ad-reward` 검증은 AdMob 보상형 광고 서버 측 검증으로 교체한다.
+- `dev-pro-entitlement`와 개발용 구매 처리는 Google Play Billing 서버 검증으로 교체한다.
+- 현재 메모리 기반 이용권/사용량 관리는 DB 또는 Redis로 교체한다.
+- OpenAI API Key는 앱이나 프론트가 아니라 서버 환경변수/Secret Manager에만 둔다.
+- 서버 로그에는 매매 기록, 메모, Authorization 헤더, AI Key를 남기지 않는다.

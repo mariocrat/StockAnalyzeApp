@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import StockChart from './components/StockChart';
+import TradingJournal from './components/TradingJournal';
 import './App.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
@@ -35,6 +36,8 @@ const THEME_PERIODS = ['1D', '1W', '1M', '1Y'];
 
 // ── App ───────────────────────────────────────────────────────────────────
 export default function App() {
+  const [activeView, setActiveView] = useState('themes');
+
   // ── Theme state ──────────────────────────────────────────────────────
   const [themes,          setThemes]         = useState([]);
   const [themesLoading,   setThemesLoading]  = useState(true);
@@ -70,6 +73,9 @@ export default function App() {
 
   const chartRefs = useRef({});
   const themeRequestSeq = useRef(0);
+  const searchRequestSeq = useRef(0);
+  const searchCacheRef = useRef({});
+  const suppressNextSearchRef = useRef(false);
 
   // ── Fetch themes ─────────────────────────────────────────────────────
   const fetchThemes = useCallback(async (period, cStart, cEnd) => {
@@ -207,21 +213,59 @@ export default function App() {
   }, []);
 
   // ── Search ────────────────────────────────────────────────────────────
-  const handleSearch = useCallback(async (q) => {
+  const handleSearch = useCallback((q) => {
     setSearchQuery(q);
-    if (!q.trim()) { setSearchResults([]); setShowResults(false); return; }
-    try {
-      const res = await axios.get(`${API_BASE}/api/search`, { params: { q: q.trim() } });
-      setSearchResults(res.data || []);
-      setShowResults(true);
-    } catch {
-      setSearchResults([]);
-    }
   }, []);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (suppressNextSearchRef.current) {
+      suppressNextSearchRef.current = false;
+      return;
+    }
+    if (!query) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+
+    const cacheKey = query.toLowerCase();
+    if (searchCacheRef.current[cacheKey]) {
+      setSearchResults(searchCacheRef.current[cacheKey]);
+      setShowResults(true);
+      return;
+    }
+
+    const requestId = searchRequestSeq.current + 1;
+    searchRequestSeq.current = requestId;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/api/search`, {
+          params: { q: query },
+          signal: controller.signal,
+        });
+        if (searchRequestSeq.current !== requestId) return;
+        const results = res.data || [];
+        searchCacheRef.current[cacheKey] = results;
+        setSearchResults(results);
+        setShowResults(true);
+      } catch (err) {
+        if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
+        if (searchRequestSeq.current === requestId) setSearchResults([]);
+      }
+    }, 180);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery]);
 
   const handleSearchSelect = useCallback(async (result) => {
     const ticker = result.Ticker || result.ticker;
     const name   = result.Name   || result.name || ticker;
+    suppressNextSearchRef.current = true;
     setSearchQuery(`${name} (${ticker})`);
     setShowResults(false);
     if (!selectedStocks.some(s => s.ticker === ticker)) {
@@ -263,101 +307,114 @@ export default function App() {
       <div className="sidebar">
         <h2 className="sidebar-title">AlphaMate</h2>
 
-        {/* Search */}
-        <div className="search-box">
-          <input
-            placeholder="종목 검색 (이름, 초성, 코드)"
-            value={searchQuery}
-            onChange={e => handleSearch(e.target.value)}
-            onFocus={() => searchResults.length && setShowResults(true)}
-            onBlur={() => setTimeout(() => setShowResults(false), 200)}
-          />
-          {showResults && searchResults.length > 0 && (
-            <ul className="search-results">
-              {[...searchResults].sort((a, b) => {
-                const aName = a.Name || a.name || a.Ticker || a.ticker || '';
-                const bName = b.Name || b.name || b.Ticker || b.ticker || '';
-                return aName.localeCompare(bName);
-              }).map(r => {
-                const ticker = r.Ticker || r.ticker;
-                const name   = r.Name   || r.name || ticker;
-                return (
-                  <li key={ticker} onMouseDown={() => handleSearchSelect(r)}>
-                    <span>{name}</span>
-                    <span style={{ color: '#555', fontSize: '11px' }}>{ticker}</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+        <div className="app-nav">
+          <button className={activeView === 'themes' ? 'active' : ''} onClick={() => setActiveView('themes')}>테마/차트</button>
+          <button className={activeView === 'journal' ? 'active' : ''} onClick={() => setActiveView('journal')}>매매복기</button>
         </div>
 
-        {/* Theme section header */}
-        <div className="section-header">
-          <h3 className="section-title">상승률 상위 테마</h3>
-        </div>
-
-        {/* Theme period tabs */}
-        <div style={{ marginBottom: '10px' }}>
-          <div className="theme-period-tabs">
-            {THEME_PERIODS.map(p => (
-              <button
-                key={p}
-                className={themePeriod === p ? 'active' : ''}
-                onClick={() => handleThemePeriodChange(p)}
-              >{p}</button>
-            ))}
-            <button
-              className={themePeriod === 'custom' ? 'active' : ''}
-              onClick={() => handleThemePeriodChange('custom')}
-            >직접입력</button>
-          </div>
-          <div className="theme-basis-note">
-            {themeBasisText} · 매일 00:00~00:10 업데이트
-          </div>
-
-          {/* Custom date range */}
-          {showCustom && (
-            <div className="custom-range-row" style={{ marginTop: '8px' }}>
-              <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} />
-              <span style={{ color: '#555' }}>~</span>
-              <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
-              <button onClick={handleCustomApply}>조회</button>
+        {activeView === 'themes' && (
+          <>
+            {/* Search */}
+            <div className="search-box">
+              <input
+                placeholder="종목 검색 (이름, 초성, 코드)"
+                value={searchQuery}
+                onChange={e => handleSearch(e.target.value)}
+                onFocus={() => searchResults.length && setShowResults(true)}
+                onBlur={() => setTimeout(() => setShowResults(false), 200)}
+              />
+              {showResults && searchResults.length > 0 && (
+                <ul className="search-results">
+                  {[...searchResults].sort((a, b) => {
+                    const aName = a.Name || a.name || a.Ticker || a.ticker || '';
+                    const bName = b.Name || b.name || b.Ticker || b.ticker || '';
+                    return aName.localeCompare(bName);
+                  }).map(r => {
+                    const ticker = r.Ticker || r.ticker;
+                    const name   = r.Name   || r.name || ticker;
+                    return (
+                      <li key={ticker} onMouseDown={() => handleSearchSelect(r)}>
+                        <span>{name}</span>
+                        <span style={{ color: '#555', fontSize: '11px' }}>{ticker}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Theme list */}
-        {themesLoading ? (
-          <div className="themes-loading">
-            {themePeriod === '1D' ? '로딩중…' : '기간 수익률 준비 중…'}
-          </div>
-        ) : themeError ? (
-          <div className="themes-loading">{themeError}</div>
-        ) : themes.length === 0 ? (
-          <div className="themes-loading">표시할 테마가 없습니다.</div>
-        ) : (
-          themes.map((theme, i) => {
-            const ret = theme['Avg Return (%)'] ?? theme['Return'] ?? 0;
-            const isActive = activeTheme === theme.Theme;
-            return (
-              <div
-                key={theme.Theme + i}
-                className={`theme-item ${isActive ? 'active' : ''}`}
-                onClick={(e) => handleThemeClick(e, theme)}
-              >
-                <span className="theme-name">{theme.Theme}</span>
-                <span className={ret >= 0 ? 'positive' : 'negative'}>
-                  {ret >= 0 ? '+' : ''}{typeof ret === 'number' ? ret.toFixed(2) : ret}%
-                </span>
+            {/* Theme section header */}
+            <div className="section-header">
+              <h3 className="section-title">상승률 상위 테마</h3>
+            </div>
+
+            {/* Theme period tabs */}
+            <div style={{ marginBottom: '10px' }}>
+              <div className="theme-period-tabs">
+                {THEME_PERIODS.map(p => (
+                  <button
+                    key={p}
+                    className={themePeriod === p ? 'active' : ''}
+                    onClick={() => handleThemePeriodChange(p)}
+                  >{p}</button>
+                ))}
+                <button
+                  className={themePeriod === 'custom' ? 'active' : ''}
+                  onClick={() => handleThemePeriodChange('custom')}
+                >직접입력</button>
               </div>
-            );
-          })
+              <div className="theme-basis-note">
+                {themeBasisText} · 매일 00:00~00:10 업데이트
+              </div>
+
+              {/* Custom date range */}
+              {showCustom && (
+                <div className="custom-range-row" style={{ marginTop: '8px' }}>
+                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} />
+                  <span style={{ color: '#555' }}>~</span>
+                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
+                  <button onClick={handleCustomApply}>조회</button>
+                </div>
+              )}
+            </div>
+
+            {/* Theme list */}
+            {themesLoading ? (
+              <div className="themes-loading">
+                {themePeriod === '1D' ? '로딩중…' : '기간 수익률 준비 중…'}
+              </div>
+            ) : themeError ? (
+              <div className="themes-loading">{themeError}</div>
+            ) : themes.length === 0 ? (
+              <div className="themes-loading">표시할 테마가 없습니다.</div>
+            ) : (
+              themes.map((theme, i) => {
+                const ret = theme['Avg Return (%)'] ?? theme['Return'] ?? 0;
+                const isActive = activeTheme === theme.Theme;
+                return (
+                  <div
+                    key={theme.Theme + i}
+                    className={`theme-item ${isActive ? 'active' : ''}`}
+                    onClick={(e) => handleThemeClick(e, theme)}
+                  >
+                    <span className="theme-name">{theme.Theme}</span>
+                    <span className={ret >= 0 ? 'positive' : 'negative'}>
+                      {ret >= 0 ? '+' : ''}{typeof ret === 'number' ? ret.toFixed(2) : ret}%
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </>
         )}
       </div>
 
       {/* ── Main Content ────────────────────────────────────────────────── */}
       <div className="main-content">
+        {activeView === 'journal' ? (
+          <TradingJournal apiBase={API_BASE} />
+        ) : (
+          <>
 
         {/* Stock chip selector */}
         {themeTickers.length > 0 && (
@@ -557,6 +614,8 @@ export default function App() {
             <div style={{ fontSize: '48px', marginBottom: '12px' }}>📈</div>
             <div style={{ fontSize: '14px' }}>좌측에서 테마를 선택하거나 종목을 검색하세요</div>
           </div>
+        )}
+          </>
         )}
       </div>
     </div>

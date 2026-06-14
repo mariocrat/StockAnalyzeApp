@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Header
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from typing import Optional
 import uvicorn
 import pandas as pd
@@ -17,6 +18,11 @@ from core.data_fetcher import (
 )
 from core.metrics import calculate_theme_rankings, get_stocks_in_theme
 from core.utils import get_chosung
+from core.journal import add_trade, list_trades, delete_trade, clear_trades, build_review, normalize_trade
+from core.ai_review import build_ai_review
+from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
+from core.journal_chart import build_journal_charts
+from core.access_control import verify_ai_review_access, get_user_entitlements, apply_dev_purchase, PRODUCTS
 
 from contextlib import asynccontextmanager
 import threading
@@ -24,6 +30,44 @@ import logging
 
 # Suppress yfinance spam at startup
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
+
+_theme_refresh_lock = threading.Lock()
+_theme_refresh_jobs = set()
+
+
+class JournalTradeIn(BaseModel):
+    trade_date: str
+    ticker: str = ""
+    name: str
+    side: str
+    price: float
+    quantity: float
+    fee: float = 0
+    tax: float = 0
+    memo: str = ""
+    source: str = "manual"
+
+
+class JournalBatchIn(BaseModel):
+    trades: list[JournalTradeIn]
+
+
+class JournalAiReviewIn(JournalBatchIn):
+    ad_reward_token: str = ""
+    entitlement_token: str = ""
+    privacy_consent: bool = False
+    review_type: str = "basic"
+    target_trade_id: Optional[int] = None
+
+
+class JournalDevPurchaseIn(BaseModel):
+    product_id: str
+    entitlement_token: str = ""
+
+
+def _journal_batch_payload(batch: JournalBatchIn) -> list[dict]:
+    return [normalize_trade(trade.model_dump()) for trade in batch.trades]
+
 
 def _previous_weekday(day: datetime.date) -> datetime.date:
     day = day - datetime.timedelta(days=1)
@@ -38,13 +82,58 @@ def _last_completed_market_date(now: Optional[datetime.datetime] = None) -> date
     # post-close sessions both keep using the previous trading day.
     return _previous_weekday(today)
 
+
+def _period_date_range(period: str):
+    base_date = _last_completed_market_date()
+    period_days = {"1D": 1, "1W": 7, "1M": 30, "1Y": 365}
+    if period not in period_days:
+        return None, None
+    if period == "1D":
+        start_dt = _previous_weekday(base_date)
+    else:
+        start_dt = base_date - datetime.timedelta(days=period_days[period])
+    return start_dt.strftime("%Y%m%d"), base_date.strftime("%Y%m%d")
+
+
+def _fallback_span(period: str):
+    return {
+        "1D": (None, 3),
+        "1W": (4, 10),
+        "1M": (20, 45),
+        "1Y": (300, 420),
+    }.get(period)
+
+
+def _schedule_theme_cache_refresh(start_date: str, end_date: str):
+    key = (start_date, end_date)
+    with _theme_refresh_lock:
+        if key in _theme_refresh_jobs:
+            return
+        _theme_refresh_jobs.add(key)
+
+    def _worker():
+        try:
+            get_theme_returns_historical(start_date, end_date)
+        except Exception as e:
+            print(f"[cache] Theme refresh failed {start_date}-{end_date}: {e}")
+        finally:
+            with _theme_refresh_lock:
+                _theme_refresh_jobs.discard(key)
+
+    threading.Thread(target=_worker, daemon=True).start()
+
 def _warm_cache():
     """Pre-warm theme caches in the background."""
     try:
         base_date = _last_completed_market_date()
         print("[startup] Warming theme caches...")
 
-        for days in (1, 7, 30, 365):
+        try:
+            _get_stock_search_index()
+        except Exception as e:
+            print(f"[startup] Search index warm-up failed (non-fatal): {e}")
+
+        for days in (365, 30, 7, 1):
             start = (base_date - datetime.timedelta(days=days)).strftime('%Y%m%d')
             end = base_date.strftime('%Y%m%d')
             get_theme_returns_historical(start, end)
@@ -54,6 +143,7 @@ def _warm_cache():
 
 @asynccontextmanager
 async def lifespan(app):
+    threading.Thread(target=_warm_cache, daemon=True).start()
     yield
 
 app = FastAPI(title="Stock Analysis API", lifespan=lifespan)
@@ -102,41 +192,27 @@ def calculate_indicators(df: pd.DataFrame, indicators: list):
 @app.get("/api/themes")
 @ttl_cache(maxsize=100, ttl=3600)
 def get_themes(period: str = "1D", start_date: Optional[str] = None, end_date: Optional[str] = None):
-    base_date = _last_completed_market_date()
-    period_days = {"1D": 1, "1W": 7, "1M": 30, "1Y": 365}
-    if period in period_days:
-        if period == "1D":
-            start_dt = _previous_weekday(base_date)
-        else:
-            start_dt = base_date - datetime.timedelta(days=period_days[period])
-        start_date = start_dt.strftime("%Y%m%d")
-        end_date = base_date.strftime("%Y%m%d")
+    if period in {"1D", "1W", "1M", "1Y"}:
+        start_date, end_date = _period_date_range(period)
 
     if start_date and end_date:
-        fallback_spans = {
-            "1W": (4, 10),
-            "1M": (20, 45),
-            "1Y": (300, 420),
-        }
-        if period == "1D":
+        if period in {"1D", "1W", "1M", "1Y"}:
             df = get_cached_theme_returns(start_date, end_date)
             if df.empty:
-                df = get_theme_returns_historical(start_date, end_date)
-        elif period in fallback_spans:
-            df = get_cached_theme_returns(start_date, end_date)
-            if df.empty:
+                span = _fallback_span(period)
+                fallback = pd.DataFrame()
+                if span:
+                    min_span, max_span = span
+                    fallback = get_latest_cached_theme_returns(
+                        min_span_days=min_span,
+                        max_span_days=max_span,
+                    )
+                if not fallback.empty:
+                    _schedule_theme_cache_refresh(start_date, end_date)
+                    return fallback.to_dict(orient="records")
                 df = get_theme_returns_historical(start_date, end_date)
         else:
-            df = pd.DataFrame()
-        if df.empty:
-            if period in fallback_spans:
-                min_span, max_span = fallback_spans[period]
-                df = get_latest_cached_theme_returns(
-                    min_span_days=min_span,
-                    max_span_days=max_span,
-                )
-            elif period == "1D":
-                df = get_latest_cached_theme_returns(max_span_days=3)
+            df = get_theme_returns_historical(start_date, end_date)
         return df.to_dict(orient="records")
     return []
 
@@ -155,39 +231,171 @@ def get_themes_historical(start_date: str, end_date: str):
     df = get_theme_returns_historical(start_date, end_date)
     return df.to_dict(orient="records")
 
+@ttl_cache(maxsize=1, ttl=3600)
+def _get_stock_search_index():
+    names_dict = get_stock_names("ALL")
+    themes, _, _ = get_krx_themes()
+
+    ticker_themes = {}
+    for theme_name, tickers in themes.items():
+        for ticker in tickers:
+            ticker_themes.setdefault(ticker, []).append(theme_name)
+
+    index = []
+    for ticker, name in names_dict.items():
+        name_text = str(name)
+        index.append({
+            "Ticker": ticker,
+            "Name": name_text,
+            "Themes": ticker_themes.get(ticker, []),
+            "_name_lower": name_text.lower(),
+            "_chosung": get_chosung(name_text).lower(),
+            "_ticker_lower": ticker.lower(),
+        })
+    return index
+
+
 @app.get("/api/search")
 @ttl_cache(maxsize=1000, ttl=3600)
 def search_stocks(q: str):
-    names_dict = get_stock_names("ALL")
-    q = q.strip().lower()
-    
-    # Simple search
-    def is_match(name):
-        return q in name.lower() or q in get_chosung(name)
-        
+    query = q.strip().lower()
+    if not query:
+        return []
+
     matches = []
-    for ticker, name in names_dict.items():
-        if q in ticker.lower() or is_match(name):
-            matches.append({"Ticker": ticker, "Name": name})
-    def sort_key(item):
+    for item in _get_stock_search_index():
+        if (
+            query in item["_ticker_lower"]
+            or query in item["_name_lower"]
+            or query in item["_chosung"]
+        ):
+            rank = 3
+            if query == item["_ticker_lower"] or query == item["_name_lower"]:
+                rank = 0
+            elif item["_ticker_lower"].startswith(query) or item["_name_lower"].startswith(query):
+                rank = 1
+            elif item["_chosung"].startswith(query):
+                rank = 2
+            matches.append((rank, item))
+
+    def sort_key(pair):
+        rank, item = pair
         name = item["Name"]
         starts_with_hangul = bool(name) and '가' <= name[0] <= '힣'
-        return (not starts_with_hangul, name, item["Ticker"])
+        return (rank, not starts_with_hangul, name, item["Ticker"])
 
     matches.sort(key=sort_key)
-    matches = matches[:50]
-            
-    # Which themes contain these matches?
-    themes, _, _ = get_krx_themes()   # 3-tuple now
     result = []
-    for m in matches:
-        matched_themes = [t for t, t_list in themes.items() if m["Ticker"] in t_list]
+    for _, m in matches[:50]:
         result.append({
             "Ticker": m["Ticker"],
             "Name": m["Name"],
-            "Themes": matched_themes
+            "Themes": m["Themes"]
         })
     return result
+
+
+@app.get("/api/journal/trades")
+def get_journal_trades(limit: int = 500):
+    return list_trades(limit=limit)
+
+
+@app.post("/api/journal/trades")
+def create_journal_trade(trade: JournalTradeIn):
+    return add_trade(trade.model_dump())
+
+
+@app.delete("/api/journal/trades/{trade_id}")
+def remove_journal_trade(trade_id: int):
+    delete_trade(trade_id)
+    return {"ok": True}
+
+
+@app.delete("/api/journal/trades")
+def remove_all_journal_trades():
+    clear_trades()
+    return {"ok": True}
+
+
+@app.get("/api/journal/review")
+def get_journal_review():
+    return build_review()
+
+
+@app.post("/api/journal/review-once")
+def get_journal_review_once(batch: JournalBatchIn):
+    return build_review(_journal_batch_payload(batch))
+
+
+@app.get("/api/journal/ai-review")
+def get_journal_ai_review():
+    return build_ai_review(list_trades(limit=5000))
+
+
+@app.get("/api/journal/entitlements")
+def get_journal_entitlements(
+    authorization: Optional[str] = Header(default=None),
+    entitlement_token: Optional[str] = None,
+):
+    return get_user_entitlements(
+        authorization=authorization,
+        entitlement_token=entitlement_token,
+    )
+
+
+@app.get("/api/journal/products")
+def get_journal_products():
+    return PRODUCTS
+
+
+@app.post("/api/journal/dev-purchase")
+def post_journal_dev_purchase(
+    purchase: JournalDevPurchaseIn,
+    authorization: Optional[str] = Header(default=None),
+):
+    return apply_dev_purchase(
+        authorization=authorization,
+        entitlement_token=purchase.entitlement_token,
+        product_id=purchase.product_id,
+    )
+
+
+@app.post("/api/journal/ai-review-once")
+def get_journal_ai_review_once(
+    batch: JournalAiReviewIn,
+    authorization: Optional[str] = Header(default=None),
+):
+    access = verify_ai_review_access(
+        authorization=authorization,
+        ad_reward_token=batch.ad_reward_token,
+        entitlement_token=batch.entitlement_token,
+        privacy_consent=batch.privacy_consent,
+        review_type=batch.review_type,
+    )
+    trades = _journal_batch_payload(batch)
+    if access.review_type == "advanced":
+        result = build_advanced_ai_review(trades, target_trade_id=batch.target_trade_id)
+    else:
+        result = build_basic_ai_review(trades, target_trade_id=batch.target_trade_id)
+    result["access"] = {
+        "auth_mode": access.auth_mode,
+        "plan": access.plan,
+        "review_type": access.review_type,
+        "source": access.source,
+        "quota": access.quota,
+        "wallet": access.product_balances,
+    }
+    return result
+
+
+@app.get("/api/journal/charts")
+def get_journal_charts():
+    return build_journal_charts(list_trades(limit=5000))
+
+
+@app.post("/api/journal/charts-once")
+def get_journal_charts_once(batch: JournalBatchIn):
+    return build_journal_charts(_journal_batch_payload(batch))
 
 @app.get("/api/stock/{ticker}")
 def get_stock_data(ticker: str, start_date: str, end_date: str, indicators: Optional[str] = None, interval: str = "1d"):
