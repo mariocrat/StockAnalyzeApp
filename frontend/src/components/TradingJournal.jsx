@@ -93,6 +93,7 @@ export default function TradingJournal({ apiBase }) {
   const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE);
   const [feeFree, setFeeFree] = useState(false);
   const [authSession, setAuthSession] = useState(loadStoredAuth);
+  const [dataSummary, setDataSummary] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
@@ -101,6 +102,24 @@ export default function TradingJournal({ apiBase }) {
   const authHeaders = { Authorization: `Bearer ${activeAuthToken}` };
   const savedJournalMode = Boolean(authSession?.session_token && authSession?.user?.journal_storage_enabled);
   const transientJournalMode = oneTimeMode && !savedJournalMode;
+
+  const loadDataSummary = async (tokenOverride = '') => {
+    const token = tokenOverride || authSession?.session_token;
+    if (!token) {
+      setDataSummary(null);
+      return null;
+    }
+    try {
+      const res = await axios.get(`${apiBase}/api/me/data-summary`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setDataSummary(res.data || null);
+      return res.data || null;
+    } catch {
+      setDataSummary(null);
+      return null;
+    }
+  };
 
   const loadEntitlements = async (tokenOverride = '') => {
     try {
@@ -141,6 +160,7 @@ export default function TradingJournal({ apiBase }) {
       setAuthSession(session);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
       await loadEntitlements(session?.session_token || '');
+      await loadDataSummary(session?.session_token || '');
       if (session?.user?.journal_storage_enabled && session?.session_token) {
         await loadPersistedJournal(session.session_token);
       }
@@ -165,6 +185,7 @@ export default function TradingJournal({ apiBase }) {
     } finally {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setAuthSession(null);
+      setDataSummary(null);
       await loadEntitlements(DEV_AUTH_TOKEN);
       setMessage('로그아웃했습니다.');
       setAuthLoading(false);
@@ -197,6 +218,7 @@ export default function TradingJournal({ apiBase }) {
         setChartReview({ charts: [] });
         setActiveChartTicker('');
       }
+      await loadDataSummary(authSession.session_token);
       setMessage(enabled ? '매매 이력 저장을 켰습니다.' : '매매 이력 저장을 껐습니다.');
     } catch (err) {
       setMessage(err.response?.data?.detail || '매매 이력 저장 설정을 바꾸지 못했습니다.');
@@ -220,6 +242,7 @@ export default function TradingJournal({ apiBase }) {
       setChartReview({ charts: [] });
       setActiveChartTicker('');
       setAiReview(null);
+      setDataSummary(prev => prev ? { ...prev, saved_trade_count: 0 } : prev);
       setMessage(`저장된 매매 기록 ${res.data?.deleted_count || 0}건을 삭제했습니다.`);
     } catch (err) {
       setMessage(err.response?.data?.detail || '저장된 매매 기록을 삭제하지 못했습니다.');
@@ -300,7 +323,7 @@ export default function TradingJournal({ apiBase }) {
 
   useEffect(() => {
     loadJournal()
-      .then(() => Promise.all([loadChartReview(), loadEntitlements()]))
+      .then(() => Promise.all([loadChartReview(), loadEntitlements(), loadDataSummary()]))
       .catch(() => setMessage('매매 기록을 불러오지 못했습니다.'));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -425,6 +448,7 @@ export default function TradingJournal({ apiBase }) {
       setStockQuery('');
       setMessage('매매 기록을 저장했습니다.');
       await loadJournal();
+      await loadDataSummary();
       setAiReview(null);
       await loadChartReview();
     } catch {
@@ -445,6 +469,7 @@ export default function TradingJournal({ apiBase }) {
 
     await axios.delete(`${apiBase}/api/journal/trades/${id}`, { headers: authHeaders });
     await loadJournal();
+    await loadDataSummary();
     setAiReview(null);
     await loadChartReview();
   };
@@ -453,6 +478,9 @@ export default function TradingJournal({ apiBase }) {
     || chartReview.charts?.[0];
   const activeIdentity = authSession?.user?.identities?.[0];
   const activeProviderLabel = activeIdentity ? DEV_LOGIN_PROFILES[activeIdentity.provider]?.label || activeIdentity.provider : '';
+  const connectedProviderText = (dataSummary?.connected_providers || [])
+    .map(provider => DEV_LOGIN_PROFILES[provider]?.label || provider)
+    .join(', ') || '-';
 
   return (
     <div className="journal-page">
@@ -472,9 +500,9 @@ export default function TradingJournal({ apiBase }) {
 
       {message && <div className="journal-message">{message}</div>}
 
-      <section className="journal-panel">
+      <section className="journal-panel journal-account-panel">
         <div className="journal-panel-title">
-          <h3>로그인</h3>
+          <h3>계정/데이터 관리</h3>
           <span className="journal-chart-mode">{authSession ? activeProviderLabel : '개발 모드'}</span>
         </div>
         <div className="journal-auth-box">
@@ -496,6 +524,24 @@ export default function TradingJournal({ apiBase }) {
             )}
           </div>
         </div>
+        <div className="journal-data-grid">
+          <div>
+            <span>계정 상태</span>
+            <strong>{authSession ? '로그인됨' : '로그인 안 됨'}</strong>
+          </div>
+          <div>
+            <span>연결 로그인</span>
+            <strong>{connectedProviderText}</strong>
+          </div>
+          <div>
+            <span>저장된 매매 기록</span>
+            <strong>{authSession ? `${dataSummary?.saved_trade_count ?? 0}건` : '0건'}</strong>
+          </div>
+          <div>
+            <span>AI 분석 기록</span>
+            <strong>{dataSummary?.server_keeps_ai_review_history ? '서버 저장' : '서버 저장 안 함'}</strong>
+          </div>
+        </div>
         <label className="journal-auth-toggle">
           <input
             type="checkbox"
@@ -511,6 +557,9 @@ export default function TradingJournal({ apiBase }) {
             저장 기록 전체 삭제
           </button>
         )}
+        <p className="journal-privacy-note">
+          저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 전체 삭제는 현재 로그인 계정의 저장 기록에만 적용됩니다.
+        </p>
       </section>
 
       <section className="journal-panel">

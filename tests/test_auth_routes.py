@@ -16,6 +16,7 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("/api/auth/dev-login", paths)
         self.assertIn("/api/me", paths)
         self.assertIn("/api/me/journal-storage", paths)
+        self.assertIn("/api/me/data-summary", paths)
         self.assertIn("/api/auth/logout", paths)
 
 

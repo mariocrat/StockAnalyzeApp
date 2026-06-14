@@ -18,7 +18,7 @@ from core.data_fetcher import (
 )
 from core.metrics import calculate_theme_rankings, get_stocks_in_theme
 from core.utils import get_chosung
-from core.journal import add_trade, list_trades, delete_trade, clear_trades, build_review, normalize_trade
+from core.journal import add_trade, list_trades, count_trades, delete_trade, clear_trades, build_review, normalize_trade
 from core.ai_review import build_ai_review
 from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
 from core.journal_chart import build_journal_charts
@@ -346,6 +346,20 @@ def patch_me_journal_storage(
         authorization=authorization,
         enabled=setting.enabled,
     )
+
+
+@app.get("/api/me/data-summary")
+def get_me_data_summary(authorization: Optional[str] = Header(default=None)):
+    user = authenticate_session(authorization)
+    return {
+        "journal_storage_enabled": bool(user.get("journal_storage_enabled")),
+        "saved_trade_count": count_trades(user_id=user["id"]),
+        "connected_providers": [
+            identity["provider"] for identity in user.get("identities", [])
+        ],
+        "delete_scope": "current_user_only",
+        "server_keeps_ai_review_history": False,
+    }
 
 
 @app.post("/api/auth/logout")

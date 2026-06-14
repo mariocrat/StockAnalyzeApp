@@ -161,6 +161,21 @@ def list_trades(limit: int = 500, user_id: str | None = None) -> list[dict]:
         conn.close()
 
 
+def count_trades(user_id: str | None = None) -> int:
+    conn = _connect()
+    try:
+        if user_id is None:
+            row = conn.execute("SELECT COUNT(*) AS count FROM trades").fetchone()
+        else:
+            row = conn.execute(
+                "SELECT COUNT(*) AS count FROM trades WHERE user_id = ?",
+                (str(user_id or ""),),
+            ).fetchone()
+        return int(row["count"] if row else 0)
+    finally:
+        conn.close()
+
+
 def delete_trade(trade_id: int, user_id: str | None = None):
     conn = _connect()
     try:
