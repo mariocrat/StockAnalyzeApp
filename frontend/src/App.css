@@ -673,6 +673,23 @@ body {
   font-style: normal;
 }
 
+.journal-danger {
+  margin-top: 10px;
+  background: #2a171a;
+  color: #ffb4b4;
+  border: 1px solid #5a252c;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.journal-danger:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .journal-entitlement-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

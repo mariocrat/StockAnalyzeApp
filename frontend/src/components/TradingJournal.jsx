@@ -205,6 +205,29 @@ export default function TradingJournal({ apiBase }) {
     }
   };
 
+  const handleClearSavedTrades = async () => {
+    if (!savedJournalMode) {
+      setMessage('저장된 매매 이력 삭제는 로그인 후 저장 기능을 켠 상태에서 사용할 수 있습니다.');
+      return;
+    }
+    const ok = window.confirm('현재 로그인 계정의 저장된 매매 기록을 모두 삭제할까요?');
+    if (!ok) return;
+    setAuthLoading(true);
+    try {
+      const res = await axios.delete(`${apiBase}/api/journal/trades`, { headers: authHeaders });
+      setTrades([]);
+      setReview(null);
+      setChartReview({ charts: [] });
+      setActiveChartTicker('');
+      setAiReview(null);
+      setMessage(`저장된 매매 기록 ${res.data?.deleted_count || 0}건을 삭제했습니다.`);
+    } catch (err) {
+      setMessage(err.response?.data?.detail || '저장된 매매 기록을 삭제하지 못했습니다.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const loadJournal = async (nextTrades = trades) => {
     if (transientJournalMode) {
       const reviewRes = await axios.post(`${apiBase}/api/journal/review-once`, { trades: nextTrades });
@@ -483,6 +506,11 @@ export default function TradingJournal({ apiBase }) {
           <span>매매 이력 저장</span>
           <em>{authSession?.user?.journal_storage_enabled ? '켜짐' : '꺼짐'}</em>
         </label>
+        {savedJournalMode && (
+          <button className="journal-danger" disabled={authLoading || !trades.length} onClick={handleClearSavedTrades}>
+            저장 기록 전체 삭제
+          </button>
+        )}
       </section>
 
       <section className="journal-panel">

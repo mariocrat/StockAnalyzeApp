@@ -386,20 +386,20 @@ def remove_journal_trade(
 ):
     user = _optional_session_user(authorization)
     if user:
-        delete_trade(trade_id, user_id=user["id"])
+        deleted_count = delete_trade(trade_id, user_id=user["id"])
     else:
-        delete_trade(trade_id)
-    return {"ok": True}
+        deleted_count = delete_trade(trade_id)
+    return {"ok": True, "deleted_count": deleted_count}
 
 
 @app.delete("/api/journal/trades")
 def remove_all_journal_trades(authorization: Optional[str] = Header(default=None)):
     user = _optional_session_user(authorization)
     if user:
-        clear_trades(user_id=user["id"])
+        deleted_count = clear_trades(user_id=user["id"])
     else:
-        clear_trades()
-    return {"ok": True}
+        deleted_count = clear_trades()
+    return {"ok": True, "deleted_count": deleted_count}
 
 
 @app.get("/api/journal/review")

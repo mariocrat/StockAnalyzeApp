@@ -165,10 +165,11 @@ def delete_trade(trade_id: int, user_id: str | None = None):
     conn = _connect()
     try:
         if user_id is None:
-            conn.execute("DELETE FROM trades WHERE id = ?", (trade_id,))
+            cur = conn.execute("DELETE FROM trades WHERE id = ?", (trade_id,))
         else:
-            conn.execute("DELETE FROM trades WHERE id = ? AND user_id = ?", (trade_id, str(user_id or "")))
+            cur = conn.execute("DELETE FROM trades WHERE id = ? AND user_id = ?", (trade_id, str(user_id or "")))
         conn.commit()
+        return cur.rowcount
     finally:
         conn.close()
 
@@ -177,10 +178,11 @@ def clear_trades(user_id: str | None = None):
     conn = _connect()
     try:
         if user_id is None:
-            conn.execute("DELETE FROM trades")
+            cur = conn.execute("DELETE FROM trades")
         else:
-            conn.execute("DELETE FROM trades WHERE user_id = ?", (str(user_id or ""),))
+            cur = conn.execute("DELETE FROM trades WHERE user_id = ?", (str(user_id or ""),))
         conn.commit()
+        return cur.rowcount
     finally:
         conn.close()
 
