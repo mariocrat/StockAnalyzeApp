@@ -5,10 +5,12 @@ import JournalTradeChart from './JournalTradeChart';
 const sideLabels = { buy: '매수', sell: '매도' };
 const DEFAULT_FEE_RATE = '0.015';
 const DEFAULT_TAX_RATE = '0.15';
-const DEV_AUTH_TOKEN = import.meta.env.VITE_DEV_AUTH_TOKEN || 'dev-token';
-const DEV_AD_REWARD_TOKEN = import.meta.env.VITE_DEV_AD_REWARD_TOKEN || 'dev-ad-reward';
-const DEV_ACCESS_PLAN = import.meta.env.VITE_DEV_ACCESS_PLAN || 'free';
-const DEV_PRO_ENTITLEMENT_TOKEN = import.meta.env.VITE_DEV_PRO_ENTITLEMENT_TOKEN || 'dev-pro-entitlement';
+const APP_ENV = import.meta.env.VITE_ALPHAMATE_ENV || (import.meta.env.PROD ? 'production' : 'development');
+const DEV_TOOLS_ENABLED = APP_ENV !== 'production' && import.meta.env.VITE_ENABLE_DEV_TOOLS !== 'false';
+const DEV_AUTH_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_AUTH_TOKEN || 'dev-token' : '';
+const DEV_AD_REWARD_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_AD_REWARD_TOKEN || 'dev-ad-reward' : '';
+const DEV_ACCESS_PLAN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_ACCESS_PLAN || 'free' : 'free';
+const DEV_PRO_ENTITLEMENT_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_PRO_ENTITLEMENT_TOKEN || 'dev-pro-entitlement' : '';
 const DEV_ENTITLEMENT_TOKEN = DEV_ACCESS_PLAN === 'pro' ? DEV_PRO_ENTITLEMENT_TOKEN : '';
 const AUTH_STORAGE_KEY = 'alphamate.devAuth.v1';
 const DEV_LOGIN_PROFILES = {
@@ -122,10 +124,15 @@ export default function TradingJournal({ apiBase }) {
   };
 
   const loadEntitlements = async (tokenOverride = '') => {
+    const token = tokenOverride || activeAuthToken;
+    if (!token) {
+      setEntitlements(null);
+      return;
+    }
     try {
       const res = await axios.get(`${apiBase}/api/journal/entitlements`, {
         params: { entitlement_token: DEV_ENTITLEMENT_TOKEN },
-        headers: { Authorization: `Bearer ${tokenOverride || activeAuthToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
       setEntitlements(res.data || null);
     } catch {
@@ -147,6 +154,10 @@ export default function TradingJournal({ apiBase }) {
   };
 
   const handleDevLogin = async (provider) => {
+    if (!DEV_TOOLS_ENABLED) {
+      setMessage('배포 모드에서는 실제 로그인 연결이 필요합니다.');
+      return;
+    }
     const profile = DEV_LOGIN_PROFILES[provider];
     if (!profile) return;
     setAuthLoading(true);
@@ -285,7 +296,7 @@ export default function TradingJournal({ apiBase }) {
           {
             trades: nextTrades,
             review_type: reviewType,
-            ad_reward_token: reviewType === 'basic' && DEV_ACCESS_PLAN !== 'pro' ? DEV_AD_REWARD_TOKEN : '',
+            ad_reward_token: DEV_TOOLS_ENABLED && reviewType === 'basic' && DEV_ACCESS_PLAN !== 'pro' ? DEV_AD_REWARD_TOKEN : '',
             entitlement_token: DEV_ENTITLEMENT_TOKEN,
             privacy_consent: aiConsentAccepted,
           },
@@ -394,6 +405,10 @@ export default function TradingJournal({ apiBase }) {
   };
 
   const devPurchaseProduct = async (productId) => {
+    if (!DEV_TOOLS_ENABLED) {
+      setMessage('배포 모드에서는 Google Play 결제 검증이 필요합니다.');
+      return;
+    }
     try {
       const res = await axios.post(
         `${apiBase}/api/journal/dev-purchase`,
@@ -503,20 +518,24 @@ export default function TradingJournal({ apiBase }) {
       <section className="journal-panel journal-account-panel">
         <div className="journal-panel-title">
           <h3>계정/데이터 관리</h3>
-          <span className="journal-chart-mode">{authSession ? activeProviderLabel : '개발 모드'}</span>
+          <span className="journal-chart-mode">{authSession ? activeProviderLabel : DEV_TOOLS_ENABLED ? '개발 모드' : '로그인 필요'}</span>
         </div>
         <div className="journal-auth-box">
           <div>
             <strong>{authSession ? `${authSession.user?.display_name || activeProviderLabel} 로그인 중` : '로그인 안 됨'}</strong>
-            <span>{authSession ? `사용자 ${String(authSession.user?.id || '').slice(0, 8)}` : '기본 개발 계정으로 표시됩니다.'}</span>
+            <span>{authSession ? `사용자 ${String(authSession.user?.id || '').slice(0, 8)}` : DEV_TOOLS_ENABLED ? '기본 개발 계정으로 표시됩니다.' : '실제 로그인 연결 전에는 계정 저장 기능을 사용할 수 없습니다.'}</span>
           </div>
           <div className="journal-auth-actions">
-            <button className="journal-secondary" disabled={authLoading} onClick={() => handleDevLogin('kakao')}>
-              카카오
-            </button>
-            <button className="journal-secondary" disabled={authLoading} onClick={() => handleDevLogin('naver')}>
-              네이버
-            </button>
+            {DEV_TOOLS_ENABLED && (
+              <>
+                <button className="journal-secondary" disabled={authLoading} onClick={() => handleDevLogin('kakao')}>
+                  카카오
+                </button>
+                <button className="journal-secondary" disabled={authLoading} onClick={() => handleDevLogin('naver')}>
+                  네이버
+                </button>
+              </>
+            )}
             {authSession && (
               <button className="journal-secondary" disabled={authLoading} onClick={handleLogout}>
                 로그아웃
@@ -622,13 +641,19 @@ export default function TradingJournal({ apiBase }) {
           <div><span>광고 보상 심층권</span><strong>{entitlements?.advanced?.weekly_reward_remaining || 0}</strong></div>
           <div><span>구매 심층 이용권</span><strong>{entitlements?.advanced?.purchased_remaining || 0}</strong></div>
         </div>
-        <div className="journal-product-list">
-          {REVIEW_PRODUCTS.map(([id, label, price]) => (
-            <button key={id} className="journal-secondary" onClick={() => devPurchaseProduct(id)}>
-              {label} · {price}
-            </button>
-          ))}
-        </div>
+        {DEV_TOOLS_ENABLED ? (
+          <div className="journal-product-list">
+            {REVIEW_PRODUCTS.map(([id, label, price]) => (
+              <button key={id} className="journal-secondary" onClick={() => devPurchaseProduct(id)}>
+                {label} · {price}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="journal-privacy-note">
+            배포 모드에서는 Google Play 결제 검증이 연결된 뒤 이용권 구매가 표시됩니다.
+          </p>
+        )}
       </section>
 
       <section className="journal-panel">

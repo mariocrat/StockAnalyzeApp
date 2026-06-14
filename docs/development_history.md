@@ -103,3 +103,17 @@
 
 - 카카오 개발 사용자와 네이버 개발 사용자의 저장 기록을 각각 만든 뒤 카카오 요약 API가 카카오 기록 1건만 반환하는지 확인
 - `/api/me/data-summary` 경로가 FastAPI 라우트에 등록되는지 확인
+
+### 운영/개발 환경 분리 안전장치
+
+- 운영 모드에서 개발용 로그인 API가 동작하지 않도록 막았다.
+- 운영 모드에서 개발용 복기권 구매 API가 동작하지 않도록 막았다.
+- 운영 모드에서는 `dev-token`, `dev-ad-reward`, `dev-pro-entitlement` 같은 개발용 토큰이 권한으로 인정되지 않는다.
+- frontend production build 또는 `VITE_ALPHAMATE_ENV=production`에서는 개발용 로그인 버튼과 개발용 구매 버튼을 숨긴다.
+- `.env.example`과 `frontend/.env.example`을 추가해 실제 키를 GitHub에 올리지 않고 어떤 환경변수가 필요한지 확인할 수 있게 했다.
+
+확인한 테스트:
+
+- `ALPHAMATE_ENV=production`에서 개발용 로그인 요청이 403으로 거부되는지 확인
+- `ALPHAMATE_ENV=production`에서 개발용 복기권 구매 요청이 403으로 거부되는지 확인
+- `ALPHAMATE_ENV=production`에서 `dev-token` 인증이 401로 거부되는지 확인

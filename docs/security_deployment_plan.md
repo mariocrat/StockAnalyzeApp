@@ -101,3 +101,12 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 현재 메모리 기반 이용권/사용량 관리는 DB 또는 Redis로 교체한다.
 - OpenAI API Key는 앱이나 프론트가 아니라 서버 환경변수/Secret Manager에만 둔다.
 - 서버 로그에는 매매 기록, 메모, Authorization 헤더, AI Key를 남기지 않는다.
+
+## 2026-06-15 운영/개발 환경 분리 안전장치
+
+- `ALPHAMATE_ENV=production`이면 개발용 로그인 API가 거부된다.
+- `ALPHAMATE_ENV=production`이면 개발용 복기권 구매 API가 거부된다.
+- `ALPHAMATE_ENV=production`이면 `dev-token`, `dev-ad-reward`, `dev-pro-entitlement` 같은 개발용 토큰은 인증/광고/Pro 권한으로 인정되지 않는다.
+- frontend production build 또는 `VITE_ALPHAMATE_ENV=production`에서는 개발용 카카오/네이버 로그인 버튼과 개발용 복기권 구매 버튼을 숨긴다.
+- 실제 OpenAI API Key는 `.env.example`에 예시만 두고, 실제 값은 서버 `.env` 또는 배포 환경의 Secret Manager에만 둔다.
+- frontend에는 `VITE_*` 값만 들어가므로 OpenAI API Key, 카카오/네이버 Secret, Google Play 서비스 계정 키를 넣으면 안 된다.

@@ -79,3 +79,16 @@
 - `backend/data/access.sqlite3`
 
 이 파일들은 개발용 로컬 DB라서 GitHub에는 올라가지 않는다.
+
+## 운영 빌드 안전 확인
+
+앱 배포 전에는 개발용 토큰과 버튼이 production build에 남지 않는지 확인한다.
+
+1. `frontend` 폴더에서 `npm run build`를 실행한다.
+2. `frontend/dist` 안에 `dev-token`, `dev-ad-reward`, `dev-pro-entitlement` 문자열이 없는지 확인한다.
+3. backend에서 `ALPHAMATE_ENV=production`이면 개발용 로그인과 개발용 복기권 구매가 거부되는지 테스트한다.
+
+정상 결과:
+
+- production build에는 개발용 토큰 문자열이 포함되지 않는다.
+- production 환경에서는 개발용 로그인/구매/광고 보상 토큰을 사용할 수 없다.

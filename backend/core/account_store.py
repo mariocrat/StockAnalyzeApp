@@ -41,6 +41,10 @@ def _env_value(name: str) -> str:
     return ""
 
 
+def _is_production() -> bool:
+    return _env_value("ALPHAMATE_ENV").lower() == "production"
+
+
 def _account_db_path() -> Path:
     configured = _env_value("ALPHAMATE_ACCOUNT_DB_PATH")
     if configured:
@@ -170,6 +174,9 @@ def _issue_session(conn, user_id: str) -> str:
 
 
 def login_dev_provider(*, provider: str, provider_user_id: str, display_name: str = "") -> dict:
+    if _is_production():
+        raise HTTPException(status_code=403, detail="Development login is disabled in production.")
+
     provider = _normalize_provider(provider)
     provider_user_id = str(provider_user_id or "").strip()
     if not provider_user_id:

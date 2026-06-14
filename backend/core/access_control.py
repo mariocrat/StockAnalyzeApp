@@ -382,6 +382,8 @@ def get_user_entitlements(*, authorization: str | None, entitlement_token: str |
 
 
 def apply_dev_purchase(*, authorization: str | None, entitlement_token: str | None, product_id: str) -> dict:
+    if not _dev_access_enabled():
+        raise HTTPException(status_code=403, detail="Development purchase is disabled.")
     if product_id not in PRODUCTS:
         raise HTTPException(status_code=400, detail="Unknown product id.")
     user_id, _ = _authenticate(authorization)
