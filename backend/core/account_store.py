@@ -281,3 +281,21 @@ def revoke_session(authorization: str | None) -> dict:
     finally:
         conn.close()
     return {"ok": True}
+
+
+def update_journal_storage_setting(*, authorization: str | None, enabled: bool) -> dict:
+    user = authenticate_session(authorization)
+    conn = _connect()
+    try:
+        conn.execute(
+            """
+            UPDATE users
+            SET journal_storage_enabled = ?
+            WHERE id = ?
+            """,
+            (1 if enabled else 0, user["id"]),
+        )
+        conn.commit()
+        return _get_user(conn, user["id"])
+    finally:
+        conn.close()

@@ -23,11 +23,12 @@ from core.ai_review import build_ai_review
 from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
 from core.journal_chart import build_journal_charts
 from core.access_control import verify_ai_review_access, get_user_entitlements, apply_dev_purchase, PRODUCTS
-from core.account_store import login_dev_provider, authenticate_session, revoke_session
+from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting
 
 from contextlib import asynccontextmanager
 import threading
 import logging
+from fastapi import HTTPException
 
 # Suppress yfinance spam at startup
 logging.getLogger("yfinance").setLevel(logging.CRITICAL)
@@ -72,8 +73,28 @@ class AuthDevLoginIn(BaseModel):
     display_name: str = ""
 
 
+class JournalStorageSettingIn(BaseModel):
+    enabled: bool
+
+
 def _journal_batch_payload(batch: JournalBatchIn) -> list[dict]:
     return [normalize_trade(trade.model_dump()) for trade in batch.trades]
+
+
+def _optional_session_user(authorization: Optional[str]):
+    if not authorization:
+        return None
+    try:
+        return authenticate_session(authorization)
+    except HTTPException:
+        return None
+
+
+def _journal_user_id_if_enabled(authorization: Optional[str]) -> str:
+    user = authenticate_session(authorization)
+    if not user.get("journal_storage_enabled"):
+        raise HTTPException(status_code=403, detail="매매 이력 저장을 먼저 켜야 합니다.")
+    return user["id"]
 
 
 def _previous_weekday(day: datetime.date) -> datetime.date:
@@ -316,35 +337,78 @@ def get_me(authorization: Optional[str] = Header(default=None)):
     return authenticate_session(authorization)
 
 
+@app.patch("/api/me/journal-storage")
+def patch_me_journal_storage(
+    setting: JournalStorageSettingIn,
+    authorization: Optional[str] = Header(default=None),
+):
+    return update_journal_storage_setting(
+        authorization=authorization,
+        enabled=setting.enabled,
+    )
+
+
 @app.post("/api/auth/logout")
 def post_auth_logout(authorization: Optional[str] = Header(default=None)):
     return revoke_session(authorization)
 
 
 @app.get("/api/journal/trades")
-def get_journal_trades(limit: int = 500):
+def get_journal_trades(
+    limit: int = 500,
+    authorization: Optional[str] = Header(default=None),
+):
+    user = _optional_session_user(authorization)
+    if user:
+        if not user.get("journal_storage_enabled"):
+            return []
+        return list_trades(limit=limit, user_id=user["id"])
     return list_trades(limit=limit)
 
 
 @app.post("/api/journal/trades")
-def create_journal_trade(trade: JournalTradeIn):
+def create_journal_trade(
+    trade: JournalTradeIn,
+    authorization: Optional[str] = Header(default=None),
+):
+    user = _optional_session_user(authorization)
+    if user:
+        if not user.get("journal_storage_enabled"):
+            raise HTTPException(status_code=403, detail="매매 이력 저장을 먼저 켜야 합니다.")
+        return add_trade(trade.model_dump(), user_id=user["id"])
     return add_trade(trade.model_dump())
 
 
 @app.delete("/api/journal/trades/{trade_id}")
-def remove_journal_trade(trade_id: int):
-    delete_trade(trade_id)
+def remove_journal_trade(
+    trade_id: int,
+    authorization: Optional[str] = Header(default=None),
+):
+    user = _optional_session_user(authorization)
+    if user:
+        delete_trade(trade_id, user_id=user["id"])
+    else:
+        delete_trade(trade_id)
     return {"ok": True}
 
 
 @app.delete("/api/journal/trades")
-def remove_all_journal_trades():
-    clear_trades()
+def remove_all_journal_trades(authorization: Optional[str] = Header(default=None)):
+    user = _optional_session_user(authorization)
+    if user:
+        clear_trades(user_id=user["id"])
+    else:
+        clear_trades()
     return {"ok": True}
 
 
 @app.get("/api/journal/review")
-def get_journal_review():
+def get_journal_review(authorization: Optional[str] = Header(default=None)):
+    user = _optional_session_user(authorization)
+    if user:
+        if not user.get("journal_storage_enabled"):
+            return build_review([])
+        return build_review(list_trades(limit=5000, user_id=user["id"]))
     return build_review()
 
 
@@ -354,8 +418,10 @@ def get_journal_review_once(batch: JournalBatchIn):
 
 
 @app.get("/api/journal/ai-review")
-def get_journal_ai_review():
-    return build_ai_review(list_trades(limit=5000))
+def get_journal_ai_review(authorization: Optional[str] = Header(default=None)):
+    user = _optional_session_user(authorization)
+    trades = list_trades(limit=5000, user_id=user["id"]) if user and user.get("journal_storage_enabled") else list_trades(limit=5000)
+    return build_ai_review(trades)
 
 
 @app.get("/api/journal/entitlements")
@@ -415,8 +481,10 @@ def get_journal_ai_review_once(
 
 
 @app.get("/api/journal/charts")
-def get_journal_charts():
-    return build_journal_charts(list_trades(limit=5000))
+def get_journal_charts(authorization: Optional[str] = Header(default=None)):
+    user = _optional_session_user(authorization)
+    trades = list_trades(limit=5000, user_id=user["id"]) if user and user.get("journal_storage_enabled") else list_trades(limit=5000)
+    return build_journal_charts(trades)
 
 
 @app.post("/api/journal/charts-once")

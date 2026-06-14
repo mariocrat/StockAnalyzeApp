@@ -655,6 +655,24 @@ body {
   justify-content: flex-end;
 }
 
+.journal-auth-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  color: #d1d4dc;
+  font-size: 12px;
+}
+
+.journal-auth-toggle input {
+  accent-color: #2962ff;
+}
+
+.journal-auth-toggle em {
+  color: #8c93a3;
+  font-style: normal;
+}
+
 .journal-entitlement-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

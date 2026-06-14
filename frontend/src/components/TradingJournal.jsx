@@ -99,6 +99,8 @@ export default function TradingJournal({ apiBase }) {
 
   const activeAuthToken = authSession?.session_token || DEV_AUTH_TOKEN;
   const authHeaders = { Authorization: `Bearer ${activeAuthToken}` };
+  const savedJournalMode = Boolean(authSession?.session_token && authSession?.user?.journal_storage_enabled);
+  const transientJournalMode = oneTimeMode && !savedJournalMode;
 
   const loadEntitlements = async (tokenOverride = '') => {
     try {
@@ -110,6 +112,19 @@ export default function TradingJournal({ apiBase }) {
     } catch {
       setEntitlements(null);
     }
+  };
+
+  const loadPersistedJournal = async (token) => {
+    const headers = { Authorization: `Bearer ${token}` };
+    const [tradeRes, reviewRes, chartRes] = await Promise.all([
+      axios.get(`${apiBase}/api/journal/trades`, { headers }),
+      axios.get(`${apiBase}/api/journal/review`, { headers }),
+      axios.get(`${apiBase}/api/journal/charts`, { headers }),
+    ]);
+    setTrades(tradeRes.data || []);
+    setReview(reviewRes.data || null);
+    setChartReview(chartRes.data || { charts: [] });
+    setActiveChartTicker(chartRes.data?.charts?.[0]?.ticker || '');
   };
 
   const handleDevLogin = async (provider) => {
@@ -126,6 +141,9 @@ export default function TradingJournal({ apiBase }) {
       setAuthSession(session);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
       await loadEntitlements(session?.session_token || '');
+      if (session?.user?.journal_storage_enabled && session?.session_token) {
+        await loadPersistedJournal(session.session_token);
+      }
       setMessage(`${profile.label} 개발 계정으로 로그인했습니다.`);
     } catch (err) {
       setMessage(err.response?.data?.detail || '개발 로그인을 처리하지 못했습니다.');
@@ -153,8 +171,42 @@ export default function TradingJournal({ apiBase }) {
     }
   };
 
+  const handleJournalStorageToggle = async (enabled) => {
+    if (!authSession?.session_token) {
+      setMessage('매매 이력 저장 설정은 로그인 후 변경할 수 있습니다.');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const res = await axios.patch(
+        `${apiBase}/api/me/journal-storage`,
+        { enabled },
+        { headers: { Authorization: `Bearer ${authSession.session_token}` } },
+      );
+      const nextSession = {
+        ...authSession,
+        user: res.data,
+      };
+      setAuthSession(nextSession);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession));
+      if (enabled) {
+        await loadPersistedJournal(authSession.session_token);
+      } else {
+        setTrades([]);
+        setReview(null);
+        setChartReview({ charts: [] });
+        setActiveChartTicker('');
+      }
+      setMessage(enabled ? '매매 이력 저장을 켰습니다.' : '매매 이력 저장을 껐습니다.');
+    } catch (err) {
+      setMessage(err.response?.data?.detail || '매매 이력 저장 설정을 바꾸지 못했습니다.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const loadJournal = async (nextTrades = trades) => {
-    if (oneTimeMode) {
+    if (transientJournalMode) {
       const reviewRes = await axios.post(`${apiBase}/api/journal/review-once`, { trades: nextTrades });
       setTrades(nextTrades);
       setReview(reviewRes.data || null);
@@ -162,8 +214,8 @@ export default function TradingJournal({ apiBase }) {
     }
 
     const [tradeRes, reviewRes] = await Promise.all([
-      axios.get(`${apiBase}/api/journal/trades`),
-      axios.get(`${apiBase}/api/journal/review`),
+      axios.get(`${apiBase}/api/journal/trades`, { headers: authHeaders }),
+      axios.get(`${apiBase}/api/journal/review`, { headers: authHeaders }),
     ]);
     setTrades(tradeRes.data || []);
     setReview(reviewRes.data || null);
@@ -181,7 +233,7 @@ export default function TradingJournal({ apiBase }) {
 
     setAiLoading(true);
     try {
-      const res = oneTimeMode
+      const res = transientJournalMode
         ? await axios.post(
           `${apiBase}/api/journal/ai-review-once`,
           {
@@ -193,7 +245,7 @@ export default function TradingJournal({ apiBase }) {
           },
           { headers: authHeaders },
         )
-        : await axios.get(`${apiBase}/api/journal/ai-review`);
+        : await axios.get(`${apiBase}/api/journal/ai-review`, { headers: authHeaders });
       setAiReview(res.data || null);
       if (res.data?.access?.wallet) setEntitlements(res.data.access.wallet);
     } catch (err) {
@@ -210,9 +262,9 @@ export default function TradingJournal({ apiBase }) {
 
   const loadChartReview = async (nextTrades = trades) => {
     try {
-      const res = oneTimeMode
+      const res = transientJournalMode
         ? await axios.post(`${apiBase}/api/journal/charts-once`, { trades: nextTrades })
-        : await axios.get(`${apiBase}/api/journal/charts`);
+        : await axios.get(`${apiBase}/api/journal/charts`, { headers: authHeaders });
       const data = res.data || { charts: [] };
       setChartReview(data);
       if (!activeChartTicker && data.charts?.[0]?.ticker) {
@@ -316,7 +368,7 @@ export default function TradingJournal({ apiBase }) {
     }
     setLoading(true);
     try {
-      if (oneTimeMode) {
+      if (transientJournalMode) {
         const nextTrade = {
           id: Date.now(),
           ...form,
@@ -335,13 +387,17 @@ export default function TradingJournal({ apiBase }) {
         return;
       }
 
-      await axios.post(`${apiBase}/api/journal/trades`, {
-        ...form,
-        price: Number(form.price),
-        quantity: Number(form.quantity),
-        fee: Number(form.fee || 0),
-        tax: Number(form.tax || 0),
-      });
+      await axios.post(
+        `${apiBase}/api/journal/trades`,
+        {
+          ...form,
+          price: Number(form.price),
+          quantity: Number(form.quantity),
+          fee: Number(form.fee || 0),
+          tax: Number(form.tax || 0),
+        },
+        { headers: authHeaders },
+      );
       setForm(emptyForm);
       setStockQuery('');
       setMessage('매매 기록을 저장했습니다.');
@@ -356,7 +412,7 @@ export default function TradingJournal({ apiBase }) {
   };
 
   const removeTrade = async (id) => {
-    if (oneTimeMode) {
+    if (transientJournalMode) {
       const nextTrades = trades.filter(trade => trade.id !== id);
       await loadJournal(nextTrades);
       setAiReview(null);
@@ -364,7 +420,7 @@ export default function TradingJournal({ apiBase }) {
       return;
     }
 
-    await axios.delete(`${apiBase}/api/journal/trades/${id}`);
+    await axios.delete(`${apiBase}/api/journal/trades/${id}`, { headers: authHeaders });
     await loadJournal();
     setAiReview(null);
     await loadChartReview();
@@ -417,6 +473,16 @@ export default function TradingJournal({ apiBase }) {
             )}
           </div>
         </div>
+        <label className="journal-auth-toggle">
+          <input
+            type="checkbox"
+            checked={Boolean(authSession?.user?.journal_storage_enabled)}
+            disabled={!authSession || authLoading}
+            onChange={e => handleJournalStorageToggle(e.target.checked)}
+          />
+          <span>매매 이력 저장</span>
+          <em>{authSession?.user?.journal_storage_enabled ? '켜짐' : '꺼짐'}</em>
+        </label>
       </section>
 
       <section className="journal-panel">

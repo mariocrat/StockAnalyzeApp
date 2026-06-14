@@ -1,4 +1,5 @@
 import datetime
+import os
 import sqlite3
 from pathlib import Path
 
@@ -7,14 +8,53 @@ DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 DB_PATH = DATA_DIR / "trades.sqlite3"
 
 
+def _env_value(name: str) -> str:
+    value = os.environ.get(name)
+    if value:
+        return value.strip()
+    roots = [
+        Path(__file__).resolve().parents[2] / ".env",
+        Path(__file__).resolve().parents[1] / ".env",
+    ]
+    for path in roots:
+        try:
+            if not path.exists():
+                continue
+            for line in path.read_text(encoding="utf-8").splitlines():
+                raw = line.strip()
+                if not raw or raw.startswith("#") or "=" not in raw:
+                    continue
+                key, val = raw.split("=", 1)
+                if key.strip() == name:
+                    return val.strip().strip("\"'")
+        except Exception:
+            continue
+    return ""
+
+
+def _db_path() -> Path:
+    configured = _env_value("ALPHAMATE_JOURNAL_DB_PATH")
+    if configured:
+        return Path(configured)
+    return DB_PATH
+
+
+def _ensure_column(conn, table: str, column: str, definition: str):
+    columns = [row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+    if column not in columns:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
 def _connect():
-    DATA_DIR.mkdir(exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    path = _db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL DEFAULT '',
             trade_date TEXT NOT NULL,
             ticker TEXT,
             name TEXT NOT NULL,
@@ -29,6 +69,7 @@ def _connect():
         )
         """
     )
+    _ensure_column(conn, "trades", "user_id", "TEXT NOT NULL DEFAULT ''")
     return conn
 
 
@@ -66,17 +107,19 @@ def normalize_trade(payload: dict) -> dict:
     }
 
 
-def add_trade(payload: dict) -> dict:
+def add_trade(payload: dict, user_id: str = "") -> dict:
     trade = normalize_trade(payload)
     now = datetime.datetime.now().isoformat(timespec="seconds")
-    with _connect() as conn:
+    conn = _connect()
+    try:
         cur = conn.execute(
             """
             INSERT INTO trades
-            (trade_date, ticker, name, side, price, quantity, fee, tax, memo, source, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (user_id, trade_date, ticker, name, side, price, quantity, fee, tax, memo, source, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
+                str(user_id or ""),
                 trade["trade_date"], trade["ticker"], trade["name"], trade["side"],
                 trade["price"], trade["quantity"], trade["fee"], trade["tax"],
                 trade["memo"], trade["source"], now,
@@ -84,12 +127,27 @@ def add_trade(payload: dict) -> dict:
         )
         conn.commit()
         trade["id"] = cur.lastrowid
+        trade["user_id"] = str(user_id or "")
         trade["created_at"] = now
+    finally:
+        conn.close()
     return trade
 
 
-def list_trades(limit: int = 500) -> list[dict]:
-    with _connect() as conn:
+def list_trades(limit: int = 500, user_id: str | None = None) -> list[dict]:
+    conn = _connect()
+    try:
+        if user_id is not None:
+            rows = conn.execute(
+                """
+                SELECT * FROM trades
+                WHERE user_id = ?
+                ORDER BY trade_date DESC, id DESC
+                LIMIT ?
+                """,
+                (str(user_id or ""), limit),
+            ).fetchall()
+            return [dict(row) for row in rows]
         rows = conn.execute(
             """
             SELECT * FROM trades
@@ -98,19 +156,33 @@ def list_trades(limit: int = 500) -> list[dict]:
             """,
             (limit,),
         ).fetchall()
-    return [dict(row) for row in rows]
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
 
 
-def delete_trade(trade_id: int):
-    with _connect() as conn:
-        conn.execute("DELETE FROM trades WHERE id = ?", (trade_id,))
+def delete_trade(trade_id: int, user_id: str | None = None):
+    conn = _connect()
+    try:
+        if user_id is None:
+            conn.execute("DELETE FROM trades WHERE id = ?", (trade_id,))
+        else:
+            conn.execute("DELETE FROM trades WHERE id = ? AND user_id = ?", (trade_id, str(user_id or "")))
         conn.commit()
+    finally:
+        conn.close()
 
 
-def clear_trades():
-    with _connect() as conn:
-        conn.execute("DELETE FROM trades")
+def clear_trades(user_id: str | None = None):
+    conn = _connect()
+    try:
+        if user_id is None:
+            conn.execute("DELETE FROM trades")
+        else:
+            conn.execute("DELETE FROM trades WHERE user_id = ?", (str(user_id or ""),))
         conn.commit()
+    finally:
+        conn.close()
 
 
 def build_review(trades: list[dict] | None = None) -> dict:

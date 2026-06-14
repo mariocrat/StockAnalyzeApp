@@ -76,6 +76,28 @@ class AccountStoreTest(unittest.TestCase):
             self.assertEqual(5, kakao_entitlements["advanced"]["purchased_remaining"])
             self.assertEqual(0, naver_entitlements["advanced"]["purchased_remaining"])
 
+    def test_journal_storage_setting_can_be_changed_for_session_user(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+
+            from backend.core import account_store
+
+            account_store = importlib.reload(account_store)
+            session = account_store.login_dev_provider(
+                provider="kakao",
+                provider_user_id="storage-user",
+                display_name="저장 테스트",
+            )
+            updated = account_store.update_journal_storage_setting(
+                authorization=f"Bearer {session['session_token']}",
+                enabled=True,
+            )
+
+            self.assertTrue(updated["journal_storage_enabled"])
+
+            current = account_store.authenticate_session(f"Bearer {session['session_token']}")
+            self.assertTrue(current["journal_storage_enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()
