@@ -621,6 +621,40 @@ body {
   justify-content: flex-end;
 }
 
+.journal-auth-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #10141f;
+  border: 1px solid #252b38;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.journal-auth-box strong,
+.journal-auth-box span {
+  display: block;
+}
+
+.journal-auth-box strong {
+  color: #f2f5ff;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.journal-auth-box span {
+  color: #8c93a3;
+  font-size: 11px;
+}
+
+.journal-auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .journal-entitlement-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -900,5 +934,14 @@ body {
 
   .journal-row {
     grid-template-columns: 1fr;
+  }
+
+  .journal-auth-box {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .journal-auth-actions {
+    justify-content: flex-start;
   }
 }

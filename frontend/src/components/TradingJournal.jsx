@@ -10,6 +10,11 @@ const DEV_AD_REWARD_TOKEN = import.meta.env.VITE_DEV_AD_REWARD_TOKEN || 'dev-ad-
 const DEV_ACCESS_PLAN = import.meta.env.VITE_DEV_ACCESS_PLAN || 'free';
 const DEV_PRO_ENTITLEMENT_TOKEN = import.meta.env.VITE_DEV_PRO_ENTITLEMENT_TOKEN || 'dev-pro-entitlement';
 const DEV_ENTITLEMENT_TOKEN = DEV_ACCESS_PLAN === 'pro' ? DEV_PRO_ENTITLEMENT_TOKEN : '';
+const AUTH_STORAGE_KEY = 'alphamate.devAuth.v1';
+const DEV_LOGIN_PROFILES = {
+  kakao: { label: '카카오', provider_user_id: 'dev-kakao-user', display_name: '카카오 테스트' },
+  naver: { label: '네이버', provider_user_id: 'dev-naver-user', display_name: '네이버 테스트' },
+};
 const REVIEW_PRODUCTS = [
   ['basic_review_30', '일반 복기 이용권 30회', '2,900원'],
   ['basic_review_100', '일반 복기 이용권 100회', '6,900원'],
@@ -45,6 +50,15 @@ function money(value) {
   return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(value || 0);
 }
 
+function loadStoredAuth() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function reviewAccessText(access) {
   if (!access?.quota) return '';
   const plan = access.plan === 'pro' ? 'Pro' : '무료';
@@ -78,20 +92,64 @@ export default function TradingJournal({ apiBase }) {
   const [feeRate, setFeeRate] = useState(DEFAULT_FEE_RATE);
   const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE);
   const [feeFree, setFeeFree] = useState(false);
+  const [authSession, setAuthSession] = useState(loadStoredAuth);
+  const [authLoading, setAuthLoading] = useState(false);
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
 
-  const authHeaders = { Authorization: `Bearer ${DEV_AUTH_TOKEN}` };
+  const activeAuthToken = authSession?.session_token || DEV_AUTH_TOKEN;
+  const authHeaders = { Authorization: `Bearer ${activeAuthToken}` };
 
-  const loadEntitlements = async () => {
+  const loadEntitlements = async (tokenOverride = '') => {
     try {
       const res = await axios.get(`${apiBase}/api/journal/entitlements`, {
         params: { entitlement_token: DEV_ENTITLEMENT_TOKEN },
-        headers: authHeaders,
+        headers: { Authorization: `Bearer ${tokenOverride || activeAuthToken}` },
       });
       setEntitlements(res.data || null);
     } catch {
       setEntitlements(null);
+    }
+  };
+
+  const handleDevLogin = async (provider) => {
+    const profile = DEV_LOGIN_PROFILES[provider];
+    if (!profile) return;
+    setAuthLoading(true);
+    try {
+      const res = await axios.post(`${apiBase}/api/auth/dev-login`, {
+        provider,
+        provider_user_id: profile.provider_user_id,
+        display_name: profile.display_name,
+      });
+      const session = res.data || null;
+      setAuthSession(session);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      await loadEntitlements(session?.session_token || '');
+      setMessage(`${profile.label} 개발 계정으로 로그인했습니다.`);
+    } catch (err) {
+      setMessage(err.response?.data?.detail || '개발 로그인을 처리하지 못했습니다.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setAuthLoading(true);
+    try {
+      if (authSession?.session_token) {
+        await axios.post(`${apiBase}/api/auth/logout`, {}, {
+          headers: { Authorization: `Bearer ${authSession.session_token}` },
+        });
+      }
+    } catch {
+      // Local logout still clears the development session.
+    } finally {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setAuthSession(null);
+      await loadEntitlements(DEV_AUTH_TOKEN);
+      setMessage('로그아웃했습니다.');
+      setAuthLoading(false);
     }
   };
 
@@ -314,6 +372,8 @@ export default function TradingJournal({ apiBase }) {
 
   const activeTradeChart = (chartReview.charts || []).find(chart => chart.ticker === activeChartTicker)
     || chartReview.charts?.[0];
+  const activeIdentity = authSession?.user?.identities?.[0];
+  const activeProviderLabel = activeIdentity ? DEV_LOGIN_PROFILES[activeIdentity.provider]?.label || activeIdentity.provider : '';
 
   return (
     <div className="journal-page">
@@ -332,6 +392,32 @@ export default function TradingJournal({ apiBase }) {
       </div>
 
       {message && <div className="journal-message">{message}</div>}
+
+      <section className="journal-panel">
+        <div className="journal-panel-title">
+          <h3>로그인</h3>
+          <span className="journal-chart-mode">{authSession ? activeProviderLabel : '개발 모드'}</span>
+        </div>
+        <div className="journal-auth-box">
+          <div>
+            <strong>{authSession ? `${authSession.user?.display_name || activeProviderLabel} 로그인 중` : '로그인 안 됨'}</strong>
+            <span>{authSession ? `사용자 ${String(authSession.user?.id || '').slice(0, 8)}` : '기본 개발 계정으로 표시됩니다.'}</span>
+          </div>
+          <div className="journal-auth-actions">
+            <button className="journal-secondary" disabled={authLoading} onClick={() => handleDevLogin('kakao')}>
+              카카오
+            </button>
+            <button className="journal-secondary" disabled={authLoading} onClick={() => handleDevLogin('naver')}>
+              네이버
+            </button>
+            {authSession && (
+              <button className="journal-secondary" disabled={authLoading} onClick={handleLogout}>
+                로그아웃
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
 
       <section className="journal-panel">
         <h3>매매 기록 입력</h3>
