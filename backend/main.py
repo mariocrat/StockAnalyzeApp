@@ -23,6 +23,7 @@ from core.ai_review import build_ai_review
 from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
 from core.journal_chart import build_journal_charts
 from core.access_control import verify_ai_review_access, get_user_entitlements, apply_dev_purchase, PRODUCTS
+from core.account_store import login_dev_provider, authenticate_session, revoke_session
 
 from contextlib import asynccontextmanager
 import threading
@@ -63,6 +64,12 @@ class JournalAiReviewIn(JournalBatchIn):
 class JournalDevPurchaseIn(BaseModel):
     product_id: str
     entitlement_token: str = ""
+
+
+class AuthDevLoginIn(BaseModel):
+    provider: str
+    provider_user_id: str
+    display_name: str = ""
 
 
 def _journal_batch_payload(batch: JournalBatchIn) -> list[dict]:
@@ -293,6 +300,25 @@ def search_stocks(q: str):
             "Themes": m["Themes"]
         })
     return result
+
+
+@app.post("/api/auth/dev-login")
+def post_auth_dev_login(login: AuthDevLoginIn):
+    return login_dev_provider(
+        provider=login.provider,
+        provider_user_id=login.provider_user_id,
+        display_name=login.display_name,
+    )
+
+
+@app.get("/api/me")
+def get_me(authorization: Optional[str] = Header(default=None)):
+    return authenticate_session(authorization)
+
+
+@app.post("/api/auth/logout")
+def post_auth_logout(authorization: Optional[str] = Header(default=None)):
+    return revoke_session(authorization)
 
 
 @app.get("/api/journal/trades")

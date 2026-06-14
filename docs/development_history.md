@@ -40,3 +40,30 @@
 - 심층 복기 이용권 5회 구매
 - 심층 복기 1회 사용
 - 서버 코드 재시작 상황을 흉내낸 뒤 남은 이용권이 4회로 유지되는지 확인
+
+### 서버 DB 기반 로그인/세션 뼈대
+
+- 카카오/네이버 실제 키 없이도 개발을 이어갈 수 있도록 개발용 로그인 API를 만들었다.
+- 개발용 로그인도 실제 구조와 비슷하게 `(provider, provider_user_id)`를 내부 사용자 ID에 연결한다.
+- `provider`는 `kakao` 또는 `naver`를 받을 수 있다.
+- 로그인하면 AlphaMate 자체 세션 토큰이 발급되고, `/api/me`로 현재 사용자를 확인할 수 있다.
+- `/api/auth/logout`으로 세션을 폐기할 수 있다.
+- 기존 복기권 시스템이 이제 `dev-token`뿐 아니라 AlphaMate 세션 토큰도 인식한다.
+- 그래서 카카오 개발 사용자 A와 네이버 개발 사용자 B의 복기권/사용량이 서로 분리된다.
+
+추가된 개발용 API:
+
+- `POST /api/auth/dev-login`
+- `GET /api/me`
+- `POST /api/auth/logout`
+
+저장 위치:
+
+- `backend/data/accounts.sqlite3`: 사용자, 로그인 제공자 연결, 세션
+- `backend/data/access.sqlite3`: 일반/심층 복기권과 사용량
+
+아직 남은 일:
+
+- 실제 카카오 개발자 콘솔 앱 키와 네이버 개발자 센터 Client ID/Secret을 받아서 토큰 검증을 붙여야 한다.
+- 프론트 화면에는 아직 실제 카카오/네이버 로그인 버튼을 붙이지 않았다.
+- 운영 배포 전에는 SQLite 대신 서버용 PostgreSQL 같은 DB로 옮기는 것이 좋다.

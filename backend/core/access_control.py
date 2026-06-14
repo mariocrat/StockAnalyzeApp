@@ -263,7 +263,13 @@ def _authenticate(authorization: str | None) -> tuple[str, str]:
     dev_auth_token = _env_value("ALPHAMATE_DEV_AUTH_TOKEN") or "dev-token"
     if _dev_access_enabled() and token == dev_auth_token:
         return "dev-user", "dev"
-    raise HTTPException(status_code=401, detail="Valid user authentication is required.")
+    try:
+        from core.account_store import authenticate_session
+    except ModuleNotFoundError:
+        from backend.core.account_store import authenticate_session
+
+    user = authenticate_session(authorization)
+    return user["id"], "session"
 
 
 def _plan_for(entitlement_token: str | None) -> str:
