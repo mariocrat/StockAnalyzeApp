@@ -1,5 +1,6 @@
 import datetime
 import os
+import sqlite3
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -59,8 +60,8 @@ class AiAccessContext:
     quota: dict
 
 
-_WALLETS: dict[str, UserWallet] = {}
 _WALLET_LOCK = threading.Lock()
+DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 
 def _env_value(name: str) -> str:
@@ -86,6 +87,125 @@ def _env_value(name: str) -> str:
         except Exception:
             continue
     return ""
+
+
+def _access_db_path() -> Path:
+    configured = _env_value("ALPHAMATE_ACCESS_DB_PATH")
+    if configured:
+        return Path(configured)
+    return DATA_DIR / "access.sqlite3"
+
+
+def _connect_access_db():
+    path = _access_db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS access_wallets (
+            user_id TEXT PRIMARY KEY,
+            basic_signup_remaining INTEGER NOT NULL DEFAULT 5,
+            purchased_basic INTEGER NOT NULL DEFAULT 0,
+            weekly_advanced INTEGER NOT NULL DEFAULT 0,
+            purchased_advanced INTEGER NOT NULL DEFAULT 0,
+            date_key TEXT NOT NULL DEFAULT '',
+            month_key TEXT NOT NULL DEFAULT '',
+            week_key TEXT NOT NULL DEFAULT '',
+            free_basic_daily_used INTEGER NOT NULL DEFAULT 0,
+            free_basic_monthly_used INTEGER NOT NULL DEFAULT 0,
+            pro_basic_monthly_used INTEGER NOT NULL DEFAULT 0,
+            pro_advanced_monthly_used INTEGER NOT NULL DEFAULT 0,
+            weekly_ad_views INTEGER NOT NULL DEFAULT 0,
+            weekly_advanced_granted INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    return conn
+
+
+def _wallet_from_row(row) -> UserWallet:
+    if row is None:
+        return UserWallet()
+    usage = UsageBucket(
+        date_key=row["date_key"],
+        month_key=row["month_key"],
+        week_key=row["week_key"],
+        free_basic_daily_used=int(row["free_basic_daily_used"]),
+        free_basic_monthly_used=int(row["free_basic_monthly_used"]),
+        pro_basic_monthly_used=int(row["pro_basic_monthly_used"]),
+        pro_advanced_monthly_used=int(row["pro_advanced_monthly_used"]),
+        weekly_ad_views=int(row["weekly_ad_views"]),
+        weekly_advanced_granted=int(row["weekly_advanced_granted"]),
+    )
+    return UserWallet(
+        basic_signup_remaining=int(row["basic_signup_remaining"]),
+        purchased_basic=int(row["purchased_basic"]),
+        weekly_advanced=int(row["weekly_advanced"]),
+        purchased_advanced=int(row["purchased_advanced"]),
+        usage=usage,
+    )
+
+
+def _load_wallet(user_id: str) -> UserWallet:
+    conn = _connect_access_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM access_wallets WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        return _wallet_from_row(row)
+    finally:
+        conn.close()
+
+
+def _save_wallet(user_id: str, wallet: UserWallet):
+    usage = wallet.usage
+    now = datetime.datetime.now().isoformat(timespec="seconds")
+    conn = _connect_access_db()
+    try:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO access_wallets (
+                user_id,
+                basic_signup_remaining,
+                purchased_basic,
+                weekly_advanced,
+                purchased_advanced,
+                date_key,
+                month_key,
+                week_key,
+                free_basic_daily_used,
+                free_basic_monthly_used,
+                pro_basic_monthly_used,
+                pro_advanced_monthly_used,
+                weekly_ad_views,
+                weekly_advanced_granted,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                wallet.basic_signup_remaining,
+                wallet.purchased_basic,
+                wallet.weekly_advanced,
+                wallet.purchased_advanced,
+                usage.date_key,
+                usage.month_key,
+                usage.week_key,
+                usage.free_basic_daily_used,
+                usage.free_basic_monthly_used,
+                usage.pro_basic_monthly_used,
+                usage.pro_advanced_monthly_used,
+                usage.weekly_ad_views,
+                usage.weekly_advanced_granted,
+                now,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _is_production() -> bool:
@@ -119,7 +239,7 @@ def _today_keys():
 
 
 def _wallet_for(user_id: str) -> UserWallet:
-    wallet = _WALLETS.setdefault(user_id, UserWallet())
+    wallet = _load_wallet(user_id)
     date_key, month_key, week_key = _today_keys()
     usage = wallet.usage
     if usage.date_key != date_key:
@@ -249,6 +369,7 @@ def get_user_entitlements(*, authorization: str | None, entitlement_token: str |
     plan = _plan_for(entitlement_token)
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id)
+        _save_wallet(user_id, wallet)
         data = _wallet_snapshot(wallet, plan)
     data["user"] = {"id": user_id, "auth_mode": auth_mode}
     return data
@@ -266,6 +387,7 @@ def apply_dev_purchase(*, authorization: str | None, entitlement_token: str | No
             wallet.purchased_basic += product["quantity"]
         else:
             wallet.purchased_advanced += product["quantity"]
+        _save_wallet(user_id, wallet)
         return _wallet_snapshot(wallet, plan)
 
 
@@ -289,6 +411,7 @@ def verify_ai_review_access(
             source = _consume_advanced(wallet, plan)
         else:
             source = _consume_basic(wallet, plan, _verify_ad(ad_reward_token))
+        _save_wallet(user_id, wallet)
         snapshot = _wallet_snapshot(wallet, plan)
     return AiAccessContext(
         user_id=user_id,
