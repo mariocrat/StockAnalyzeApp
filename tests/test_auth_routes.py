@@ -14,6 +14,8 @@ class AuthRoutesTest(unittest.TestCase):
         paths = set(main.app.openapi()["paths"].keys())
 
         self.assertIn("/api/auth/dev-login", paths)
+        self.assertIn("/api/auth/login/kakao", paths)
+        self.assertIn("/api/auth/login/naver", paths)
         self.assertIn("/api/me", paths)
         self.assertIn("/api/me/journal-storage", paths)
         self.assertIn("/api/me/data-summary", paths)

@@ -24,6 +24,7 @@ from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
 from core.journal_chart import build_journal_charts
 from core.access_control import verify_ai_review_access, get_user_entitlements, apply_dev_purchase, PRODUCTS
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting
+from core.oauth_login import login_oauth_provider
 
 from contextlib import asynccontextmanager
 import threading
@@ -71,6 +72,10 @@ class AuthDevLoginIn(BaseModel):
     provider: str
     provider_user_id: str
     display_name: str = ""
+
+
+class AuthProviderTokenIn(BaseModel):
+    access_token: str
 
 
 class JournalStorageSettingIn(BaseModel):
@@ -330,6 +335,16 @@ def post_auth_dev_login(login: AuthDevLoginIn):
         provider_user_id=login.provider_user_id,
         display_name=login.display_name,
     )
+
+
+@app.post("/api/auth/login/kakao")
+def post_auth_login_kakao(login: AuthProviderTokenIn):
+    return login_oauth_provider(provider="kakao", access_token=login.access_token)
+
+
+@app.post("/api/auth/login/naver")
+def post_auth_login_naver(login: AuthProviderTokenIn):
+    return login_oauth_provider(provider="naver", access_token=login.access_token)
 
 
 @app.get("/api/me")

@@ -60,6 +60,11 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def _hash_optional(value: str) -> str:
+    text = str(value or "").strip().lower()
+    return hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
+
+
 def _bearer_token(authorization: str | None) -> str:
     text = str(authorization or "").strip()
     if text.lower().startswith("bearer "):
@@ -173,10 +178,13 @@ def _issue_session(conn, user_id: str) -> str:
     return token
 
 
-def login_dev_provider(*, provider: str, provider_user_id: str, display_name: str = "") -> dict:
-    if _is_production():
-        raise HTTPException(status_code=403, detail="Development login is disabled in production.")
-
+def login_provider_identity(
+    *,
+    provider: str,
+    provider_user_id: str,
+    display_name: str = "",
+    email: str = "",
+) -> dict:
     provider = _normalize_provider(provider)
     provider_user_id = str(provider_user_id or "").strip()
     if not provider_user_id:
@@ -208,10 +216,11 @@ def login_dev_provider(*, provider: str, provider_user_id: str, display_name: st
                 conn.execute(
                     """
                     UPDATE user_identities
-                    SET last_verified_at = ?
+                    SET email_hash = COALESCE(NULLIF(?, ''), email_hash),
+                        last_verified_at = ?
                     WHERE provider = ? AND provider_user_id = ?
                     """,
-                    (now, provider, provider_user_id),
+                    (_hash_optional(email), now, provider, provider_user_id),
                 )
             else:
                 user_id = uuid.uuid4().hex
@@ -226,10 +235,10 @@ def login_dev_provider(*, provider: str, provider_user_id: str, display_name: st
                 conn.execute(
                     """
                     INSERT INTO user_identities
-                    (id, user_id, provider, provider_user_id, connected_at, last_verified_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    (id, user_id, provider, provider_user_id, email_hash, connected_at, last_verified_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
                     """,
-                    (uuid.uuid4().hex, user_id, provider, provider_user_id, now, now),
+                    (uuid.uuid4().hex, user_id, provider, provider_user_id, _hash_optional(email), now, now),
                 )
 
             token = _issue_session(conn, user_id)
@@ -243,6 +252,16 @@ def login_dev_provider(*, provider: str, provider_user_id: str, display_name: st
             }
         finally:
             conn.close()
+
+
+def login_dev_provider(*, provider: str, provider_user_id: str, display_name: str = "") -> dict:
+    if _is_production():
+        raise HTTPException(status_code=403, detail="Development login is disabled in production.")
+    return login_provider_identity(
+        provider=provider,
+        provider_user_id=provider_user_id,
+        display_name=display_name,
+    )
 
 
 def authenticate_session(authorization: str | None) -> dict:

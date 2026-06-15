@@ -117,3 +117,17 @@
 - `ALPHAMATE_ENV=production`에서 개발용 로그인 요청이 403으로 거부되는지 확인
 - `ALPHAMATE_ENV=production`에서 개발용 복기권 구매 요청이 403으로 거부되는지 확인
 - `ALPHAMATE_ENV=production`에서 `dev-token` 인증이 401로 거부되는지 확인
+
+### 카카오/네이버 실제 로그인 서버 API 뼈대
+
+- `POST /api/auth/login/kakao`와 `POST /api/auth/login/naver`를 추가했다.
+- 앱 SDK나 웹 OAuth 흐름에서 받은 provider access token을 서버로 보내면, 서버가 provider 프로필 API로 사용자 ID를 확인한 뒤 AlphaMate 세션을 발급하는 구조다.
+- 카카오/네이버 이메일은 원문 저장하지 않고 hash로만 저장하도록 계정 저장 로직을 정리했다.
+- frontend production 화면에는 카카오/네이버 로그인 버튼 자리를 표시하되, 실제 모바일 SDK 연결 전까지는 비활성 상태로 둔다.
+
+확인한 테스트:
+
+- 카카오 access token 검증 응답을 흉내 내 AlphaMate 세션이 발급되는지 확인
+- 네이버 access token 검증 응답을 흉내 내 AlphaMate 세션이 발급되는지 확인
+- access token이 비어 있으면 400으로 거부되는지 확인
+- `/api/auth/login/kakao`, `/api/auth/login/naver` 경로가 FastAPI 라우트에 등록되는지 확인

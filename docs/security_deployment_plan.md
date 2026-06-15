@@ -110,3 +110,11 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - frontend production build 또는 `VITE_ALPHAMATE_ENV=production`에서는 개발용 카카오/네이버 로그인 버튼과 개발용 복기권 구매 버튼을 숨긴다.
 - 실제 OpenAI API Key는 `.env.example`에 예시만 두고, 실제 값은 서버 `.env` 또는 배포 환경의 Secret Manager에만 둔다.
 - frontend에는 `VITE_*` 값만 들어가므로 OpenAI API Key, 카카오/네이버 Secret, Google Play 서비스 계정 키를 넣으면 안 된다.
+
+## 2026-06-16 카카오/네이버 로그인 서버 API 뼈대
+
+- `POST /api/auth/login/kakao`는 카카오 access token을 받아 `https://kapi.kakao.com/v2/user/me`로 사용자 ID를 확인한다.
+- `POST /api/auth/login/naver`는 네이버 access token을 받아 `https://openapi.naver.com/v1/nid/me`로 사용자 ID를 확인한다.
+- provider 사용자 ID가 확인되면 AlphaMate 내부 사용자와 연결하고 자체 세션 토큰을 발급한다.
+- 이메일은 계정 연결 보조 정보로만 쓰고 원문 대신 hash로 저장한다.
+- 아직 남은 작업은 모바일 앱 SDK 또는 웹 OAuth authorize/code 교환 흐름에서 access token을 받아 서버 API로 전달하는 부분이다.

@@ -536,6 +536,16 @@ export default function TradingJournal({ apiBase }) {
                 </button>
               </>
             )}
+            {!DEV_TOOLS_ENABLED && !authSession && (
+              <>
+                <button className="journal-secondary" disabled title="모바일 앱 SDK 연결 후 활성화됩니다.">
+                  카카오 로그인
+                </button>
+                <button className="journal-secondary" disabled title="모바일 앱 SDK 연결 후 활성화됩니다.">
+                  네이버 로그인
+                </button>
+              </>
+            )}
             {authSession && (
               <button className="journal-secondary" disabled={authLoading} onClick={handleLogout}>
                 로그아웃
