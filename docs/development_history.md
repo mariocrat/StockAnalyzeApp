@@ -131,3 +131,17 @@
 - 네이버 access token 검증 응답을 흉내 내 AlphaMate 세션이 발급되는지 확인
 - access token이 비어 있으면 400으로 거부되는지 확인
 - `/api/auth/login/kakao`, `/api/auth/login/naver` 경로가 FastAPI 라우트에 등록되는지 확인
+
+### OAuth authorization code 교환 API
+
+- `POST /api/auth/login/kakao/code`와 `POST /api/auth/login/naver/code`를 추가했다.
+- 앱이나 웹 로그인 흐름에서 받은 authorization code를 서버가 provider token endpoint로 보내 access token으로 교환한다.
+- 교환된 access token으로 기존 provider 프로필 검증을 수행하고 AlphaMate 세션을 발급한다.
+- 카카오/네이버 Client ID, Secret, Redirect URI는 `.env.example`에 placeholder로만 남기고 실제 값은 GitHub에 올리지 않는다.
+
+확인한 테스트:
+
+- 카카오 authorization code 교환 요청에 client id, secret, redirect uri, code가 올바르게 들어가는지 확인
+- 네이버 authorization code 교환 요청에 client id, secret, redirect uri, code, state가 올바르게 들어가는지 확인
+- provider 설정값이 없으면 503으로 거부되는지 확인
+- `/api/auth/login/kakao/code`, `/api/auth/login/naver/code` 경로가 FastAPI 라우트에 등록되는지 확인

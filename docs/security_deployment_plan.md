@@ -118,3 +118,11 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - provider 사용자 ID가 확인되면 AlphaMate 내부 사용자와 연결하고 자체 세션 토큰을 발급한다.
 - 이메일은 계정 연결 보조 정보로만 쓰고 원문 대신 hash로 저장한다.
 - 아직 남은 작업은 모바일 앱 SDK 또는 웹 OAuth authorize/code 교환 흐름에서 access token을 받아 서버 API로 전달하는 부분이다.
+
+## 2026-06-16 OAuth authorization code 교환 API
+
+- `POST /api/auth/login/kakao/code`는 카카오 authorization code를 `https://kauth.kakao.com/oauth/token`에서 access token으로 교환한 뒤 AlphaMate 세션을 발급한다.
+- `POST /api/auth/login/naver/code`는 네이버 authorization code를 `https://nid.naver.com/oauth2.0/token`에서 access token으로 교환한 뒤 AlphaMate 세션을 발급한다.
+- 카카오는 `KAKAO_CLIENT_ID`, 선택적으로 `KAKAO_CLIENT_SECRET`, 그리고 `KAKAO_REDIRECT_URI` 또는 요청 본문의 `redirect_uri`가 필요하다.
+- 네이버는 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, 그리고 `NAVER_REDIRECT_URI` 또는 요청 본문의 `redirect_uri`, `state`가 필요하다.
+- 실제 운영에서는 redirect URI와 state를 서버가 발급/검증하는 방식으로 더 강화해야 한다.
