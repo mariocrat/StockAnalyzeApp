@@ -126,3 +126,11 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 카카오는 `KAKAO_CLIENT_ID`, 선택적으로 `KAKAO_CLIENT_SECRET`, 그리고 `KAKAO_REDIRECT_URI` 또는 요청 본문의 `redirect_uri`가 필요하다.
 - 네이버는 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, 그리고 `NAVER_REDIRECT_URI` 또는 요청 본문의 `redirect_uri`, `state`가 필요하다.
 - 실제 운영에서는 redirect URI와 state를 서버가 발급/검증하는 방식으로 더 강화해야 한다.
+
+## 2026-06-16 프론트 OAuth 연결부
+
+- frontend production 화면에서 `VITE_KAKAO_REST_API_KEY` 또는 `VITE_NAVER_CLIENT_ID`가 있으면 provider 로그인 버튼이 활성화된다.
+- 로그인 시작 시 브라우저에서 state 값을 생성해 `localStorage`에 저장하고 provider authorization URL로 이동한다.
+- callback으로 돌아온 `code`와 `state`는 저장된 state와 비교한 뒤 backend code-login API로 전달한다.
+- frontend에 들어가는 값은 공개 client id/key와 redirect URI뿐이다.
+- provider client secret, OpenAI API Key, Google Play 서비스 계정 키는 frontend에 넣지 않는다.

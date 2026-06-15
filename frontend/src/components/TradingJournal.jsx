@@ -13,6 +13,11 @@ const DEV_ACCESS_PLAN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_ACCESS_PLAN
 const DEV_PRO_ENTITLEMENT_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_PRO_ENTITLEMENT_TOKEN || 'dev-pro-entitlement' : '';
 const DEV_ENTITLEMENT_TOKEN = DEV_ACCESS_PLAN === 'pro' ? DEV_PRO_ENTITLEMENT_TOKEN : '';
 const AUTH_STORAGE_KEY = 'alphamate.devAuth.v1';
+const OAUTH_STATE_KEY = 'alphamate.oauthState.v1';
+const KAKAO_REST_API_KEY = import.meta.env.VITE_KAKAO_REST_API_KEY || '';
+const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_CLIENT_ID || '';
+const KAKAO_REDIRECT_URI = import.meta.env.VITE_KAKAO_REDIRECT_URI || '';
+const NAVER_REDIRECT_URI = import.meta.env.VITE_NAVER_REDIRECT_URI || '';
 const DEV_LOGIN_PROFILES = {
   kakao: { label: '카카오', provider_user_id: 'dev-kakao-user', display_name: '카카오 테스트' },
   naver: { label: '네이버', provider_user_id: 'dev-naver-user', display_name: '네이버 테스트' },
@@ -61,6 +66,23 @@ function loadStoredAuth() {
   }
 }
 
+function loadStoredOAuthState() {
+  try {
+    return JSON.parse(localStorage.getItem(OAUTH_STATE_KEY) || 'null');
+  } catch {
+    return null;
+  }
+}
+
+function randomState() {
+  const bytes = new Uint8Array(16);
+  if (window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+  return `${Date.now()}-${Math.random()}`;
+}
+
 function reviewAccessText(access) {
   if (!access?.quota) return '';
   const plan = access.plan === 'pro' ? 'Pro' : '무료';
@@ -104,6 +126,21 @@ export default function TradingJournal({ apiBase }) {
   const authHeaders = { Authorization: `Bearer ${activeAuthToken}` };
   const savedJournalMode = Boolean(authSession?.session_token && authSession?.user?.journal_storage_enabled);
   const transientJournalMode = oneTimeMode && !savedJournalMode;
+
+  const oauthRedirectUri = (provider) => {
+    if (provider === 'kakao' && KAKAO_REDIRECT_URI) return KAKAO_REDIRECT_URI;
+    if (provider === 'naver' && NAVER_REDIRECT_URI) return NAVER_REDIRECT_URI;
+    const url = new URL(window.location.href);
+    url.search = '';
+    url.hash = '';
+    url.searchParams.set('view', 'journal');
+    url.searchParams.set('oauth_provider', provider);
+    return url.toString();
+  };
+
+  const oauthConfigured = (provider) => (
+    provider === 'kakao' ? Boolean(KAKAO_REST_API_KEY) : Boolean(NAVER_CLIENT_ID)
+  );
 
   const loadDataSummary = async (tokenOverride = '') => {
     const token = tokenOverride || authSession?.session_token;
@@ -178,6 +215,59 @@ export default function TradingJournal({ apiBase }) {
       setMessage(`${profile.label} 개발 계정으로 로그인했습니다.`);
     } catch (err) {
       setMessage(err.response?.data?.detail || '개발 로그인을 처리하지 못했습니다.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleOAuthStart = (provider) => {
+    if (!oauthConfigured(provider)) {
+      setMessage(`${provider === 'kakao' ? '카카오' : '네이버'} 로그인 설정값이 아직 없습니다.`);
+      return;
+    }
+    const state = randomState();
+    const redirectUri = oauthRedirectUri(provider);
+    localStorage.setItem(OAUTH_STATE_KEY, JSON.stringify({
+      provider,
+      state,
+      redirect_uri: redirectUri,
+      created_at: Date.now(),
+    }));
+    const authUrl = new URL(provider === 'kakao'
+      ? 'https://kauth.kakao.com/oauth/authorize'
+      : 'https://nid.naver.com/oauth2.0/authorize');
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('client_id', provider === 'kakao' ? KAKAO_REST_API_KEY : NAVER_CLIENT_ID);
+    authUrl.searchParams.set('redirect_uri', redirectUri);
+    authUrl.searchParams.set('state', state);
+    window.location.href = authUrl.toString();
+  };
+
+  const finishOAuthLogin = async ({ provider, code, state, redirectUri }) => {
+    setAuthLoading(true);
+    try {
+      const res = await axios.post(`${apiBase}/api/auth/login/${provider}/code`, {
+        code,
+        state,
+        redirect_uri: redirectUri,
+      });
+      const session = res.data || null;
+      setAuthSession(session);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      await loadEntitlements(session?.session_token || '');
+      await loadDataSummary(session?.session_token || '');
+      if (session?.user?.journal_storage_enabled && session?.session_token) {
+        await loadPersistedJournal(session.session_token);
+      }
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.search = '';
+      cleanUrl.searchParams.set('view', 'journal');
+      window.history.replaceState({}, '', cleanUrl.toString());
+      setMessage(`${provider === 'kakao' ? '카카오' : '네이버'} 로그인했습니다.`);
+    } catch (err) {
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      setMessage(err.response?.data?.detail || '로그인을 완료하지 못했습니다.');
     } finally {
       setAuthLoading(false);
     }
@@ -336,6 +426,32 @@ export default function TradingJournal({ apiBase }) {
     loadJournal()
       .then(() => Promise.all([loadChartReview(), loadEntitlements(), loadDataSummary()]))
       .catch(() => setMessage('매매 기록을 불러오지 못했습니다.'));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (DEV_TOOLS_ENABLED || authSession?.session_token) return;
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    if (!code || !state) return;
+
+    const stored = loadStoredOAuthState();
+    if (!stored?.provider || stored.state !== state) {
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      setMessage('로그인 확인값이 맞지 않습니다. 다시 로그인해주세요.');
+      return;
+    }
+    if (Date.now() - Number(stored.created_at || 0) > 10 * 60 * 1000) {
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      setMessage('로그인 시간이 만료되었습니다. 다시 로그인해주세요.');
+      return;
+    }
+    finishOAuthLogin({
+      provider: stored.provider,
+      code,
+      state,
+      redirectUri: stored.redirect_uri || oauthRedirectUri(stored.provider),
+    });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const summary = review?.summary || {};
@@ -538,10 +654,20 @@ export default function TradingJournal({ apiBase }) {
             )}
             {!DEV_TOOLS_ENABLED && !authSession && (
               <>
-                <button className="journal-secondary" disabled title="모바일 앱 SDK 연결 후 활성화됩니다.">
+                <button
+                  className="journal-secondary"
+                  disabled={authLoading || !oauthConfigured('kakao')}
+                  title={oauthConfigured('kakao') ? '카카오 로그인으로 이동합니다.' : 'VITE_KAKAO_REST_API_KEY 설정 후 활성화됩니다.'}
+                  onClick={() => handleOAuthStart('kakao')}
+                >
                   카카오 로그인
                 </button>
-                <button className="journal-secondary" disabled title="모바일 앱 SDK 연결 후 활성화됩니다.">
+                <button
+                  className="journal-secondary"
+                  disabled={authLoading || !oauthConfigured('naver')}
+                  title={oauthConfigured('naver') ? '네이버 로그인으로 이동합니다.' : 'VITE_NAVER_CLIENT_ID 설정 후 활성화됩니다.'}
+                  onClick={() => handleOAuthStart('naver')}
+                >
                   네이버 로그인
                 </button>
               </>

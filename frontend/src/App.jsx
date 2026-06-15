@@ -36,7 +36,13 @@ const THEME_PERIODS = ['1D', '1W', '1M', '1Y'];
 
 // ── App ───────────────────────────────────────────────────────────────────
 export default function App() {
-  const [activeView, setActiveView] = useState('themes');
+  const [activeView, setActiveView] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get('view') === 'journal' ? 'journal' : 'themes';
+    } catch {
+      return 'themes';
+    }
+  });
 
   // ── Theme state ──────────────────────────────────────────────────────
   const [themes,          setThemes]         = useState([]);

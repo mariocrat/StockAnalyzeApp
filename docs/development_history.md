@@ -145,3 +145,18 @@
 - 네이버 authorization code 교환 요청에 client id, secret, redirect uri, code, state가 올바르게 들어가는지 확인
 - provider 설정값이 없으면 503으로 거부되는지 확인
 - `/api/auth/login/kakao/code`, `/api/auth/login/naver/code` 경로가 FastAPI 라우트에 등록되는지 확인
+
+### 프론트 OAuth 로그인 시작/콜백 연결
+
+- production 화면에서 카카오/네이버 로그인 버튼이 설정값이 있을 때 활성화되도록 바꿨다.
+- 버튼을 누르면 provider 로그인 페이지로 이동할 authorization URL을 만든다.
+- 로그인 시작 전에 state 값을 브라우저에 저장하고, callback으로 돌아온 state와 비교한다.
+- callback URL에 `code`와 `state`가 있으면 서버의 `/api/auth/login/{provider}/code`로 보내 AlphaMate 세션을 받는다.
+- `frontend/.env.example`에 공개 가능한 OAuth client 값과 redirect URI 예시를 추가했다.
+
+아직 필요한 값:
+
+- 카카오 개발자 콘솔의 REST API Key
+- 네이버 개발자 센터의 Client ID
+- 각 provider에 등록한 redirect URI
+- backend 서버의 카카오/네이버 Secret 값
