@@ -18,6 +18,7 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("/api/auth/login/naver", paths)
         self.assertIn("/api/auth/login/kakao/code", paths)
         self.assertIn("/api/auth/login/naver/code", paths)
+        self.assertIn("/api/auth/oauth-config", paths)
         self.assertIn("/api/me", paths)
         self.assertIn("/api/me/journal-storage", paths)
         self.assertIn("/api/me/data-summary", paths)

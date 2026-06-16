@@ -24,7 +24,7 @@ from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
 from core.journal_chart import build_journal_charts
 from core.access_control import verify_ai_review_access, get_user_entitlements, apply_dev_purchase, PRODUCTS
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting
-from core.oauth_login import login_oauth_code, login_oauth_provider
+from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
 
 from contextlib import asynccontextmanager
 import threading
@@ -371,6 +371,11 @@ def post_auth_login_naver_code(login: AuthProviderCodeIn):
         redirect_uri=login.redirect_uri,
         state=login.state,
     )
+
+
+@app.get("/api/auth/oauth-config")
+def get_auth_oauth_config():
+    return get_oauth_config_status()
 
 
 @app.get("/api/me")

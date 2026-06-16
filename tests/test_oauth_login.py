@@ -181,6 +181,38 @@ class OAuthLoginTest(unittest.TestCase):
 
             self.assertEqual(503, raised.exception.status_code)
 
+    def test_oauth_config_status_reports_missing_server_settings(self):
+        for key in ("KAKAO_CLIENT_ID", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"):
+            os.environ.pop(key, None)
+
+        from backend.core import oauth_login
+
+        oauth_login = importlib.reload(oauth_login)
+        status = oauth_login.get_oauth_config_status()
+
+        self.assertFalse(status["providers"]["kakao"]["server_ready"])
+        self.assertEqual(["KAKAO_CLIENT_ID"], status["providers"]["kakao"]["missing_server_settings"])
+        self.assertFalse(status["providers"]["naver"]["server_ready"])
+        self.assertEqual(
+            ["NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"],
+            status["providers"]["naver"]["missing_server_settings"],
+        )
+
+    def test_oauth_config_status_reports_ready_server_settings(self):
+        os.environ["KAKAO_CLIENT_ID"] = "kakao-client-id"
+        os.environ["NAVER_CLIENT_ID"] = "naver-client-id"
+        os.environ["NAVER_CLIENT_SECRET"] = "naver-client-secret"
+
+        from backend.core import oauth_login
+
+        oauth_login = importlib.reload(oauth_login)
+        status = oauth_login.get_oauth_config_status()
+
+        self.assertTrue(status["providers"]["kakao"]["server_ready"])
+        self.assertEqual([], status["providers"]["kakao"]["missing_server_settings"])
+        self.assertTrue(status["providers"]["naver"]["server_ready"])
+        self.assertEqual([], status["providers"]["naver"]["missing_server_settings"])
+
 
 if __name__ == "__main__":
     unittest.main()

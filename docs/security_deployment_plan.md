@@ -134,3 +134,10 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - callback으로 돌아온 `code`와 `state`는 저장된 state와 비교한 뒤 backend code-login API로 전달한다.
 - frontend에 들어가는 값은 공개 client id/key와 redirect URI뿐이다.
 - provider client secret, OpenAI API Key, Google Play 서비스 계정 키는 frontend에 넣지 않는다.
+
+## 2026-06-16 OAuth 설정 진단
+
+- `GET /api/auth/oauth-config`는 카카오/네이버 로그인에 필요한 서버 환경변수가 설정됐는지 boolean과 누락 목록만 반환한다.
+- 이 endpoint는 실제 client secret 값을 절대 반환하지 않는다.
+- frontend는 이 상태를 읽어 실제 로그인 전 빠진 설정을 사용자에게 안내한다.
+- 운영에서는 이 진단 정보가 과도한 내부 정보를 노출하지 않도록 현재처럼 변수명 수준의 누락 안내까지만 유지한다.

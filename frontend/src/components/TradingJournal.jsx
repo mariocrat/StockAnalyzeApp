@@ -117,6 +117,7 @@ export default function TradingJournal({ apiBase }) {
   const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE);
   const [feeFree, setFeeFree] = useState(false);
   const [authSession, setAuthSession] = useState(loadStoredAuth);
+  const [oauthServerStatus, setOauthServerStatus] = useState(null);
   const [dataSummary, setDataSummary] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
   const stockSearchSeq = useRef(0);
@@ -138,9 +139,45 @@ export default function TradingJournal({ apiBase }) {
     return url.toString();
   };
 
-  const oauthConfigured = (provider) => (
+  const providerLabel = (provider) => (provider === 'kakao' ? '카카오' : '네이버');
+
+  const oauthPublicConfigured = (provider) => (
     provider === 'kakao' ? Boolean(KAKAO_REST_API_KEY) : Boolean(NAVER_CLIENT_ID)
   );
+
+  const oauthServerReady = (provider) => {
+    const serverReady = oauthServerStatus?.providers?.[provider]?.server_ready;
+    return serverReady !== false;
+  };
+
+  const oauthConfigured = (provider) => oauthPublicConfigured(provider);
+
+  const oauthDisabledReason = (provider) => {
+    if (!oauthPublicConfigured(provider)) {
+      return provider === 'kakao'
+        ? 'VITE_KAKAO_REST_API_KEY 설정 후 활성화됩니다.'
+        : 'VITE_NAVER_CLIENT_ID 설정 후 활성화됩니다.';
+    }
+    const missing = oauthServerStatus?.providers?.[provider]?.missing_server_settings || [];
+    if (missing.length) {
+      return `서버 .env에 ${missing.join(', ')} 설정이 필요합니다.`;
+    }
+    return `${providerLabel(provider)} 로그인으로 이동합니다.`;
+  };
+
+  const oauthReadinessText = () => {
+    if (DEV_TOOLS_ENABLED || authSession) return '';
+    const missing = ['kakao', 'naver']
+      .flatMap(provider => {
+        const messages = [];
+        if (!oauthPublicConfigured(provider)) messages.push(`${providerLabel(provider)} 프론트 키`);
+        const serverMissing = oauthServerStatus?.providers?.[provider]?.missing_server_settings || [];
+        if (serverMissing.length) messages.push(`${providerLabel(provider)} 서버 설정(${serverMissing.join(', ')})`);
+        return messages;
+      });
+    if (!missing.length) return '카카오/네이버 실제 로그인 준비가 완료되었습니다.';
+    return `실제 로그인 전 설정 필요: ${missing.join(', ')}`;
+  };
 
   const loadDataSummary = async (tokenOverride = '') => {
     const token = tokenOverride || authSession?.session_token;
@@ -223,6 +260,10 @@ export default function TradingJournal({ apiBase }) {
   const handleOAuthStart = (provider) => {
     if (!oauthConfigured(provider)) {
       setMessage(`${provider === 'kakao' ? '카카오' : '네이버'} 로그인 설정값이 아직 없습니다.`);
+      return;
+    }
+    if (!oauthServerReady(provider)) {
+      setMessage(oauthDisabledReason(provider));
       return;
     }
     const state = randomState();
@@ -421,6 +462,13 @@ export default function TradingJournal({ apiBase }) {
       setChartReview({ charts: [] });
     }
   };
+
+  useEffect(() => {
+    if (DEV_TOOLS_ENABLED) return;
+    axios.get(`${apiBase}/api/auth/oauth-config`)
+      .then(res => setOauthServerStatus(res.data || null))
+      .catch(() => setOauthServerStatus(null));
+  }, [apiBase]);
 
   useEffect(() => {
     loadJournal()
@@ -679,6 +727,9 @@ export default function TradingJournal({ apiBase }) {
             )}
           </div>
         </div>
+        {!DEV_TOOLS_ENABLED && !authSession && (
+          <p className="journal-privacy-note">{oauthReadinessText()}</p>
+        )}
         <div className="journal-data-grid">
           <div>
             <span>계정 상태</span>

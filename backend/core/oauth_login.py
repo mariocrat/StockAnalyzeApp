@@ -108,6 +108,27 @@ def _require_config(name: str) -> str:
     return value
 
 
+def get_oauth_config_status() -> dict:
+    kakao_required = ["KAKAO_CLIENT_ID"]
+    naver_required = ["NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"]
+
+    def provider_status(required: list[str], optional: list[str]) -> dict:
+        missing = [name for name in required if not _env_value(name)]
+        return {
+            "server_ready": not missing,
+            "missing_server_settings": missing,
+            "required_server_settings": required,
+            "optional_server_settings": optional,
+        }
+
+    return {
+        "providers": {
+            "kakao": provider_status(kakao_required, ["KAKAO_CLIENT_SECRET", "KAKAO_REDIRECT_URI"]),
+            "naver": provider_status(naver_required, ["NAVER_REDIRECT_URI"]),
+        }
+    }
+
+
 def _exchange_kakao_code(*, code: str, redirect_uri: str) -> str:
     payload = {
         "grant_type": "authorization_code",

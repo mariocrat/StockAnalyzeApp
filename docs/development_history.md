@@ -160,3 +160,10 @@
 - 네이버 개발자 센터의 Client ID
 - 각 provider에 등록한 redirect URI
 - backend 서버의 카카오/네이버 Secret 값
+
+### OAuth 설정 진단과 테스트 가이드 정리
+
+- `GET /api/auth/oauth-config`를 추가해 서버의 카카오/네이버 로그인 설정 준비 상태를 확인할 수 있게 했다.
+- 이 API는 실제 secret 값을 노출하지 않고, 어떤 환경변수가 빠졌는지만 알려준다.
+- 매매복기 화면은 배포 모드에서 실제 로그인 전 필요한 프론트 키와 서버 설정 누락 상태를 안내한다.
+- 깨져 있던 `docs/manual_test_guide.md`를 한국어 UTF-8 문서로 다시 작성했다.
