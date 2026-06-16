@@ -86,3 +86,19 @@ root `.env` 또는 backend `.env`:
 2. `frontend/dist` 안에 `dev-token`, `dev-ad-reward`, `dev-pro-entitlement` 문자열이 없는지 확인합니다.
 3. backend에서 `ALPHAMATE_ENV=production`일 때 개발용 로그인과 개발용 복기권 구매가 거부되는지 확인합니다.
 4. 실제 API Key와 provider secret은 `.env` 또는 서버 secret manager에만 넣고 GitHub에는 올리지 않습니다.
+
+## 8. Google Play 결제 준비 확인
+
+현재는 Google Play Developer API 검증 코드가 완성되기 전 단계입니다.
+
+1. backend가 켜진 상태에서 `http://127.0.0.1:8002/api/journal/products`를 엽니다.
+2. `consumables`에 일반/심층 복기권 상품이 보이는지 확인합니다.
+3. `subscriptions`에 Pro 월 구독 상품이 보이는지 확인합니다.
+4. `google_play.missing_server_settings`에 빠진 서버 설정이 표시되는지 확인합니다.
+5. Google Play 구매 요청 endpoint는 아직 실제 복기권을 지급하지 않는 것이 정상입니다.
+
+정상 결과:
+
+- 상품 ID와 가격/수량은 보입니다.
+- 서비스 계정 secret 값은 응답에 보이지 않습니다.
+- Google Play 검증 구현 전에는 결제 토큰을 보내도 복기권이 충전되지 않습니다.

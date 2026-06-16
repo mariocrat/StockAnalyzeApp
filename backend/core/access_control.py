@@ -15,6 +15,11 @@ PRODUCTS = {
     "advanced_review_10": {"kind": "advanced", "quantity": 10, "price_krw": 4900},
 }
 
+SUBSCRIPTIONS = {
+    "pro_monthly_launch": {"kind": "pro", "monthly_basic": 150, "monthly_advanced": 5, "price_krw": 3900},
+    "pro_monthly": {"kind": "pro", "monthly_basic": 150, "monthly_advanced": 5, "price_krw": 4900},
+}
+
 FREE_SIGNUP_BASIC_CREDITS = 5
 FREE_DAILY_BASIC_GRANT = 1
 FREE_DAILY_BASIC_MAX = 5
@@ -222,6 +227,53 @@ def _allow_advanced_for_basic() -> bool:
     return _env_value("ALPHAMATE_ALLOW_ADVANCED_TICKET_FOR_BASIC").lower() in {"1", "true", "yes"}
 
 
+def _google_play_id(default_id: str) -> str:
+    env_key = "GOOGLE_PLAY_" + default_id.upper() + "_ID"
+    return _env_value(env_key) or default_id
+
+
+def _google_play_status() -> dict:
+    package_name = _env_value("GOOGLE_PLAY_PACKAGE_NAME")
+    service_account_configured = bool(
+        _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+        or _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")
+    )
+    missing = []
+    if not package_name:
+        missing.append("GOOGLE_PLAY_PACKAGE_NAME")
+    if not service_account_configured:
+        missing.append("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")
+    return {
+        "ready": not missing,
+        "package_name_configured": bool(package_name),
+        "service_account_configured": service_account_configured,
+        "missing_server_settings": missing,
+    }
+
+
+def get_product_catalog() -> dict:
+    return {
+        "consumables": {
+            product_id: {
+                **product,
+                "google_play_product_id": _google_play_id(product_id),
+            }
+            for product_id, product in PRODUCTS.items()
+        },
+        "subscriptions": {
+            product_id: {
+                **product,
+                "google_play_product_id": _google_play_id(product_id),
+            }
+            for product_id, product in SUBSCRIPTIONS.items()
+        },
+        "google_play": _google_play_status(),
+        "settings": {
+            "allow_advanced_ticket_for_basic": _allow_advanced_for_basic(),
+        },
+    }
+
+
 def _bearer_token(authorization: str | None) -> str:
     text = str(authorization or "").strip()
     if text.lower().startswith("bearer "):
@@ -397,6 +449,35 @@ def apply_dev_purchase(*, authorization: str | None, entitlement_token: str | No
             wallet.purchased_advanced += product["quantity"]
         _save_wallet(user_id, wallet)
         return _wallet_snapshot(wallet, plan)
+
+
+def apply_google_play_purchase(
+    *,
+    authorization: str | None,
+    product_id: str,
+    purchase_token: str,
+    package_name: str | None = None,
+) -> dict:
+    if product_id not in PRODUCTS and product_id not in SUBSCRIPTIONS:
+        raise HTTPException(status_code=400, detail="Unknown product id.")
+    if not str(purchase_token or "").strip():
+        raise HTTPException(status_code=400, detail="purchase_token is required.")
+
+    _authenticate(authorization)
+    status = _google_play_status()
+    if not status["ready"]:
+        raise HTTPException(status_code=503, detail="Google Play Billing verification is not configured.")
+
+    configured_package = _env_value("GOOGLE_PLAY_PACKAGE_NAME")
+    if package_name and configured_package and package_name != configured_package:
+        raise HTTPException(status_code=400, detail="Google Play package name does not match server configuration.")
+
+    # Never grant credits until a purchase token has been verified with Google Play
+    # Developer API and consumed/acknowledged server-side.
+    raise HTTPException(
+        status_code=501,
+        detail="Google Play Billing verification is not implemented yet.",
+    )
 
 
 def verify_ai_review_access(

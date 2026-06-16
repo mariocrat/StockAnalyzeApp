@@ -141,3 +141,10 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 이 endpoint는 실제 client secret 값을 절대 반환하지 않는다.
 - frontend는 이 상태를 읽어 실제 로그인 전 빠진 설정을 사용자에게 안내한다.
 - 운영에서는 이 진단 정보가 과도한 내부 정보를 노출하지 않도록 현재처럼 변수명 수준의 누락 안내까지만 유지한다.
+
+## 2026-06-16 Google Play 결제 검증 준비
+
+- `GET /api/journal/products`는 공개 가능한 상품 ID, 가격, 수량, Google Play 준비 상태만 반환한다.
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` 또는 `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` 값 자체는 응답에 포함하지 않는다.
+- `POST /api/journal/google-play-purchase`는 Google Play Developer API 검증이 구현되기 전까지 501로 거부한다.
+- 운영 결제 완료 처리는 반드시 서버에서 purchase token을 Google Play에 검증하고, consume 또는 acknowledge 처리 후 DB 트랜잭션으로 복기권을 지급해야 한다.

@@ -22,7 +22,13 @@ from core.journal import add_trade, list_trades, count_trades, delete_trade, cle
 from core.ai_review import build_ai_review
 from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
 from core.journal_chart import build_journal_charts
-from core.access_control import verify_ai_review_access, get_user_entitlements, apply_dev_purchase, PRODUCTS
+from core.access_control import (
+    apply_dev_purchase,
+    apply_google_play_purchase,
+    get_product_catalog,
+    get_user_entitlements,
+    verify_ai_review_access,
+)
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
 
@@ -66,6 +72,12 @@ class JournalAiReviewIn(JournalBatchIn):
 class JournalDevPurchaseIn(BaseModel):
     product_id: str
     entitlement_token: str = ""
+
+
+class JournalGooglePlayPurchaseIn(BaseModel):
+    product_id: str
+    purchase_token: str
+    package_name: str = ""
 
 
 class AuthDevLoginIn(BaseModel):
@@ -497,7 +509,7 @@ def get_journal_entitlements(
 
 @app.get("/api/journal/products")
 def get_journal_products():
-    return PRODUCTS
+    return get_product_catalog()
 
 
 @app.post("/api/journal/dev-purchase")
@@ -509,6 +521,19 @@ def post_journal_dev_purchase(
         authorization=authorization,
         entitlement_token=purchase.entitlement_token,
         product_id=purchase.product_id,
+    )
+
+
+@app.post("/api/journal/google-play-purchase")
+def post_journal_google_play_purchase(
+    purchase: JournalGooglePlayPurchaseIn,
+    authorization: Optional[str] = Header(default=None),
+):
+    return apply_google_play_purchase(
+        authorization=authorization,
+        product_id=purchase.product_id,
+        purchase_token=purchase.purchase_token,
+        package_name=purchase.package_name,
     )
 
 

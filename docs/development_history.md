@@ -167,3 +167,11 @@
 - 이 API는 실제 secret 값을 노출하지 않고, 어떤 환경변수가 빠졌는지만 알려준다.
 - 매매복기 화면은 배포 모드에서 실제 로그인 전 필요한 프론트 키와 서버 설정 누락 상태를 안내한다.
 - 깨져 있던 `docs/manual_test_guide.md`를 한국어 UTF-8 문서로 다시 작성했다.
+
+### Google Play 결제 준비 골격
+
+- `GET /api/journal/products`가 복기권 상품, Pro 구독 상품, Google Play 설정 준비 상태를 함께 반환하도록 바꿨다.
+- Google Play 상품 ID는 `.env`에서 바꿀 수 있고, 기본값은 내부 상품 ID와 같게 뒀다.
+- `POST /api/journal/google-play-purchase`를 추가했다.
+- 아직 Google Play Developer API 검증/consume/acknowledge 구현 전이므로, 이 endpoint는 실제 복기권을 지급하지 않고 501로 막는다.
+- 서버 설정이 빠진 경우에는 503으로 막아, 가짜 결제가 복기권으로 바뀌지 않게 했다.
