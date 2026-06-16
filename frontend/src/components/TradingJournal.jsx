@@ -83,6 +83,14 @@ function randomState() {
   return `${Date.now()}-${Math.random()}`;
 }
 
+function ProviderIcon({ provider }) {
+  return (
+    <span className={`provider-icon provider-icon-${provider}`} aria-hidden="true">
+      {provider === 'kakao' ? 'K' : 'N'}
+    </span>
+  );
+}
+
 function reviewAccessText(access) {
   if (!access?.quota) return '';
   const plan = access.plan === 'pro' ? 'Pro' : '무료';
@@ -709,10 +717,12 @@ export default function TradingJournal({ apiBase }) {
             {DEV_TOOLS_ENABLED && (
               <>
                 <button className="journal-secondary" disabled={authLoading} onClick={() => handleDevLogin('kakao')}>
-                  카카오
+                  <ProviderIcon provider="kakao" />
+                  <span>카카오</span>
                 </button>
                 <button className="journal-secondary" disabled={authLoading} onClick={() => handleDevLogin('naver')}>
-                  네이버
+                  <ProviderIcon provider="naver" />
+                  <span>네이버</span>
                 </button>
               </>
             )}
@@ -724,7 +734,8 @@ export default function TradingJournal({ apiBase }) {
                   title={oauthConfigured('kakao') ? '카카오 로그인으로 이동합니다.' : 'VITE_KAKAO_REST_API_KEY 설정 후 활성화됩니다.'}
                   onClick={() => handleOAuthStart('kakao')}
                 >
-                  카카오 로그인
+                  <ProviderIcon provider="kakao" />
+                  <span>카카오 로그인</span>
                 </button>
                 <button
                   className="journal-secondary"
@@ -732,7 +743,8 @@ export default function TradingJournal({ apiBase }) {
                   title={oauthConfigured('naver') ? '네이버 로그인으로 이동합니다.' : 'VITE_NAVER_CLIENT_ID 설정 후 활성화됩니다.'}
                   onClick={() => handleOAuthStart('naver')}
                 >
-                  네이버 로그인
+                  <ProviderIcon provider="naver" />
+                  <span>네이버 로그인</span>
                 </button>
               </>
             )}
