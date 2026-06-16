@@ -166,7 +166,7 @@ export default function TradingJournal({ apiBase }) {
   };
 
   const oauthReadinessText = () => {
-    if (DEV_TOOLS_ENABLED || authSession) return '';
+    if (authSession) return '';
     const missing = ['kakao', 'naver']
       .flatMap(provider => {
         const messages = [];
@@ -178,6 +178,23 @@ export default function TradingJournal({ apiBase }) {
     if (!missing.length) return '카카오/네이버 실제 로그인 준비가 완료되었습니다.';
     return `실제 로그인 전 설정 필요: ${missing.join(', ')}`;
   };
+
+  const oauthSetupRows = () => ['kakao', 'naver'].map(provider => {
+    const publicSetting = provider === 'kakao' ? 'VITE_KAKAO_REST_API_KEY' : 'VITE_NAVER_CLIENT_ID';
+    const redirectSetting = provider === 'kakao' ? 'VITE_KAKAO_REDIRECT_URI' : 'VITE_NAVER_REDIRECT_URI';
+    const server = oauthServerStatus?.providers?.[provider] || null;
+    const serverMissing = server?.missing_server_settings || [];
+    return {
+      provider,
+      label: providerLabel(provider),
+      publicSetting,
+      redirectSetting,
+      publicReady: oauthPublicConfigured(provider),
+      serverReady: server?.server_ready === true,
+      serverMissing,
+      redirectUri: oauthRedirectUri(provider),
+    };
+  });
 
   const loadDataSummary = async (tokenOverride = '') => {
     const token = tokenOverride || authSession?.session_token;
@@ -464,7 +481,6 @@ export default function TradingJournal({ apiBase }) {
   };
 
   useEffect(() => {
-    if (DEV_TOOLS_ENABLED) return;
     axios.get(`${apiBase}/api/auth/oauth-config`)
       .then(res => setOauthServerStatus(res.data || null))
       .catch(() => setOauthServerStatus(null));
@@ -727,8 +743,42 @@ export default function TradingJournal({ apiBase }) {
             )}
           </div>
         </div>
-        {!DEV_TOOLS_ENABLED && !authSession && (
-          <p className="journal-privacy-note">{oauthReadinessText()}</p>
+        {!authSession && (
+          <div className="journal-oauth-setup">
+            <div className="journal-oauth-setup-head">
+              <strong>실제 로그인 준비</strong>
+              <span>{oauthReadinessText()}</span>
+            </div>
+            <div className="journal-oauth-provider-grid">
+              {oauthSetupRows().map(row => (
+                <div className="journal-oauth-provider" key={row.provider}>
+                  <div className="journal-oauth-provider-title">
+                    <strong>{row.label}</strong>
+                    <span className={row.publicReady && row.serverReady ? 'ready' : 'not-ready'}>
+                      {row.publicReady && row.serverReady ? '준비 완료' : '설정 필요'}
+                    </span>
+                  </div>
+                  <ul>
+                    <li className={row.publicReady ? 'ready' : 'not-ready'}>
+                      프론트 키: {row.publicReady ? '설정됨' : row.publicSetting}
+                    </li>
+                    <li className={row.serverReady ? 'ready' : 'not-ready'}>
+                      서버 설정: {row.serverReady ? '설정됨' : (row.serverMissing.length ? row.serverMissing.join(', ') : '확인 중')}
+                    </li>
+                    <li>
+                      Redirect URI: <code>{row.redirectUri}</code>
+                    </li>
+                  </ul>
+                  <p>{row.redirectSetting} 값을 provider 콘솔의 Redirect URI와 같게 맞추세요.</p>
+                </div>
+              ))}
+            </div>
+            {DEV_TOOLS_ENABLED && (
+              <p className="journal-privacy-note">
+                현재는 개발 모드라 위쪽 카카오/네이버 버튼은 개발용 계정 전환입니다. 실제 로그인 테스트는 `VITE_ALPHAMATE_ENV=production` 또는 `VITE_ENABLE_DEV_TOOLS=false`로 실행한 뒤 확인합니다.
+              </p>
+            )}
+          </div>
         )}
         <div className="journal-data-grid">
           <div>

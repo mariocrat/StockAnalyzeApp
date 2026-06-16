@@ -655,6 +655,105 @@ body {
   justify-content: flex-end;
 }
 
+.journal-oauth-setup {
+  margin-top: 10px;
+  background: #10141f;
+  border: 1px solid #252b38;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.journal-oauth-setup-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.journal-oauth-setup-head strong {
+  color: #f2f5ff;
+  font-size: 13px;
+}
+
+.journal-oauth-setup-head span {
+  color: #8c93a3;
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.journal-oauth-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.journal-oauth-provider {
+  background: #131722;
+  border: 1px solid #2a2e39;
+  border-radius: 6px;
+  padding: 10px;
+  min-width: 0;
+}
+
+.journal-oauth-provider-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.journal-oauth-provider-title strong {
+  color: #f2f5ff;
+  font-size: 12px;
+}
+
+.journal-oauth-provider-title span,
+.journal-oauth-provider li {
+  font-size: 11px;
+}
+
+.journal-oauth-provider ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.journal-oauth-provider li {
+  color: #8c93a3;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.journal-oauth-provider code {
+  color: #b8c7ff;
+  font-size: 11px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.journal-oauth-provider p {
+  margin: 8px 0 0;
+  color: #777f91;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.journal-oauth-provider .ready,
+.journal-oauth-provider-title .ready {
+  color: #26a69a;
+}
+
+.journal-oauth-provider .not-ready,
+.journal-oauth-provider-title .not-ready {
+  color: #ffcc80;
+}
+
 .journal-data-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1017,6 +1116,7 @@ body {
     justify-content: flex-start;
   }
 
+  .journal-oauth-provider-grid,
   .journal-data-grid,
   .journal-entitlement-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1024,6 +1124,15 @@ body {
 }
 
 @media (max-width: 520px) {
+  .journal-oauth-setup-head {
+    flex-direction: column;
+  }
+
+  .journal-oauth-setup-head span {
+    text-align: left;
+  }
+
+  .journal-oauth-provider-grid,
   .journal-data-grid,
   .journal-entitlement-grid {
     grid-template-columns: 1fr;
