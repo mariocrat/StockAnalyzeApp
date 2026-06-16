@@ -618,24 +618,23 @@ body {
 }
 
 .provider-icon {
-  display: inline-grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 5px;
-  flex: 0 0 18px;
-  font-size: 11px;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: 0;
+  display: block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
 }
 
-.provider-icon-kakao {
+.provider-button {
+  min-width: 104px;
+  border-color: transparent;
+}
+
+.provider-button-kakao {
   background: #fee500;
-  color: #191600;
+  color: rgba(0, 0, 0, 0.85);
 }
 
-.provider-icon-naver {
+.provider-button-naver {
   background: #03c75a;
   color: #fff;
 }

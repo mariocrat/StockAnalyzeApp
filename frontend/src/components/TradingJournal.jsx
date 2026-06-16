@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
+import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
+import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
 
 const sideLabels = { buy: '매수', sell: '매도' };
@@ -84,11 +86,16 @@ function randomState() {
 }
 
 function ProviderIcon({ provider }) {
+  const logo = provider === 'kakao' ? kakaoLoginSymbol : naverLoginSymbol;
+  const label = provider === 'kakao' ? '카카오' : '네이버';
+
   return (
-    <span className={`provider-icon provider-icon-${provider}`} aria-hidden="true">
-      {provider === 'kakao' ? 'K' : 'N'}
-    </span>
+    <img className="provider-icon" src={logo} alt="" aria-hidden="true" title={label} />
   );
+}
+
+function providerButtonClass(provider) {
+  return `journal-secondary provider-button provider-button-${provider}`;
 }
 
 function reviewAccessText(access) {
@@ -716,11 +723,11 @@ export default function TradingJournal({ apiBase }) {
           <div className="journal-auth-actions">
             {DEV_TOOLS_ENABLED && (
               <>
-                <button className="journal-secondary" disabled={authLoading} onClick={() => handleDevLogin('kakao')}>
+                <button className={providerButtonClass('kakao')} disabled={authLoading} onClick={() => handleDevLogin('kakao')}>
                   <ProviderIcon provider="kakao" />
                   <span>카카오</span>
                 </button>
-                <button className="journal-secondary" disabled={authLoading} onClick={() => handleDevLogin('naver')}>
+                <button className={providerButtonClass('naver')} disabled={authLoading} onClick={() => handleDevLogin('naver')}>
                   <ProviderIcon provider="naver" />
                   <span>네이버</span>
                 </button>
@@ -729,7 +736,7 @@ export default function TradingJournal({ apiBase }) {
             {!DEV_TOOLS_ENABLED && !authSession && (
               <>
                 <button
-                  className="journal-secondary"
+                  className={providerButtonClass('kakao')}
                   disabled={authLoading || !oauthConfigured('kakao')}
                   title={oauthConfigured('kakao') ? '카카오 로그인으로 이동합니다.' : 'VITE_KAKAO_REST_API_KEY 설정 후 활성화됩니다.'}
                   onClick={() => handleOAuthStart('kakao')}
@@ -738,7 +745,7 @@ export default function TradingJournal({ apiBase }) {
                   <span>카카오 로그인</span>
                 </button>
                 <button
-                  className="journal-secondary"
+                  className={providerButtonClass('naver')}
                   disabled={authLoading || !oauthConfigured('naver')}
                   title={oauthConfigured('naver') ? '네이버 로그인으로 이동합니다.' : 'VITE_NAVER_CLIENT_ID 설정 후 활성화됩니다.'}
                   onClick={() => handleOAuthStart('naver')}
