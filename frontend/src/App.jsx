@@ -5,6 +5,7 @@ import TradingJournal from './components/TradingJournal';
 import './App.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
+const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const fmt8 = (d) => d.toISOString().split('T')[0].replace(/-/g, '');
@@ -43,6 +44,10 @@ export default function App() {
       return 'themes';
     }
   });
+
+  useEffect(() => {
+    document.title = APP_NAME;
+  }, []);
 
   // ── Theme state ──────────────────────────────────────────────────────
   const [themes,          setThemes]         = useState([]);
@@ -311,7 +316,7 @@ export default function App() {
     <div className="app-container">
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <div className="sidebar">
-        <h2 className="sidebar-title">AlphaMate</h2>
+        <h2 className="sidebar-title">{APP_NAME}</h2>
 
         <div className="app-nav">
           <button className={activeView === 'themes' ? 'active' : ''} onClick={() => setActiveView('themes')}>테마/차트</button>

@@ -175,3 +175,9 @@
 - `POST /api/journal/google-play-purchase`를 추가했다.
 - 아직 Google Play Developer API 검증/consume/acknowledge 구현 전이므로, 이 endpoint는 실제 복기권을 지급하지 않고 501로 막는다.
 - 서버 설정이 빠진 경우에는 503으로 막아, 가짜 결제가 복기권으로 바뀌지 않게 했다.
+
+### 앱 표시 이름 설정화
+
+- 화면 왼쪽 상단의 앱 이름과 브라우저 탭 제목을 `VITE_APP_NAME`으로 설정할 수 있게 했다.
+- 기본값은 기존 이름인 `AlphaMate`로 유지했다.
+- 내부 저장소 키(`alphamate.*`)는 기존 사용자 데이터와 충돌하지 않도록 아직 바꾸지 않았다.

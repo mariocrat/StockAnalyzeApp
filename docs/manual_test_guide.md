@@ -8,6 +8,16 @@
 2. 브라우저에서 `http://127.0.0.1:5174/`를 엽니다.
 3. 왼쪽 메뉴에서 `매매복기` 화면으로 이동합니다.
 
+## 1-1. 앱 이름 바꾸기
+
+앱 이름을 나중에 바꾸고 싶으면 `frontend/.env`에 아래 값을 넣습니다.
+
+```env
+VITE_APP_NAME=새앱이름
+```
+
+이 값은 왼쪽 상단 앱 이름과 브라우저 탭 제목에 적용됩니다. 내부 저장 데이터 키는 기존 사용자 데이터 보호를 위해 당장 바꾸지 않습니다.
+
 ## 2. 개발용 로그인 확인
 
 실제 카카오/네이버 키가 없어도 계정 분리와 복기권 차감 구조를 확인하기 위한 테스트입니다.
@@ -86,6 +96,26 @@ root `.env` 또는 backend `.env`:
 2. `frontend/dist` 안에 `dev-token`, `dev-ad-reward`, `dev-pro-entitlement` 문자열이 없는지 확인합니다.
 3. backend에서 `ALPHAMATE_ENV=production`일 때 개발용 로그인과 개발용 복기권 구매가 거부되는지 확인합니다.
 4. 실제 API Key와 provider secret은 `.env` 또는 서버 secret manager에만 넣고 GitHub에는 올리지 않습니다.
+
+## 7-1. Codex 인앱 브라우저 제어가 막힐 때
+
+Codex에서 인앱 브라우저 제어가 `CreateProcessAsUserW failed: 5` 같은 Windows 권한 오류로 실패할 수 있습니다. 이 경우 앱 코드 문제가 아니라 Codex의 브라우저 제어 보조 실행기가 Windows 세션에서 새 프로세스를 만들지 못하는 상태입니다.
+
+확인 순서:
+
+1. Codex 앱을 완전히 종료한 뒤 다시 실행합니다.
+2. 같은 URL을 다시 열어봅니다.
+3. 계속 실패하면 Codex 앱 업데이트 여부를 확인합니다.
+4. 그래도 실패하면 앱 자체 확인은 아래 HTTP/API 검증으로 대체합니다.
+
+대체 확인:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:5174/?view=journal`&oauth_provider=kakao
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
+```
+
+두 요청이 `200`이면 프론트와 백엔드는 살아 있는 상태입니다.
 
 ## 8. Google Play 결제 준비 확인
 
