@@ -547,10 +547,12 @@ def post_journal_google_play_purchase(
 def post_journal_google_play_rtdn(
     payload: GooglePlayRtdnIn,
     x_alphamate_rtdn_token: Optional[str] = Header(default=None, alias="X-AlphaMate-RTDN-Token"),
+    authorization: Optional[str] = Header(default=None),
 ):
     return handle_google_play_rtdn(
         pubsub_payload=payload.model_dump(),
         shared_token=x_alphamate_rtdn_token,
+        authorization=authorization,
     )
 
 

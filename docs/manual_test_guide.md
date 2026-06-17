@@ -139,3 +139,4 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 - 같은 subscription token이 만료/비활성 상태로 다시 검증되면 Pro 상태가 해제되어야 합니다.
 - `GOOGLE_PLAY_RTDN_SHARED_TOKEN`을 설정한 뒤 Pub/Sub push가 `POST /api/journal/google-play-rtdn`로 들어오면 서버가 Google Play API를 다시 조회해 Pro 상태를 갱신해야 합니다.
 - 배포 전에는 Google Play Console 테스트 결제, 서비스 계정 권한, Pub/Sub push 인증을 함께 확인해야 합니다.
+- Pub/Sub 인증 push를 쓰는 경우 `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE`, `GOOGLE_PLAY_RTDN_OIDC_EMAIL`을 설정해 JWT 검증이 켜지는지 확인합니다.

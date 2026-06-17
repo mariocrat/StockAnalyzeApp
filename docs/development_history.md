@@ -195,6 +195,7 @@
 
 - `POST /api/journal/google-play-rtdn`를 추가해 Google Play Real-time Developer Notifications Pub/Sub push 메시지를 받을 수 있게 했다.
 - endpoint는 `X-AlphaMate-RTDN-Token` 헤더가 `.env`의 `GOOGLE_PLAY_RTDN_SHARED_TOKEN`과 일치할 때만 처리한다.
+- `.env`에 `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE` 또는 `GOOGLE_PLAY_RTDN_OIDC_EMAIL`을 설정하면 Pub/Sub push의 `Authorization: Bearer <JWT>`도 검증한다.
 - subscription notification을 받으면 알림 내용만 믿지 않고 Google Play 구독 API를 다시 호출해 저장된 Pro 상태를 갱신한다.
 - 모르는 purchase token은 사용자와 연결할 수 없으므로 무시하고, 이미 저장된 구독 토큰 해시와 매칭되는 경우만 갱신한다.
 

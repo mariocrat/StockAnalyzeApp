@@ -417,6 +417,54 @@ class BillingReadinessTest(unittest.TestCase):
 
             self.assertEqual(403, raised.exception.status_code)
 
+    def test_rtdn_requires_oidc_when_configured(self):
+        with patched_env(
+            GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret",
+            GOOGLE_PLAY_RTDN_OIDC_AUDIENCE="https://example.com/rtdn",
+            GOOGLE_PLAY_RTDN_OIDC_EMAIL="pubsub-push@example.iam.gserviceaccount.com",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            with self.assertRaises(HTTPException) as raised:
+                access_control.handle_google_play_rtdn(
+                    pubsub_payload={"message": {"data": "e30="}},
+                    shared_token="rtdn-secret",
+                )
+
+            self.assertEqual(403, raised.exception.status_code)
+
+    def test_rtdn_accepts_valid_oidc_claims(self):
+        with patched_env(
+            GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret",
+            GOOGLE_PLAY_RTDN_OIDC_AUDIENCE="https://example.com/rtdn",
+            GOOGLE_PLAY_RTDN_OIDC_EMAIL="pubsub-push@example.iam.gserviceaccount.com",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_rtdn_oidc_token = lambda authorization: {
+                "aud": "https://example.com/rtdn",
+                "email": "pubsub-push@example.iam.gserviceaccount.com",
+                "email_verified": True,
+            }
+            notification = {"version": "1.0", "packageName": "com.alphamate.app", "testNotification": {}}
+            payload = {
+                "message": {
+                    "messageId": "msg-oidc",
+                    "data": base64.b64encode(json.dumps(notification).encode("utf-8")).decode("ascii"),
+                },
+            }
+
+            result = access_control.handle_google_play_rtdn(
+                pubsub_payload=payload,
+                shared_token="rtdn-secret",
+                authorization="Bearer test-jwt",
+            )
+
+            self.assertEqual("test", result["status"])
+            self.assertTrue(result["oidc_verified"])
+
 
 if __name__ == "__main__":
     unittest.main()

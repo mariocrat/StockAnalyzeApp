@@ -647,12 +647,43 @@ def sync_google_play_subscription_token(
     }
 
 
-def handle_google_play_rtdn(*, pubsub_payload: dict, shared_token: str | None) -> dict:
+def _verify_rtdn_oidc_token(authorization: str | None) -> dict:
+    audience = _env_value("GOOGLE_PLAY_RTDN_OIDC_AUDIENCE")
+    expected_email = _env_value("GOOGLE_PLAY_RTDN_OIDC_EMAIL")
+    if not audience and not expected_email:
+        return {}
+
+    text = str(authorization or "").strip()
+    if not text.lower().startswith("bearer "):
+        raise HTTPException(status_code=403, detail="Google Play RTDN OIDC token is required.")
+    token = text[7:].strip()
+    try:
+        from google.auth.transport.requests import Request
+        from google.oauth2 import id_token
+
+        claims = id_token.verify_oauth2_token(token, Request(), audience=audience or None)
+    except Exception:
+        raise HTTPException(status_code=403, detail="Google Play RTDN OIDC token is invalid.")
+
+    if expected_email and claims.get("email") != expected_email:
+        raise HTTPException(status_code=403, detail="Google Play RTDN OIDC email is invalid.")
+    if expected_email and claims.get("email_verified") is not True:
+        raise HTTPException(status_code=403, detail="Google Play RTDN OIDC email is not verified.")
+    return claims
+
+
+def handle_google_play_rtdn(
+    *,
+    pubsub_payload: dict,
+    shared_token: str | None,
+    authorization: str | None = None,
+) -> dict:
     configured_token = _env_value("GOOGLE_PLAY_RTDN_SHARED_TOKEN")
     if not configured_token:
         raise HTTPException(status_code=503, detail="Google Play RTDN shared token is not configured.")
     if str(shared_token or "") != configured_token:
         raise HTTPException(status_code=403, detail="Google Play RTDN token is invalid.")
+    oidc_claims = _verify_rtdn_oidc_token(authorization)
 
     message = (pubsub_payload or {}).get("message") or {}
     encoded_data = message.get("data")
@@ -672,10 +703,15 @@ def handle_google_play_rtdn(*, pubsub_payload: dict, shared_token: str | None) -
         )
         result["notification_type"] = subscription_notification.get("notificationType")
         result["message_id"] = message.get("messageId") or message.get("message_id") or ""
+        if oidc_claims:
+            result["oidc_verified"] = True
         return result
 
     if notification.get("testNotification") is not None:
-        return {"status": "test", "message_id": message.get("messageId") or message.get("message_id") or ""}
+        result = {"status": "test", "message_id": message.get("messageId") or message.get("message_id") or ""}
+        if oidc_claims:
+            result["oidc_verified"] = True
+        return result
 
     return {"status": "ignored", "reason": "unsupported_notification"}
 
