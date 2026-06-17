@@ -63,7 +63,7 @@ class BillingReadinessTest(unittest.TestCase):
 
             self.assertEqual(503, raised.exception.status_code)
 
-    def test_google_play_purchase_does_not_grant_before_verification_is_implemented(self):
+    def test_google_play_purchase_does_not_grant_when_verification_cannot_run(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="development",
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
@@ -82,12 +82,83 @@ class BillingReadinessTest(unittest.TestCase):
                     package_name="com.alphamate.app",
                 )
 
-            self.assertEqual(501, raised.exception.status_code)
+            self.assertEqual(503, raised.exception.status_code)
             entitlements = access_control.get_user_entitlements(
                 authorization="Bearer dev-token",
                 entitlement_token="",
             )
             self.assertEqual(0, entitlements["basic"]["purchased_remaining"])
+
+    def test_verified_google_play_consumable_grants_credits_once(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+
+            def fake_verify(*, package_name, google_product_id, purchase_token, kind):
+                return {
+                    "package_name": package_name,
+                    "product_id": google_product_id,
+                    "purchase_state": "purchased",
+                    "order_id": "GPA.1234",
+                    "acknowledgement_state": "acknowledged",
+                }
+
+            consumed = []
+            access_control._verify_google_play_purchase = fake_verify
+            access_control._consume_google_play_product = lambda **kwargs: consumed.append(kwargs)
+
+            first = access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="basic_review_30",
+                purchase_token="purchase-token",
+                package_name="com.alphamate.app",
+            )
+            second = access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="basic_review_30",
+                purchase_token="purchase-token",
+                package_name="com.alphamate.app",
+            )
+
+            self.assertEqual(30, first["basic"]["purchased_remaining"])
+            self.assertEqual(30, second["basic"]["purchased_remaining"])
+            self.assertEqual("applied", first["purchase"]["status"])
+            self.assertEqual("already_applied", second["purchase"]["status"])
+            self.assertEqual(1, len(consumed))
+
+    def test_google_play_purchase_rejects_wrong_product(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_google_play_purchase = lambda **kwargs: {
+                "package_name": "com.alphamate.app",
+                "product_id": "other_product",
+                "purchase_state": "purchased",
+            }
+
+            with self.assertRaises(HTTPException) as raised:
+                access_control.apply_google_play_purchase(
+                    authorization="Bearer dev-token",
+                    product_id="basic_review_30",
+                    purchase_token="purchase-token",
+                    package_name="com.alphamate.app",
+                )
+
+            self.assertEqual(400, raised.exception.status_code)
 
 
 if __name__ == "__main__":

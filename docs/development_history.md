@@ -176,6 +176,13 @@
 - 아직 Google Play Developer API 검증/consume/acknowledge 구현 전이므로, 이 endpoint는 실제 복기권을 지급하지 않고 501로 막는다.
 - 서버 설정이 빠진 경우에는 503으로 막아, 가짜 결제가 복기권으로 바뀌지 않게 했다.
 
+### Google Play 소모성 복기권 검증
+
+- `POST /api/journal/google-play-purchase`가 Google Play Developer API로 소모성 상품 purchase token을 검증한 뒤 복기권을 지급하도록 바꿨다.
+- 같은 purchase token은 SHA-256 해시로 DB에 기록해 한 번만 지급되게 했다.
+- 일반/심층 복기권 같은 소모성 상품은 검증 성공 후 지급하고, Pro 구독 검증은 별도 월 구독 상태 저장 구조가 필요해 다음 단계로 남겼다.
+- 실제 서비스 계정 JSON 값은 API 응답이나 DB에 저장하지 않고, 구매 토큰 원문도 저장하지 않는다.
+
 ### 앱 표시 이름 설정화
 
 - 화면 왼쪽 상단의 앱 이름과 브라우저 탭 제목을 `VITE_APP_NAME`으로 설정할 수 있게 했다.

@@ -121,16 +121,18 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 
 ## 8. Google Play 결제 준비 확인
 
-현재는 Google Play Developer API 검증 코드가 완성되기 전 단계입니다.
+현재는 Google Play 소모성 복기권 검증 코드가 들어간 상태입니다. 실제 결제 테스트는 Google Play Console 상품 ID와 서비스 계정 설정이 필요합니다.
 
 1. backend가 켜진 상태에서 `http://127.0.0.1:8002/api/journal/products`를 엽니다.
 2. `consumables`에 일반/심층 복기권 상품이 보이는지 확인합니다.
 3. `subscriptions`에 Pro 월 구독 상품이 보이는지 확인합니다.
 4. `google_play.missing_server_settings`에 빠진 서버 설정이 표시되는지 확인합니다.
-5. Google Play 구매 요청 endpoint는 아직 실제 복기권을 지급하지 않는 것이 정상입니다.
+5. Google Play 구매 요청 endpoint는 실제 Google Play purchase token이 검증된 경우에만 복기권을 지급합니다.
 
 정상 결과:
 
 - 상품 ID와 가격/수량은 보입니다.
 - 서비스 계정 secret 값은 응답에 보이지 않습니다.
-- Google Play 검증 구현 전에는 결제 토큰을 보내도 복기권이 충전되지 않습니다.
+- 서비스 계정 설정이 없거나 잘못되면 503으로 막히고 복기권이 충전되지 않습니다.
+- 같은 purchase token을 다시 보내도 복기권은 한 번만 충전됩니다.
+- Pro 구독 검증은 아직 다음 단계입니다.

@@ -146,5 +146,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 
 - `GET /api/journal/products`는 공개 가능한 상품 ID, 가격, 수량, Google Play 준비 상태만 반환한다.
 - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` 또는 `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` 값 자체는 응답에 포함하지 않는다.
-- `POST /api/journal/google-play-purchase`는 Google Play Developer API 검증이 구현되기 전까지 501로 거부한다.
-- 운영 결제 완료 처리는 반드시 서버에서 purchase token을 Google Play에 검증하고, consume 또는 acknowledge 처리 후 DB 트랜잭션으로 복기권을 지급해야 한다.
+- `POST /api/journal/google-play-purchase`는 소모성 복기권에 대해 서버에서 purchase token을 Google Play에 검증한 뒤에만 지급한다.
+- purchase token 원문은 저장하지 않고 SHA-256 해시만 저장해 중복 지급을 막는다.
+- 소모성 상품은 지급 후 consume 요청을 수행한다. consume 실패 시에도 서버 DB의 중복 지급 방지 기록이 우선 방어선이다.
+- Pro 구독은 월 구독 상태 저장 및 갱신/해지 동기화 구조가 필요해 다음 단계로 분리한다.

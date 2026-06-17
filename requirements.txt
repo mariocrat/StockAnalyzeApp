@@ -3,6 +3,7 @@ uvicorn
 pandas
 numpy
 requests
+google-auth
 beautifulsoup4
 yfinance
 pykrx

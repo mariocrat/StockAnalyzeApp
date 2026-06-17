@@ -1,5 +1,8 @@
 import datetime
+import hashlib
+import json
 import os
+import requests
 import sqlite3
 import threading
 from dataclasses import dataclass, field
@@ -127,6 +130,20 @@ def _connect_access_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS google_play_purchases (
+            purchase_token_hash TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            local_product_id TEXT NOT NULL,
+            google_play_product_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            order_id TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL,
+            granted_at TEXT NOT NULL
+        )
+        """
+    )
     return conn
 
 
@@ -165,49 +182,53 @@ def _load_wallet(user_id: str) -> UserWallet:
         conn.close()
 
 
-def _save_wallet(user_id: str, wallet: UserWallet):
+def _write_wallet(conn, user_id: str, wallet: UserWallet):
     usage = wallet.usage
     now = datetime.datetime.now().isoformat(timespec="seconds")
+    conn.execute(
+        """
+        INSERT OR REPLACE INTO access_wallets (
+            user_id,
+            basic_signup_remaining,
+            purchased_basic,
+            weekly_advanced,
+            purchased_advanced,
+            date_key,
+            month_key,
+            week_key,
+            free_basic_daily_used,
+            free_basic_monthly_used,
+            pro_basic_monthly_used,
+            pro_advanced_monthly_used,
+            weekly_ad_views,
+            weekly_advanced_granted,
+            updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            user_id,
+            wallet.basic_signup_remaining,
+            wallet.purchased_basic,
+            wallet.weekly_advanced,
+            wallet.purchased_advanced,
+            usage.date_key,
+            usage.month_key,
+            usage.week_key,
+            usage.free_basic_daily_used,
+            usage.free_basic_monthly_used,
+            usage.pro_basic_monthly_used,
+            usage.pro_advanced_monthly_used,
+            usage.weekly_ad_views,
+            usage.weekly_advanced_granted,
+            now,
+        ),
+    )
+
+
+def _save_wallet(user_id: str, wallet: UserWallet):
     conn = _connect_access_db()
     try:
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO access_wallets (
-                user_id,
-                basic_signup_remaining,
-                purchased_basic,
-                weekly_advanced,
-                purchased_advanced,
-                date_key,
-                month_key,
-                week_key,
-                free_basic_daily_used,
-                free_basic_monthly_used,
-                pro_basic_monthly_used,
-                pro_advanced_monthly_used,
-                weekly_ad_views,
-                weekly_advanced_granted,
-                updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                user_id,
-                wallet.basic_signup_remaining,
-                wallet.purchased_basic,
-                wallet.weekly_advanced,
-                wallet.purchased_advanced,
-                usage.date_key,
-                usage.month_key,
-                usage.week_key,
-                usage.free_basic_daily_used,
-                usage.free_basic_monthly_used,
-                usage.pro_basic_monthly_used,
-                usage.pro_advanced_monthly_used,
-                usage.weekly_ad_views,
-                usage.weekly_advanced_granted,
-                now,
-            ),
-        )
+        _write_wallet(conn, user_id, wallet)
         conn.commit()
     finally:
         conn.close()
@@ -249,6 +270,173 @@ def _google_play_status() -> dict:
         "service_account_configured": service_account_configured,
         "missing_server_settings": missing,
     }
+
+
+def _hash_purchase_token(token: str) -> str:
+    return hashlib.sha256(str(token or "").strip().encode("utf-8")).hexdigest()
+
+
+def _google_play_service_account_info() -> dict:
+    raw_json = _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+    if raw_json:
+        try:
+            return json.loads(raw_json)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=503, detail="Google Play service account JSON is invalid.")
+
+    file_path = _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")
+    if file_path:
+        try:
+            return json.loads(Path(file_path).read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            raise HTTPException(status_code=503, detail="Google Play service account file was not found.")
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=503, detail="Google Play service account file is invalid.")
+
+    raise HTTPException(status_code=503, detail="Google Play service account is not configured.")
+
+
+def _google_play_access_token() -> str:
+    try:
+        from google.oauth2 import service_account
+        from google.auth.transport.requests import Request
+    except ModuleNotFoundError:
+        raise HTTPException(status_code=503, detail="google-auth package is required for Google Play verification.")
+
+    info = _google_play_service_account_info()
+    credentials = service_account.Credentials.from_service_account_info(
+        info,
+        scopes=["https://www.googleapis.com/auth/androidpublisher"],
+    )
+    credentials.refresh(Request())
+    return credentials.token
+
+
+def _google_play_headers() -> dict:
+    return {"Authorization": f"Bearer {_google_play_access_token()}"}
+
+
+def _verify_google_play_purchase(
+    *,
+    package_name: str,
+    google_product_id: str,
+    purchase_token: str,
+    kind: str,
+) -> dict:
+    if kind != "consumable":
+        raise HTTPException(status_code=501, detail="Google Play subscription verification is not implemented yet.")
+
+    url = (
+        "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"
+        f"{package_name}/purchases/products/{google_product_id}/tokens/{purchase_token}"
+    )
+    try:
+        response = requests.get(url, headers=_google_play_headers(), timeout=10)
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Google Play purchase verification request failed.")
+
+    if response.status_code == 404:
+        raise HTTPException(status_code=402, detail="Google Play purchase token was not found.")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Google Play purchase verification failed.")
+
+    data = response.json()
+    purchase_state = "purchased" if int(data.get("purchaseState", -1)) == 0 else "not_purchased"
+    return {
+        "package_name": package_name,
+        "product_id": google_product_id,
+        "purchase_state": purchase_state,
+        "order_id": str(data.get("orderId") or ""),
+        "acknowledgement_state": "acknowledged" if int(data.get("acknowledgementState", 0)) == 1 else "unacknowledged",
+        "raw": data,
+    }
+
+
+def _consume_google_play_product(*, package_name: str, google_product_id: str, purchase_token: str) -> bool:
+    url = (
+        "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"
+        f"{package_name}/purchases/products/{google_product_id}/tokens/{purchase_token}:consume"
+    )
+    try:
+        response = requests.post(url, headers=_google_play_headers(), timeout=10)
+    except requests.RequestException:
+        return False
+    return response.status_code < 400
+
+
+def _load_google_purchase(token_hash: str):
+    conn = _connect_access_db()
+    try:
+        return conn.execute(
+            "SELECT * FROM google_play_purchases WHERE purchase_token_hash = ?",
+            (token_hash,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def _write_google_purchase(
+    conn,
+    *,
+    token_hash: str,
+    user_id: str,
+    local_product_id: str,
+    google_product_id: str,
+    kind: str,
+    order_id: str,
+):
+    now = datetime.datetime.now().isoformat(timespec="seconds")
+    conn.execute(
+        """
+        INSERT INTO google_play_purchases (
+            purchase_token_hash,
+            user_id,
+            local_product_id,
+            google_play_product_id,
+            kind,
+            order_id,
+            status,
+            granted_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            token_hash,
+            user_id,
+            local_product_id,
+            google_product_id,
+            kind,
+            str(order_id or ""),
+            "applied",
+            now,
+        ),
+    )
+
+
+def _save_wallet_and_record_google_purchase(
+    *,
+    wallet: UserWallet,
+    token_hash: str,
+    user_id: str,
+    local_product_id: str,
+    google_product_id: str,
+    kind: str,
+    order_id: str,
+):
+    conn = _connect_access_db()
+    try:
+        _write_google_purchase(
+            conn,
+            token_hash=token_hash,
+            user_id=user_id,
+            local_product_id=local_product_id,
+            google_product_id=google_product_id,
+            kind=kind,
+            order_id=order_id,
+        )
+        _write_wallet(conn, user_id, wallet)
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def get_product_catalog() -> dict:
@@ -463,7 +651,7 @@ def apply_google_play_purchase(
     if not str(purchase_token or "").strip():
         raise HTTPException(status_code=400, detail="purchase_token is required.")
 
-    _authenticate(authorization)
+    user_id, _ = _authenticate(authorization)
     status = _google_play_status()
     if not status["ready"]:
         raise HTTPException(status_code=503, detail="Google Play Billing verification is not configured.")
@@ -472,12 +660,79 @@ def apply_google_play_purchase(
     if package_name and configured_package and package_name != configured_package:
         raise HTTPException(status_code=400, detail="Google Play package name does not match server configuration.")
 
-    # Never grant credits until a purchase token has been verified with Google Play
-    # Developer API and consumed/acknowledged server-side.
-    raise HTTPException(
-        status_code=501,
-        detail="Google Play Billing verification is not implemented yet.",
+    if product_id in SUBSCRIPTIONS:
+        raise HTTPException(status_code=501, detail="Google Play subscription verification is not implemented yet.")
+
+    google_product_id = _google_play_id(product_id)
+    normalized_package = package_name or configured_package
+    token_hash = _hash_purchase_token(purchase_token)
+    plan = _plan_for(None)
+
+    with _WALLET_LOCK:
+        wallet = _wallet_for(user_id)
+        existing = _load_google_purchase(token_hash)
+        if existing:
+            snapshot = _wallet_snapshot(wallet, plan)
+            snapshot["purchase"] = {
+                "status": "already_applied",
+                "product_id": existing["local_product_id"],
+                "kind": existing["kind"],
+            }
+            return snapshot
+
+    verification = _verify_google_play_purchase(
+        package_name=normalized_package,
+        google_product_id=google_product_id,
+        purchase_token=purchase_token,
+        kind="consumable",
     )
+    if str(verification.get("product_id") or "") != google_product_id:
+        raise HTTPException(status_code=400, detail="Google Play product id does not match the requested product.")
+    if str(verification.get("package_name") or normalized_package) != normalized_package:
+        raise HTTPException(status_code=400, detail="Google Play package name does not match the requested package.")
+    if verification.get("purchase_state") != "purchased":
+        raise HTTPException(status_code=402, detail="Google Play purchase is not completed.")
+
+    product = PRODUCTS[product_id]
+    with _WALLET_LOCK:
+        wallet = _wallet_for(user_id)
+        existing = _load_google_purchase(token_hash)
+        if existing:
+            snapshot = _wallet_snapshot(wallet, plan)
+            snapshot["purchase"] = {
+                "status": "already_applied",
+                "product_id": existing["local_product_id"],
+                "kind": existing["kind"],
+            }
+            return snapshot
+        if product["kind"] == "basic":
+            wallet.purchased_basic += product["quantity"]
+        else:
+            wallet.purchased_advanced += product["quantity"]
+        _save_wallet_and_record_google_purchase(
+            wallet=wallet,
+            token_hash=token_hash,
+            user_id=user_id,
+            local_product_id=product_id,
+            google_product_id=google_product_id,
+            kind=product["kind"],
+            order_id=str(verification.get("order_id") or ""),
+        )
+        snapshot = _wallet_snapshot(wallet, plan)
+
+    consumed = _consume_google_play_product(
+        package_name=normalized_package,
+        google_product_id=google_product_id,
+        purchase_token=purchase_token,
+    )
+    snapshot["purchase"] = {
+        "status": "applied",
+        "product_id": product_id,
+        "kind": product["kind"],
+        "quantity": product["quantity"],
+        "consumed": consumed,
+    }
+    return snapshot
 
 
 def verify_ai_review_access(
