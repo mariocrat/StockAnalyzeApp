@@ -151,4 +151,5 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 소모성 상품은 지급 후 consume 요청을 수행한다. consume 실패 시에도 서버 DB의 중복 지급 방지 기록이 우선 방어선이다.
 - Pro 구독은 `purchases.subscriptionsv2.get`으로 구독 토큰을 검증하고, 활성 상태와 만료 시간이 유효할 때만 Pro 플랜으로 저장한다.
 - 저장 시 구독 토큰 원문은 남기지 않고 SHA-256 해시, 상품 ID, 상태, 만료 시간, 최신 주문 ID만 남긴다.
+- 만료/비활성 구독 검증 결과도 저장해 기존 Pro 상태가 남아 비용이 새는 일을 막는다.
 - 다음 배포 단계에서는 Google Play Real-time Developer Notifications 또는 주기적 재검증으로 갱신/해지 상태를 동기화해야 한다.

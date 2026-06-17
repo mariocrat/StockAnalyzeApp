@@ -828,6 +828,16 @@ def apply_google_play_purchase(
         status_text = str(verification.get("subscription_state") or "")
         expiry_time = str(verification.get("expiry_time") or "")
         if not _subscription_is_active(status=status_text, expiry_time=expiry_time):
+            _save_google_subscription(
+                user_id=user_id,
+                token_hash=token_hash,
+                local_product_id=product_id,
+                google_product_id=google_product_id,
+                status=status_text,
+                expiry_time=expiry_time,
+                auto_renewing=bool(verification.get("auto_renewing")),
+                latest_order_id=str(verification.get("latest_order_id") or ""),
+            )
             raise HTTPException(status_code=402, detail="Google Play subscription is not active.")
 
         _save_google_subscription(

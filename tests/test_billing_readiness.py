@@ -272,6 +272,70 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("pro_monthly_advanced", access.source)
             self.assertEqual(4, access.quota["advanced"]["pro_monthly_remaining"])
 
+    def test_inactive_subscription_refresh_disables_previous_pro_plan(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+
+            subscription_state = {
+                "subscription_state": "SUBSCRIPTION_STATE_ACTIVE",
+                "expiry_time": "2099-01-01T00:00:00Z",
+                "latest_order_id": "GPA.pro.active",
+                "auto_renewing": True,
+            }
+
+            def fake_verify(**kwargs):
+                return {
+                    "package_name": "com.alphamate.app",
+                    "product_id": "pro_monthly",
+                    **subscription_state,
+                }
+
+            access_control._verify_google_play_subscription = fake_verify
+            access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="pro_monthly",
+                purchase_token="subscription-token",
+                package_name="com.alphamate.app",
+            )
+            self.assertEqual(
+                "pro",
+                access_control.get_user_entitlements(
+                    authorization="Bearer dev-token",
+                    entitlement_token="",
+                )["plan"],
+            )
+
+            subscription_state.update({
+                "subscription_state": "SUBSCRIPTION_STATE_EXPIRED",
+                "expiry_time": "2020-01-01T00:00:00Z",
+                "latest_order_id": "GPA.pro.expired",
+                "auto_renewing": False,
+            })
+            with self.assertRaises(HTTPException) as raised:
+                access_control.apply_google_play_purchase(
+                    authorization="Bearer dev-token",
+                    product_id="pro_monthly",
+                    purchase_token="subscription-token",
+                    package_name="com.alphamate.app",
+                )
+
+            self.assertEqual(402, raised.exception.status_code)
+            self.assertEqual(
+                "free",
+                access_control.get_user_entitlements(
+                    authorization="Bearer dev-token",
+                    entitlement_token="",
+                )["plan"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
