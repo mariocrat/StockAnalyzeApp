@@ -1,4 +1,6 @@
+import base64
 import importlib
+import json
 import os
 import tempfile
 import unittest
@@ -335,6 +337,85 @@ class BillingReadinessTest(unittest.TestCase):
                     entitlement_token="",
                 )["plan"],
             )
+
+    def test_rtdn_subscription_notification_refreshes_stored_subscription(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            subscription_state = {
+                "subscription_state": "SUBSCRIPTION_STATE_ACTIVE",
+                "expiry_time": "2099-01-01T00:00:00Z",
+                "latest_order_id": "GPA.rtdn.active",
+                "auto_renewing": True,
+            }
+            access_control._verify_google_play_subscription = lambda **kwargs: {
+                "package_name": "com.alphamate.app",
+                "product_id": "pro_monthly",
+                **subscription_state,
+            }
+            access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="pro_monthly",
+                purchase_token="subscription-token",
+                package_name="com.alphamate.app",
+            )
+
+            subscription_state.update({
+                "subscription_state": "SUBSCRIPTION_STATE_EXPIRED",
+                "expiry_time": "2020-01-01T00:00:00Z",
+                "latest_order_id": "GPA.rtdn.expired",
+                "auto_renewing": False,
+            })
+            notification = {
+                "version": "1.0",
+                "packageName": "com.alphamate.app",
+                "eventTimeMillis": "1710000000000",
+                "subscriptionNotification": {
+                    "version": "1.0",
+                    "notificationType": 13,
+                    "purchaseToken": "subscription-token",
+                    "subscriptionId": "pro_monthly",
+                },
+            }
+            payload = {
+                "message": {
+                    "messageId": "msg-1",
+                    "data": base64.b64encode(json.dumps(notification).encode("utf-8")).decode("ascii"),
+                },
+                "subscription": "projects/test/subscriptions/google-play",
+            }
+
+            result = access_control.handle_google_play_rtdn(
+                pubsub_payload=payload,
+                shared_token="rtdn-secret",
+            )
+
+            self.assertEqual("inactive", result["status"])
+            self.assertEqual("free", access_control.get_user_entitlements(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+            )["plan"])
+
+    def test_rtdn_requires_shared_token(self):
+        with patched_env(GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret"):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            with self.assertRaises(HTTPException) as raised:
+                access_control.handle_google_play_rtdn(
+                    pubsub_payload={"message": {"data": "e30="}},
+                    shared_token="wrong",
+                )
+
+            self.assertEqual(403, raised.exception.status_code)
 
 
 if __name__ == "__main__":

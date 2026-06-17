@@ -191,6 +191,13 @@
 - 활성 Pro 구독 사용자는 별도 개발용 entitlement token 없이 월 일반 복기 150회, 심층 복기 5회 제공량을 우선 사용한다.
 - 같은 구독 토큰이 만료/비활성 상태로 다시 검증되면 그 상태도 저장해 기존 Pro 권한이 계속 유지되지 않게 했다.
 
+### Google Play RTDN 알림 수신
+
+- `POST /api/journal/google-play-rtdn`를 추가해 Google Play Real-time Developer Notifications Pub/Sub push 메시지를 받을 수 있게 했다.
+- endpoint는 `X-AlphaMate-RTDN-Token` 헤더가 `.env`의 `GOOGLE_PLAY_RTDN_SHARED_TOKEN`과 일치할 때만 처리한다.
+- subscription notification을 받으면 알림 내용만 믿지 않고 Google Play 구독 API를 다시 호출해 저장된 Pro 상태를 갱신한다.
+- 모르는 purchase token은 사용자와 연결할 수 없으므로 무시하고, 이미 저장된 구독 토큰 해시와 매칭되는 경우만 갱신한다.
+
 ### 앱 표시 이름 설정화
 
 - 화면 왼쪽 상단의 앱 이름과 브라우저 탭 제목을 `VITE_APP_NAME`으로 설정할 수 있게 했다.

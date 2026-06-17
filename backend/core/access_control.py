@@ -1,3 +1,4 @@
+import base64
 import datetime
 import hashlib
 import json
@@ -467,6 +468,17 @@ def _load_google_subscription(user_id: str):
         conn.close()
 
 
+def _load_google_subscription_by_token_hash(token_hash: str):
+    conn = _connect_access_db()
+    try:
+        return conn.execute(
+            "SELECT * FROM google_play_subscriptions WHERE purchase_token_hash = ?",
+            (token_hash,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
 def _user_has_active_subscription(user_id: str) -> bool:
     row = _load_google_subscription(user_id)
     if not row:
@@ -584,6 +596,88 @@ def _save_wallet_and_record_google_purchase(
         conn.commit()
     finally:
         conn.close()
+
+
+def sync_google_play_subscription_token(
+    *,
+    package_name: str,
+    purchase_token: str,
+    google_product_id: str | None = None,
+) -> dict:
+    if not str(purchase_token or "").strip():
+        raise HTTPException(status_code=400, detail="purchase_token is required.")
+
+    configured_package = _env_value("GOOGLE_PLAY_PACKAGE_NAME")
+    normalized_package = str(package_name or configured_package or "").strip()
+    if configured_package and normalized_package != configured_package:
+        raise HTTPException(status_code=400, detail="Google Play package name does not match server configuration.")
+
+    token_hash = _hash_purchase_token(purchase_token)
+    row = _load_google_subscription_by_token_hash(token_hash)
+    if not row:
+        return {"status": "ignored", "reason": "unknown_subscription_token"}
+
+    expected_google_product_id = row["google_play_product_id"]
+    if google_product_id and google_product_id != expected_google_product_id:
+        raise HTTPException(status_code=400, detail="Google Play subscription product id does not match stored subscription.")
+
+    verification = _verify_google_play_subscription(
+        package_name=normalized_package,
+        google_product_id=expected_google_product_id,
+        purchase_token=purchase_token,
+    )
+    status_text = str(verification.get("subscription_state") or "")
+    expiry_time = str(verification.get("expiry_time") or "")
+    _save_google_subscription(
+        user_id=row["user_id"],
+        token_hash=token_hash,
+        local_product_id=row["local_product_id"],
+        google_product_id=expected_google_product_id,
+        status=status_text,
+        expiry_time=expiry_time,
+        auto_renewing=bool(verification.get("auto_renewing")),
+        latest_order_id=str(verification.get("latest_order_id") or ""),
+    )
+    return {
+        "status": "active" if _subscription_is_active(status=status_text, expiry_time=expiry_time) else "inactive",
+        "user_id": row["user_id"],
+        "product_id": row["local_product_id"],
+        "subscription_state": status_text,
+        "expiry_time": expiry_time,
+    }
+
+
+def handle_google_play_rtdn(*, pubsub_payload: dict, shared_token: str | None) -> dict:
+    configured_token = _env_value("GOOGLE_PLAY_RTDN_SHARED_TOKEN")
+    if not configured_token:
+        raise HTTPException(status_code=503, detail="Google Play RTDN shared token is not configured.")
+    if str(shared_token or "") != configured_token:
+        raise HTTPException(status_code=403, detail="Google Play RTDN token is invalid.")
+
+    message = (pubsub_payload or {}).get("message") or {}
+    encoded_data = message.get("data")
+    if not encoded_data:
+        raise HTTPException(status_code=400, detail="Pub/Sub message data is required.")
+    try:
+        decoded = base64.b64decode(encoded_data).decode("utf-8")
+        notification = json.loads(decoded)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Pub/Sub message data is invalid.")
+
+    subscription_notification = notification.get("subscriptionNotification")
+    if subscription_notification:
+        result = sync_google_play_subscription_token(
+            package_name=str(notification.get("packageName") or ""),
+            purchase_token=subscription_notification.get("purchaseToken") or "",
+        )
+        result["notification_type"] = subscription_notification.get("notificationType")
+        result["message_id"] = message.get("messageId") or message.get("message_id") or ""
+        return result
+
+    if notification.get("testNotification") is not None:
+        return {"status": "test", "message_id": message.get("messageId") or message.get("message_id") or ""}
+
+    return {"status": "ignored", "reason": "unsupported_notification"}
 
 
 def get_product_catalog() -> dict:

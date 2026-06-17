@@ -137,4 +137,5 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 - 같은 purchase token을 다시 보내도 복기권은 한 번만 충전됩니다.
 - Pro 구독은 Google Play subscription token이 검증되고 만료 시간이 유효할 때만 Pro 상태로 반영됩니다.
 - 같은 subscription token이 만료/비활성 상태로 다시 검증되면 Pro 상태가 해제되어야 합니다.
-- 배포 전에는 Google Play Console 테스트 결제와 서비스 계정 권한으로 Pro 갱신/해지 상태 동기화까지 별도 확인해야 합니다.
+- `GOOGLE_PLAY_RTDN_SHARED_TOKEN`을 설정한 뒤 Pub/Sub push가 `POST /api/journal/google-play-rtdn`로 들어오면 서버가 Google Play API를 다시 조회해 Pro 상태를 갱신해야 합니다.
+- 배포 전에는 Google Play Console 테스트 결제, 서비스 계정 권한, Pub/Sub push 인증을 함께 확인해야 합니다.

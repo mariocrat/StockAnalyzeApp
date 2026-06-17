@@ -25,6 +25,7 @@ from core.journal_chart import build_journal_charts
 from core.access_control import (
     apply_dev_purchase,
     apply_google_play_purchase,
+    handle_google_play_rtdn,
     get_product_catalog,
     get_user_entitlements,
     verify_ai_review_access,
@@ -78,6 +79,11 @@ class JournalGooglePlayPurchaseIn(BaseModel):
     product_id: str
     purchase_token: str
     package_name: str = ""
+
+
+class GooglePlayRtdnIn(BaseModel):
+    message: dict
+    subscription: str = ""
 
 
 class AuthDevLoginIn(BaseModel):
@@ -534,6 +540,17 @@ def post_journal_google_play_purchase(
         product_id=purchase.product_id,
         purchase_token=purchase.purchase_token,
         package_name=purchase.package_name,
+    )
+
+
+@app.post("/api/journal/google-play-rtdn")
+def post_journal_google_play_rtdn(
+    payload: GooglePlayRtdnIn,
+    x_alphamate_rtdn_token: Optional[str] = Header(default=None, alias="X-AlphaMate-RTDN-Token"),
+):
+    return handle_google_play_rtdn(
+        pubsub_payload=payload.model_dump(),
+        shared_token=x_alphamate_rtdn_token,
     )
 
 
