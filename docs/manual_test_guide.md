@@ -135,4 +135,5 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 - 서비스 계정 secret 값은 응답에 보이지 않습니다.
 - 서비스 계정 설정이 없거나 잘못되면 503으로 막히고 복기권이 충전되지 않습니다.
 - 같은 purchase token을 다시 보내도 복기권은 한 번만 충전됩니다.
-- Pro 구독 검증은 아직 다음 단계입니다.
+- Pro 구독은 Google Play subscription token이 검증되고 만료 시간이 유효할 때만 Pro 상태로 반영됩니다.
+- 배포 전에는 Google Play Console 테스트 결제와 서비스 계정 권한으로 Pro 갱신/해지 상태 동기화까지 별도 확인해야 합니다.

@@ -144,6 +144,21 @@ def _connect_access_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS google_play_subscriptions (
+            user_id TEXT PRIMARY KEY,
+            purchase_token_hash TEXT NOT NULL,
+            local_product_id TEXT NOT NULL,
+            google_play_product_id TEXT NOT NULL,
+            status TEXT NOT NULL,
+            expiry_time TEXT NOT NULL DEFAULT '',
+            auto_renewing INTEGER NOT NULL DEFAULT 0,
+            latest_order_id TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
     return conn
 
 
@@ -276,6 +291,31 @@ def _hash_purchase_token(token: str) -> str:
     return hashlib.sha256(str(token or "").strip().encode("utf-8")).hexdigest()
 
 
+def _parse_google_time(value: str | None):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _subscription_is_active(*, status: str, expiry_time: str) -> bool:
+    if status not in {
+        "SUBSCRIPTION_STATE_ACTIVE",
+        "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+        "SUBSCRIPTION_STATE_CANCELED",
+    }:
+        return False
+    expires_at = _parse_google_time(expiry_time)
+    if expires_at is None:
+        return status in {"SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"}
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+    return expires_at > datetime.datetime.now(datetime.timezone.utc)
+
+
 def _google_play_service_account_info() -> dict:
     raw_json = _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
     if raw_json:
@@ -352,6 +392,47 @@ def _verify_google_play_purchase(
     }
 
 
+def _verify_google_play_subscription(
+    *,
+    package_name: str,
+    google_product_id: str,
+    purchase_token: str,
+) -> dict:
+    url = (
+        "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"
+        f"{package_name}/purchases/subscriptionsv2/tokens/{purchase_token}"
+    )
+    try:
+        response = requests.get(url, headers=_google_play_headers(), timeout=10)
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Google Play subscription verification request failed.")
+
+    if response.status_code == 404:
+        raise HTTPException(status_code=402, detail="Google Play subscription token was not found.")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Google Play subscription verification failed.")
+
+    data = response.json()
+    matching_item = None
+    for item in data.get("lineItems") or []:
+        if item.get("productId") == google_product_id:
+            matching_item = item
+            break
+    if not matching_item:
+        raise HTTPException(status_code=400, detail="Google Play subscription product id does not match.")
+
+    auto_renewing = bool((matching_item.get("autoRenewingPlan") or {}).get("autoRenewEnabled"))
+    return {
+        "package_name": package_name,
+        "product_id": google_product_id,
+        "subscription_state": str(data.get("subscriptionState") or ""),
+        "expiry_time": str(matching_item.get("expiryTime") or ""),
+        "latest_order_id": str(matching_item.get("latestSuccessfulOrderId") or data.get("latestOrderId") or ""),
+        "auto_renewing": auto_renewing,
+        "raw": data,
+    }
+
+
 def _consume_google_play_product(*, package_name: str, google_product_id: str, purchase_token: str) -> bool:
     url = (
         "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"
@@ -373,6 +454,27 @@ def _load_google_purchase(token_hash: str):
         ).fetchone()
     finally:
         conn.close()
+
+
+def _load_google_subscription(user_id: str):
+    conn = _connect_access_db()
+    try:
+        return conn.execute(
+            "SELECT * FROM google_play_subscriptions WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def _user_has_active_subscription(user_id: str) -> bool:
+    row = _load_google_subscription(user_id)
+    if not row:
+        return False
+    return _subscription_is_active(
+        status=row["status"],
+        expiry_time=row["expiry_time"],
+    )
 
 
 def _write_google_purchase(
@@ -410,6 +512,51 @@ def _write_google_purchase(
             now,
         ),
     )
+
+
+def _save_google_subscription(
+    *,
+    user_id: str,
+    token_hash: str,
+    local_product_id: str,
+    google_product_id: str,
+    status: str,
+    expiry_time: str,
+    auto_renewing: bool,
+    latest_order_id: str,
+):
+    now = datetime.datetime.now().isoformat(timespec="seconds")
+    conn = _connect_access_db()
+    try:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO google_play_subscriptions (
+                user_id,
+                purchase_token_hash,
+                local_product_id,
+                google_play_product_id,
+                status,
+                expiry_time,
+                auto_renewing,
+                latest_order_id,
+                updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                token_hash,
+                local_product_id,
+                google_product_id,
+                status,
+                expiry_time,
+                1 if auto_renewing else 0,
+                latest_order_id,
+                now,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def _save_wallet_and_record_google_purchase(
@@ -512,9 +659,11 @@ def _authenticate(authorization: str | None) -> tuple[str, str]:
     return user["id"], "session"
 
 
-def _plan_for(entitlement_token: str | None) -> str:
+def _plan_for(user_id: str, entitlement_token: str | None) -> str:
     dev_pro_token = _env_value("ALPHAMATE_DEV_PRO_ENTITLEMENT_TOKEN") or "dev-pro-entitlement"
     if _dev_access_enabled() and str(entitlement_token or "").strip() == dev_pro_token:
+        return "pro"
+    if _user_has_active_subscription(user_id):
         return "pro"
     return "free"
 
@@ -612,7 +761,7 @@ def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:
 
 def get_user_entitlements(*, authorization: str | None, entitlement_token: str | None) -> dict:
     user_id, auth_mode = _authenticate(authorization)
-    plan = _plan_for(entitlement_token)
+    plan = _plan_for(user_id, entitlement_token)
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id)
         _save_wallet(user_id, wallet)
@@ -627,7 +776,7 @@ def apply_dev_purchase(*, authorization: str | None, entitlement_token: str | No
     if product_id not in PRODUCTS:
         raise HTTPException(status_code=400, detail="Unknown product id.")
     user_id, _ = _authenticate(authorization)
-    plan = _plan_for(entitlement_token)
+    plan = _plan_for(user_id, entitlement_token)
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id)
         product = PRODUCTS[product_id]
@@ -660,13 +809,48 @@ def apply_google_play_purchase(
     if package_name and configured_package and package_name != configured_package:
         raise HTTPException(status_code=400, detail="Google Play package name does not match server configuration.")
 
-    if product_id in SUBSCRIPTIONS:
-        raise HTTPException(status_code=501, detail="Google Play subscription verification is not implemented yet.")
-
     google_product_id = _google_play_id(product_id)
     normalized_package = package_name or configured_package
     token_hash = _hash_purchase_token(purchase_token)
-    plan = _plan_for(None)
+    plan = _plan_for(user_id, None)
+
+    if product_id in SUBSCRIPTIONS:
+        verification = _verify_google_play_subscription(
+            package_name=normalized_package,
+            google_product_id=google_product_id,
+            purchase_token=purchase_token,
+        )
+        if str(verification.get("product_id") or "") != google_product_id:
+            raise HTTPException(status_code=400, detail="Google Play product id does not match the requested product.")
+        if str(verification.get("package_name") or normalized_package) != normalized_package:
+            raise HTTPException(status_code=400, detail="Google Play package name does not match the requested package.")
+
+        status_text = str(verification.get("subscription_state") or "")
+        expiry_time = str(verification.get("expiry_time") or "")
+        if not _subscription_is_active(status=status_text, expiry_time=expiry_time):
+            raise HTTPException(status_code=402, detail="Google Play subscription is not active.")
+
+        _save_google_subscription(
+            user_id=user_id,
+            token_hash=token_hash,
+            local_product_id=product_id,
+            google_product_id=google_product_id,
+            status=status_text,
+            expiry_time=expiry_time,
+            auto_renewing=bool(verification.get("auto_renewing")),
+            latest_order_id=str(verification.get("latest_order_id") or ""),
+        )
+        with _WALLET_LOCK:
+            wallet = _wallet_for(user_id)
+            snapshot = _wallet_snapshot(wallet, "pro")
+        snapshot["purchase"] = {
+            "status": "active",
+            "product_id": product_id,
+            "kind": "pro",
+            "expiry_time": expiry_time,
+            "auto_renewing": bool(verification.get("auto_renewing")),
+        }
+        return snapshot
 
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id)
@@ -747,7 +931,7 @@ def verify_ai_review_access(
         raise HTTPException(status_code=400, detail="Privacy consent is required before AI analysis.")
 
     user_id, auth_mode = _authenticate(authorization)
-    plan = _plan_for(entitlement_token)
+    plan = _plan_for(user_id, entitlement_token)
     normalized_type = "advanced" if review_type == "advanced" else "basic"
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id)

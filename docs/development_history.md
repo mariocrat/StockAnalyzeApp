@@ -183,6 +183,13 @@
 - 일반/심층 복기권 같은 소모성 상품은 검증 성공 후 지급하고, Pro 구독 검증은 별도 월 구독 상태 저장 구조가 필요해 다음 단계로 남겼다.
 - 실제 서비스 계정 JSON 값은 API 응답이나 DB에 저장하지 않고, 구매 토큰 원문도 저장하지 않는다.
 
+### Google Play Pro 구독 검증
+
+- `POST /api/journal/google-play-purchase`가 Pro 월 구독 상품도 처리하도록 확장했다.
+- Google Play `purchases.subscriptionsv2.get` 응답의 구독 상태, 상품 ID, 만료 시간을 확인해 활성 구독일 때만 Pro 플랜으로 저장한다.
+- Pro 구독 토큰 원문은 저장하지 않고 SHA-256 해시만 저장한다.
+- 활성 Pro 구독 사용자는 별도 개발용 entitlement token 없이 월 일반 복기 150회, 심층 복기 5회 제공량을 우선 사용한다.
+
 ### 앱 표시 이름 설정화
 
 - 화면 왼쪽 상단의 앱 이름과 브라우저 탭 제목을 `VITE_APP_NAME`으로 설정할 수 있게 했다.
