@@ -465,6 +465,100 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("test", result["status"])
             self.assertTrue(result["oidc_verified"])
 
+    def test_admob_ssv_records_reward_once(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_admob_ssv_signature = lambda raw_query: {
+                "transaction_id": "ad-tx-1",
+                "user_id": "dev-user",
+                "ad_unit": "rewarded-unit-1",
+                "reward_amount": "1",
+                "reward_item": "AI_REVIEW",
+                "custom_data": "basic",
+            }
+
+            first = access_control.record_admob_ssv_reward("transaction_id=ad-tx-1")
+            second = access_control.record_admob_ssv_reward("transaction_id=ad-tx-1")
+
+            self.assertEqual("recorded", first["status"])
+            self.assertEqual("already_recorded", second["status"])
+
+    def test_admob_ssv_rejects_wrong_ad_unit(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_admob_ssv_signature = lambda raw_query: {
+                "transaction_id": "ad-tx-1",
+                "user_id": "dev-user",
+                "ad_unit": "other-unit",
+            }
+
+            with self.assertRaises(HTTPException) as raised:
+                access_control.record_admob_ssv_reward("transaction_id=ad-tx-1")
+
+            self.assertEqual(403, raised.exception.status_code)
+
+    def test_pending_admob_reward_is_consumed_for_basic_review(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_admob_ssv_signature = lambda raw_query: {
+                "transaction_id": "ad-tx-1",
+                "user_id": "dev-user",
+                "ad_unit": "rewarded-unit-1",
+                "reward_amount": "1",
+                "reward_item": "AI_REVIEW",
+                "custom_data": "basic",
+            }
+
+            for _ in range(6):
+                access_control.verify_ai_review_access(
+                    authorization="Bearer dev-token",
+                    ad_reward_token="",
+                    entitlement_token="",
+                    privacy_consent=True,
+                    review_type="basic",
+                )
+
+            access_control.record_admob_ssv_reward("transaction_id=ad-tx-1")
+            access = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="basic",
+            )
+
+            self.assertEqual("rewarded_ad_basic", access.source)
+            self.assertEqual(3, access.quota["basic"]["free_daily_max_remaining"])
+
+    def test_admob_ssv_signature_requires_required_fields(self):
+        with patched_env(ADMOB_REWARDED_AD_UNIT_ID=""):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            with self.assertRaises(HTTPException) as raised:
+                access_control._verify_admob_ssv_signature("transaction_id=ad-tx-1")
+
+            self.assertEqual(400, raised.exception.status_code)
+
 
 if __name__ == "__main__":
     unittest.main()

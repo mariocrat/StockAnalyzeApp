@@ -140,3 +140,17 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 - `GOOGLE_PLAY_RTDN_SHARED_TOKEN`을 설정한 뒤 Pub/Sub push가 `POST /api/journal/google-play-rtdn`로 들어오면 서버가 Google Play API를 다시 조회해 Pro 상태를 갱신해야 합니다.
 - 배포 전에는 Google Play Console 테스트 결제, 서비스 계정 권한, Pub/Sub push 인증을 함께 확인해야 합니다.
 - Pub/Sub 인증 push를 쓰는 경우 `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE`, `GOOGLE_PLAY_RTDN_OIDC_EMAIL`을 설정해 JWT 검증이 켜지는지 확인합니다.
+
+## AdMob 보상형 광고 확인
+
+현재 서버에는 AdMob SSV 콜백을 검증하고 보상을 1회 기록/차감하는 구조가 들어간 상태입니다. 실제 광고 테스트는 AdMob 광고 단위와 모바일 앱 SDK 연결이 필요합니다.
+
+확인할 항목:
+
+1. 운영 서버 `.env`에 `ADMOB_REWARDED_AD_UNIT_ID`를 설정합니다.
+2. AdMob 콘솔의 보상형 광고 SSV 콜백 URL을 `https://서버주소/api/journal/admob-ssv`로 설정합니다.
+3. 모바일 앱에서 로그인된 AlphaMate 사용자 ID를 AdMob SSV의 `user_id`로 전달해야 합니다.
+4. 광고 시청 후 서버 DB의 `admob_reward_events`에 `pending` 보상이 1건 생기는지 확인합니다.
+5. 일반 복기를 1회 실행하면 해당 보상이 `consumed`로 바뀌고, 같은 `transaction_id`는 다시 지급되지 않아야 합니다.
+
+개발 PC의 웹 화면만으로는 실제 AdMob 광고 시청을 완전히 검증할 수 없습니다. 이 부분은 Android/iOS 앱 빌드 뒤 AdMob 테스트 광고 단위로 확인해야 합니다.

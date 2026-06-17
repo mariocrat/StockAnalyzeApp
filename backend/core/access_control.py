@@ -8,6 +8,7 @@ import sqlite3
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import parse_qsl
 
 from fastapi import HTTPException
 
@@ -34,6 +35,8 @@ ADVANCED_TICKET_HOLD_MAX = 1
 
 PRO_MONTHLY_BASIC = 150
 PRO_MONTHLY_ADVANCED = 5
+ADMOB_SSV_KEY_URL = "https://www.gstatic.com/admob/reward/verifier-keys.json"
+ADMOB_SSV_KEY_CACHE_SECONDS = 60 * 60 * 24
 
 
 @dataclass
@@ -70,6 +73,9 @@ class AiAccessContext:
 
 
 _WALLET_LOCK = threading.Lock()
+_ADMOB_KEYS_LOCK = threading.Lock()
+_ADMOB_KEYS_CACHE = None
+_ADMOB_KEYS_LOADED_AT = None
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 
@@ -157,6 +163,21 @@ def _connect_access_db():
             auto_renewing INTEGER NOT NULL DEFAULT 0,
             latest_order_id TEXT NOT NULL DEFAULT '',
             updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS admob_reward_events (
+            transaction_id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            ad_unit TEXT NOT NULL DEFAULT '',
+            reward_amount INTEGER NOT NULL DEFAULT 0,
+            reward_item TEXT NOT NULL DEFAULT '',
+            custom_data TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            consumed_at TEXT NOT NULL DEFAULT ''
         )
         """
     )
@@ -286,6 +307,153 @@ def _google_play_status() -> dict:
         "service_account_configured": service_account_configured,
         "missing_server_settings": missing,
     }
+
+
+def _admob_key_url() -> str:
+    return _env_value("ADMOB_SSV_KEY_URL") or ADMOB_SSV_KEY_URL
+
+
+def _decode_urlsafe_base64(value: str) -> bytes:
+    text = str(value or "").strip()
+    padding = "=" * (-len(text) % 4)
+    try:
+        return base64.urlsafe_b64decode((text + padding).encode("ascii"))
+    except Exception:
+        raise HTTPException(status_code=403, detail="AdMob SSV signature is invalid.")
+
+
+def _load_admob_public_keys() -> dict:
+    global _ADMOB_KEYS_CACHE, _ADMOB_KEYS_LOADED_AT
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    with _ADMOB_KEYS_LOCK:
+        if (
+            _ADMOB_KEYS_CACHE is not None
+            and _ADMOB_KEYS_LOADED_AT is not None
+            and (now - _ADMOB_KEYS_LOADED_AT).total_seconds() < ADMOB_SSV_KEY_CACHE_SECONDS
+        ):
+            return _ADMOB_KEYS_CACHE
+
+        try:
+            response = requests.get(_admob_key_url(), timeout=10)
+        except requests.RequestException:
+            raise HTTPException(status_code=502, detail="AdMob public key request failed.")
+        if response.status_code >= 400:
+            raise HTTPException(status_code=502, detail="AdMob public key request failed.")
+
+        try:
+            payload = response.json()
+            keys = {
+                str(key["keyId"]): str(key["base64"])
+                for key in payload.get("keys") or []
+                if key.get("keyId") is not None and key.get("base64")
+            }
+        except Exception:
+            raise HTTPException(status_code=502, detail="AdMob public key response is invalid.")
+        if not keys:
+            raise HTTPException(status_code=502, detail="AdMob public keys are unavailable.")
+
+        _ADMOB_KEYS_CACHE = keys
+        _ADMOB_KEYS_LOADED_AT = now
+        return keys
+
+
+def _admob_content_to_verify(raw_query: str) -> bytes:
+    query = str(raw_query or "")
+    marker = "signature="
+    index = query.find(marker)
+    if index < 0:
+        raise HTTPException(status_code=400, detail="AdMob SSV signature is required.")
+    end_index = index - 1 if index > 0 and query[index - 1] == "&" else index
+    if end_index <= 0:
+        raise HTTPException(status_code=400, detail="AdMob SSV signed content is required.")
+    return query[:end_index].encode("utf-8")
+
+
+def _verify_admob_ssv_signature(raw_query: str) -> dict:
+    params = dict(parse_qsl(str(raw_query or ""), keep_blank_values=True))
+    required = {"transaction_id", "user_id", "signature", "key_id"}
+    if any(not str(params.get(name) or "").strip() for name in required):
+        raise HTTPException(status_code=400, detail="AdMob SSV required parameters are missing.")
+
+    public_keys = _load_admob_public_keys()
+    key_id = str(params["key_id"])
+    key_material = public_keys.get(key_id)
+    if not key_material:
+        raise HTTPException(status_code=403, detail="AdMob SSV key id is invalid.")
+
+    try:
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import ec
+        from cryptography.exceptions import InvalidSignature
+    except ModuleNotFoundError:
+        raise HTTPException(status_code=503, detail="cryptography package is required for AdMob SSV verification.")
+
+    try:
+        public_key = serialization.load_der_public_key(base64.b64decode(key_material))
+        signature = _decode_urlsafe_base64(params["signature"])
+        public_key.verify(signature, _admob_content_to_verify(raw_query), ec.ECDSA(hashes.SHA256()))
+    except InvalidSignature:
+        raise HTTPException(status_code=403, detail="AdMob SSV signature is invalid.")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=403, detail="AdMob SSV signature is invalid.")
+
+    return params
+
+
+def record_admob_ssv_reward(raw_query: str) -> dict:
+    params = _verify_admob_ssv_signature(raw_query)
+    expected_ad_unit = _env_value("ADMOB_REWARDED_AD_UNIT_ID")
+    ad_unit = str(params.get("ad_unit") or "")
+    if expected_ad_unit and ad_unit != expected_ad_unit:
+        raise HTTPException(status_code=403, detail="AdMob rewarded ad unit does not match server configuration.")
+
+    transaction_id = str(params.get("transaction_id") or "").strip()
+    user_id = str(params.get("user_id") or "").strip()
+    if not transaction_id or not user_id:
+        raise HTTPException(status_code=400, detail="AdMob SSV required parameters are missing.")
+
+    reward_amount_text = str(params.get("reward_amount") or "0").strip()
+    try:
+        reward_amount = int(reward_amount_text)
+    except ValueError:
+        reward_amount = 0
+
+    now = datetime.datetime.now().isoformat(timespec="seconds")
+    conn = _connect_access_db()
+    try:
+        try:
+            conn.execute(
+                """
+                INSERT INTO admob_reward_events (
+                    transaction_id,
+                    user_id,
+                    ad_unit,
+                    reward_amount,
+                    reward_item,
+                    custom_data,
+                    status,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+                """,
+                (
+                    transaction_id,
+                    user_id,
+                    ad_unit,
+                    reward_amount,
+                    str(params.get("reward_item") or ""),
+                    str(params.get("custom_data") or ""),
+                    now,
+                ),
+            )
+            conn.commit()
+            return {"status": "recorded"}
+        except sqlite3.IntegrityError:
+            return {"status": "already_recorded"}
+    finally:
+        conn.close()
 
 
 def _hash_purchase_token(token: str) -> str:
@@ -803,6 +971,43 @@ def _verify_ad(ad_reward_token: str | None) -> bool:
     return _dev_access_enabled() and str(ad_reward_token or "").strip() == dev_ad_token
 
 
+def _consume_pending_admob_reward(user_id: str) -> bool:
+    conn = _connect_access_db()
+    try:
+        row = conn.execute(
+            """
+            SELECT transaction_id
+            FROM admob_reward_events
+            WHERE user_id = ? AND status = 'pending'
+            ORDER BY created_at ASC
+            LIMIT 1
+            """,
+            (user_id,),
+        ).fetchone()
+        if not row:
+            return False
+
+        now = datetime.datetime.now().isoformat(timespec="seconds")
+        conn.execute(
+            """
+            UPDATE admob_reward_events
+            SET status = 'consumed', consumed_at = ?
+            WHERE transaction_id = ? AND status = 'pending'
+            """,
+            (now, row["transaction_id"]),
+        )
+        conn.commit()
+        return conn.total_changes > 0
+    finally:
+        conn.close()
+
+
+def _consume_ad_reward(user_id: str, ad_reward_token: str | None) -> bool:
+    if _verify_ad(ad_reward_token):
+        return True
+    return _consume_pending_admob_reward(user_id)
+
+
 def _grant_weekly_advanced_if_earned(wallet: UserWallet):
     usage = wallet.usage
     if usage.weekly_ad_views < FREE_ADS_PER_ADVANCED_TICKET:
@@ -1078,7 +1283,7 @@ def verify_ai_review_access(
         if normalized_type == "advanced":
             source = _consume_advanced(wallet, plan)
         else:
-            source = _consume_basic(wallet, plan, _verify_ad(ad_reward_token))
+            source = _consume_basic(wallet, plan, _consume_ad_reward(user_id, ad_reward_token))
         _save_wallet(user_id, wallet)
         snapshot = _wallet_snapshot(wallet, plan)
     return AiAccessContext(

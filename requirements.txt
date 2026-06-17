@@ -9,3 +9,4 @@ yfinance
 pykrx
 finance-datareader
 cachetools
+cryptography

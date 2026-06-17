@@ -227,3 +227,13 @@
 
 - Vite/React 기본 샘플 로고 SVG는 현재 앱에서 쓰지 않아 제거했다.
 - 로그인 로고 자산만 실제 사용되는 프론트 자산으로 남겼다.
+
+## 2026-06-18
+
+### AdMob 보상형 광고 SSV 검증
+
+- `GET /api/journal/admob-ssv`를 추가해 AdMob 보상형 광고 서버 측 검증 콜백을 받을 수 있게 했다.
+- 서버는 AdMob 공개키로 콜백 서명을 검증하고, `transaction_id`를 기본키로 저장해 같은 광고 보상이 중복 지급되지 않게 했다.
+- 검증된 광고 보상은 `admob_reward_events`에 `pending` 상태로 저장되고, 일반 복기 실행 시 1회 사용되면 `consumed`로 바뀐다.
+- `ADMOB_REWARDED_AD_UNIT_ID`를 설정하면 서버가 의도한 광고 단위에서 온 보상만 인정한다.
+- 개발용 `dev-ad-reward`는 개발 모드에서만 유지하고, 운영에서는 AdMob SSV 기록이 광고 보상의 기준이 되도록 했다.

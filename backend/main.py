@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Header
+from fastapi import FastAPI, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -28,6 +28,7 @@ from core.access_control import (
     handle_google_play_rtdn,
     get_product_catalog,
     get_user_entitlements,
+    record_admob_ssv_reward,
     verify_ai_review_access,
 )
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting
@@ -554,6 +555,11 @@ def post_journal_google_play_rtdn(
         shared_token=x_alphamate_rtdn_token,
         authorization=authorization,
     )
+
+
+@app.get("/api/journal/admob-ssv")
+def get_journal_admob_ssv(request: Request):
+    return record_admob_ssv_reward(str(request.url.query))
 
 
 @app.post("/api/journal/ai-review-once")

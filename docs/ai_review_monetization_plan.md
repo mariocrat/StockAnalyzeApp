@@ -92,7 +92,7 @@ Trade history storage should be opt-in. The default privacy-friendly mode can ke
 ## Production Replacement Points
 
 - Replace `dev-token` with Kakao/Naver/OIDC token verification.
-- Replace `dev-ad-reward` with AdMob rewarded ad server-side verification.
+- Replace `dev-ad-reward` with AdMob rewarded ad server-side verification. Backend SSV storage and consumption are implemented; mobile AdMob SDK integration and production ad unit setup are still required.
 - Replace `dev-pro-entitlement` and dev purchase endpoints with Google Play Billing server-side purchase verification.
 - Replace in-memory wallets with a database or Redis-backed quota store.
 - Keep the OpenAI API key only on the server or in a cloud secret manager.

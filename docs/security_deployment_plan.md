@@ -154,3 +154,11 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 만료/비활성 구독 검증 결과도 저장해 기존 Pro 상태가 남아 비용이 새는 일을 막는다.
 - Google Play RTDN Pub/Sub push endpoint는 공유 토큰 헤더가 맞을 때만 처리하며, 알림 수신 후 Google Play API를 다시 조회해 구독 상태를 갱신한다.
 - 운영 배포에서는 `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE`와 `GOOGLE_PLAY_RTDN_OIDC_EMAIL`을 설정해 Pub/Sub push JWT의 audience, email, 서명을 검증한다.
+
+## 2026-06-18 AdMob 보상형 광고 SSV 검증 상태
+
+- 앱에서 광고를 봤다는 클라이언트 값을 그대로 믿지 않고, AdMob이 서버로 보내는 SSV 콜백을 기준으로 광고 보상을 인정한다.
+- `GET /api/journal/admob-ssv`는 Google AdMob 공개키로 ECDSA 서명을 검증하고, `transaction_id` 중복을 막아 광고 보상이 반복 지급되지 않게 한다.
+- `ADMOB_REWARDED_AD_UNIT_ID`를 운영 서버에 설정해 의도한 보상형 광고 단위만 인정해야 한다.
+- AdMob SSV 공개키는 최대 24시간 캐시하고, 키 회전에 맞춰 다시 가져오도록 했다.
+- 운영 배포 전 모바일 앱에는 AdMob SDK, 보상형 광고 단위, SSV 콜백 URL, 로그인된 사용자 ID 전달이 연결되어야 한다.
