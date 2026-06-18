@@ -280,3 +280,9 @@
 - `npm run mobile:build`에서 AdMob과 Billing 플러그인 2개가 모두 Android 플러그인으로 인식되는 것을 확인했다.
 - `gradlew.bat assembleDebug`로 Google Play Billing SDK가 포함된 Android 디버그 APK 빌드까지 확인했다.
 - 실제 구매 버튼 연결은 Google Play Console 상품 ID, 라이선스 테스트 계정, 서버의 Google Play Developer API 설정이 준비된 뒤 진행해야 한다.
+
+### 기존 로고 기반 Android 아이콘/스플래시 반영
+
+- 사용자가 제공한 기존 `AlphaMate` 다크 로고를 `frontend/src/assets/app-logo-dark.png`에 보관했다.
+- 런처 아이콘은 작은 화면에서도 읽히도록 원본 로고의 심볼 영역만 추출해 Android 해상도별 아이콘으로 다시 생성했다.
+- 스플래시는 브랜드명이 보이도록 전체 로고를 투명 배경 처리해 portrait/landscape 해상도별 이미지에 반영했다.
