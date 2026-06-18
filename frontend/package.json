@@ -8,7 +8,10 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "release:check": "node scripts/validate-release-env.js",
+    "test:release-env": "node --test scripts/validate-release-env.test.js",
     "mobile:build": "npm run build && npx cap sync android",
+    "mobile:release:check": "npm run release:check && npm run mobile:build",
     "mobile:add:android": "npx cap add android",
     "mobile:open:android": "npx cap open android",
     "mobile:sync": "npx cap sync android"

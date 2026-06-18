@@ -300,3 +300,9 @@
 - `GET /api/app/readiness`를 추가해 AI Key, 카카오/네이버 로그인, Google Play 결제, AdMob 보상 광고의 서버 설정 준비 상태를 한 번에 확인할 수 있게 했다.
 - readiness 응답은 `ready` 여부와 누락된 환경변수 이름만 반환하고, API Key, client secret, Google 서비스 계정 JSON 원문은 반환하지 않는다.
 - 매매복기 이용권 영역에 `배포 준비 상태` 표시를 추가해 웹/Android 환경별로 설정 필요 항목을 바로 볼 수 있게 했다.
+
+### 배포 빌드 환경 안전 검사
+
+- `frontend/scripts/validate-release-env.js`를 추가해 Android 배포 빌드 전에 개발용 설정이 남아 있는지 검사한다.
+- `npm run release:check`는 `VITE_ALPHAMATE_ENV=production`, `VITE_ENABLE_DEV_TOOLS=false`, HTTPS API 주소, 운영 AdMob 보상형 광고 단위, Android package name을 확인한다.
+- 현재 개발용 설정에서는 의도적으로 실패하고, 배포용 환경변수를 넣으면 통과하도록 테스트를 추가했다.
