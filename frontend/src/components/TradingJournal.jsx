@@ -121,6 +121,7 @@ export default function TradingJournal({ apiBase }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReviewType, setAiReviewType] = useState('basic');
   const [entitlements, setEntitlements] = useState(null);
+  const [productCatalog, setProductCatalog] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -243,6 +244,17 @@ export default function TradingJournal({ apiBase }) {
       setEntitlements(res.data || null);
     } catch {
       setEntitlements(null);
+    }
+  };
+
+  const loadProductCatalog = async () => {
+    try {
+      const res = await axios.get(`${apiBase}/api/journal/products`);
+      setProductCatalog(res.data || null);
+      return res.data || null;
+    } catch {
+      setProductCatalog(null);
+      return null;
     }
   };
 
@@ -503,7 +515,7 @@ export default function TradingJournal({ apiBase }) {
 
   useEffect(() => {
     loadJournal()
-      .then(() => Promise.all([loadChartReview(), loadEntitlements(), loadDataSummary()]))
+      .then(() => Promise.all([loadChartReview(), loadEntitlements(), loadDataSummary(), loadProductCatalog()]))
       .catch(() => setMessage('매매 기록을 불러오지 못했습니다.'));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -686,6 +698,12 @@ export default function TradingJournal({ apiBase }) {
 
   const activeTradeChart = (chartReview.charts || []).find(chart => chart.ticker === activeChartTicker)
     || chartReview.charts?.[0];
+  const adPolicy = productCatalog?.settings?.ad_policy || entitlements?.settings?.ad_policy || {};
+  const admobStatus = productCatalog?.admob || {};
+  const adsPerAdvancedTicket = adPolicy.ads_per_advanced_ticket || entitlements?.advanced?.weekly_ad_views_needed || 5;
+  const weeklyAdViews = entitlements?.advanced?.weekly_ad_views || 0;
+  const adPolicyText = `광고 ${adsPerAdvancedTicket}회 시청 시 주간 심층 복기권 1장`;
+  const adReadinessText = admobStatus.ready ? 'AdMob 보상형 광고 준비됨' : 'AdMob 광고 단위 설정 필요';
   const activeIdentity = authSession?.user?.identities?.[0];
   const activeProviderLabel = activeIdentity ? DEV_LOGIN_PROFILES[activeIdentity.provider]?.label || activeIdentity.provider : '';
   const connectedProviderText = (dataSummary?.connected_providers || [])
@@ -896,6 +914,18 @@ export default function TradingJournal({ apiBase }) {
           <div><span>Pro 심층 복기</span><strong>{entitlements?.advanced?.pro_monthly_remaining || 0}</strong></div>
           <div><span>광고 보상 심층권</span><strong>{entitlements?.advanced?.weekly_reward_remaining || 0}</strong></div>
           <div><span>구매 심층 이용권</span><strong>{entitlements?.advanced?.purchased_remaining || 0}</strong></div>
+        </div>
+        <div className="journal-ad-policy">
+          <div>
+            <span>광고 보상 정책</span>
+            <strong>{adPolicyText}</strong>
+            <em>현재 주간 광고 시청 {weeklyAdViews}/{adsPerAdvancedTicket}회</em>
+          </div>
+          <div>
+            <span>AdMob 상태</span>
+            <strong className={admobStatus.ready ? 'ready' : 'not-ready'}>{adReadinessText}</strong>
+            <em>연속 광고 강제: {adPolicy.force_rewarded_ad_chain ? '켜짐' : '꺼짐'}</em>
+          </div>
         </div>
         {DEV_TOOLS_ENABLED ? (
           <div className="journal-product-list">

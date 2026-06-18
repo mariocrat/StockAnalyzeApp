@@ -878,6 +878,44 @@ body {
   font-size: 16px;
 }
 
+.journal-ad-policy {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.journal-ad-policy div {
+  background: #10141f;
+  border: 1px solid #252b38;
+  border-radius: 6px;
+  padding: 9px 10px;
+  min-width: 0;
+}
+
+.journal-ad-policy span,
+.journal-ad-policy em {
+  display: block;
+  color: #8c93a3;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.journal-ad-policy strong {
+  display: block;
+  color: #f2f5ff;
+  font-size: 13px;
+  margin: 4px 0;
+}
+
+.journal-ad-policy strong.ready {
+  color: #00c853;
+}
+
+.journal-ad-policy strong.not-ready {
+  color: #ff6b6b;
+}
+
 .journal-product-list {
   justify-content: flex-start;
   margin-top: 10px;
@@ -1144,7 +1182,8 @@ body {
 
   .journal-oauth-provider-grid,
   .journal-data-grid,
-  .journal-entitlement-grid {
+  .journal-entitlement-grid,
+  .journal-ad-policy {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -1160,7 +1199,8 @@ body {
 
   .journal-oauth-provider-grid,
   .journal-data-grid,
-  .journal-entitlement-grid {
+  .journal-entitlement-grid,
+  .journal-ad-policy {
     grid-template-columns: 1fr;
   }
 }
