@@ -4,6 +4,7 @@ import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
 import { getAdMobRuntimeStatus, initializeAdMob, showRewardedReviewAd } from '../mobile/admob';
+import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct } from '../mobile/billing';
 
 const sideLabels = { buy: '매수', sell: '매도' };
 const DEFAULT_FEE_RATE = '0.015';
@@ -21,6 +22,7 @@ const KAKAO_REST_API_KEY = import.meta.env.VITE_KAKAO_REST_API_KEY || '';
 const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_CLIENT_ID || '';
 const KAKAO_REDIRECT_URI = import.meta.env.VITE_KAKAO_REDIRECT_URI || '';
 const NAVER_REDIRECT_URI = import.meta.env.VITE_NAVER_REDIRECT_URI || '';
+const GOOGLE_PLAY_PACKAGE_NAME = import.meta.env.VITE_GOOGLE_PLAY_PACKAGE_NAME || 'com.mariocrat.stockanalyze';
 const DEV_LOGIN_PROFILES = {
   kakao: { label: '카카오', provider_user_id: 'dev-kakao-user', display_name: '카카오 테스트' },
   naver: { label: '네이버', provider_user_id: 'dev-naver-user', display_name: '네이버 테스트' },
@@ -122,7 +124,9 @@ export default function TradingJournal({ apiBase }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReviewType, setAiReviewType] = useState('basic');
   const [adLoading, setAdLoading] = useState(false);
+  const [purchaseLoadingId, setPurchaseLoadingId] = useState('');
   const [mobileAdStatus, setMobileAdStatus] = useState(getAdMobRuntimeStatus);
+  const [billingStatus, setBillingStatus] = useState(getBillingRuntimeStatus);
   const [entitlements, setEntitlements] = useState(null);
   const [productCatalog, setProductCatalog] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -563,6 +567,13 @@ export default function TradingJournal({ apiBase }) {
   }, []);
 
   useEffect(() => {
+    if (!productCatalog) return;
+    initializeBilling(productCatalog)
+      .then(status => setBillingStatus(status))
+      .catch(() => setBillingStatus(getBillingRuntimeStatus()));
+  }, [productCatalog]);
+
+  useEffect(() => {
     loadJournal()
       .then(() => Promise.all([loadChartReview(), loadEntitlements(), loadDataSummary(), loadProductCatalog()]))
       .catch(() => setMessage('매매 기록을 불러오지 못했습니다.'));
@@ -678,6 +689,50 @@ export default function TradingJournal({ apiBase }) {
     }
   };
 
+  const purchaseProduct = async (productId) => {
+    if (!productCatalog) {
+      setMessage('상품 정보를 아직 불러오지 못했습니다. 잠시 뒤 다시 시도하세요.');
+      return;
+    }
+    if (!billingStatus.native) {
+      if (DEV_TOOLS_ENABLED) {
+        await devPurchaseProduct(productId);
+      } else {
+        setMessage('Google Play 결제는 Android 앱에서 사용할 수 있습니다.');
+      }
+      return;
+    }
+    if (!authSession?.session_token || !authSession?.user?.id) {
+      setMessage('이용권 구매는 로그인 후 사용할 수 있습니다.');
+      return;
+    }
+
+    setPurchaseLoadingId(productId);
+    try {
+      const purchase = await purchaseGooglePlayProduct({
+        productCatalog,
+        localProductId: productId,
+        userId: authSession.user.id,
+      });
+      const res = await axios.post(
+        `${apiBase}/api/journal/google-play-purchase`,
+        {
+          product_id: productId,
+          purchase_token: purchase.purchaseToken,
+          package_name: GOOGLE_PLAY_PACKAGE_NAME,
+        },
+        { headers: { Authorization: `Bearer ${authSession.session_token}` } },
+      );
+      setEntitlements(res.data || null);
+      await loadDataSummary(authSession.session_token);
+      setMessage('Google Play 구매가 서버에서 검증되어 이용권에 반영됐습니다.');
+    } catch (err) {
+      setMessage(err.response?.data?.detail || err?.message || 'Google Play 구매를 완료하지 못했습니다.');
+    } finally {
+      setPurchaseLoadingId('');
+    }
+  };
+
   const submitManual = async () => {
     if (!form.trade_date || !form.name || !form.price || !form.quantity) {
       setMessage('일시, 종목명, 가격, 수량은 꼭 입력해야 합니다.');
@@ -756,6 +811,7 @@ export default function TradingJournal({ apiBase }) {
   const mobileAdStatusText = mobileAdStatus.native
     ? `모바일 SDK 준비됨${mobileAdStatus.usingTestAdUnit ? ' · 테스트 광고 단위' : ''}`
     : '웹 화면에서는 네이티브 광고 미사용';
+  const billingStatusText = billingStatus.native ? 'Google Play Billing SDK 준비됨' : '웹 화면에서는 Google Play 결제 미사용';
   const activeIdentity = authSession?.user?.identities?.[0];
   const activeProviderLabel = activeIdentity ? DEV_LOGIN_PROFILES[activeIdentity.provider]?.label || activeIdentity.provider : '';
   const connectedProviderText = (dataSummary?.connected_providers || [])
@@ -979,12 +1035,22 @@ export default function TradingJournal({ apiBase }) {
             <em>{mobileAdStatusText}</em>
             <em>연속 광고 강제: {adPolicy.force_rewarded_ad_chain ? '켜짐' : '꺼짐'}</em>
           </div>
+          <div>
+            <span>결제 상태</span>
+            <strong className={billingStatus.native ? 'ready' : 'not-ready'}>{billingStatusText}</strong>
+            <em>패키지 {GOOGLE_PLAY_PACKAGE_NAME}</em>
+          </div>
         </div>
-        {DEV_TOOLS_ENABLED ? (
+        {DEV_TOOLS_ENABLED || billingStatus.native ? (
           <div className="journal-product-list">
             {REVIEW_PRODUCTS.map(([id, label, price]) => (
-              <button key={id} className="journal-secondary" onClick={() => devPurchaseProduct(id)}>
-                {label} · {price}
+              <button
+                key={id}
+                className="journal-secondary"
+                disabled={Boolean(purchaseLoadingId)}
+                onClick={() => purchaseProduct(id)}
+              >
+                {purchaseLoadingId === id ? '구매 확인중' : `${label} · ${price}`}
               </button>
             ))}
           </div>

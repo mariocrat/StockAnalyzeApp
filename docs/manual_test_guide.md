@@ -127,7 +127,8 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 2. `consumables`에 일반/심층 복기권 상품이 보이는지 확인합니다.
 3. `subscriptions`에 Pro 월 구독 상품이 보이는지 확인합니다.
 4. `google_play.missing_server_settings`에 빠진 서버 설정이 표시되는지 확인합니다.
-5. Google Play 구매 요청 endpoint는 실제 Google Play purchase token이 검증된 경우에만 복기권을 지급합니다.
+5. Android 앱에서는 이용권 구매 버튼이 Google Play Billing SDK를 열고, 구매 token을 `POST /api/journal/google-play-purchase`로 보내 서버 검증을 요청합니다.
+6. Google Play 구매 요청 endpoint는 실제 Google Play purchase token이 검증된 경우에만 복기권을 지급합니다.
 
 정상 결과:
 
@@ -137,6 +138,7 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 - 같은 purchase token을 다시 보내도 복기권은 한 번만 충전됩니다.
 - Pro 구독은 Google Play subscription token이 검증되고 만료 시간이 유효할 때만 Pro 상태로 반영됩니다.
 - 같은 subscription token이 만료/비활성 상태로 다시 검증되면 Pro 상태가 해제되어야 합니다.
+- 웹 화면에서는 실제 Google Play 결제가 열리지 않습니다. 개발 모드에서는 기존 개발용 충전 흐름으로 버튼 동작을 확인하고, 실제 결제는 Android 앱과 Play Console 라이선스 테스트 계정으로 확인해야 합니다.
 - `GOOGLE_PLAY_RTDN_SHARED_TOKEN`을 설정한 뒤 Pub/Sub push가 `POST /api/journal/google-play-rtdn`로 들어오면 서버가 Google Play API를 다시 조회해 Pro 상태를 갱신해야 합니다.
 - 배포 전에는 Google Play Console 테스트 결제, 서비스 계정 권한, Pub/Sub push 인증을 함께 확인해야 합니다.
 - Pub/Sub 인증 push를 쓰는 경우 `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE`, `GOOGLE_PLAY_RTDN_OIDC_EMAIL`을 설정해 JWT 검증이 켜지는지 확인합니다.

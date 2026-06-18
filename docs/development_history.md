@@ -286,3 +286,11 @@
 - 사용자가 제공한 기존 `AlphaMate` 다크 로고를 `frontend/src/assets/app-logo-dark.png`에 보관했다.
 - 런처 아이콘은 작은 화면에서도 읽히도록 원본 로고의 심볼 영역만 추출해 Android 해상도별 아이콘으로 다시 생성했다.
 - 스플래시는 브랜드명이 보이도록 전체 로고를 투명 배경 처리해 portrait/landscape 해상도별 이미지에 반영했다.
+
+### Google Play 구매 버튼 연결
+
+- `frontend/src/mobile/billing.js`를 추가해 Google Play Billing 초기화, 상품 등록, 구매 token 추출을 매매복기 화면과 분리했다.
+- 웹 번들이 무거워지지 않도록 Billing 플러그인은 모바일 구매가 필요할 때 동적 import로 로딩한다.
+- 이용권 구매 버튼은 웹 개발 모드에서는 기존 개발용 충전 흐름을 유지하고, Android 앱에서는 Google Play Billing 구매 흐름을 실행한다.
+- 구매 성공 시 Google Play purchase token을 서버의 `POST /api/journal/google-play-purchase`로 보내 서버 검증 후 이용권에 반영하도록 연결했다.
+- 실제 결제 완료 검증은 Google Play Console 상품 ID, 라이선스 테스트 계정, 운영 서버의 Google Play Developer API 설정이 준비된 뒤 진행해야 한다.
