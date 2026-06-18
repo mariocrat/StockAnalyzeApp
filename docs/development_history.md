@@ -272,3 +272,11 @@
 - 보상형 광고 실행 시 로그인된 사용자 ID를 AdMob SSV `userId`로 넘겨 서버의 `/api/journal/admob-ssv` 보상 검증과 이어지게 했다.
 - 매매복기 화면에 `광고 보고 일반 복기` 버튼과 모바일 광고 SDK 상태 표시를 추가했다.
 - 테스트 광고는 SSV 콜백이 오지 않으므로, 실제 보상 지급 검증은 운영 AdMob 앱/광고 단위와 SSV 콜백 URL을 설정한 뒤 진행해야 한다.
+
+### Android Google Play Billing SDK 탑재
+
+- Capacitor 8을 지원하는 `capacitor-plugin-cdv-purchase`를 추가했다.
+- 처음에는 Cordova 패키지명인 `cordova-plugin-purchase`를 확인했지만, README가 Capacitor 전용 설치 패키지로 `capacitor-plugin-cdv-purchase`를 안내해 전용 패키지로 교체했다.
+- `npm run mobile:build`에서 AdMob과 Billing 플러그인 2개가 모두 Android 플러그인으로 인식되는 것을 확인했다.
+- `gradlew.bat assembleDebug`로 Google Play Billing SDK가 포함된 Android 디버그 APK 빌드까지 확인했다.
+- 실제 구매 버튼 연결은 Google Play Console 상품 ID, 라이선스 테스트 계정, 서버의 Google Play Developer API 설정이 준비된 뒤 진행해야 한다.
