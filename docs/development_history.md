@@ -237,3 +237,9 @@
 - 검증된 광고 보상은 `admob_reward_events`에 `pending` 상태로 저장되고, 일반 복기 실행 시 1회 사용되면 `consumed`로 바뀐다.
 - `ADMOB_REWARDED_AD_UNIT_ID`를 설정하면 서버가 의도한 광고 단위에서 온 보상만 인정한다.
 - 개발용 `dev-ad-reward`는 개발 모드에서만 유지하고, 운영에서는 AdMob SSV 기록이 광고 보상의 기준이 되도록 했다.
+
+### 광고 정책 설정값 노출
+
+- `GET /api/journal/products` 응답에 AdMob 준비 상태와 광고 보상 정책을 추가했다.
+- `ALPHAMATE_ADS_PER_ADVANCED_TICKET`로 심층 복기권 지급에 필요한 광고 시청 횟수를 서버에서 바꿀 수 있게 했다.
+- `ALPHAMATE_FORCE_REWARDED_AD_CHAIN` 설정값을 추가했지만, 기본값은 여러 광고를 연속 강제하지 않는 `false`로 유지했다.

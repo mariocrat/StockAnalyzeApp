@@ -154,3 +154,9 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 5. 일반 복기를 1회 실행하면 해당 보상이 `consumed`로 바뀌고, 같은 `transaction_id`는 다시 지급되지 않아야 합니다.
 
 개발 PC의 웹 화면만으로는 실제 AdMob 광고 시청을 완전히 검증할 수 없습니다. 이 부분은 Android/iOS 앱 빌드 뒤 AdMob 테스트 광고 단위로 확인해야 합니다.
+
+광고 정책 설정:
+
+- `ALPHAMATE_ADS_PER_ADVANCED_TICKET=5`: 광고 5회 시청 시 주간 심층 복기권 1장 지급
+- `ALPHAMATE_FORCE_REWARDED_AD_CHAIN=false`: 여러 보상형 광고를 연속으로 강제하지 않음
+- `GET /api/journal/products`에서 `admob.ready`, `settings.ad_policy` 값을 확인할 수 있습니다.

@@ -33,6 +33,9 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
             GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
+            ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+            ALPHAMATE_ADS_PER_ADVANCED_TICKET="3",
+            ALPHAMATE_FORCE_REWARDED_AD_CHAIN="false",
         ):
             from backend.core import access_control
 
@@ -42,7 +45,52 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("alphamate.basic.30", catalog["consumables"]["basic_review_30"]["google_play_product_id"])
             self.assertTrue(catalog["google_play"]["ready"])
             self.assertTrue(catalog["google_play"]["service_account_configured"])
+            self.assertTrue(catalog["admob"]["ready"])
+            self.assertTrue(catalog["admob"]["rewarded_ad_unit_configured"])
+            self.assertEqual("/api/journal/admob-ssv", catalog["admob"]["ssv_callback_path"])
+            self.assertEqual(1, catalog["settings"]["ad_policy"]["basic_reviews_per_rewarded_ad"])
+            self.assertEqual(3, catalog["settings"]["ad_policy"]["ads_per_advanced_ticket"])
+            self.assertFalse(catalog["settings"]["ad_policy"]["force_rewarded_ad_chain"])
             self.assertNotIn("secret-json", str(catalog))
+
+    def test_ad_reward_advanced_threshold_is_configurable(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            ALPHAMATE_ADS_PER_ADVANCED_TICKET="2",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            for _ in range(6):
+                access_control.verify_ai_review_access(
+                    authorization="Bearer dev-token",
+                    ad_reward_token="",
+                    entitlement_token="",
+                    privacy_consent=True,
+                    review_type="basic",
+                )
+
+            first = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="dev-ad-reward",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="basic",
+            )
+            second = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="dev-ad-reward",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="basic",
+            )
+
+            self.assertEqual("rewarded_ad_basic", first.source)
+            self.assertEqual("rewarded_ad_basic", second.source)
+            self.assertEqual(1, second.quota["advanced"]["weekly_reward_remaining"])
+            self.assertEqual(0, second.quota["advanced"]["weekly_ad_views_needed"])
 
     def test_google_play_purchase_requires_server_configuration(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(

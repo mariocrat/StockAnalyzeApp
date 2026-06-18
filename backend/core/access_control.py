@@ -285,6 +285,41 @@ def _allow_advanced_for_basic() -> bool:
     return _env_value("ALPHAMATE_ALLOW_ADVANCED_TICKET_FOR_BASIC").lower() in {"1", "true", "yes"}
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = _env_value(name).lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int, minimum: int = 0) -> int:
+    try:
+        value = int(_env_value(name))
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, value)
+
+
+def _ad_policy() -> dict:
+    return {
+        "basic_reviews_per_rewarded_ad": 1,
+        "ads_per_advanced_ticket": _env_int("ALPHAMATE_ADS_PER_ADVANCED_TICKET", FREE_ADS_PER_ADVANCED_TICKET, 1),
+        "force_rewarded_ad_chain": _env_bool("ALPHAMATE_FORCE_REWARDED_AD_CHAIN", False),
+        "preferred_rewarded_ad_sequence": "single",
+    }
+
+
+def _admob_status() -> dict:
+    rewarded_ad_unit = _env_value("ADMOB_REWARDED_AD_UNIT_ID")
+    return {
+        "ready": bool(rewarded_ad_unit),
+        "rewarded_ad_unit_configured": bool(rewarded_ad_unit),
+        "ssv_callback_path": "/api/journal/admob-ssv",
+        "ssv_key_url": _admob_key_url(),
+        "missing_server_settings": [] if rewarded_ad_unit else ["ADMOB_REWARDED_AD_UNIT_ID"],
+    }
+
+
 def _google_play_id(default_id: str) -> str:
     env_key = "GOOGLE_PLAY_" + default_id.upper() + "_ID"
     return _env_value(env_key) or default_id
@@ -901,8 +936,10 @@ def get_product_catalog() -> dict:
             for product_id, product in SUBSCRIPTIONS.items()
         },
         "google_play": _google_play_status(),
+        "admob": _admob_status(),
         "settings": {
             "allow_advanced_ticket_for_basic": _allow_advanced_for_basic(),
+            "ad_policy": _ad_policy(),
         },
     }
 
@@ -1010,7 +1047,7 @@ def _consume_ad_reward(user_id: str, ad_reward_token: str | None) -> bool:
 
 def _grant_weekly_advanced_if_earned(wallet: UserWallet):
     usage = wallet.usage
-    if usage.weekly_ad_views < FREE_ADS_PER_ADVANCED_TICKET:
+    if usage.weekly_ad_views < _ad_policy()["ads_per_advanced_ticket"]:
         return
     if usage.weekly_advanced_granted >= FREE_WEEKLY_ADVANCED_MAX:
         return
@@ -1083,13 +1120,14 @@ def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:
             "pro_monthly_remaining": max(0, PRO_MONTHLY_ADVANCED - usage.pro_advanced_monthly_used) if plan == "pro" else 0,
             "weekly_reward_remaining": wallet.weekly_advanced,
             "weekly_ad_views": usage.weekly_ad_views,
-            "weekly_ad_views_needed": max(0, FREE_ADS_PER_ADVANCED_TICKET - usage.weekly_ad_views),
+            "weekly_ad_views_needed": max(0, _ad_policy()["ads_per_advanced_ticket"] - usage.weekly_ad_views),
             "purchased_remaining": wallet.purchased_advanced,
             "max_hold": ADVANCED_TICKET_HOLD_MAX,
         },
         "products": PRODUCTS,
         "settings": {
             "allow_advanced_ticket_for_basic": _allow_advanced_for_basic(),
+            "ad_policy": _ad_policy(),
         },
     }
 

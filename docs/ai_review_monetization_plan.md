@@ -41,6 +41,8 @@ Korean UI labels:
 - Watching 5 rewarded ads grants 1 weekly Deep Review ticket.
 - Weekly ad-reward Deep Review ticket max holding: 1.
 
+The rewarded-ad policy is configurable on the server. The default remains one rewarded ad for one Standard Review, and five rewarded ads for one weekly Deep Review ticket. `ALPHAMATE_ADS_PER_ADVANCED_TICKET` can change the weekly Deep Review threshold later without changing the mobile app. `ALPHAMATE_FORCE_REWARDED_AD_CHAIN` is available as a server-side policy flag, but the recommended default is `false` so the app does not force several short ads in a row.
+
 ## Pro Policy
 
 - Launch event price: KRW 3,900 monthly.
