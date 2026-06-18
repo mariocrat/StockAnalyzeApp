@@ -1,5 +1,11 @@
 apply plugin: 'com.android.application'
 
+def releaseKeystoreFile = System.getenv("ALPHAMATE_ANDROID_KEYSTORE_FILE")
+def releaseKeystorePassword = System.getenv("ALPHAMATE_ANDROID_KEYSTORE_PASSWORD")
+def releaseKeyAlias = System.getenv("ALPHAMATE_ANDROID_KEY_ALIAS")
+def releaseKeyPassword = System.getenv("ALPHAMATE_ANDROID_KEY_PASSWORD")
+def releaseSigningReady = releaseKeystoreFile && releaseKeystorePassword && releaseKeyAlias && releaseKeyPassword
+
 android {
     namespace = "com.mariocrat.stockanalyze"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +22,33 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (releaseSigningReady) {
+                storeFile file(releaseKeystoreFile)
+                storePassword releaseKeystorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
+            if (releaseSigningReady) {
+                signingConfig signingConfigs.release
+            }
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+tasks.matching { task ->
+    task.name in ["bundleRelease", "assembleRelease"]
+}.configureEach { task ->
+    task.doFirst {
+        if (!releaseSigningReady) {
+            throw new GradleException("Release signing is not configured. Set ALPHAMATE_ANDROID_KEYSTORE_FILE, ALPHAMATE_ANDROID_KEYSTORE_PASSWORD, ALPHAMATE_ANDROID_KEY_ALIAS, and ALPHAMATE_ANDROID_KEY_PASSWORD.")
         }
     }
 }

@@ -183,16 +183,17 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/app/readiness
 - `ALPHAMATE_FORCE_REWARDED_AD_CHAIN=false`: 여러 보상형 광고를 연속으로 강제하지 않음
 - `GET /api/journal/products`에서 `admob.ready`, `settings.ad_policy` 값을 확인할 수 있습니다.
 
-## 9. Android 앱 래퍼 및 APK 빌드 확인
+## 9. Android 앱 래퍼, APK, Play Store AAB 빌드 확인
 
 현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 이 PC에서는 프로젝트 안의 `.tools` 폴더에 JDK와 Android SDK command-line tools를 받아 디버그 APK 빌드까지 확인했습니다. `.tools`는 PC 전용 도구라 GitHub에는 올리지 않습니다.
+
+디버그 APK 확인:
 
 1. `frontend/.env`에서 배포용 앱은 `VITE_API_BASE=https://서버주소`, `VITE_ALPHAMATE_ENV=production`, `VITE_ENABLE_DEV_TOOLS=false`로 둡니다.
 2. `frontend` 폴더에서 `npm run release:check`를 실행해 localhost API, 개발도구, 테스트 광고 단위가 남아 있지 않은지 확인합니다.
 3. 웹 변경사항을 Android 프로젝트에 반영할 때는 `npm run mobile:sync` 또는 `npm run mobile:build`를 실행합니다.
-4. 배포 전 점검과 모바일 빌드를 한 번에 실행하려면 `npm run mobile:release:check`를 사용합니다.
-5. Android Studio로 열 때는 `npm run mobile:open:android`를 실행합니다.
-6. APK 빌드는 아래처럼 로컬 JDK/SDK 환경변수를 잡은 뒤 `frontend/android`에서 실행합니다.
+4. Android Studio로 열 때는 `npm run mobile:open:android`를 실행합니다.
+5. APK 빌드는 아래처럼 로컬 JDK/SDK 환경변수를 잡은 뒤 `frontend/android`에서 실행합니다.
 
 ```powershell
 $env:JAVA_HOME='D:\작업\windsurf\StockAnalyze\.tools\jdk\jdk-21.0.11+10'
@@ -209,6 +210,26 @@ cd D:\작업\windsurf\StockAnalyze\frontend\android
 frontend/android/app/build/outputs/apk/debug/app-debug.apk
 ```
 
+Play Store 제출용 AAB 확인:
+
+1. 실제 upload key keystore 파일을 GitHub 밖의 안전한 폴더에 둡니다.
+2. PowerShell에서 아래 값을 실제 값으로 설정합니다. 비밀번호와 keystore 파일은 Git에 올리면 안 됩니다.
+
+```powershell
+$env:ALPHAMATE_ANDROID_KEYSTORE_FILE='D:\secure\alphamate-upload.jks'
+$env:ALPHAMATE_ANDROID_KEYSTORE_PASSWORD='키스토어_비밀번호'
+$env:ALPHAMATE_ANDROID_KEY_ALIAS='alphamate-upload'
+$env:ALPHAMATE_ANDROID_KEY_PASSWORD='키_비밀번호'
+```
+
+3. `frontend` 폴더에서 `npm run mobile:release:aab`를 실행합니다.
+
+정상 빌드 결과물은 아래 위치에 생깁니다.
+
+```text
+frontend/android/app/build/outputs/bundle/release/app-release.aab
+```
+
 `frontend/android/local.properties`는 이 PC의 SDK 위치만 적는 파일이라 GitHub에는 올리지 않습니다. 새 PC에서 다시 빌드할 때는 Android Studio를 설치하거나, 같은 방식으로 `.tools`에 JDK/SDK를 다시 준비하면 됩니다.
 
-현재 프로젝트에는 앱 아이콘, 스플래시 이미지, AdMob SDK, Google Play Billing SDK 연결이 들어가 있습니다. Play Store 서명과 실제 Google Play Console/AdMob 운영 계정 테스트는 별도 준비가 필요합니다.
+현재 프로젝트에는 앱 아이콘, 스플래시 이미지, AdMob SDK, Google Play Billing SDK, 환경변수 기반 release signing 연결이 들어가 있습니다. 실제 Google Play Console/AdMob 운영 계정 테스트는 별도 준비가 필요합니다.

@@ -53,6 +53,20 @@ function validateApiBase(value, errors) {
   }
 }
 
+function requireSetting(env, key, errors) {
+  if (!envValue(env, key)) {
+    errors.push(`${key} must be set for signed Android release builds.`);
+  }
+}
+
+function validateKeystoreFile(env, errors) {
+  const keystoreFile = envValue(env, 'ALPHAMATE_ANDROID_KEYSTORE_FILE');
+  if (!keystoreFile) return;
+  if (!fs.existsSync(path.resolve(keystoreFile))) {
+    errors.push('ALPHAMATE_ANDROID_KEYSTORE_FILE does not exist.');
+  }
+}
+
 export function validateReleaseEnv(env) {
   const errors = [];
   const appEnv = envValue(env, 'VITE_ALPHAMATE_ENV');
@@ -76,6 +90,11 @@ export function validateReleaseEnv(env) {
   if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$/.test(packageName)) {
     errors.push('VITE_GOOGLE_PLAY_PACKAGE_NAME must be a valid Android package name.');
   }
+  requireSetting(env, 'ALPHAMATE_ANDROID_KEYSTORE_FILE', errors);
+  requireSetting(env, 'ALPHAMATE_ANDROID_KEYSTORE_PASSWORD', errors);
+  requireSetting(env, 'ALPHAMATE_ANDROID_KEY_ALIAS', errors);
+  requireSetting(env, 'ALPHAMATE_ANDROID_KEY_PASSWORD', errors);
+  validateKeystoreFile(env, errors);
 
   return { ok: errors.length === 0, errors };
 }

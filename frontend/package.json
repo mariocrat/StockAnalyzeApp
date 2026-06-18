@@ -12,6 +12,7 @@
     "test:release-env": "node --test scripts/validate-release-env.test.js",
     "mobile:build": "npm run build && npx cap sync android",
     "mobile:release:check": "npm run release:check && npm run mobile:build",
+    "mobile:release:aab": "npm run mobile:release:check && cd android && gradlew.bat bundleRelease",
     "mobile:add:android": "npx cap add android",
     "mobile:open:android": "npx cap open android",
     "mobile:sync": "npx cap sync android"

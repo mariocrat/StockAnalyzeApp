@@ -47,5 +47,9 @@ frontend/.stylelintcache
 *.log
 backend/.cache/
 
+# Android signing keys must never be committed
+*.jks
+*.keystore
+
 # Local toolchains downloaded for this workstation only
 .tools/
