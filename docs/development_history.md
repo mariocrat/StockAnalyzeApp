@@ -312,3 +312,9 @@
 - Android release build가 `ALPHAMATE_ANDROID_KEYSTORE_FILE`, `ALPHAMATE_ANDROID_KEYSTORE_PASSWORD`, `ALPHAMATE_ANDROID_KEY_ALIAS`, `ALPHAMATE_ANDROID_KEY_PASSWORD` 환경변수로 서명 정보를 읽도록 연결했다.
 - 실제 keystore 파일과 비밀번호는 Git에 저장하지 않도록 `.gitignore`에 `*.jks`, `*.keystore`를 추가했다.
 - `npm run mobile:release:aab`를 추가해 배포 환경 검사, 모바일 빌드, Play Store 제출용 `app-release.aab` 생성을 한 번에 실행할 수 있게 했다.
+
+### Android 앱 버전 관리
+
+- Android `versionCode`, `versionName`이 `ALPHAMATE_ANDROID_VERSION_CODE`, `ALPHAMATE_ANDROID_VERSION_NAME` 환경변수를 읽도록 연결했다.
+- `npm run release:check`에서 versionCode가 양의 정수인지, versionName이 `1.0.0` 같은 형식인지 검사한다.
+- Play Store 업로드마다 `ALPHAMATE_ANDROID_VERSION_CODE`를 이전 업로드보다 큰 숫자로 올려야 한다는 안내를 문서에 추가했다.

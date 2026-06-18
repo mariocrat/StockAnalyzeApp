@@ -67,6 +67,17 @@ function validateKeystoreFile(env, errors) {
   }
 }
 
+function validateAndroidVersion(env, errors) {
+  const versionCode = envValue(env, 'ALPHAMATE_ANDROID_VERSION_CODE');
+  const versionName = envValue(env, 'ALPHAMATE_ANDROID_VERSION_NAME');
+  if (!/^[1-9]\d*$/.test(versionCode)) {
+    errors.push('ALPHAMATE_ANDROID_VERSION_CODE must be a positive integer.');
+  }
+  if (!/^\d+\.\d+\.\d+([+-][0-9A-Za-z.-]+)?$/.test(versionName)) {
+    errors.push('ALPHAMATE_ANDROID_VERSION_NAME must use a version like 1.0.0.');
+  }
+}
+
 export function validateReleaseEnv(env) {
   const errors = [];
   const appEnv = envValue(env, 'VITE_ALPHAMATE_ENV');
@@ -95,6 +106,7 @@ export function validateReleaseEnv(env) {
   requireSetting(env, 'ALPHAMATE_ANDROID_KEY_ALIAS', errors);
   requireSetting(env, 'ALPHAMATE_ANDROID_KEY_PASSWORD', errors);
   validateKeystoreFile(env, errors);
+  validateAndroidVersion(env, errors);
 
   return { ok: errors.length === 0, errors };
 }

@@ -19,6 +19,8 @@ function validReleaseEnv(overrides = {}) {
     ALPHAMATE_ANDROID_KEYSTORE_PASSWORD: 'keystore-password',
     ALPHAMATE_ANDROID_KEY_ALIAS: 'alphamate-upload',
     ALPHAMATE_ANDROID_KEY_PASSWORD: 'key-password',
+    ALPHAMATE_ANDROID_VERSION_CODE: '1',
+    ALPHAMATE_ANDROID_VERSION_NAME: '1.0.0',
     ...overrides,
   };
 }
@@ -59,6 +61,17 @@ test('requires Android signing settings for release builds', () => {
   assert.match(result.errors.join('\n'), /ALPHAMATE_ANDROID_KEYSTORE_PASSWORD/);
   assert.match(result.errors.join('\n'), /ALPHAMATE_ANDROID_KEY_ALIAS/);
   assert.match(result.errors.join('\n'), /ALPHAMATE_ANDROID_KEY_PASSWORD/);
+});
+
+test('requires valid Android version settings for release builds', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    ALPHAMATE_ANDROID_VERSION_CODE: '0',
+    ALPHAMATE_ANDROID_VERSION_NAME: 'version-one',
+  }));
+
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join('\n'), /ALPHAMATE_ANDROID_VERSION_CODE/);
+  assert.match(result.errors.join('\n'), /ALPHAMATE_ANDROID_VERSION_NAME/);
 });
 
 test('rejects missing Android keystore file for release builds', () => {

@@ -216,13 +216,16 @@ Play Store 제출용 AAB 확인:
 2. PowerShell에서 아래 값을 실제 값으로 설정합니다. 비밀번호와 keystore 파일은 Git에 올리면 안 됩니다.
 
 ```powershell
+$env:ALPHAMATE_ANDROID_VERSION_CODE='1'
+$env:ALPHAMATE_ANDROID_VERSION_NAME='1.0.0'
 $env:ALPHAMATE_ANDROID_KEYSTORE_FILE='D:\secure\alphamate-upload.jks'
 $env:ALPHAMATE_ANDROID_KEYSTORE_PASSWORD='키스토어_비밀번호'
 $env:ALPHAMATE_ANDROID_KEY_ALIAS='alphamate-upload'
 $env:ALPHAMATE_ANDROID_KEY_PASSWORD='키_비밀번호'
 ```
 
-3. `frontend` 폴더에서 `npm run mobile:release:aab`를 실행합니다.
+3. Play Store에 새 빌드를 올릴 때마다 `ALPHAMATE_ANDROID_VERSION_CODE`는 이전 업로드보다 큰 숫자로 올립니다.
+4. `frontend` 폴더에서 `npm run mobile:release:aab`를 실행합니다.
 
 정상 빌드 결과물은 아래 위치에 생깁니다.
 
