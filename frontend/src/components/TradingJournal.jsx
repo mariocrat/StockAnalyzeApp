@@ -141,6 +141,7 @@ export default function TradingJournal({ apiBase }) {
   const [feeFree, setFeeFree] = useState(false);
   const [authSession, setAuthSession] = useState(loadStoredAuth);
   const [oauthServerStatus, setOauthServerStatus] = useState(null);
+  const [appReadiness, setAppReadiness] = useState(null);
   const [dataSummary, setDataSummary] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
   const stockSearchSeq = useRef(0);
@@ -558,6 +559,15 @@ export default function TradingJournal({ apiBase }) {
     axios.get(`${apiBase}/api/auth/oauth-config`)
       .then(res => setOauthServerStatus(res.data || null))
       .catch(() => setOauthServerStatus(null));
+    axios.get(`${apiBase}/api/app/readiness`)
+      .then(res => {
+        const data = res.data || null;
+        setAppReadiness(data);
+        if (data?.sections?.login?.providers) {
+          setOauthServerStatus({ providers: data.sections.login.providers });
+        }
+      })
+      .catch(() => setAppReadiness(null));
   }, [apiBase]);
 
   useEffect(() => {
@@ -803,7 +813,10 @@ export default function TradingJournal({ apiBase }) {
   const activeTradeChart = (chartReview.charts || []).find(chart => chart.ticker === activeChartTicker)
     || chartReview.charts?.[0];
   const adPolicy = productCatalog?.settings?.ad_policy || entitlements?.settings?.ad_policy || {};
-  const admobStatus = productCatalog?.admob || {};
+  const readinessSections = appReadiness?.sections || {};
+  const googlePlayReadiness = readinessSections.google_play || productCatalog?.google_play || {};
+  const admobStatus = readinessSections.admob || productCatalog?.admob || {};
+  const aiReadiness = readinessSections.ai || {};
   const adsPerAdvancedTicket = adPolicy.ads_per_advanced_ticket || entitlements?.advanced?.weekly_ad_views_needed || 5;
   const weeklyAdViews = entitlements?.advanced?.weekly_ad_views || 0;
   const adPolicyText = `광고 ${adsPerAdvancedTicket}회 시청 시 주간 심층 복기권 1장`;
@@ -817,6 +830,36 @@ export default function TradingJournal({ apiBase }) {
   const connectedProviderText = (dataSummary?.connected_providers || [])
     .map(provider => DEV_LOGIN_PROFILES[provider]?.label || provider)
     .join(', ') || '-';
+  const missingText = (items = []) => items.length ? `누락: ${items.join(', ')}` : '설정 완료';
+  const readinessItems = [
+    {
+      label: 'AI 복기',
+      ready: aiReadiness.ready === true,
+      detail: missingText(aiReadiness.missing_server_settings || []),
+    },
+    {
+      label: 'Google Play 결제',
+      ready: googlePlayReadiness.ready === true && billingStatus.native,
+      detail: billingStatus.native
+        ? missingText(googlePlayReadiness.missing_server_settings || [])
+        : 'Android 앱에서 실제 결제 확인',
+    },
+    {
+      label: 'AdMob 보상 광고',
+      ready: admobStatus.ready === true && mobileAdStatus.native,
+      detail: mobileAdStatus.native
+        ? missingText(admobStatus.missing_server_settings || [])
+        : 'Android 앱에서 실제 광고 확인',
+    },
+    ...oauthSetupRows().map(provider => ({
+      label: `${provider.label} 로그인`,
+      ready: provider.publicReady && provider.serverReady,
+      detail: [
+        provider.publicReady ? '' : `${provider.publicSetting} 필요`,
+        provider.serverMissing.length ? provider.serverMissing.join(', ') : '',
+      ].filter(Boolean).join(' · ') || '설정 완료',
+    })),
+  ];
 
   return (
     <div className="journal-page">
@@ -1039,6 +1082,21 @@ export default function TradingJournal({ apiBase }) {
             <span>결제 상태</span>
             <strong className={billingStatus.native ? 'ready' : 'not-ready'}>{billingStatusText}</strong>
             <em>패키지 {GOOGLE_PLAY_PACKAGE_NAME}</em>
+          </div>
+        </div>
+        <div className="journal-readiness-box">
+          <div className="journal-readiness-head">
+            <strong>배포 준비 상태</strong>
+            <span>{appReadiness?.overall_ready ? '서버 설정 준비됨' : '설정 확인 필요'}</span>
+          </div>
+          <div className="journal-readiness-grid">
+            {readinessItems.map(item => (
+              <div key={item.label}>
+                <span>{item.label}</span>
+                <strong className={item.ready ? 'ready' : 'not-ready'}>{item.ready ? '준비됨' : '설정 필요'}</strong>
+                <em>{item.detail}</em>
+              </div>
+            ))}
           </div>
         </div>
         {DEV_TOOLS_ENABLED || billingStatus.native ? (

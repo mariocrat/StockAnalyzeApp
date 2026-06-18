@@ -294,3 +294,9 @@
 - 이용권 구매 버튼은 웹 개발 모드에서는 기존 개발용 충전 흐름을 유지하고, Android 앱에서는 Google Play Billing 구매 흐름을 실행한다.
 - 구매 성공 시 Google Play purchase token을 서버의 `POST /api/journal/google-play-purchase`로 보내 서버 검증 후 이용권에 반영하도록 연결했다.
 - 실제 결제 완료 검증은 Google Play Console 상품 ID, 라이선스 테스트 계정, 운영 서버의 Google Play Developer API 설정이 준비된 뒤 진행해야 한다.
+
+### 배포 준비 상태 점검
+
+- `GET /api/app/readiness`를 추가해 AI Key, 카카오/네이버 로그인, Google Play 결제, AdMob 보상 광고의 서버 설정 준비 상태를 한 번에 확인할 수 있게 했다.
+- readiness 응답은 `ready` 여부와 누락된 환경변수 이름만 반환하고, API Key, client secret, Google 서비스 계정 JSON 원문은 반환하지 않는다.
+- 매매복기 이용권 영역에 `배포 준비 상태` 표시를 추가해 웹/Android 환경별로 설정 필요 항목을 바로 볼 수 있게 했다.

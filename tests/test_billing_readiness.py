@@ -28,6 +28,56 @@ def patched_env(**values):
 
 
 class BillingReadinessTest(unittest.TestCase):
+    def test_app_readiness_summarizes_deployment_without_secret_values(self):
+        with patched_env(
+            OPENAI_API_KEY="sk-secret-openai",
+            KAKAO_CLIENT_ID="kakao-client",
+            KAKAO_CLIENT_SECRET="kakao-secret",
+            NAVER_CLIENT_ID="naver-client",
+            NAVER_CLIENT_SECRET="naver-secret",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="google-secret-json",
+            ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+        ):
+            from backend.core import readiness
+
+            readiness = importlib.reload(readiness)
+            status = readiness.get_app_readiness()
+
+            self.assertTrue(status["overall_ready"])
+            self.assertTrue(status["sections"]["ai"]["ready"])
+            self.assertTrue(status["sections"]["login"]["ready"])
+            self.assertTrue(status["sections"]["google_play"]["ready"])
+            self.assertTrue(status["sections"]["admob"]["ready"])
+            self.assertNotIn("sk-secret-openai", str(status))
+            self.assertNotIn("kakao-secret", str(status))
+            self.assertNotIn("naver-secret", str(status))
+            self.assertNotIn("google-secret-json", str(status))
+
+    def test_app_readiness_reports_missing_settings_by_section(self):
+        with patched_env(
+            OPENAI_API_KEY=None,
+            ALPHAMATE_OPENAI_API_KEY=None,
+            KAKAO_CLIENT_ID=None,
+            NAVER_CLIENT_ID=None,
+            NAVER_CLIENT_SECRET=None,
+            GOOGLE_PLAY_PACKAGE_NAME=None,
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=None,
+            GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
+            ADMOB_REWARDED_AD_UNIT_ID=None,
+        ):
+            from backend.core import readiness
+
+            readiness = importlib.reload(readiness)
+            status = readiness.get_app_readiness()
+
+            self.assertFalse(status["overall_ready"])
+            self.assertIn("OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY", status["sections"]["ai"]["missing_server_settings"])
+            self.assertIn("GOOGLE_PLAY_PACKAGE_NAME", status["sections"]["google_play"]["missing_server_settings"])
+            self.assertIn("ADMOB_REWARDED_AD_UNIT_ID", status["sections"]["admob"]["missing_server_settings"])
+            self.assertIn("KAKAO_CLIENT_ID", status["sections"]["login"]["providers"]["kakao"]["missing_server_settings"])
+            self.assertIn("NAVER_CLIENT_SECRET", status["sections"]["login"]["providers"]["naver"]["missing_server_settings"])
+
     def test_product_catalog_exposes_public_ids_and_readiness_only(self):
         with patched_env(
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",

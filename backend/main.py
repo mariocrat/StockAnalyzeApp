@@ -33,6 +33,7 @@ from core.access_control import (
 )
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
+from core.readiness import get_app_readiness
 
 from contextlib import asynccontextmanager
 import threading
@@ -395,6 +396,11 @@ def post_auth_login_naver_code(login: AuthProviderCodeIn):
 @app.get("/api/auth/oauth-config")
 def get_auth_oauth_config():
     return get_oauth_config_status()
+
+
+@app.get("/api/app/readiness")
+def get_app_readiness_status():
+    return get_app_readiness()
 
 
 @app.get("/api/me")

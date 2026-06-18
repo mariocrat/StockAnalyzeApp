@@ -123,6 +123,18 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 
 현재는 Google Play 소모성 복기권 검증 코드가 들어간 상태입니다. 실제 결제 테스트는 Google Play Console 상품 ID와 서비스 계정 설정이 필요합니다.
 
+배포 준비 상태 API:
+
+```powershell
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/app/readiness
+```
+
+확인할 내용:
+
+- `overall_ready`가 서버 설정 전체 준비 여부를 표시합니다.
+- `sections.ai`, `sections.login`, `sections.google_play`, `sections.admob`에서 항목별 준비 상태를 확인합니다.
+- 응답에는 API Key, client secret, Google 서비스 계정 JSON 원문이 포함되면 안 됩니다.
+
 1. backend가 켜진 상태에서 `http://127.0.0.1:8002/api/journal/products`를 엽니다.
 2. `consumables`에 일반/심층 복기권 상품이 보이는지 확인합니다.
 3. `subscriptions`에 Pro 월 구독 상품이 보이는지 확인합니다.
