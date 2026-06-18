@@ -3,6 +3,7 @@ import axios from 'axios';
 import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
+import { getAdMobRuntimeStatus, initializeAdMob, showRewardedReviewAd } from '../mobile/admob';
 
 const sideLabels = { buy: '매수', sell: '매도' };
 const DEFAULT_FEE_RATE = '0.015';
@@ -120,6 +121,8 @@ export default function TradingJournal({ apiBase }) {
   const [activeChartTicker, setActiveChartTicker] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReviewType, setAiReviewType] = useState('basic');
+  const [adLoading, setAdLoading] = useState(false);
+  const [mobileAdStatus, setMobileAdStatus] = useState(getAdMobRuntimeStatus);
   const [entitlements, setEntitlements] = useState(null);
   const [productCatalog, setProductCatalog] = useState(null);
   const [form, setForm] = useState(emptyForm);
@@ -453,7 +456,7 @@ export default function TradingJournal({ apiBase }) {
     setReview(reviewRes.data || null);
   };
 
-  const loadAiReview = async (nextTrades = trades, reviewType = aiReviewType) => {
+  const loadAiReview = async (nextTrades = trades, reviewType = aiReviewType, options = {}) => {
     if (!nextTrades.length) {
       setMessage('AI 분석을 하려면 먼저 매매 기록을 입력하세요.');
       return;
@@ -471,7 +474,7 @@ export default function TradingJournal({ apiBase }) {
           {
             trades: nextTrades,
             review_type: reviewType,
-            ad_reward_token: DEV_TOOLS_ENABLED && reviewType === 'basic' && DEV_ACCESS_PLAN !== 'pro' ? DEV_AD_REWARD_TOKEN : '',
+            ad_reward_token: options.adRewardToken ?? (DEV_TOOLS_ENABLED && reviewType === 'basic' && DEV_ACCESS_PLAN !== 'pro' ? DEV_AD_REWARD_TOKEN : ''),
             entitlement_token: DEV_ENTITLEMENT_TOKEN,
             privacy_consent: aiConsentAccepted,
           },
@@ -489,6 +492,46 @@ export default function TradingJournal({ apiBase }) {
       });
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const handleRewardedAdBasicReview = async () => {
+    if (!trades.length) {
+      setMessage('AI 분석을 하려면 먼저 매매 기록을 입력하세요.');
+      return;
+    }
+    if (!aiConsentAccepted) {
+      setMessage('AI 분석 전 개인정보 및 매매 기록 전송 동의가 필요합니다.');
+      return;
+    }
+
+    setAiReviewType('basic');
+
+    if (!mobileAdStatus.native) {
+      if (DEV_TOOLS_ENABLED) {
+        await loadAiReview(trades, 'basic');
+      } else {
+        setMessage('광고 시청은 Android 앱에서 사용할 수 있습니다. 웹에서는 무료 제공량 또는 구매 이용권으로 복기를 실행하세요.');
+      }
+      return;
+    }
+
+    if (!authSession?.user?.id) {
+      setMessage('광고 보상은 로그인된 사용자에게만 지급됩니다. 먼저 카카오/네이버 로그인을 완료하세요.');
+      return;
+    }
+
+    setAdLoading(true);
+    try {
+      await showRewardedReviewAd({ userId: authSession.user.id });
+      setMessage('광고 시청을 확인했습니다. 서버 보상 확인 후 일반 복기를 실행합니다.');
+      await new Promise(resolve => setTimeout(resolve, 1800));
+      await loadAiReview(trades, 'basic', { adRewardToken: '' });
+      await loadEntitlements();
+    } catch (err) {
+      setMessage(err?.message || '광고 시청 또는 보상 확인을 완료하지 못했습니다.');
+    } finally {
+      setAdLoading(false);
     }
   };
 
@@ -512,6 +555,12 @@ export default function TradingJournal({ apiBase }) {
       .then(res => setOauthServerStatus(res.data || null))
       .catch(() => setOauthServerStatus(null));
   }, [apiBase]);
+
+  useEffect(() => {
+    initializeAdMob()
+      .then(status => setMobileAdStatus(status))
+      .catch(() => setMobileAdStatus(getAdMobRuntimeStatus()));
+  }, []);
 
   useEffect(() => {
     loadJournal()
@@ -704,6 +753,9 @@ export default function TradingJournal({ apiBase }) {
   const weeklyAdViews = entitlements?.advanced?.weekly_ad_views || 0;
   const adPolicyText = `광고 ${adsPerAdvancedTicket}회 시청 시 주간 심층 복기권 1장`;
   const adReadinessText = admobStatus.ready ? 'AdMob 보상형 광고 준비됨' : 'AdMob 광고 단위 설정 필요';
+  const mobileAdStatusText = mobileAdStatus.native
+    ? `모바일 SDK 준비됨${mobileAdStatus.usingTestAdUnit ? ' · 테스트 광고 단위' : ''}`
+    : '웹 화면에서는 네이티브 광고 미사용';
   const activeIdentity = authSession?.user?.identities?.[0];
   const activeProviderLabel = activeIdentity ? DEV_LOGIN_PROFILES[activeIdentity.provider]?.label || activeIdentity.provider : '';
   const connectedProviderText = (dataSummary?.connected_providers || [])
@@ -924,6 +976,7 @@ export default function TradingJournal({ apiBase }) {
           <div>
             <span>AdMob 상태</span>
             <strong className={admobStatus.ready ? 'ready' : 'not-ready'}>{adReadinessText}</strong>
+            <em>{mobileAdStatusText}</em>
             <em>연속 광고 강제: {adPolicy.force_rewarded_ad_chain ? '켜짐' : '꺼짐'}</em>
           </div>
         </div>
@@ -986,14 +1039,22 @@ export default function TradingJournal({ apiBase }) {
           <div className="journal-review-actions">
             <button
               className="journal-secondary"
-              disabled={aiLoading || !trades.length || !aiConsentAccepted}
+              disabled={aiLoading || adLoading || !trades.length || !aiConsentAccepted}
               onClick={() => { setAiReviewType('basic'); loadAiReview(trades, 'basic'); }}
             >
               {aiLoading && aiReviewType === 'basic' ? '분석중' : '일반 복기'}
             </button>
             <button
               className="journal-secondary"
-              disabled={aiLoading || !trades.length || !aiConsentAccepted}
+              disabled={aiLoading || adLoading || !trades.length || !aiConsentAccepted}
+              onClick={handleRewardedAdBasicReview}
+              title={mobileAdStatus.native ? '보상형 광고를 본 뒤 일반 복기를 실행합니다.' : '웹에서는 개발 모드 확인 또는 모바일 앱 빌드가 필요합니다.'}
+            >
+              {adLoading ? '광고 확인중' : '광고 보고 일반 복기'}
+            </button>
+            <button
+              className="journal-secondary"
+              disabled={aiLoading || adLoading || !trades.length || !aiConsentAccepted}
               onClick={() => { setAiReviewType('advanced'); loadAiReview(trades, 'advanced'); }}
             >
               {aiLoading && aiReviewType === 'advanced' ? '분석중' : '심층 복기'}

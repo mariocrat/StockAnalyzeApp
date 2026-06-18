@@ -263,3 +263,12 @@
 - Android 해상도별 launcher icon, round icon, foreground icon, portrait/landscape splash 이미지를 모두 새로 생성했다.
 - `ic_launcher_background` 색상을 앱의 어두운 UI 톤에 맞춰 변경했다.
 - `npm run mobile:build`와 `gradlew.bat assembleDebug`로 웹 자산 동기화와 Android 디버그 APK 빌드를 다시 확인했다.
+
+### Android AdMob 보상형 광고 연결
+
+- Capacitor 8과 맞는 `@capacitor-community/admob`을 추가했다.
+- Android manifest에 AdMob application ID 메타데이터를 연결하고, 개발 빌드용 Google 테스트 앱 ID를 문자열 리소스로 넣었다.
+- `frontend/src/mobile/admob.js`를 추가해 웹에서는 비활성, Android 앱에서는 보상형 광고를 실행하도록 분리했다.
+- 보상형 광고 실행 시 로그인된 사용자 ID를 AdMob SSV `userId`로 넘겨 서버의 `/api/journal/admob-ssv` 보상 검증과 이어지게 했다.
+- 매매복기 화면에 `광고 보고 일반 복기` 버튼과 모바일 광고 SDK 상태 표시를 추가했다.
+- 테스트 광고는 SSV 콜백이 오지 않으므로, 실제 보상 지급 검증은 운영 AdMob 앱/광고 단위와 SSV 콜백 URL을 설정한 뒤 진행해야 한다.

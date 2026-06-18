@@ -29,6 +29,7 @@ frontend/dist/
 frontend/dist-ssr/
 frontend/*.local
 frontend/.npm/
+frontend/.npm-cache/
 frontend/.eslintcache
 frontend/.stylelintcache
 

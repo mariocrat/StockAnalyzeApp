@@ -153,7 +153,15 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 4. 광고 시청 후 서버 DB의 `admob_reward_events`에 `pending` 보상이 1건 생기는지 확인합니다.
 5. 일반 복기를 1회 실행하면 해당 보상이 `consumed`로 바뀌고, 같은 `transaction_id`는 다시 지급되지 않아야 합니다.
 
-개발 PC의 웹 화면만으로는 실제 AdMob 광고 시청을 완전히 검증할 수 없습니다. 이 부분은 Android/iOS 앱 빌드 뒤 AdMob 테스트 광고 단위로 확인해야 합니다.
+개발 PC의 웹 화면만으로는 실제 AdMob 광고 시청을 완전히 검증할 수 없습니다. Android 앱에는 `@capacitor-community/admob` 기반 보상형 광고 연결이 들어가 있으며, 웹 화면에서는 네이티브 광고가 실행되지 않습니다.
+
+주의:
+
+- Android `strings.xml`에는 빌드가 깨지지 않도록 Google 테스트 AdMob 앱 ID가 들어가 있습니다.
+- `frontend/.env`의 `VITE_ADMOB_REWARDED_AD_UNIT_ID`가 비어 있으면 Google 테스트 보상형 광고 단위를 사용합니다.
+- 테스트 광고는 AdMob SSV 콜백을 보내지 않으므로 서버의 실제 보상 지급까지 검증할 수 없습니다.
+- 실제 보상 지급 검증은 운영 AdMob 앱 ID, 운영 보상형 광고 단위, SSV 콜백 URL을 모두 설정한 뒤 실제 광고 단위로 확인해야 합니다.
+- 출시 전에는 테스트 앱 ID와 테스트 광고 단위를 실제 AdMob 값으로 바꾸고, Google Play 정책에 맞게 테스트 광고가 남아 있지 않은지 확인해야 합니다.
 
 광고 정책 설정:
 
