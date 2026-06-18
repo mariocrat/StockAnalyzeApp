@@ -45,3 +45,6 @@ frontend/.stylelintcache
 *.sqlite3
 *.log
 backend/.cache/
+
+# Local toolchains downloaded for this workstation only
+.tools/

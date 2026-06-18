@@ -250,5 +250,8 @@
 - `capacitor.config.json`은 앱 ID를 `com.mariocrat.stockanalyze`, 앱 표시 이름을 `AlphaMate`, 웹 빌드 폴더를 `dist`로 둔다.
 - `npm run mobile:add:android`, `npm run mobile:sync`, `npm run mobile:open:android`, `npm run mobile:build` 스크립트를 추가했다.
 - `frontend/android` 네이티브 프로젝트 골격을 생성하고 `npm run mobile:build`로 웹 자산 동기화까지 확인했다.
-- APK 컴파일은 현재 환경에 `JAVA_HOME` 또는 `java`가 없어 실행하지 못했다. Android Studio/JDK/SDK 준비 후 `gradlew assembleDebug` 또는 Android Studio 빌드로 확인해야 한다.
+- 프로젝트 안의 `.tools` 폴더에 로컬 JDK와 Android SDK command-line tools를 준비했다. 이 도구 폴더는 PC 전용이라 `.gitignore`에 추가해 GitHub에는 올리지 않는다.
+- Windows 경로에 한글이 포함되어 Android Gradle 플러그인의 경로 검사에 걸렸기 때문에 `frontend/android/gradle.properties`에 `android.overridePathCheck=true`를 추가했다.
+- `frontend/android/local.properties`에는 이 PC의 Android SDK 위치를 적어 빌드가 가능하게 했지만, 이 파일은 원래 Android 프로젝트에서 로컬 전용으로 무시된다.
+- `frontend/android`에서 `gradlew.bat assembleDebug`를 실행해 `frontend/android/app/build/outputs/apk/debug/app-debug.apk` 생성까지 확인했다.
 - Play Store 서명, 앱 아이콘, 스플래시 이미지, AdMob SDK, Google Play Billing SDK 연결은 다음 단계로 남겼다.
