@@ -255,3 +255,11 @@
 - `frontend/android/local.properties`에는 이 PC의 Android SDK 위치를 적어 빌드가 가능하게 했지만, 이 파일은 원래 Android 프로젝트에서 로컬 전용으로 무시된다.
 - `frontend/android`에서 `gradlew.bat assembleDebug`를 실행해 `frontend/android/app/build/outputs/apk/debug/app-debug.apk` 생성까지 확인했다.
 - Play Store 서명, 앱 아이콘, 스플래시 이미지, AdMob SDK, Google Play Billing SDK 연결은 다음 단계로 남겼다.
+
+### Android 앱 아이콘/스플래시 교체
+
+- Capacitor 기본 앱 아이콘을 차트/상승 흐름을 표현하는 AlphaMate 전용 아이콘으로 교체했다.
+- 앱 이름을 나중에 바꿀 수 있도록 아이콘과 스플래시에는 텍스트를 넣지 않고 심볼 중심으로 구성했다.
+- Android 해상도별 launcher icon, round icon, foreground icon, portrait/landscape splash 이미지를 모두 새로 생성했다.
+- `ic_launcher_background` 색상을 앱의 어두운 UI 톤에 맞춰 변경했다.
+- `npm run mobile:build`와 `gradlew.bat assembleDebug`로 웹 자산 동기화와 Android 디버그 APK 빌드를 다시 확인했다.
