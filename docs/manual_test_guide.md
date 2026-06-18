@@ -160,3 +160,15 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/auth/oauth-config
 - `ALPHAMATE_ADS_PER_ADVANCED_TICKET=5`: 광고 5회 시청 시 주간 심층 복기권 1장 지급
 - `ALPHAMATE_FORCE_REWARDED_AD_CHAIN=false`: 여러 보상형 광고를 연속으로 강제하지 않음
 - `GET /api/journal/products`에서 `admob.ready`, `settings.ad_policy` 값을 확인할 수 있습니다.
+
+## 9. Android 앱 래퍼 준비 확인
+
+현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 실제 APK/AAB 빌드는 Android Studio, Android SDK, Java/JDK 환경이 준비된 PC에서 진행합니다.
+
+1. `frontend/.env`에서 배포용 앱은 `VITE_API_BASE=https://서버주소`, `VITE_ALPHAMATE_ENV=production`, `VITE_ENABLE_DEV_TOOLS=false`로 둡니다.
+2. `frontend` 폴더에서 `npm run build`를 실행합니다.
+3. 웹 변경사항을 Android 프로젝트에 반영할 때는 `npm run mobile:sync` 또는 `npm run mobile:build`를 실행합니다.
+4. Android Studio로 열 때는 `npm run mobile:open:android`를 실행합니다.
+5. APK 빌드 전에는 `JAVA_HOME`이 JDK 설치 경로를 가리키고, Android SDK가 설치되어 있어야 합니다.
+
+아직 이 단계에서는 Play Store 서명, 앱 아이콘, 스플래시 이미지, AdMob SDK 연결, Google Play Billing SDK 연결을 완료한 것이 아닙니다.

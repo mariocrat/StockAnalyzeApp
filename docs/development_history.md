@@ -243,3 +243,12 @@
 - `GET /api/journal/products` 응답에 AdMob 준비 상태와 광고 보상 정책을 추가했다.
 - `ALPHAMATE_ADS_PER_ADVANCED_TICKET`로 심층 복기권 지급에 필요한 광고 시청 횟수를 서버에서 바꿀 수 있게 했다.
 - `ALPHAMATE_FORCE_REWARDED_AD_CHAIN` 설정값을 추가했지만, 기본값은 여러 광고를 연속 강제하지 않는 `false`로 유지했다.
+
+### Android 앱 래퍼 준비
+
+- 기존 Vite/React frontend에 Capacitor v8 설정을 추가했다.
+- `capacitor.config.json`은 앱 ID를 `com.mariocrat.stockanalyze`, 앱 표시 이름을 `AlphaMate`, 웹 빌드 폴더를 `dist`로 둔다.
+- `npm run mobile:add:android`, `npm run mobile:sync`, `npm run mobile:open:android`, `npm run mobile:build` 스크립트를 추가했다.
+- `frontend/android` 네이티브 프로젝트 골격을 생성하고 `npm run mobile:build`로 웹 자산 동기화까지 확인했다.
+- APK 컴파일은 현재 환경에 `JAVA_HOME` 또는 `java`가 없어 실행하지 못했다. Android Studio/JDK/SDK 준비 후 `gradlew assembleDebug` 또는 Android Studio 빌드로 확인해야 한다.
+- Play Store 서명, 앱 아이콘, 스플래시 이미지, AdMob SDK, Google Play Billing SDK 연결은 다음 단계로 남겼다.
