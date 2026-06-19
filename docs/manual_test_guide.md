@@ -210,6 +210,8 @@ Backend release environment check passed.
 
 설정이 빠져 있으면 `ALPHAMATE_ENV`, `OPENAI_API_KEY`, `KAKAO_CLIENT_ID`, `GOOGLE_PLAY_*`, `ADMOB_REWARDED_AD_UNIT_ID`처럼 필요한 환경변수 이름만 표시합니다. API Key나 Google 서비스 계정 JSON 원문은 출력하면 안 됩니다.
 
+운영용 환경변수를 별도 파일에 둘 경우 `ALPHAMATE_ENV_FILE=D:\secure\alphamate-backend.env`처럼 지정한 뒤 같은 명령을 실행할 수 있습니다.
+
 ## 9. Android 앱 래퍼, APK, Play Store AAB 빌드 확인
 
 현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 이 PC에서는 프로젝트 안의 `.tools` 폴더에 JDK와 Android SDK command-line tools를 받아 디버그 APK 빌드까지 확인했습니다. `.tools`는 PC 전용 도구라 GitHub에는 올리지 않습니다.

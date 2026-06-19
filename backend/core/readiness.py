@@ -1,11 +1,10 @@
-import os
-
 from .access_control import get_product_catalog
+from .env import env_value
 from .oauth_login import get_oauth_config_status
 
 
 def _env_value(name: str) -> str:
-    return os.getenv(name, "").strip()
+    return env_value(name)
 
 
 def _ai_status() -> dict:

@@ -346,3 +346,4 @@
 - `backend/scripts/validate_release_env.py`를 실행하면 `ALPHAMATE_ENV=production`, AI Key, 카카오/네이버 로그인, Google Play 결제, AdMob 보상형 광고 설정 누락을 확인한다.
 - 실패 시에는 필요한 환경변수 이름만 출력하고, API Key나 Google 서비스 계정 JSON 원문은 출력하지 않는다.
 - `tests/test_backend_release_check.py`를 추가해 설정 누락 실패와 전체 설정 성공 케이스를 확인한다.
+- `backend/core/env.py`를 추가해 서버 설정 읽기 방식을 공통화하고, `ALPHAMATE_ENV_FILE`로 별도 env 파일을 지정할 수 있게 했다.

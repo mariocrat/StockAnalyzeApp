@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from contextlib import contextmanager
 
@@ -77,6 +78,61 @@ class BackendReleaseCheckTest(unittest.TestCase):
             self.assertIn("Backend release environment check passed.", formatted)
             self.assertNotIn("sk-test-secret", formatted)
             self.assertNotIn("google-secret-json", formatted)
+
+    def test_accepts_complete_settings_from_explicit_env_file(self):
+        env_text = "\n".join([
+            "ALPHAMATE_ENV=production",
+            "OPENAI_API_KEY=sk-env-file-secret",
+            "KAKAO_CLIENT_ID=kakao-client",
+            "KAKAO_CLIENT_SECRET=kakao-secret",
+            "NAVER_CLIENT_ID=naver-client",
+            "NAVER_CLIENT_SECRET=naver-secret",
+            "GOOGLE_PLAY_PACKAGE_NAME=com.alphamate.app",
+            "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=google-secret-json",
+            "GOOGLE_PLAY_BASIC_REVIEW_30_ID=alphamate.basic.30",
+            "GOOGLE_PLAY_BASIC_REVIEW_100_ID=alphamate.basic.100",
+            "GOOGLE_PLAY_ADVANCED_REVIEW_5_ID=alphamate.advanced.5",
+            "GOOGLE_PLAY_ADVANCED_REVIEW_10_ID=alphamate.advanced.10",
+            "GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID=alphamate.pro.launch",
+            "GOOGLE_PLAY_PRO_MONTHLY_ID=alphamate.pro.monthly",
+            "ADMOB_REWARDED_AD_UNIT_ID=rewarded-unit-1",
+        ])
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8-sig", delete=False) as env_file:
+            env_file.write(env_text)
+            env_path = env_file.name
+
+        try:
+            with patched_env(
+                ALPHAMATE_ENV_FILE=env_path,
+                ALPHAMATE_ENV=None,
+                OPENAI_API_KEY=None,
+                ALPHAMATE_OPENAI_API_KEY=None,
+                KAKAO_CLIENT_ID=None,
+                KAKAO_CLIENT_SECRET=None,
+                NAVER_CLIENT_ID=None,
+                NAVER_CLIENT_SECRET=None,
+                GOOGLE_PLAY_PACKAGE_NAME=None,
+                GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=None,
+                GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
+                GOOGLE_PLAY_BASIC_REVIEW_30_ID=None,
+                GOOGLE_PLAY_BASIC_REVIEW_100_ID=None,
+                GOOGLE_PLAY_ADVANCED_REVIEW_5_ID=None,
+                GOOGLE_PLAY_ADVANCED_REVIEW_10_ID=None,
+                GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID=None,
+                GOOGLE_PLAY_PRO_MONTHLY_ID=None,
+                ADMOB_REWARDED_AD_UNIT_ID=None,
+            ):
+                from backend.core.release_check import format_backend_release_check, validate_backend_release_env
+
+                result = validate_backend_release_env()
+                formatted = format_backend_release_check(result)
+
+                self.assertTrue(result["ok"])
+                self.assertEqual([], result["errors"])
+                self.assertNotIn("sk-env-file-secret", formatted)
+                self.assertNotIn("google-secret-json", formatted)
+        finally:
+            os.unlink(env_path)
 
 
 if __name__ == "__main__":

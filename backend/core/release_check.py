@@ -1,10 +1,9 @@
-import os
-
+from .env import env_value
 from .readiness import get_app_readiness
 
 
 def _env_value(name: str) -> str:
-    return os.getenv(name, "").strip()
+    return env_value(name)
 
 
 def _collect_section_errors(section_name: str, section: dict) -> list[str]:
