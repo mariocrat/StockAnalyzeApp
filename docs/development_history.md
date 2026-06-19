@@ -347,3 +347,9 @@
 - 실패 시에는 필요한 환경변수 이름만 출력하고, API Key나 Google 서비스 계정 JSON 원문은 출력하지 않는다.
 - `tests/test_backend_release_check.py`를 추가해 설정 누락 실패와 전체 설정 성공 케이스를 확인한다.
 - `backend/core/env.py`를 추가해 서버 설정 읽기 방식을 공통화하고, `ALPHAMATE_ENV_FILE`로 별도 env 파일을 지정할 수 있게 했다.
+
+### Google Play 서비스 계정 설정 검증 강화
+
+- Google Play readiness가 서비스 계정 설정의 존재 여부만 보지 않고 JSON 파싱, 필수 필드, private key 형식을 함께 검사하도록 보강했다.
+- 서비스 계정 JSON이나 파일이 깨져 있으면 `google_play.ready`가 false가 되고, 필요한 설정 이름만 `missing_server_settings`에 표시된다.
+- Google 인증 생성/갱신 실패가 raw 예외로 터지지 않도록 `503 Google Play service account credentials are invalid.`로 감싸도록 했다.

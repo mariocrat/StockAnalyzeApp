@@ -156,6 +156,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 운영 배포에서는 `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE`와 `GOOGLE_PLAY_RTDN_OIDC_EMAIL`을 설정해 Pub/Sub push JWT의 audience, email, 서명을 검증한다.
 - `ALPHAMATE_ENV=production`에서는 Play Console에 등록한 상품 ID 환경변수 6개가 모두 설정되어야 Google Play readiness가 통과한다.
 - 서버 배포 전 `backend\scripts\validate_release_env.py`를 실행해 필요한 환경변수 이름만 확인하고 secret 원문이 출력되지 않는지 확인한다.
+- Google Play 서비스 계정은 JSON 파싱, 필수 필드, private key 형식까지 readiness에서 검사해 깨진 키로 배포되지 않게 한다.
 
 ## 2026-06-18 AdMob 보상형 광고 SSV 검증 상태
 

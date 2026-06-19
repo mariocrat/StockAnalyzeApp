@@ -41,6 +41,12 @@ PRO_MONTHLY_BASIC = 150
 PRO_MONTHLY_ADVANCED = 5
 ADMOB_SSV_KEY_URL = "https://www.gstatic.com/admob/reward/verifier-keys.json"
 ADMOB_SSV_KEY_CACHE_SECONDS = 60 * 60 * 24
+GOOGLE_PLAY_SERVICE_ACCOUNT_REQUIRED_FIELDS = {
+    "type",
+    "client_email",
+    "private_key",
+    "token_uri",
+}
 
 
 @dataclass
@@ -329,24 +335,75 @@ def _google_play_product_id_status() -> dict:
     }
 
 
+def _google_play_service_account_status() -> dict:
+    raw_json = _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+    file_path = _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")
+
+    def validate_info(info: dict, setting_name: str) -> list[str]:
+        if not isinstance(info, dict):
+            return [f"{setting_name} valid service account JSON"]
+        missing_fields = [
+            field
+            for field in sorted(GOOGLE_PLAY_SERVICE_ACCOUNT_REQUIRED_FIELDS)
+            if not str(info.get(field) or "").strip()
+        ]
+        if missing_fields:
+            return [f"{setting_name} service account fields: {', '.join(missing_fields)}"]
+        try:
+            from google.oauth2 import service_account
+        except ModuleNotFoundError:
+            return ["google-auth package for Google Play verification"]
+        try:
+            service_account.Credentials.from_service_account_info(
+                info,
+                scopes=["https://www.googleapis.com/auth/androidpublisher"],
+            )
+        except Exception:
+            return [f"{setting_name} valid service account credentials"]
+        return []
+
+    if raw_json:
+        try:
+            info = json.loads(raw_json)
+        except json.JSONDecodeError:
+            missing = ["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON valid service account JSON"]
+            return {"configured": False, "source": "json", "missing_server_settings": missing}
+        missing = validate_info(info, "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+        return {"configured": not missing, "source": "json", "missing_server_settings": missing}
+
+    if file_path:
+        path = Path(file_path)
+        if not path.exists():
+            missing = ["GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file"]
+            return {"configured": False, "source": "file", "missing_server_settings": missing}
+        try:
+            info = json.loads(path.read_text(encoding="utf-8-sig"))
+        except json.JSONDecodeError:
+            missing = ["GOOGLE_PLAY_SERVICE_ACCOUNT_FILE valid service account JSON"]
+            return {"configured": False, "source": "file", "missing_server_settings": missing}
+        missing = validate_info(info, "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")
+        return {"configured": not missing, "source": "file", "missing_server_settings": missing}
+
+    missing = ["GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_FILE"]
+    return {"configured": False, "source": "", "missing_server_settings": missing}
+
+
 def _google_play_status() -> dict:
     package_name = _env_value("GOOGLE_PLAY_PACKAGE_NAME")
-    service_account_configured = bool(
-        _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
-        or _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")
-    )
+    service_account = _google_play_service_account_status()
     product_ids = _google_play_product_id_status()
     missing = []
     if not package_name:
         missing.append("GOOGLE_PLAY_PACKAGE_NAME")
-    if not service_account_configured:
-        missing.append("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")
+    if not service_account["configured"]:
+        missing.extend(service_account["missing_server_settings"])
     if _is_production():
         missing.extend(product_ids["missing_server_settings"])
     return {
         "ready": not missing,
         "package_name_configured": bool(package_name),
-        "service_account_configured": service_account_configured,
+        "service_account_configured": service_account["configured"],
+        "service_account_source": service_account["source"],
         "product_id_mappings": product_ids,
         "missing_server_settings": missing,
     }
@@ -556,11 +613,14 @@ def _google_play_access_token() -> str:
         raise HTTPException(status_code=503, detail="google-auth package is required for Google Play verification.")
 
     info = _google_play_service_account_info()
-    credentials = service_account.Credentials.from_service_account_info(
-        info,
-        scopes=["https://www.googleapis.com/auth/androidpublisher"],
-    )
-    credentials.refresh(Request())
+    try:
+        credentials = service_account.Credentials.from_service_account_info(
+            info,
+            scopes=["https://www.googleapis.com/auth/androidpublisher"],
+        )
+        credentials.refresh(Request())
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Google Play service account credentials are invalid.") from exc
     return credentials.token
 
 

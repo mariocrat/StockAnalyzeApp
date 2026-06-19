@@ -7,6 +7,22 @@ import unittest
 from contextlib import contextmanager
 
 from fastapi import HTTPException
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+
+def fake_service_account_json() -> str:
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048).private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode("utf-8")
+    return json.dumps({
+        "type": "service_account",
+        "client_email": "play-api@example.iam.gserviceaccount.com",
+        "private_key": private_key,
+        "token_uri": "https://oauth2.googleapis.com/token",
+    })
 
 
 @contextmanager
@@ -36,7 +52,7 @@ class BillingReadinessTest(unittest.TestCase):
             NAVER_CLIENT_ID="naver-client",
             NAVER_CLIENT_SECRET="naver-secret",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="google-secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
         ):
             from backend.core import readiness
@@ -52,7 +68,7 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertNotIn("sk-secret-openai", str(status))
             self.assertNotIn("kakao-secret", str(status))
             self.assertNotIn("naver-secret", str(status))
-            self.assertNotIn("google-secret-json", str(status))
+            self.assertNotIn("fake-private-key", str(status))
 
     def test_app_readiness_reports_missing_settings_by_section(self):
         with patched_env(
@@ -81,7 +97,7 @@ class BillingReadinessTest(unittest.TestCase):
     def test_product_catalog_exposes_public_ids_and_readiness_only(self):
         with patched_env(
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
             ALPHAMATE_ADS_PER_ADVANCED_TICKET="3",
@@ -101,13 +117,55 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual(1, catalog["settings"]["ad_policy"]["basic_reviews_per_rewarded_ad"])
             self.assertEqual(3, catalog["settings"]["ad_policy"]["ads_per_advanced_ticket"])
             self.assertFalse(catalog["settings"]["ad_policy"]["force_rewarded_ad_chain"])
-            self.assertNotIn("secret-json", str(catalog))
+            self.assertNotIn("fake-private-key", str(catalog))
+
+    def test_google_play_readiness_rejects_invalid_service_account_json(self):
+        with patched_env(
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="not-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            catalog = access_control.get_product_catalog()
+
+            self.assertFalse(catalog["google_play"]["ready"])
+            self.assertFalse(catalog["google_play"]["service_account_configured"])
+            self.assertIn(
+                "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON valid service account JSON",
+                catalog["google_play"]["missing_server_settings"],
+            )
+
+    def test_google_play_readiness_rejects_malformed_service_account_key(self):
+        malformed = json.dumps({
+            "type": "service_account",
+            "client_email": "play-api@example.iam.gserviceaccount.com",
+            "private_key": "not-a-private-key",
+            "token_uri": "https://oauth2.googleapis.com/token",
+        })
+        with patched_env(
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=malformed,
+            GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            catalog = access_control.get_product_catalog()
+
+            self.assertFalse(catalog["google_play"]["ready"])
+            self.assertFalse(catalog["google_play"]["service_account_configured"])
+            self.assertIn(
+                "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON valid service account credentials",
+                catalog["google_play"]["missing_server_settings"],
+            )
 
     def test_production_readiness_requires_google_play_product_ids(self):
         with patched_env(
             ALPHAMATE_ENV="production",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_BASIC_REVIEW_30_ID=None,
             GOOGLE_PLAY_BASIC_REVIEW_100_ID=None,
             GOOGLE_PLAY_ADVANCED_REVIEW_5_ID=None,
@@ -198,7 +256,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
             from backend.core import access_control
 
@@ -224,7 +282,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
             from backend.core import access_control
 
@@ -268,7 +326,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
             from backend.core import access_control
 
@@ -295,7 +353,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
         ):
             from backend.core import access_control
@@ -334,7 +392,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
             from backend.core import access_control
 
@@ -369,7 +427,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
             from backend.core import access_control
 
@@ -407,7 +465,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
             from backend.core import access_control
 
@@ -471,7 +529,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret",
         ):
             from backend.core import access_control

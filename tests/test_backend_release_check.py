@@ -1,7 +1,25 @@
+import json
 import os
 import tempfile
 import unittest
 from contextlib import contextmanager
+
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+
+
+def fake_service_account_json() -> str:
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048).private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode("utf-8")
+    return json.dumps({
+        "type": "service_account",
+        "client_email": "play-api@example.iam.gserviceaccount.com",
+        "private_key": private_key,
+        "token_uri": "https://oauth2.googleapis.com/token",
+    })
 
 
 @contextmanager
@@ -59,7 +77,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             NAVER_CLIENT_ID="naver-client",
             NAVER_CLIENT_SECRET="naver-secret",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
-            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="google-secret-json",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
             GOOGLE_PLAY_BASIC_REVIEW_100_ID="alphamate.basic.100",
             GOOGLE_PLAY_ADVANCED_REVIEW_5_ID="alphamate.advanced.5",
@@ -77,7 +95,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             self.assertEqual([], result["errors"])
             self.assertIn("Backend release environment check passed.", formatted)
             self.assertNotIn("sk-test-secret", formatted)
-            self.assertNotIn("google-secret-json", formatted)
+            self.assertNotIn("PRIVATE KEY", formatted)
 
     def test_accepts_complete_settings_from_explicit_env_file(self):
         env_text = "\n".join([
@@ -88,7 +106,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "NAVER_CLIENT_ID=naver-client",
             "NAVER_CLIENT_SECRET=naver-secret",
             "GOOGLE_PLAY_PACKAGE_NAME=com.alphamate.app",
-            "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=google-secret-json",
+            f"GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={fake_service_account_json()}",
             "GOOGLE_PLAY_BASIC_REVIEW_30_ID=alphamate.basic.30",
             "GOOGLE_PLAY_BASIC_REVIEW_100_ID=alphamate.basic.100",
             "GOOGLE_PLAY_ADVANCED_REVIEW_5_ID=alphamate.advanced.5",
@@ -130,7 +148,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
                 self.assertTrue(result["ok"])
                 self.assertEqual([], result["errors"])
                 self.assertNotIn("sk-env-file-secret", formatted)
-                self.assertNotIn("google-secret-json", formatted)
+                self.assertNotIn("PRIVATE KEY", formatted)
         finally:
             os.unlink(env_path)
 
