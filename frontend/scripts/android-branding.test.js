@@ -12,5 +12,6 @@ test('Android app label is injected from release branding settings', () => {
   assert.doesNotMatch(stringsXml, /<string name="app_name">AlphaMate<\/string>/);
   assert.doesNotMatch(stringsXml, /<string name="title_activity_main">AlphaMate<\/string>/);
   assert.doesNotMatch(indexHtml, /<title>AlphaMate<\/title>/);
-  assert.match(indexHtml, /%VITE_APP_NAME%/);
+  assert.match(indexHtml, /%APP_TITLE%/);
+  assert.doesNotMatch(indexHtml, /%VITE_APP_NAME%/);
 });
