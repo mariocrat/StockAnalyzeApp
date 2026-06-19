@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "release:check": "node scripts/validate-release-env.js",
+    "test:android-branding": "node --test scripts/android-branding.test.js",
     "test:release-env": "node --test scripts/validate-release-env.test.js",
     "mobile:build": "npm run build && npx cap sync android",
     "mobile:release:check": "npm run release:check && npm run mobile:build",

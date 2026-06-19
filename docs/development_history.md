@@ -318,3 +318,10 @@
 - Android `versionCode`, `versionName`이 `ALPHAMATE_ANDROID_VERSION_CODE`, `ALPHAMATE_ANDROID_VERSION_NAME` 환경변수를 읽도록 연결했다.
 - `npm run release:check`에서 versionCode가 양의 정수인지, versionName이 `1.0.0` 같은 형식인지 검사한다.
 - Play Store 업로드마다 `ALPHAMATE_ANDROID_VERSION_CODE`를 이전 업로드보다 큰 숫자로 올려야 한다는 안내를 문서에 추가했다.
+
+### 앱 표시 이름 중앙화
+
+- Android 런처 이름과 Activity title을 `ALPHAMATE_ANDROID_APP_NAME` 또는 `VITE_APP_NAME`으로 주입하도록 바꿨다.
+- `strings.xml`에 고정된 `AlphaMate` 앱 이름을 제거해 나중에 브랜드명을 바꿀 때 Gradle/env 설정만 수정하면 되게 했다.
+- `index.html`의 초기 브라우저 title도 `VITE_APP_NAME`을 쓰도록 바꿨다.
+- `npm run test:android-branding`을 추가해 Android 쪽 앱 이름이 다시 하드코딩되지 않도록 검사한다.

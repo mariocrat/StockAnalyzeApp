@@ -11,6 +11,7 @@ function validReleaseEnv(overrides = {}) {
   fs.writeFileSync(keystoreFile, 'test keystore placeholder');
   return {
     VITE_ALPHAMATE_ENV: 'production',
+    VITE_APP_NAME: 'AlphaMate',
     VITE_ENABLE_DEV_TOOLS: 'false',
     VITE_API_BASE: 'https://api.example.com',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-1234567890123456/9876543210',

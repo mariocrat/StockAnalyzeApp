@@ -81,6 +81,7 @@ function validateAndroidVersion(env, errors) {
 export function validateReleaseEnv(env) {
   const errors = [];
   const appEnv = envValue(env, 'VITE_ALPHAMATE_ENV');
+  const appName = envValue(env, 'ALPHAMATE_ANDROID_APP_NAME') || envValue(env, 'VITE_APP_NAME');
   const devTools = envValue(env, 'VITE_ENABLE_DEV_TOOLS');
   const apiBase = envValue(env, 'VITE_API_BASE');
   const rewardedAdUnitId = envValue(env, 'VITE_ADMOB_REWARDED_AD_UNIT_ID');
@@ -88,6 +89,9 @@ export function validateReleaseEnv(env) {
 
   if (appEnv !== 'production') {
     errors.push('VITE_ALPHAMATE_ENV must be production for release builds.');
+  }
+  if (!appName) {
+    errors.push('VITE_APP_NAME or ALPHAMATE_ANDROID_APP_NAME must be set for release builds.');
   }
   if (devTools !== 'false') {
     errors.push('VITE_ENABLE_DEV_TOOLS must be false for release builds.');

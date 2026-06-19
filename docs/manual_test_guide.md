@@ -216,6 +216,8 @@ Play Store 제출용 AAB 확인:
 2. PowerShell에서 아래 값을 실제 값으로 설정합니다. 비밀번호와 keystore 파일은 Git에 올리면 안 됩니다.
 
 ```powershell
+$env:VITE_APP_NAME='AlphaMate'
+$env:ALPHAMATE_ANDROID_APP_NAME='AlphaMate'
 $env:ALPHAMATE_ANDROID_VERSION_CODE='1'
 $env:ALPHAMATE_ANDROID_VERSION_NAME='1.0.0'
 $env:ALPHAMATE_ANDROID_KEYSTORE_FILE='D:\secure\alphamate-upload.jks'
