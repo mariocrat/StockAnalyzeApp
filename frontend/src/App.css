@@ -844,6 +844,16 @@ body {
   margin-left: 8px;
 }
 
+.journal-inline-action {
+  margin-top: 10px;
+  margin-left: 0;
+}
+
+.journal-danger + .journal-inline-action,
+.journal-inline-action + .journal-danger {
+  margin-left: 8px;
+}
+
 .journal-danger-outline {
   background: transparent;
   color: #ff8f9a;

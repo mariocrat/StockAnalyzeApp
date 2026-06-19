@@ -1,4 +1,5 @@
 import importlib
+import json
 import os
 import sys
 import tempfile
@@ -99,6 +100,60 @@ class MeDataRoutesTest(unittest.TestCase):
             self.assertTrue(result["ok"])
             self.assertEqual(user_id, result["deleted_user_id"])
             self.assertEqual(1, result["deleted_trades"])
+
+    def test_export_me_data_includes_current_user_trades_and_entitlements_without_session_token(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+            os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = os.path.join(tmpdir, "trades.sqlite3")
+            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
+            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+
+            backend_dir = os.path.join(os.getcwd(), "backend")
+            if backend_dir not in sys.path:
+                sys.path.insert(0, backend_dir)
+
+            account_store = importlib.reload(importlib.import_module("core.account_store"))
+            access_control = importlib.reload(importlib.import_module("core.access_control"))
+            journal = importlib.reload(importlib.import_module("core.journal"))
+            main = importlib.reload(importlib.import_module("main"))
+
+            session = account_store.login_dev_provider(
+                provider="kakao",
+                provider_user_id="export-user",
+                display_name="내보내기 사용자",
+            )
+            token = f"Bearer {session['session_token']}"
+            user_id = session["user"]["id"]
+            account_store.update_journal_storage_setting(authorization=token, enabled=True)
+            journal.add_trade(
+                {
+                    "trade_date": "2026-06-19T10:30",
+                    "ticker": "005930",
+                    "name": "삼성전자",
+                    "side": "buy",
+                    "price": 70000,
+                    "quantity": 2,
+                },
+                user_id=user_id,
+            )
+            access_control.apply_dev_purchase(
+                authorization=token,
+                entitlement_token="",
+                product_id="basic_review_30",
+            )
+
+            paths = set(main.app.openapi()["paths"].keys())
+            exported = main.export_me_data(authorization=token)
+            serialized = json.dumps(exported, ensure_ascii=False)
+
+            self.assertIn("/api/me/export-data", paths)
+            self.assertEqual("alphamate_user_data_export", exported["type"])
+            self.assertEqual(user_id, exported["user"]["id"])
+            self.assertEqual(1, len(exported["saved_trades"]))
+            self.assertEqual("005930", exported["saved_trades"][0]["ticker"])
+            self.assertEqual(30, exported["entitlements"]["basic"]["purchased_remaining"])
+            self.assertFalse(exported["server_keeps_ai_review_history"])
+            self.assertNotIn(session["session_token"], serialized)
 
 
 if __name__ == "__main__":

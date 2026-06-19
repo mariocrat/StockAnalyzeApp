@@ -353,3 +353,11 @@
 - Google Play readiness가 서비스 계정 설정의 존재 여부만 보지 않고 JSON 파싱, 필수 필드, private key 형식을 함께 검사하도록 보강했다.
 - 서비스 계정 JSON이나 파일이 깨져 있으면 `google_play.ready`가 false가 되고, 필요한 설정 이름만 `missing_server_settings`에 표시된다.
 - Google 인증 생성/갱신 실패가 raw 예외로 터지지 않도록 `503 Google Play service account credentials are invalid.`로 감싸도록 했다.
+
+### 계정 데이터 삭제와 내보내기
+
+- `DELETE /api/me/account-data`를 추가해 현재 로그인 계정의 저장 매매 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 세션, 로그인 연결 정보를 함께 정리하도록 했다.
+- 매매복기 화면의 계정 관리 영역에 `계정 데이터 삭제` 버튼을 추가했고, 삭제 후 로컬 로그인 상태와 복기 화면 상태를 초기화한다.
+- `GET /api/me/export-data`를 추가해 현재 로그인 계정의 사용자 정보, 저장 매매 기록, 이용권 현황을 JSON으로 내려받을 수 있게 했다.
+- 내보내기 응답에는 세션 토큰을 포함하지 않도록 테스트로 확인한다.
+- `tests/test_account_store.py`, `tests/test_me_data_routes.py`에 계정 삭제와 내보내기 회귀 테스트를 추가했다.

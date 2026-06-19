@@ -445,6 +445,36 @@ export default function TradingJournal({ apiBase }) {
     }
   };
 
+  const handleExportAccountData = async () => {
+    if (!authSession?.session_token) {
+      setMessage('내 데이터 내보내기는 로그인 후 사용할 수 있습니다.');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const res = await axios.get(`${apiBase}/api/me/export-data`, {
+        headers: { Authorization: `Bearer ${authSession.session_token}` },
+      });
+      const blob = new Blob([JSON.stringify(res.data || {}, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      const dateText = new Date().toISOString().slice(0, 10);
+      link.href = url;
+      link.download = `alphamate-my-data-${dateText}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setMessage('내 데이터 내보내기 파일을 만들었습니다.');
+    } catch (err) {
+      setMessage(err.response?.data?.detail || '내 데이터를 내보내지 못했습니다.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const handleDeleteAccountData = async () => {
     if (!authSession?.session_token) {
       setMessage('계정 데이터 삭제는 로그인 후 사용할 수 있습니다.');
@@ -1033,12 +1063,17 @@ export default function TradingJournal({ apiBase }) {
           </button>
         )}
         {authSession && (
+          <button className="journal-secondary journal-inline-action" disabled={authLoading} onClick={handleExportAccountData}>
+            내 데이터 내보내기
+          </button>
+        )}
+        {authSession && (
           <button className="journal-danger journal-danger-outline" disabled={authLoading} onClick={handleDeleteAccountData}>
             계정 데이터 삭제
           </button>
         )}
         <p className="journal-privacy-note">
-          저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 계정 데이터 삭제는 현재 로그인 계정의 저장 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보를 함께 정리합니다.
+          저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 내 데이터 내보내기는 저장 기록과 이용권 현황을 파일로 내려받고, 계정 데이터 삭제는 현재 로그인 계정의 저장 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보를 함께 정리합니다.
         </p>
       </section>
 

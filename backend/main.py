@@ -433,6 +433,23 @@ def get_me_data_summary(authorization: Optional[str] = Header(default=None)):
     }
 
 
+@app.get("/api/me/export-data")
+def export_me_data(authorization: Optional[str] = Header(default=None)):
+    user = authenticate_session(authorization)
+    entitlements = get_user_entitlements(
+        authorization=authorization,
+        entitlement_token="",
+    )
+    return {
+        "type": "alphamate_user_data_export",
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "user": user,
+        "saved_trades": list_trades(limit=5000, user_id=user["id"]),
+        "entitlements": entitlements,
+        "server_keeps_ai_review_history": False,
+    }
+
+
 @app.delete("/api/me/account-data")
 def delete_me_account_data(authorization: Optional[str] = Header(default=None)):
     return delete_user_account_data(authorization)
