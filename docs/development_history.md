@@ -339,3 +339,10 @@
 - 필요한 상품 ID 환경변수는 `GOOGLE_PLAY_BASIC_REVIEW_30_ID`, `GOOGLE_PLAY_BASIC_REVIEW_100_ID`, `GOOGLE_PLAY_ADVANCED_REVIEW_5_ID`, `GOOGLE_PLAY_ADVANCED_REVIEW_10_ID`, `GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID`, `GOOGLE_PLAY_PRO_MONTHLY_ID`다.
 - 개발 모드에서는 기존처럼 내부 상품 ID 기본값을 쓸 수 있게 유지했다.
 - `/api/app/readiness`와 `/api/journal/products` 응답에서 누락된 상품 ID 설정을 확인할 수 있다.
+
+### 백엔드 배포 전 검사 명령
+
+- `backend/core/release_check.py`를 추가해 서버 운영 배포에 필요한 환경변수를 한 번에 검사한다.
+- `backend/scripts/validate_release_env.py`를 실행하면 `ALPHAMATE_ENV=production`, AI Key, 카카오/네이버 로그인, Google Play 결제, AdMob 보상형 광고 설정 누락을 확인한다.
+- 실패 시에는 필요한 환경변수 이름만 출력하고, API Key나 Google 서비스 계정 JSON 원문은 출력하지 않는다.
+- `tests/test_backend_release_check.py`를 추가해 설정 누락 실패와 전체 설정 성공 케이스를 확인한다.

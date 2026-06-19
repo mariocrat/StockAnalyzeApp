@@ -193,6 +193,23 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/app/readiness
 - `ALPHAMATE_FORCE_REWARDED_AD_CHAIN=false`: 여러 보상형 광고를 연속으로 강제하지 않음
 - `GET /api/journal/products`에서 `admob.ready`, `settings.ad_policy` 값을 확인할 수 있습니다.
 
+## 백엔드 배포 전 환경 검사
+
+서버를 운영 모드로 배포하기 전에는 아래 명령으로 AI Key, 로그인, Google Play, AdMob 설정 누락을 한 번에 확인합니다.
+
+```powershell
+cd D:\작업\windsurf\StockAnalyze
+.\.venv\Scripts\python.exe backend\scripts\validate_release_env.py
+```
+
+정상일 때:
+
+```text
+Backend release environment check passed.
+```
+
+설정이 빠져 있으면 `ALPHAMATE_ENV`, `OPENAI_API_KEY`, `KAKAO_CLIENT_ID`, `GOOGLE_PLAY_*`, `ADMOB_REWARDED_AD_UNIT_ID`처럼 필요한 환경변수 이름만 표시합니다. API Key나 Google 서비스 계정 JSON 원문은 출력하면 안 됩니다.
+
 ## 9. Android 앱 래퍼, APK, Play Store AAB 빌드 확인
 
 현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 이 PC에서는 프로젝트 안의 `.tools` 폴더에 JDK와 Android SDK command-line tools를 받아 디버그 APK 빌드까지 확인했습니다. `.tools`는 PC 전용 도구라 GitHub에는 올리지 않습니다.
