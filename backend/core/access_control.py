@@ -325,21 +325,46 @@ def _google_play_id(default_id: str) -> str:
     return _env_value(env_key) or default_id
 
 
+def _google_play_product_id_status() -> dict:
+    product_env_keys = {
+        product_id: "GOOGLE_PLAY_" + product_id.upper() + "_ID"
+        for product_id in [*PRODUCTS.keys(), *SUBSCRIPTIONS.keys()]
+    }
+    configured = {
+        product_id: bool(_env_value(env_key))
+        for product_id, env_key in product_env_keys.items()
+    }
+    missing = [
+        env_key
+        for product_id, env_key in product_env_keys.items()
+        if not configured[product_id]
+    ]
+    return {
+        "all_configured": not missing,
+        "configured": configured,
+        "missing_server_settings": missing,
+    }
+
+
 def _google_play_status() -> dict:
     package_name = _env_value("GOOGLE_PLAY_PACKAGE_NAME")
     service_account_configured = bool(
         _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
         or _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")
     )
+    product_ids = _google_play_product_id_status()
     missing = []
     if not package_name:
         missing.append("GOOGLE_PLAY_PACKAGE_NAME")
     if not service_account_configured:
         missing.append("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")
+    if _is_production():
+        missing.extend(product_ids["missing_server_settings"])
     return {
         "ready": not missing,
         "package_name_configured": bool(package_name),
         "service_account_configured": service_account_configured,
+        "product_id_mappings": product_ids,
         "missing_server_settings": missing,
     }
 

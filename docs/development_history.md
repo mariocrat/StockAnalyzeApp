@@ -332,3 +332,10 @@
 - 운영 모드에서 Google 테스트 보상형 광고 단위가 남아 있으면 광고 실행을 막고, 런타임 상태도 `available: false`로 표시한다.
 - 매매복기 화면의 배포 준비 상태도 `mobileAdStatus.available`을 기준으로 판단해 테스트 광고 단위가 운영 앱에서 준비 완료로 보이지 않게 했다.
 - `npm run test:mobile-admob`을 추가해 운영 모드 테스트 광고 차단, 운영 실광고 허용, 개발 모드 테스트 광고 허용을 확인한다.
+
+### Google Play 상품 ID 배포 준비 검사
+
+- `ALPHAMATE_ENV=production`에서는 Google Play 상품 ID 매핑 환경변수가 모두 설정되어야 `google_play.ready`가 true가 되도록 바꿨다.
+- 필요한 상품 ID 환경변수는 `GOOGLE_PLAY_BASIC_REVIEW_30_ID`, `GOOGLE_PLAY_BASIC_REVIEW_100_ID`, `GOOGLE_PLAY_ADVANCED_REVIEW_5_ID`, `GOOGLE_PLAY_ADVANCED_REVIEW_10_ID`, `GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID`, `GOOGLE_PLAY_PRO_MONTHLY_ID`다.
+- 개발 모드에서는 기존처럼 내부 상품 ID 기본값을 쓸 수 있게 유지했다.
+- `/api/app/readiness`와 `/api/journal/products` 응답에서 누락된 상품 ID 설정을 확인할 수 있다.

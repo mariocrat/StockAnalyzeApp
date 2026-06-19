@@ -142,9 +142,19 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/app/readiness
 5. Android 앱에서는 이용권 구매 버튼이 Google Play Billing SDK를 열고, 구매 token을 `POST /api/journal/google-play-purchase`로 보내 서버 검증을 요청합니다.
 6. Google Play 구매 요청 endpoint는 실제 Google Play purchase token이 검증된 경우에만 복기권을 지급합니다.
 
+운영 모드에서 필요한 Google Play 상품 ID 환경변수:
+
+- `GOOGLE_PLAY_BASIC_REVIEW_30_ID`
+- `GOOGLE_PLAY_BASIC_REVIEW_100_ID`
+- `GOOGLE_PLAY_ADVANCED_REVIEW_5_ID`
+- `GOOGLE_PLAY_ADVANCED_REVIEW_10_ID`
+- `GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID`
+- `GOOGLE_PLAY_PRO_MONTHLY_ID`
+
 정상 결과:
 
 - 상품 ID와 가격/수량은 보입니다.
+- `ALPHAMATE_ENV=production`에서는 위 상품 ID가 모두 설정되어야 `google_play.ready`가 true가 됩니다.
 - 서비스 계정 secret 값은 응답에 보이지 않습니다.
 - 서비스 계정 설정이 없거나 잘못되면 503으로 막히고 복기권이 충전되지 않습니다.
 - 같은 purchase token을 다시 보내도 복기권은 한 번만 충전됩니다.

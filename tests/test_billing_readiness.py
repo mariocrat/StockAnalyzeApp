@@ -103,6 +103,35 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertFalse(catalog["settings"]["ad_policy"]["force_rewarded_ad_chain"])
             self.assertNotIn("secret-json", str(catalog))
 
+    def test_production_readiness_requires_google_play_product_ids(self):
+        with patched_env(
+            ALPHAMATE_ENV="production",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="secret-json",
+            GOOGLE_PLAY_BASIC_REVIEW_30_ID=None,
+            GOOGLE_PLAY_BASIC_REVIEW_100_ID=None,
+            GOOGLE_PLAY_ADVANCED_REVIEW_5_ID=None,
+            GOOGLE_PLAY_ADVANCED_REVIEW_10_ID=None,
+            GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID=None,
+            GOOGLE_PLAY_PRO_MONTHLY_ID=None,
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            catalog = access_control.get_product_catalog()
+
+            self.assertFalse(catalog["google_play"]["ready"])
+            self.assertIn(
+                "GOOGLE_PLAY_BASIC_REVIEW_30_ID",
+                catalog["google_play"]["missing_server_settings"],
+            )
+            self.assertIn(
+                "GOOGLE_PLAY_PRO_MONTHLY_ID",
+                catalog["google_play"]["missing_server_settings"],
+            )
+            self.assertIn("product_id_mappings", catalog["google_play"])
+            self.assertFalse(catalog["google_play"]["product_id_mappings"]["all_configured"])
+
     def test_ad_reward_advanced_threshold_is_configurable(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="development",

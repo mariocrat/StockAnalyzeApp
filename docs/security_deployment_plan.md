@@ -154,6 +154,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 만료/비활성 구독 검증 결과도 저장해 기존 Pro 상태가 남아 비용이 새는 일을 막는다.
 - Google Play RTDN Pub/Sub push endpoint는 공유 토큰 헤더가 맞을 때만 처리하며, 알림 수신 후 Google Play API를 다시 조회해 구독 상태를 갱신한다.
 - 운영 배포에서는 `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE`와 `GOOGLE_PLAY_RTDN_OIDC_EMAIL`을 설정해 Pub/Sub push JWT의 audience, email, 서명을 검증한다.
+- `ALPHAMATE_ENV=production`에서는 Play Console에 등록한 상품 ID 환경변수 6개가 모두 설정되어야 Google Play readiness가 통과한다.
 
 ## 2026-06-18 AdMob 보상형 광고 SSV 검증 상태
 
