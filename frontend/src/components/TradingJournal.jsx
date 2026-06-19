@@ -445,6 +445,35 @@ export default function TradingJournal({ apiBase }) {
     }
   };
 
+  const handleDeleteAccountData = async () => {
+    if (!authSession?.session_token) {
+      setMessage('계정 데이터 삭제는 로그인 후 사용할 수 있습니다.');
+      return;
+    }
+    const ok = window.confirm('현재 로그인 계정의 매매 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보를 서버에서 삭제할까요? 이 작업은 되돌릴 수 없습니다.');
+    if (!ok) return;
+    setAuthLoading(true);
+    try {
+      const res = await axios.delete(`${apiBase}/api/me/account-data`, {
+        headers: { Authorization: `Bearer ${authSession.session_token}` },
+      });
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      setAuthSession(null);
+      setTrades([]);
+      setReview(null);
+      setAiReview(null);
+      setChartReview({ charts: [] });
+      setActiveChartTicker('');
+      setDataSummary(null);
+      await loadEntitlements(DEV_AUTH_TOKEN);
+      setMessage(`계정 데이터 삭제가 완료됐습니다. 저장 기록 ${res.data?.deleted_trades || 0}건도 함께 삭제했습니다.`);
+    } catch (err) {
+      setMessage(err.response?.data?.detail || '계정 데이터를 삭제하지 못했습니다.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   const loadJournal = async (nextTrades = trades) => {
     if (transientJournalMode) {
       const reviewRes = await axios.post(`${apiBase}/api/journal/review-once`, { trades: nextTrades });
@@ -1003,8 +1032,13 @@ export default function TradingJournal({ apiBase }) {
             저장 기록 전체 삭제
           </button>
         )}
+        {authSession && (
+          <button className="journal-danger journal-danger-outline" disabled={authLoading} onClick={handleDeleteAccountData}>
+            계정 데이터 삭제
+          </button>
+        )}
         <p className="journal-privacy-note">
-          저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 전체 삭제는 현재 로그인 계정의 저장 기록에만 적용됩니다.
+          저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 계정 데이터 삭제는 현재 로그인 계정의 저장 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보를 함께 정리합니다.
         </p>
       </section>
 

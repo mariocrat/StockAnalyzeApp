@@ -260,6 +260,28 @@ def _save_wallet(user_id: str, wallet: UserWallet):
         conn.close()
 
 
+def delete_user_access_data(user_id: str) -> dict:
+    user_id = str(user_id or "").strip()
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required.")
+    with _WALLET_LOCK:
+        conn = _connect_access_db()
+        try:
+            deleted = {}
+            for table, key in (
+                ("access_wallets", "deleted_wallets"),
+                ("google_play_purchases", "deleted_google_play_purchases"),
+                ("google_play_subscriptions", "deleted_google_play_subscriptions"),
+                ("admob_reward_events", "deleted_admob_rewards"),
+            ):
+                cur = conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
+                deleted[key] = cur.rowcount
+            conn.commit()
+            return deleted
+        finally:
+            conn.close()
+
+
 def _is_production() -> bool:
     return _env_value("ALPHAMATE_ENV").lower() == "production"
 

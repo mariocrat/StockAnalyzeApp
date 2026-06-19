@@ -840,6 +840,15 @@ body {
   cursor: pointer;
 }
 
+.journal-danger + .journal-danger {
+  margin-left: 8px;
+}
+
+.journal-danger-outline {
+  background: transparent;
+  color: #ff8f9a;
+}
+
 .journal-danger:disabled {
   opacity: 0.45;
   cursor: default;

@@ -308,3 +308,37 @@ def update_journal_storage_setting(*, authorization: str | None, enabled: bool) 
         return _get_user(conn, user["id"])
     finally:
         conn.close()
+
+
+def delete_user_account_data(authorization: str | None) -> dict:
+    user = authenticate_session(authorization)
+    user_id = user["id"]
+
+    try:
+        from core.access_control import delete_user_access_data
+        from core.journal import clear_trades
+    except ModuleNotFoundError:
+        from backend.core.access_control import delete_user_access_data
+        from backend.core.journal import clear_trades
+
+    deleted_trades = clear_trades(user_id=user_id)
+    access_counts = delete_user_access_data(user_id)
+
+    with _ACCOUNT_LOCK:
+        conn = _connect()
+        try:
+            session_cur = conn.execute("DELETE FROM user_sessions WHERE user_id = ?", (user_id,))
+            identity_cur = conn.execute("DELETE FROM user_identities WHERE user_id = ?", (user_id,))
+            user_cur = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+            conn.commit()
+            return {
+                "ok": True,
+                "deleted_user_id": user_id,
+                "deleted_trades": deleted_trades,
+                "deleted_sessions": session_cur.rowcount,
+                "deleted_identities": identity_cur.rowcount,
+                "deleted_users": user_cur.rowcount,
+                **access_counts,
+            }
+        finally:
+            conn.close()

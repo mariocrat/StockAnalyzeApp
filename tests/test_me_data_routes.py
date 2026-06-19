@@ -58,6 +58,48 @@ class MeDataRoutesTest(unittest.TestCase):
                 summary,
             )
 
+    def test_delete_me_account_data_is_exposed_as_current_user_only_route(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+            os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = os.path.join(tmpdir, "trades.sqlite3")
+            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
+            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+
+            backend_dir = os.path.join(os.getcwd(), "backend")
+            if backend_dir not in sys.path:
+                sys.path.insert(0, backend_dir)
+
+            account_store = importlib.reload(importlib.import_module("core.account_store"))
+            journal = importlib.reload(importlib.import_module("core.journal"))
+            main = importlib.reload(importlib.import_module("main"))
+
+            session = account_store.login_dev_provider(
+                provider="naver",
+                provider_user_id="delete-route-user",
+                display_name="삭제 라우트",
+            )
+            token = f"Bearer {session['session_token']}"
+            user_id = session["user"]["id"]
+            journal.add_trade(
+                {
+                    "trade_date": "2026-06-19T10:00",
+                    "ticker": "005930",
+                    "name": "삼성전자",
+                    "side": "buy",
+                    "price": 70000,
+                    "quantity": 1,
+                },
+                user_id=user_id,
+            )
+
+            paths = set(main.app.openapi()["paths"].keys())
+            result = main.delete_me_account_data(authorization=token)
+
+            self.assertIn("/api/me/account-data", paths)
+            self.assertTrue(result["ok"])
+            self.assertEqual(user_id, result["deleted_user_id"])
+            self.assertEqual(1, result["deleted_trades"])
+
 
 if __name__ == "__main__":
     unittest.main()
