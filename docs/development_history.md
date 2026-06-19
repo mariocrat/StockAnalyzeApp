@@ -325,3 +325,10 @@
 - `strings.xml`에 고정된 `AlphaMate` 앱 이름을 제거해 나중에 브랜드명을 바꿀 때 Gradle/env 설정만 수정하면 되게 했다.
 - `index.html`의 초기 브라우저 title도 `VITE_APP_NAME`을 쓰도록 바꿨다.
 - `npm run test:android-branding`을 추가해 Android 쪽 앱 이름이 다시 하드코딩되지 않도록 검사한다.
+
+### AdMob 운영 광고 단위 런타임 가드
+
+- `frontend/src/mobile/admobPolicy.js`를 추가해 AdMob 보상형 광고 정책 판단을 분리했다.
+- 운영 모드에서 Google 테스트 보상형 광고 단위가 남아 있으면 광고 실행을 막고, 런타임 상태도 `available: false`로 표시한다.
+- 매매복기 화면의 배포 준비 상태도 `mobileAdStatus.available`을 기준으로 판단해 테스트 광고 단위가 운영 앱에서 준비 완료로 보이지 않게 했다.
+- `npm run test:mobile-admob`을 추가해 운영 모드 테스트 광고 차단, 운영 실광고 허용, 개발 모드 테스트 광고 허용을 확인한다.

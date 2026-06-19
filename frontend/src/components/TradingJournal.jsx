@@ -822,7 +822,9 @@ export default function TradingJournal({ apiBase }) {
   const adPolicyText = `광고 ${adsPerAdvancedTicket}회 시청 시 주간 심층 복기권 1장`;
   const adReadinessText = admobStatus.ready ? 'AdMob 보상형 광고 준비됨' : 'AdMob 광고 단위 설정 필요';
   const mobileAdStatusText = mobileAdStatus.native
-    ? `모바일 SDK 준비됨${mobileAdStatus.usingTestAdUnit ? ' · 테스트 광고 단위' : ''}`
+    ? mobileAdStatus.productionMisconfigured
+      ? '배포 모드 운영 AdMob 보상형 광고 단위 설정 필요'
+      : `모바일 SDK 준비됨${mobileAdStatus.usingTestAdUnit ? ' · 테스트 광고 단위' : ''}`
     : '웹 화면에서는 네이티브 광고 미사용';
   const billingStatusText = billingStatus.native ? 'Google Play Billing SDK 준비됨' : '웹 화면에서는 Google Play 결제 미사용';
   const activeIdentity = authSession?.user?.identities?.[0];
@@ -846,7 +848,7 @@ export default function TradingJournal({ apiBase }) {
     },
     {
       label: 'AdMob 보상 광고',
-      ready: admobStatus.ready === true && mobileAdStatus.native,
+      ready: admobStatus.ready === true && mobileAdStatus.available,
       detail: mobileAdStatus.native
         ? missingText(admobStatus.missing_server_settings || [])
         : 'Android 앱에서 실제 광고 확인',
