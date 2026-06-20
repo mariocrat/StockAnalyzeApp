@@ -454,6 +454,28 @@ body {
   font-size: 12px;
 }
 
+.journal-subnav {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.journal-subnav button {
+  border: 1px solid #2a3142;
+  background: #151b27;
+  color: #9aa6ba;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.journal-subnav button.active {
+  background: #2962ff;
+  color: #fff;
+  border-color: #2962ff;
+}
+
 .journal-panel {
   padding: 14px;
 }
@@ -1205,6 +1227,56 @@ body {
   margin-top: 10px;
 }
 
+.review-history-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 14px;
+}
+
+.review-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-history-list button {
+  text-align: left;
+}
+
+.review-history-list button:not(.journal-secondary) {
+  border: 1px solid #252c3b;
+  background: #111722;
+  color: #d9e3f5;
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.review-history-list button.active {
+  border-color: #2962ff;
+  background: #142753;
+}
+
+.review-history-list strong,
+.review-history-list span {
+  display: block;
+}
+
+.review-history-list span {
+  color: #8c93a3;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.review-history-detail {
+  min-width: 0;
+}
+
+.review-history-detail h4 {
+  margin: 0 0 6px;
+  color: #f4f7fb;
+}
+
 .journal-table {
   display: flex;
   flex-direction: column;
@@ -1251,6 +1323,10 @@ body {
   }
 
   .journal-row {
+    grid-template-columns: 1fr;
+  }
+
+  .review-history-layout {
     grid-template-columns: 1fr;
   }
 

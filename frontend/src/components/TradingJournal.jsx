@@ -144,6 +144,10 @@ export default function TradingJournal({ apiBase }) {
   const [appReadiness, setAppReadiness] = useState(null);
   const [dataSummary, setDataSummary] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [journalSubView, setJournalSubView] = useState('review');
+  const [reviewHistory, setReviewHistory] = useState([]);
+  const [activeReviewHistory, setActiveReviewHistory] = useState(null);
+  const [reviewHistoryLoading, setReviewHistoryLoading] = useState(false);
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
 
@@ -236,6 +240,71 @@ export default function TradingJournal({ apiBase }) {
       setDataSummary(null);
       return null;
     }
+  };
+
+  const loadReviewHistory = async () => {
+    if (!authSession?.session_token || !authSession?.user?.journal_storage_enabled) {
+      setReviewHistory([]);
+      setActiveReviewHistory(null);
+      return [];
+    }
+    setReviewHistoryLoading(true);
+    try {
+      const res = await axios.get(`${apiBase}/api/journal/review-history`, {
+        headers: { Authorization: `Bearer ${authSession.session_token}` },
+      });
+      const rows = res.data || [];
+      setReviewHistory(rows);
+      if (activeReviewHistory && !rows.some(item => item.id === activeReviewHistory.id)) {
+        setActiveReviewHistory(null);
+      }
+      return rows;
+    } catch (err) {
+      setMessage(err.response?.data?.detail || '복기 보관함을 불러오지 못했습니다.');
+      setReviewHistory([]);
+      return [];
+    } finally {
+      setReviewHistoryLoading(false);
+    }
+  };
+
+  const openReviewHistoryDetail = async (id) => {
+    if (!authSession?.session_token) return;
+    setReviewHistoryLoading(true);
+    try {
+      const res = await axios.get(`${apiBase}/api/journal/review-history/${id}`, {
+        headers: { Authorization: `Bearer ${authSession.session_token}` },
+      });
+      setActiveReviewHistory(res.data || null);
+    } catch (err) {
+      setMessage(err.response?.data?.detail || '저장된 복기를 불러오지 못했습니다.');
+    } finally {
+      setReviewHistoryLoading(false);
+    }
+  };
+
+  const deleteReviewHistoryItem = async (id) => {
+    if (!authSession?.session_token) return;
+    const ok = window.confirm('선택한 복기 기록을 삭제할까요?');
+    if (!ok) return;
+    setReviewHistoryLoading(true);
+    try {
+      await axios.delete(`${apiBase}/api/journal/review-history/${id}`, {
+        headers: { Authorization: `Bearer ${authSession.session_token}` },
+      });
+      setReviewHistory(prev => prev.filter(item => item.id !== id));
+      if (activeReviewHistory?.id === id) setActiveReviewHistory(null);
+      setMessage('복기 기록을 삭제했습니다.');
+    } catch (err) {
+      setMessage(err.response?.data?.detail || '복기 기록을 삭제하지 못했습니다.');
+    } finally {
+      setReviewHistoryLoading(false);
+    }
+  };
+
+  const enterReviewHistory = async () => {
+    setJournalSubView('history');
+    await loadReviewHistory();
   };
 
   const loadEntitlements = async (tokenOverride = '') => {
@@ -380,6 +449,9 @@ export default function TradingJournal({ apiBase }) {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setAuthSession(null);
       setDataSummary(null);
+      setReviewHistory([]);
+      setActiveReviewHistory(null);
+      setJournalSubView('review');
       await loadEntitlements(DEV_AUTH_TOKEN);
       setMessage('로그아웃했습니다.');
       setAuthLoading(false);
@@ -411,6 +483,9 @@ export default function TradingJournal({ apiBase }) {
         setReview(null);
         setChartReview({ charts: [] });
         setActiveChartTicker('');
+        setReviewHistory([]);
+        setActiveReviewHistory(null);
+        setJournalSubView('review');
       }
       await loadDataSummary(authSession.session_token);
       setMessage(enabled ? '매매 이력 저장을 켰습니다.' : '매매 이력 저장을 껐습니다.');
@@ -494,6 +569,9 @@ export default function TradingJournal({ apiBase }) {
       setAiReview(null);
       setChartReview({ charts: [] });
       setActiveChartTicker('');
+      setReviewHistory([]);
+      setActiveReviewHistory(null);
+      setJournalSubView('review');
       setDataSummary(null);
       await loadEntitlements(DEV_AUTH_TOKEN);
       setMessage(`계정 데이터 삭제가 완료됐습니다. 저장 기록 ${res.data?.deleted_trades || 0}건도 함께 삭제했습니다.`);
@@ -532,21 +610,22 @@ export default function TradingJournal({ apiBase }) {
 
     setAiLoading(true);
     try {
-      const res = transientJournalMode
-        ? await axios.post(
-          `${apiBase}/api/journal/ai-review-once`,
-          {
-            trades: nextTrades,
-            review_type: reviewType,
-            ad_reward_token: options.adRewardToken ?? (DEV_TOOLS_ENABLED && reviewType === 'basic' && DEV_ACCESS_PLAN !== 'pro' ? DEV_AD_REWARD_TOKEN : ''),
-            entitlement_token: DEV_ENTITLEMENT_TOKEN,
-            privacy_consent: aiConsentAccepted,
-          },
-          { headers: authHeaders },
-        )
-        : await axios.get(`${apiBase}/api/journal/ai-review`, { headers: authHeaders });
+      const res = await axios.post(
+        `${apiBase}/api/journal/ai-review-once`,
+        {
+          trades: nextTrades,
+          review_type: reviewType,
+          ad_reward_token: options.adRewardToken ?? (DEV_TOOLS_ENABLED && reviewType === 'basic' && DEV_ACCESS_PLAN !== 'pro' ? DEV_AD_REWARD_TOKEN : ''),
+          entitlement_token: DEV_ENTITLEMENT_TOKEN,
+          privacy_consent: aiConsentAccepted,
+        },
+        { headers: authHeaders },
+      );
       setAiReview(res.data || null);
       if (res.data?.access?.wallet) setEntitlements(res.data.access.wallet);
+      if (res.data?.review_history_id) {
+        await loadReviewHistory();
+      }
     } catch (err) {
       setMessage(err.response?.data?.detail || 'AI 분석을 불러오지 못했습니다.');
       setAiReview({
@@ -922,6 +1001,81 @@ export default function TradingJournal({ apiBase }) {
     })),
   ];
 
+  const renderReviewHistoryArchive = () => {
+    const savedReview = activeReviewHistory?.ai_review || null;
+    const savedChartSnapshot = activeReviewHistory?.chart_snapshot || {};
+    const savedChart = (savedChartSnapshot.charts || [])[0];
+    const savedCards = savedReview?.chart_reviews || savedChartSnapshot.chart_reviews || [];
+
+    return (
+      <section className="journal-panel review-history-panel">
+        <div className="journal-panel-title">
+          <h3>복기 보관함</h3>
+          <span className="journal-chart-mode">{reviewHistory.length}건</span>
+        </div>
+        {!authSession?.user?.journal_storage_enabled ? (
+          <p className="journal-privacy-note">
+            복기 보관함은 로그인 후 매매 이력 저장을 켠 경우에만 사용할 수 있습니다.
+          </p>
+        ) : (
+          <div className="review-history-layout">
+            <div className="review-history-list">
+              <button className="journal-secondary" disabled={reviewHistoryLoading} onClick={loadReviewHistory}>
+                {reviewHistoryLoading ? '불러오는 중' : '새로고침'}
+              </button>
+              {!reviewHistoryLoading && !reviewHistory.length && (
+                <p className="journal-privacy-note">아직 저장된 AI 복기가 없습니다.</p>
+              )}
+              {reviewHistory.map(item => (
+                <button
+                  key={item.id}
+                  className={activeReviewHistory?.id === item.id ? 'active' : ''}
+                  onClick={() => openReviewHistoryDetail(item.id)}
+                >
+                  <strong>{item.name || item.ticker || '종목 미입력'}</strong>
+                  <span>{item.review_type === 'advanced' ? '심층 복기' : '일반 복기'} · {item.trade_date || item.created_at}</span>
+                </button>
+              ))}
+            </div>
+            <div className="review-history-detail">
+              {activeReviewHistory ? (
+                <>
+                  <div className="journal-panel-title">
+                    <div>
+                      <h4>{activeReviewHistory.name || activeReviewHistory.ticker || '저장된 복기'}</h4>
+                      <span className="journal-chart-mode">
+                        {activeReviewHistory.review_type === 'advanced' ? '심층 복기' : '일반 복기'} · {activeReviewHistory.model || activeReviewHistory.source || '-'}
+                      </span>
+                    </div>
+                    <button
+                      className="journal-danger journal-danger-outline"
+                      disabled={reviewHistoryLoading}
+                      onClick={() => deleteReviewHistoryItem(activeReviewHistory.id)}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                  <JournalTradeChart chartData={savedChart} />
+                  <p className="journal-ai-summary">{savedReview?.summary || '저장된 복기 내용이 없습니다.'}</p>
+                  <div className="journal-chart-review-list">
+                    {savedCards.map((item, idx) => (
+                      <div className="journal-ai-card" key={`${item.title || idx}-${idx}`}>
+                        <strong>{item.title}</strong>
+                        <p>{item.detail}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className="journal-privacy-note">왼쪽에서 저장된 복기를 선택하세요.</p>
+              )}
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  };
+
   return (
     <div className="journal-page">
       <div className="journal-header">
@@ -939,6 +1093,15 @@ export default function TradingJournal({ apiBase }) {
       </div>
 
       {message && <div className="journal-message">{message}</div>}
+
+      <div className="journal-subnav">
+        <button className={journalSubView === 'review' ? 'active' : ''} onClick={() => setJournalSubView('review')}>
+          매매복기
+        </button>
+        <button className={journalSubView === 'history' ? 'active' : ''} onClick={enterReviewHistory}>
+          복기 보관함
+        </button>
+      </div>
 
       <section className="journal-panel journal-account-panel">
         <div className="journal-panel-title">
@@ -1077,6 +1240,10 @@ export default function TradingJournal({ apiBase }) {
         </p>
       </section>
 
+      {journalSubView === 'history' ? (
+        renderReviewHistoryArchive()
+      ) : (
+        <>
       <section className="journal-panel">
         <h3>매매 기록 입력</h3>
         <div className="journal-form">
@@ -1335,6 +1502,8 @@ export default function TradingJournal({ apiBase }) {
           ))}
         </div>
       </section>
+        </>
+      )}
     </div>
   );
 }

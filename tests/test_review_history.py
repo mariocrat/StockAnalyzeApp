@@ -95,6 +95,14 @@ class ReviewHistoryStoreTest(unittest.TestCase):
                 "summary": "saved advanced review",
                 "chart_contexts": [{"ticker": "005930"}],
             }
+            main.build_journal_charts = lambda trades: {
+                "charts": [{
+                    "ticker": "005930",
+                    "name": "삼성전자",
+                    "candles": [{"time": "2026-06-19", "open": 70000, "high": 71000, "low": 69000, "close": 70500}],
+                    "markers": [{"time": "2026-06-19", "text": "B"}],
+                }],
+            }
 
             session = account_store.login_dev_provider(
                 provider="kakao",
@@ -130,6 +138,7 @@ class ReviewHistoryStoreTest(unittest.TestCase):
             self.assertEqual("advanced", rows[0]["review_type"])
             self.assertEqual("saved advanced review", detail["ai_review"]["summary"])
             self.assertEqual([{"ticker": "005930"}], detail["chart_snapshot"]["chart_contexts"])
+            self.assertEqual("005930", detail["chart_snapshot"]["charts"][0]["ticker"])
 
     def test_ai_review_once_does_not_save_history_when_storage_is_off(self):
         with tempfile.TemporaryDirectory() as tmpdir:

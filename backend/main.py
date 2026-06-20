@@ -149,6 +149,11 @@ def _save_ai_review_history_if_enabled(
     if target_trade is None and trades:
         target_trade = trades[-1]
 
+    try:
+        chart_data = build_journal_charts(trades)
+    except Exception:
+        chart_data = {"charts": []}
+
     item = add_review_history(
         user_id=user["id"],
         review_type=result.get("review_type") or batch.review_type,
@@ -159,6 +164,7 @@ def _save_ai_review_history_if_enabled(
         trade_snapshot=target_trade or {},
         recent_trades_snapshot=trades[-10:],
         chart_snapshot={
+            "charts": chart_data.get("charts") or [],
             "chart_contexts": result.get("chart_contexts") or [],
             "chart_reviews": result.get("chart_reviews") or [],
         },
