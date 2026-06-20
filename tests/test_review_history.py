@@ -186,6 +186,89 @@ class ReviewHistoryStoreTest(unittest.TestCase):
             self.assertNotIn("review_history_id", result)
             self.assertEqual([], review_history.list_review_history(user_id=session["user"]["id"]))
 
+    def test_ai_review_once_records_privacy_consent_for_authenticated_user(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
+            os.environ["ALPHAMATE_REVIEW_HISTORY_DB_PATH"] = os.path.join(tmpdir, "review_history.sqlite3")
+            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+            os.environ["ALPHAMATE_PRIVACY_CONSENT_VERSION"] = "ai-review-privacy-test"
+
+            backend_dir = os.path.join(os.getcwd(), "backend")
+            if backend_dir not in sys.path:
+                sys.path.insert(0, backend_dir)
+
+            account_store = importlib.reload(importlib.import_module("core.account_store"))
+            main = importlib.reload(importlib.import_module("main"))
+            main.build_basic_ai_review = lambda trades, target_trade_id=None: {
+                "status": "ready",
+                "source": "openai",
+                "review_type": "basic",
+                "model": "gpt-5.4-mini",
+                "summary": "consent saved",
+            }
+
+            session = account_store.login_dev_provider(
+                provider="kakao",
+                provider_user_id="ai-consent-user",
+                display_name="AI 동의",
+            )
+            token = f"Bearer {session['session_token']}"
+            batch = main.JournalAiReviewIn(
+                privacy_consent=True,
+                review_type="basic",
+                trades=[main.JournalTradeIn(
+                    trade_date="2026-06-21T10:30",
+                    ticker="005930",
+                    name="삼성전자",
+                    side="buy",
+                    price=70000,
+                    quantity=1,
+                )],
+            )
+
+            main.get_journal_ai_review_once(batch, authorization=token)
+            current = account_store.authenticate_session(token)
+
+            self.assertEqual("ai-review-privacy-test", current["privacy_consent_version"])
+            self.assertTrue(current["privacy_consented_at"])
+
+    def test_ai_review_once_rejects_missing_privacy_consent(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
+            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+
+            backend_dir = os.path.join(os.getcwd(), "backend")
+            if backend_dir not in sys.path:
+                sys.path.insert(0, backend_dir)
+
+            account_store = importlib.reload(importlib.import_module("core.account_store"))
+            main = importlib.reload(importlib.import_module("main"))
+            session = account_store.login_dev_provider(
+                provider="naver",
+                provider_user_id="ai-no-consent-user",
+                display_name="AI 미동의",
+            )
+            token = f"Bearer {session['session_token']}"
+            batch = main.JournalAiReviewIn(
+                privacy_consent=False,
+                review_type="basic",
+                trades=[main.JournalTradeIn(
+                    trade_date="2026-06-21T10:30",
+                    ticker="005930",
+                    name="삼성전자",
+                    side="buy",
+                    price=70000,
+                    quantity=1,
+                )],
+            )
+
+            with self.assertRaises(Exception) as ctx:
+                main.get_journal_ai_review_once(batch, authorization=token)
+
+            self.assertIn("Privacy consent is required", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

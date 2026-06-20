@@ -55,6 +55,8 @@ class MeDataRoutesTest(unittest.TestCase):
                     "connected_providers": ["kakao"],
                     "delete_scope": "current_user_only",
                     "server_keeps_ai_review_history": False,
+                    "privacy_consent_version": "",
+                    "privacy_consented_at": "",
                 },
                 summary,
             )
@@ -143,6 +145,7 @@ class MeDataRoutesTest(unittest.TestCase):
                 entitlement_token="",
                 product_id="basic_review_30",
             )
+            account_store.record_privacy_consent(authorization=token, version="ai-review-privacy-export")
             review_history.add_review_history(
                 user_id=user_id,
                 review_type="advanced",
@@ -164,6 +167,7 @@ class MeDataRoutesTest(unittest.TestCase):
             self.assertEqual(1, len(exported["review_history"]))
             self.assertEqual("stored advanced review", exported["review_history"][0]["ai_review"]["summary"])
             self.assertTrue(exported["server_keeps_ai_review_history"])
+            self.assertEqual("ai-review-privacy-export", exported["user"]["privacy_consent_version"])
             self.assertNotIn(session["session_token"], serialized)
 
 
