@@ -22,6 +22,7 @@ from core.journal import add_trade, list_trades, count_trades, delete_trade, cle
 from core.ai_review import build_ai_review
 from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
 from core.journal_chart import build_journal_charts
+from core.review_history import list_review_history, get_review_history, delete_review_history
 from core.access_control import (
     apply_dev_purchase,
     apply_google_play_purchase,
@@ -446,6 +447,10 @@ def export_me_data(authorization: Optional[str] = Header(default=None)):
         "user": user,
         "saved_trades": list_trades(limit=5000, user_id=user["id"]),
         "entitlements": entitlements,
+        "review_history": [
+            get_review_history(row["id"], user_id=user["id"])
+            for row in list_review_history(user_id=user["id"], limit=5000)
+        ],
         "server_keeps_ai_review_history": False,
     }
 
@@ -529,6 +534,41 @@ def get_journal_ai_review(authorization: Optional[str] = Header(default=None)):
     user = _optional_session_user(authorization)
     trades = list_trades(limit=5000, user_id=user["id"]) if user and user.get("journal_storage_enabled") else list_trades(limit=5000)
     return build_ai_review(trades)
+
+
+@app.get("/api/journal/review-history")
+def get_journal_review_history(
+    limit: int = 100,
+    authorization: Optional[str] = Header(default=None),
+):
+    user = authenticate_session(authorization)
+    if not user.get("journal_storage_enabled"):
+        return []
+    return list_review_history(user_id=user["id"], limit=limit)
+
+
+@app.get("/api/journal/review-history/{review_id}")
+def get_journal_review_history_detail(
+    review_id: int,
+    authorization: Optional[str] = Header(default=None),
+):
+    user = authenticate_session(authorization)
+    if not user.get("journal_storage_enabled"):
+        raise HTTPException(status_code=403, detail="매매 이력 저장을 켠 계정만 복기 보관함을 사용할 수 있습니다.")
+    item = get_review_history(review_id, user_id=user["id"])
+    if not item:
+        raise HTTPException(status_code=404, detail="복기 이력을 찾을 수 없습니다.")
+    return item
+
+
+@app.delete("/api/journal/review-history/{review_id}")
+def remove_journal_review_history(
+    review_id: int,
+    authorization: Optional[str] = Header(default=None),
+):
+    user = authenticate_session(authorization)
+    deleted_count = delete_review_history(review_id, user_id=user["id"])
+    return {"ok": True, "deleted_count": deleted_count}
 
 
 @app.get("/api/journal/entitlements")

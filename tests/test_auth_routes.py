@@ -29,6 +29,8 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("/api/journal/google-play-purchase", paths)
         self.assertIn("/api/journal/google-play-rtdn", paths)
         self.assertIn("/api/journal/admob-ssv", paths)
+        self.assertIn("/api/journal/review-history", paths)
+        self.assertIn("/api/journal/review-history/{review_id}", paths)
 
 
 if __name__ == "__main__":

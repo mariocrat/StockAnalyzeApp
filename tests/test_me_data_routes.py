@@ -64,6 +64,7 @@ class MeDataRoutesTest(unittest.TestCase):
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
             os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = os.path.join(tmpdir, "trades.sqlite3")
             os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
+            os.environ["ALPHAMATE_REVIEW_HISTORY_DB_PATH"] = os.path.join(tmpdir, "review_history.sqlite3")
             os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
 
             backend_dir = os.path.join(os.getcwd(), "backend")
@@ -115,6 +116,7 @@ class MeDataRoutesTest(unittest.TestCase):
             account_store = importlib.reload(importlib.import_module("core.account_store"))
             access_control = importlib.reload(importlib.import_module("core.access_control"))
             journal = importlib.reload(importlib.import_module("core.journal"))
+            review_history = importlib.reload(importlib.import_module("core.review_history"))
             main = importlib.reload(importlib.import_module("main"))
 
             session = account_store.login_dev_provider(
@@ -141,6 +143,13 @@ class MeDataRoutesTest(unittest.TestCase):
                 entitlement_token="",
                 product_id="basic_review_30",
             )
+            review_history.add_review_history(
+                user_id=user_id,
+                review_type="advanced",
+                ticker="005930",
+                name="삼성전자",
+                ai_review={"summary": "stored advanced review"},
+            )
 
             paths = set(main.app.openapi()["paths"].keys())
             exported = main.export_me_data(authorization=token)
@@ -152,6 +161,8 @@ class MeDataRoutesTest(unittest.TestCase):
             self.assertEqual(1, len(exported["saved_trades"]))
             self.assertEqual("005930", exported["saved_trades"][0]["ticker"])
             self.assertEqual(30, exported["entitlements"]["basic"]["purchased_remaining"])
+            self.assertEqual(1, len(exported["review_history"]))
+            self.assertEqual("stored advanced review", exported["review_history"][0]["ai_review"]["summary"])
             self.assertFalse(exported["server_keeps_ai_review_history"])
             self.assertNotIn(session["session_token"], serialized)
 
