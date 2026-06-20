@@ -53,3 +53,6 @@ backend/.cache/
 
 # Local toolchains downloaded for this workstation only
 .tools/
+
+# Local brainstorming/mockup scratch files
+.superpowers/
