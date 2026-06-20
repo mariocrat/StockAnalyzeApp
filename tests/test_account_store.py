@@ -100,6 +100,31 @@ class AccountStoreTest(unittest.TestCase):
             current = account_store.authenticate_session(f"Bearer {session['session_token']}")
             self.assertTrue(current["journal_storage_enabled"])
 
+    def test_privacy_consent_can_be_recorded_for_session_user(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+
+            from backend.core import account_store
+
+            account_store = importlib.reload(account_store)
+            session = account_store.login_dev_provider(
+                provider="kakao",
+                provider_user_id="consent-user",
+                display_name="동의 사용자",
+            )
+            token = f"Bearer {session['session_token']}"
+
+            updated = account_store.record_privacy_consent(
+                authorization=token,
+                version="ai-review-privacy-v2",
+            )
+            current = account_store.authenticate_session(token)
+
+            self.assertEqual("ai-review-privacy-v2", updated["privacy_consent_version"])
+            self.assertEqual("ai-review-privacy-v2", current["privacy_consent_version"])
+            self.assertTrue(updated["privacy_consented_at"])
+            self.assertTrue(current["privacy_consented_at"])
+
     def test_delete_user_account_data_removes_server_side_user_records(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             account_db = os.path.join(tmpdir, "accounts.sqlite3")

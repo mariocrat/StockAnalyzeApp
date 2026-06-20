@@ -17,6 +17,7 @@ except ModuleNotFoundError:
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 SESSION_DAYS = 30
 SUPPORTED_PROVIDERS = {"kakao", "naver"}
+PRIVACY_CONSENT_VERSION = env_value("ALPHAMATE_PRIVACY_CONSENT_VERSION") or "ai-review-privacy-v1"
 _ACCOUNT_LOCK = threading.Lock()
 
 
@@ -308,6 +309,28 @@ def update_journal_storage_setting(*, authorization: str | None, enabled: bool) 
         return _get_user(conn, user["id"])
     finally:
         conn.close()
+
+
+def record_privacy_consent(*, authorization: str | None, version: str = "") -> dict:
+    user = authenticate_session(authorization)
+    consent_version = str(version or PRIVACY_CONSENT_VERSION).strip() or PRIVACY_CONSENT_VERSION
+    consented_at = _now()
+    with _ACCOUNT_LOCK:
+        conn = _connect()
+        try:
+            conn.execute(
+                """
+                UPDATE users
+                SET privacy_consent_version = ?,
+                    privacy_consented_at = ?
+                WHERE id = ?
+                """,
+                (consent_version, consented_at, user["id"]),
+            )
+            conn.commit()
+            return _get_user(conn, user["id"])
+        finally:
+            conn.close()
 
 
 def delete_user_account_data(authorization: str | None) -> dict:
