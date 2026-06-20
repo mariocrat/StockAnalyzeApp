@@ -639,6 +639,9 @@ export default function TradingJournal({ apiBase }) {
       if (res.data?.review_history_id) {
         await loadReviewHistory();
       }
+      if (authSession?.session_token) {
+        await loadDataSummary(authSession.session_token);
+      }
     } catch (err) {
       setMessage(err.response?.data?.detail || 'AI 분석을 불러오지 못했습니다.');
       setAiReview({
@@ -984,6 +987,10 @@ export default function TradingJournal({ apiBase }) {
   const connectedProviderText = (dataSummary?.connected_providers || [])
     .map(provider => DEV_LOGIN_PROFILES[provider]?.label || provider)
     .join(', ') || '-';
+  const consentRecordedAt = dataSummary?.privacy_consented_at || authSession?.user?.privacy_consented_at || '';
+  const consentVersion = dataSummary?.privacy_consent_version || authSession?.user?.privacy_consent_version || '';
+  const consentStatusText = consentRecordedAt ? '동의 완료' : '미기록';
+  const consentDetailText = consentRecordedAt ? `${consentVersion || '현재 버전'} · ${consentRecordedAt.slice(0, 10)}` : 'AI 복기 실행 전 동의 필요';
   const missingText = (items = []) => items.length ? `누락: ${items.join(', ')}` : '설정 완료';
   const readinessItems = [
     {
@@ -1227,6 +1234,11 @@ export default function TradingJournal({ apiBase }) {
           <div>
             <span>AI 분석 기록</span>
             <strong>{dataSummary?.server_keeps_ai_review_history ? '서버 저장' : '서버 저장 안 함'}</strong>
+          </div>
+          <div>
+            <span>AI 동의 기록</span>
+            <strong>{consentStatusText}</strong>
+            <em>{consentDetailText}</em>
           </div>
         </div>
         <label className="journal-auth-toggle">

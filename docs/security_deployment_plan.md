@@ -172,6 +172,12 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - AI Key는 계속 프론트엔드에 넣지 않고 서버 환경변수로만 관리해야 한다. 복기 보관함은 저장된 결과를 읽는 기능일 뿐, Key를 앱에 노출하지 않는다.
 - 복기 보관함 진입 전면 광고는 `VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID`로 분리했다. 운영 배포 전 Google 테스트 광고 단위가 남아 있으면 `npm run release:check`에서 실패해야 한다.
 - 광고 로딩 실패나 웹 환경에서는 사용자의 저장 데이터 접근을 막지 않는다. 광고 수익화보다 사용자가 보관한 데이터 접근권을 우선한다.
+## 2026-06-21 AI 복기 동의 기록
+
+- AI 복기 동의는 `ALPHAMATE_PRIVACY_CONSENT_VERSION` 값과 UTC 시각으로 계정에 저장된다.
+- 동의 이력은 최신 상태만 저장하며, 계정 데이터 내보내기와 계정 삭제 범위에 포함된다.
+- 개인정보처리방침 문구를 바꾸는 경우 `ALPHAMATE_PRIVACY_CONSENT_VERSION`도 함께 올려야 한다.
+
 ## 2026-06-20 운영 데이터 저장소 설정
 
 - 운영 배포에서는 계정, 매매 기록, 이용권/광고 보상, 복기 보관함 DB 경로를 반드시 명시해야 한다.

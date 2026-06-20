@@ -1,5 +1,11 @@
 # AlphaMate Development History
 
+## 2026-06-21 AI 복기 개인정보 동의 이력
+
+- AI 복기 실행 시 로그인 계정에 최신 개인정보/매매 기록 전송 동의 버전과 시각을 저장하도록 했다.
+- 계정 관리 영역에 `AI 동의 기록`을 표시해 사용자가 동의 기록 존재 여부를 확인할 수 있게 했다.
+- 내 데이터 내보내기에는 기존 `user` 객체를 통해 동의 버전과 시각이 포함된다.
+
 ## 2026-06-20 운영 데이터 저장소 배포 검사
 
 - 운영 백엔드 배포 검사에서 `ALPHAMATE_ACCOUNT_DB_PATH`, `ALPHAMATE_JOURNAL_DB_PATH`, `ALPHAMATE_ACCESS_DB_PATH`, `ALPHAMATE_REVIEW_HISTORY_DB_PATH`가 없으면 실패하도록 했다.
