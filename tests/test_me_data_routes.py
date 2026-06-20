@@ -163,7 +163,7 @@ class MeDataRoutesTest(unittest.TestCase):
             self.assertEqual(30, exported["entitlements"]["basic"]["purchased_remaining"])
             self.assertEqual(1, len(exported["review_history"]))
             self.assertEqual("stored advanced review", exported["review_history"][0]["ai_review"]["summary"])
-            self.assertFalse(exported["server_keeps_ai_review_history"])
+            self.assertTrue(exported["server_keeps_ai_review_history"])
             self.assertNotIn(session["session_token"], serialized)
 
 

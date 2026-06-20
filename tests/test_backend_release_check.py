@@ -54,6 +54,10 @@ class BackendReleaseCheckTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=None,
             GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
             ADMOB_REWARDED_AD_UNIT_ID=None,
+            ALPHAMATE_ACCOUNT_DB_PATH=None,
+            ALPHAMATE_JOURNAL_DB_PATH=None,
+            ALPHAMATE_ACCESS_DB_PATH=None,
+            ALPHAMATE_REVIEW_HISTORY_DB_PATH=None,
         ):
             from backend.core.release_check import format_backend_release_check, validate_backend_release_env
 
@@ -65,6 +69,8 @@ class BackendReleaseCheckTest(unittest.TestCase):
             self.assertIn("OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY", "\n".join(result["errors"]))
             self.assertIn("GOOGLE_PLAY_PACKAGE_NAME", "\n".join(result["errors"]))
             self.assertIn("ADMOB_REWARDED_AD_UNIT_ID", "\n".join(result["errors"]))
+            self.assertIn("ALPHAMATE_ACCOUNT_DB_PATH", "\n".join(result["errors"]))
+            self.assertIn("ALPHAMATE_REVIEW_HISTORY_DB_PATH", "\n".join(result["errors"]))
             self.assertNotIn("sk-", formatted)
             self.assertNotIn("google-secret-json", formatted)
 
@@ -85,6 +91,10 @@ class BackendReleaseCheckTest(unittest.TestCase):
             GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+            ALPHAMATE_ACCOUNT_DB_PATH="D:/secure/alphamate/accounts.sqlite3",
+            ALPHAMATE_JOURNAL_DB_PATH="D:/secure/alphamate/trades.sqlite3",
+            ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
+            ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
         ):
             from backend.core.release_check import format_backend_release_check, validate_backend_release_env
 
@@ -114,6 +124,10 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID=alphamate.pro.launch",
             "GOOGLE_PLAY_PRO_MONTHLY_ID=alphamate.pro.monthly",
             "ADMOB_REWARDED_AD_UNIT_ID=rewarded-unit-1",
+            "ALPHAMATE_ACCOUNT_DB_PATH=D:/secure/alphamate/accounts.sqlite3",
+            "ALPHAMATE_JOURNAL_DB_PATH=D:/secure/alphamate/trades.sqlite3",
+            "ALPHAMATE_ACCESS_DB_PATH=D:/secure/alphamate/access.sqlite3",
+            "ALPHAMATE_REVIEW_HISTORY_DB_PATH=D:/secure/alphamate/review-history.sqlite3",
         ])
         with tempfile.NamedTemporaryFile("w", encoding="utf-8-sig", delete=False) as env_file:
             env_file.write(env_text)
@@ -139,6 +153,10 @@ class BackendReleaseCheckTest(unittest.TestCase):
                 GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID=None,
                 GOOGLE_PLAY_PRO_MONTHLY_ID=None,
                 ADMOB_REWARDED_AD_UNIT_ID=None,
+                ALPHAMATE_ACCOUNT_DB_PATH=None,
+                ALPHAMATE_JOURNAL_DB_PATH=None,
+                ALPHAMATE_ACCESS_DB_PATH=None,
+                ALPHAMATE_REVIEW_HISTORY_DB_PATH=None,
             ):
                 from backend.core.release_check import format_backend_release_check, validate_backend_release_env
 

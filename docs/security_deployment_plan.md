@@ -172,3 +172,9 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - AI Key는 계속 프론트엔드에 넣지 않고 서버 환경변수로만 관리해야 한다. 복기 보관함은 저장된 결과를 읽는 기능일 뿐, Key를 앱에 노출하지 않는다.
 - 복기 보관함 진입 전면 광고는 `VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID`로 분리했다. 운영 배포 전 Google 테스트 광고 단위가 남아 있으면 `npm run release:check`에서 실패해야 한다.
 - 광고 로딩 실패나 웹 환경에서는 사용자의 저장 데이터 접근을 막지 않는다. 광고 수익화보다 사용자가 보관한 데이터 접근권을 우선한다.
+## 2026-06-20 운영 데이터 저장소 설정
+
+- 운영 배포에서는 계정, 매매 기록, 이용권/광고 보상, 복기 보관함 DB 경로를 반드시 명시해야 한다.
+- 필요한 환경변수는 `ALPHAMATE_ACCOUNT_DB_PATH`, `ALPHAMATE_JOURNAL_DB_PATH`, `ALPHAMATE_ACCESS_DB_PATH`, `ALPHAMATE_REVIEW_HISTORY_DB_PATH`다.
+- 기본 개발 경로인 `backend/data/*.sqlite3`는 로컬 개발용으로만 보고, 운영에서는 백업 가능한 서버 볼륨이나 관리형 DB 마이그레이션 대상으로 분리해야 한다.
+- 현재 코드는 SQLite 기반이므로 초기 운영은 명시 경로 + 백업 정책으로 시작할 수 있지만, 사용자 수가 늘면 PostgreSQL 같은 관리형 DB로 옮기는 것이 다음 큰 단계다.

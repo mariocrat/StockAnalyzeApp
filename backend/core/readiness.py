@@ -2,6 +2,13 @@ from .access_control import get_product_catalog
 from .env import env_value
 from .oauth_login import get_oauth_config_status
 
+REQUIRED_DATA_STORAGE_SETTINGS = [
+    "ALPHAMATE_ACCOUNT_DB_PATH",
+    "ALPHAMATE_JOURNAL_DB_PATH",
+    "ALPHAMATE_ACCESS_DB_PATH",
+    "ALPHAMATE_REVIEW_HISTORY_DB_PATH",
+]
+
 
 def _env_value(name: str) -> str:
     return env_value(name)
@@ -31,11 +38,22 @@ def _login_status() -> dict:
     }
 
 
+def _data_storage_status() -> dict:
+    missing = [name for name in REQUIRED_DATA_STORAGE_SETTINGS if not _env_value(name)]
+    return {
+        "ready": not missing,
+        "missing_server_settings": missing,
+        "required_server_settings": REQUIRED_DATA_STORAGE_SETTINGS,
+        "note": "Production deployments should use explicit persistent server-side database paths or managed volumes.",
+    }
+
+
 def get_app_readiness() -> dict:
     catalog = get_product_catalog()
     sections = {
         "ai": _ai_status(),
         "login": _login_status(),
+        "data_storage": _data_storage_status(),
         "google_play": catalog["google_play"],
         "admob": catalog["admob"],
     }

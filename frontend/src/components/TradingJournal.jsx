@@ -965,6 +965,7 @@ export default function TradingJournal({ apiBase }) {
     || chartReview.charts?.[0];
   const adPolicy = productCatalog?.settings?.ad_policy || entitlements?.settings?.ad_policy || {};
   const readinessSections = appReadiness?.sections || {};
+  const dataStorageReadiness = readinessSections.data_storage || {};
   const googlePlayReadiness = readinessSections.google_play || productCatalog?.google_play || {};
   const admobStatus = readinessSections.admob || productCatalog?.admob || {};
   const aiReadiness = readinessSections.ai || {};
@@ -996,6 +997,11 @@ export default function TradingJournal({ apiBase }) {
       detail: billingStatus.native
         ? missingText(googlePlayReadiness.missing_server_settings || [])
         : 'Android 앱에서 실제 결제 확인',
+    },
+    {
+      label: '데이터 저장소',
+      ready: dataStorageReadiness.ready === true,
+      detail: missingText(dataStorageReadiness.missing_server_settings || []),
     },
     {
       label: 'AdMob 보상 광고',

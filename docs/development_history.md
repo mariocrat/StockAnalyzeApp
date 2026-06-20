@@ -1,5 +1,11 @@
 # AlphaMate Development History
 
+## 2026-06-20 운영 데이터 저장소 배포 검사
+
+- 운영 백엔드 배포 검사에서 `ALPHAMATE_ACCOUNT_DB_PATH`, `ALPHAMATE_JOURNAL_DB_PATH`, `ALPHAMATE_ACCESS_DB_PATH`, `ALPHAMATE_REVIEW_HISTORY_DB_PATH`가 없으면 실패하도록 했다.
+- `/api/app/readiness`와 매매복기 화면의 배포 준비 상태에 `데이터 저장소` 항목을 추가했다.
+- 복기 보관함 추가 이후 `server_keeps_ai_review_history`가 매매 이력 저장 설정과 맞게 표시되도록 고쳤다.
+
 ## 2026-06-20 복기 보관함과 저장된 AI 복기
 
 - 로그인 사용자가 `매매 이력 저장`을 켠 상태에서 일반/심층 AI 복기를 실행하면 결과가 `review_history` SQLite 저장소에 보관되도록 했다.

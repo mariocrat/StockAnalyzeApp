@@ -477,7 +477,7 @@ def get_me_data_summary(authorization: Optional[str] = Header(default=None)):
             identity["provider"] for identity in user.get("identities", [])
         ],
         "delete_scope": "current_user_only",
-        "server_keeps_ai_review_history": False,
+        "server_keeps_ai_review_history": bool(user.get("journal_storage_enabled")),
     }
 
 
@@ -498,7 +498,7 @@ def export_me_data(authorization: Optional[str] = Header(default=None)):
             get_review_history(row["id"], user_id=user["id"])
             for row in list_review_history(user_id=user["id"], limit=5000)
         ],
-        "server_keeps_ai_review_history": False,
+        "server_keeps_ai_review_history": bool(user.get("journal_storage_enabled")),
     }
 
 
