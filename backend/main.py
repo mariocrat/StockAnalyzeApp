@@ -22,7 +22,7 @@ from core.journal import add_trade, list_trades, count_trades, delete_trade, cle
 from core.ai_review import build_ai_review
 from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
 from core.journal_chart import build_journal_charts
-from core.review_history import list_review_history, get_review_history, delete_review_history
+from core.review_history import add_review_history, list_review_history, get_review_history, delete_review_history
 from core.access_control import (
     apply_dev_purchase,
     apply_google_play_purchase,
@@ -127,6 +127,47 @@ def _journal_user_id_if_enabled(authorization: Optional[str]) -> str:
     if not user.get("journal_storage_enabled"):
         raise HTTPException(status_code=403, detail="매매 이력 저장을 먼저 켜야 합니다.")
     return user["id"]
+
+
+def _save_ai_review_history_if_enabled(
+    *,
+    authorization: Optional[str],
+    batch: JournalAiReviewIn,
+    trades: list[dict],
+    result: dict,
+):
+    user = _optional_session_user(authorization)
+    if not user or not user.get("journal_storage_enabled"):
+        return None
+
+    target_trade = None
+    if batch.target_trade_id is not None:
+        for trade in trades:
+            if str(trade.get("id")) == str(batch.target_trade_id):
+                target_trade = trade
+                break
+    if target_trade is None and trades:
+        target_trade = trades[-1]
+
+    item = add_review_history(
+        user_id=user["id"],
+        review_type=result.get("review_type") or batch.review_type,
+        ticker=str((target_trade or {}).get("ticker") or ""),
+        name=str((target_trade or {}).get("name") or ""),
+        trade_date=str((target_trade or {}).get("trade_date") or ""),
+        target_trade_id=batch.target_trade_id,
+        trade_snapshot=target_trade or {},
+        recent_trades_snapshot=trades[-10:],
+        chart_snapshot={
+            "chart_contexts": result.get("chart_contexts") or [],
+            "chart_reviews": result.get("chart_reviews") or [],
+        },
+        ai_review=result,
+        access_snapshot=result.get("access") or {},
+        model=str(result.get("model") or ""),
+        source=str(result.get("source") or ""),
+    )
+    return item["id"] if item else None
 
 
 def _previous_weekday(day: datetime.date) -> datetime.date:
@@ -655,6 +696,14 @@ def get_journal_ai_review_once(
         "quota": access.quota,
         "wallet": access.product_balances,
     }
+    review_history_id = _save_ai_review_history_if_enabled(
+        authorization=authorization,
+        batch=batch,
+        trades=trades,
+        result=result,
+    )
+    if review_history_id:
+        result["review_history_id"] = review_history_id
     return result
 
 
