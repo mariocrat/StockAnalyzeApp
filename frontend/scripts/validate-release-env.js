@@ -4,6 +4,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const GOOGLE_ANDROID_TEST_REWARDED_AD_ID = 'ca-app-pub-3940256099942544/5224354917';
+const GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID = 'ca-app-pub-3940256099942544/1033173712';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
 
 export function parseEnvFile(text) {
@@ -85,6 +86,7 @@ export function validateReleaseEnv(env) {
   const devTools = envValue(env, 'VITE_ENABLE_DEV_TOOLS');
   const apiBase = envValue(env, 'VITE_API_BASE');
   const rewardedAdUnitId = envValue(env, 'VITE_ADMOB_REWARDED_AD_UNIT_ID');
+  const reviewHistoryInterstitialAdUnitId = envValue(env, 'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID');
   const packageName = envValue(env, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
 
   if (appEnv !== 'production') {
@@ -101,6 +103,11 @@ export function validateReleaseEnv(env) {
     errors.push('VITE_ADMOB_REWARDED_AD_UNIT_ID must be set for release builds.');
   } else if (rewardedAdUnitId === GOOGLE_ANDROID_TEST_REWARDED_AD_ID) {
     errors.push('VITE_ADMOB_REWARDED_AD_UNIT_ID must not use Google test ad unit for release builds.');
+  }
+  if (!reviewHistoryInterstitialAdUnitId) {
+    errors.push('VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID must be set for release builds.');
+  } else if (reviewHistoryInterstitialAdUnitId === GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID) {
+    errors.push('VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID must not use Google test ad unit for release builds.');
   }
   if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$/.test(packageName)) {
     errors.push('VITE_GOOGLE_PLAY_PACKAGE_NAME must be a valid Android package name.');

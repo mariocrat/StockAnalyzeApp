@@ -3,7 +3,7 @@ import axios from 'axios';
 import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
-import { getAdMobRuntimeStatus, initializeAdMob, showRewardedReviewAd } from '../mobile/admob';
+import { getAdMobRuntimeStatus, initializeAdMob, showReviewHistoryInterstitial, showRewardedReviewAd } from '../mobile/admob';
 import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct } from '../mobile/billing';
 
 const sideLabels = { buy: '매수', sell: '매도' };
@@ -150,6 +150,7 @@ export default function TradingJournal({ apiBase }) {
   const [reviewHistoryLoading, setReviewHistoryLoading] = useState(false);
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
+  const reviewHistoryAdShownRef = useRef(false);
 
   const activeAuthToken = authSession?.session_token || DEV_AUTH_TOKEN;
   const authHeaders = { Authorization: `Bearer ${activeAuthToken}` };
@@ -303,6 +304,18 @@ export default function TradingJournal({ apiBase }) {
   };
 
   const enterReviewHistory = async () => {
+    if (
+      authSession?.user?.journal_storage_enabled
+      && entitlements?.plan !== 'pro'
+      && !reviewHistoryAdShownRef.current
+    ) {
+      reviewHistoryAdShownRef.current = true;
+      try {
+        await showReviewHistoryInterstitial();
+      } catch {
+        // Ad failures should not block access to saved user data.
+      }
+    }
     setJournalSubView('history');
     await loadReviewHistory();
   };

@@ -15,6 +15,7 @@ function validReleaseEnv(overrides = {}) {
     VITE_ENABLE_DEV_TOOLS: 'false',
     VITE_API_BASE: 'https://api.example.com',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-1234567890123456/9876543210',
+    VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-1234567890123456/1234567890',
     VITE_GOOGLE_PLAY_PACKAGE_NAME: 'com.mariocrat.stockanalyze',
     ALPHAMATE_ANDROID_KEYSTORE_FILE: keystoreFile,
     ALPHAMATE_ANDROID_KEYSTORE_PASSWORD: 'keystore-password',
@@ -32,6 +33,7 @@ test('rejects localhost API and enabled dev tools for release builds', () => {
     VITE_ENABLE_DEV_TOOLS: 'true',
     VITE_API_BASE: 'http://127.0.0.1:8002',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-3940256099942544/5224354917',
+    VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-3940256099942544/1033173712',
     VITE_GOOGLE_PLAY_PACKAGE_NAME: '',
   });
 
@@ -39,6 +41,7 @@ test('rejects localhost API and enabled dev tools for release builds', () => {
   assert.match(result.errors.join('\n'), /VITE_ENABLE_DEV_TOOLS/);
   assert.match(result.errors.join('\n'), /VITE_API_BASE/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REWARDED_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_GOOGLE_PLAY_PACKAGE_NAME/);
 });
 
