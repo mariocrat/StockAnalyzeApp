@@ -269,3 +269,13 @@ frontend/android/app/build/outputs/bundle/release/app-release.aab
 `frontend/android/local.properties`는 이 PC의 SDK 위치만 적는 파일이라 GitHub에는 올리지 않습니다. 새 PC에서 다시 빌드할 때는 Android Studio를 설치하거나, 같은 방식으로 `.tools`에 JDK/SDK를 다시 준비하면 됩니다.
 
 현재 프로젝트에는 앱 아이콘, 스플래시 이미지, AdMob SDK, Google Play Billing SDK, 환경변수 기반 release signing 연결이 들어가 있습니다. 실제 Google Play Console/AdMob 운영 계정 테스트는 별도 준비가 필요합니다.
+## 복기 보관함 확인
+
+1. 매매복기 화면에서 카카오 또는 네이버 개발 계정으로 로그인합니다.
+2. `매매 이력 저장`을 켭니다.
+3. 종목과 매매 기록을 1건 이상 입력하고 AI 분석 동의 체크 후 `일반 복기` 또는 `심층 복기`를 실행합니다.
+4. 상단의 `복기 보관함` 탭을 누릅니다.
+5. 저장된 복기 목록이 보이고, 항목을 누르면 당시 차트와 AI 복기 내용이 함께 보이는지 확인합니다.
+6. 같은 앱 세션에서 보관함 안의 다른 복기를 눌러도 전면 광고가 반복 진입처럼 과하게 뜨지 않는지 확인합니다.
+7. `내 데이터 내보내기` 파일에 `review_history`가 포함되는지 확인합니다.
+8. `계정 데이터 삭제` 후 다시 로그인하면 복기 보관함이 비어 있는지 확인합니다.
