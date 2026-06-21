@@ -67,6 +67,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_JOURNAL_DB_PATH",
             "ALPHAMATE_ACCESS_DB_PATH",
             "ALPHAMATE_REVIEW_HISTORY_DB_PATH",
+            "ALPHAMATE_EVENT_LOG_DB_PATH",
         ]
 
         for name in required_names:
@@ -90,6 +91,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             ALPHAMATE_JOURNAL_DB_PATH=None,
             ALPHAMATE_ACCESS_DB_PATH=None,
             ALPHAMATE_REVIEW_HISTORY_DB_PATH=None,
+            ALPHAMATE_EVENT_LOG_DB_PATH=None,
         ):
             from backend.core.release_check import format_backend_release_check, validate_backend_release_env
 
@@ -104,6 +106,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             self.assertIn("ALPHAMATE_PRIVACY_POLICY_URL", "\n".join(result["errors"]))
             self.assertIn("ALPHAMATE_ACCOUNT_DB_PATH", "\n".join(result["errors"]))
             self.assertIn("ALPHAMATE_REVIEW_HISTORY_DB_PATH", "\n".join(result["errors"]))
+            self.assertIn("ALPHAMATE_EVENT_LOG_DB_PATH", "\n".join(result["errors"]))
             self.assertNotIn("sk-", formatted)
             self.assertNotIn("google-secret-json", formatted)
 
@@ -129,6 +132,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             ALPHAMATE_JOURNAL_DB_PATH="D:/secure/alphamate/trades.sqlite3",
             ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
             ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
+            ALPHAMATE_EVENT_LOG_DB_PATH="D:/secure/alphamate/events.sqlite3",
         ):
             from backend.core.release_check import format_backend_release_check, validate_backend_release_env
 
@@ -163,6 +167,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_JOURNAL_DB_PATH=D:/secure/alphamate/trades.sqlite3",
             "ALPHAMATE_ACCESS_DB_PATH=D:/secure/alphamate/access.sqlite3",
             "ALPHAMATE_REVIEW_HISTORY_DB_PATH=D:/secure/alphamate/review-history.sqlite3",
+            "ALPHAMATE_EVENT_LOG_DB_PATH=D:/secure/alphamate/events.sqlite3",
         ])
         with tempfile.NamedTemporaryFile("w", encoding="utf-8-sig", delete=False) as env_file:
             env_file.write(env_text)
@@ -193,6 +198,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
                 ALPHAMATE_JOURNAL_DB_PATH=None,
                 ALPHAMATE_ACCESS_DB_PATH=None,
                 ALPHAMATE_REVIEW_HISTORY_DB_PATH=None,
+                ALPHAMATE_EVENT_LOG_DB_PATH=None,
             ):
                 from backend.core.release_check import format_backend_release_check, validate_backend_release_env
 

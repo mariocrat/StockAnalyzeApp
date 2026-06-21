@@ -35,6 +35,7 @@ from core.access_control import (
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
 from core.readiness import get_app_readiness
+from core.event_log import record_api_exception, record_api_failure
 
 from contextlib import asynccontextmanager
 import threading
@@ -267,6 +268,49 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _request_user_id_for_log(request: Request) -> str:
+    authorization = request.headers.get("authorization")
+    if not authorization:
+        return ""
+    try:
+        user = authenticate_session(authorization)
+        return str(user.get("id") or "")
+    except Exception:
+        return ""
+
+
+@app.middleware("http")
+async def log_failed_api_requests(request: Request, call_next):
+    path = request.url.path
+    if not path.startswith("/api/"):
+        return await call_next(request)
+
+    user_id = _request_user_id_for_log(request)
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        record_api_exception(
+            method=request.method,
+            path=path,
+            exc=exc,
+            user_id=user_id,
+        )
+        raise
+
+    if response.status_code >= 400:
+        record_api_failure(
+            method=request.method,
+            path=path,
+            status_code=response.status_code,
+            user_id=user_id,
+            message=f"HTTP {response.status_code}",
+            details={
+                "user_agent": request.headers.get("user-agent", ""),
+            },
+        )
+    return response
 
 def calculate_indicators(df: pd.DataFrame, indicators: list):
     df = df.copy()

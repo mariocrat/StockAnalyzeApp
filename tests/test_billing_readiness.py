@@ -59,6 +59,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_JOURNAL_DB_PATH="D:/secure/alphamate/trades.sqlite3",
             ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
             ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
+            ALPHAMATE_EVENT_LOG_DB_PATH="D:/secure/alphamate/events.sqlite3",
         ):
             from backend.core import readiness
 
