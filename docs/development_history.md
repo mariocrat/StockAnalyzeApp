@@ -12,6 +12,7 @@
 - Blocked Google Play Pro subscription token reuse across different user accounts, and added a DB unique index on subscription token hashes as a second guard.
 - Added Google Play consumable consume retry tracking and subscription acknowledgement before enabling Pro access.
 - Added mobile billing finalization policy tests so Android purchase transactions are not finished in-app after the server has already consumed or acknowledged them.
+- Added `verify_android_debug.bat` and `scripts/verify_android_debug.ps1` for the heavier Android Capacitor sync plus debug APK build check.
 
 ## 2026-06-21 frontend code splitting
 

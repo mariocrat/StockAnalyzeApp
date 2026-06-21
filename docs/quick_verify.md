@@ -22,6 +22,16 @@ The script checks:
 - frontend lint
 - frontend production build
 
+To also confirm the Android wrapper and debug APK build, run this from the
+project root:
+
+```cmd
+verify_android_debug.bat
+```
+
+That heavier check runs `npm run mobile:build`, syncs Capacitor assets into the
+Android project, and builds `frontend/android/app/build/outputs/apk/debug/app-debug.apk`.
+
 This is a local development quality check. Production release environment checks
 that require real server secrets still need the backend and frontend release
 checks described in `docs/manual_test_guide.md`.
