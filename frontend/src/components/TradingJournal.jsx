@@ -970,6 +970,7 @@ export default function TradingJournal({ apiBase }) {
   const readinessSections = appReadiness?.sections || {};
   const dataStorageReadiness = readinessSections.data_storage || {};
   const privacyPolicyReadiness = readinessSections.privacy_policy || {};
+  const privacyPolicyUrl = privacyPolicyReadiness.url || '';
   const googlePlayReadiness = readinessSections.google_play || productCatalog?.google_play || {};
   const admobStatus = readinessSections.admob || productCatalog?.admob || {};
   const aiReadiness = readinessSections.ai || {};
@@ -1254,6 +1255,11 @@ export default function TradingJournal({ apiBase }) {
             <p>AI 복기는 입력한 매매 기록, 메모, 차트 요약을 서버와 AI 제공업체로 전송해 분석합니다.</p>
             <p>매매 이력 저장을 켠 계정은 AI 복기 결과와 당시 차트 스냅샷이 복기 보관함에 저장될 수 있습니다.</p>
             <p>내 데이터 내보내기로 저장 내용을 확인할 수 있고, 계정 데이터 삭제로 현재 계정의 저장 데이터를 지울 수 있습니다.</p>
+            {privacyPolicyUrl && (
+              <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">
+                개인정보처리방침 열기
+              </a>
+            )}
             <span>현재 동의 안내 버전: {currentConsentVersion}</span>
           </div>
         </details>

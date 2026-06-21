@@ -914,6 +914,19 @@ body {
   line-height: 1.55;
 }
 
+.journal-privacy-disclosure a {
+  display: inline-flex;
+  margin-top: 9px;
+  color: #8fb1ff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.journal-privacy-disclosure a:hover {
+  color: #bfd0ff;
+}
+
 .journal-privacy-disclosure span {
   display: block;
   margin-top: 8px;

@@ -11,6 +11,7 @@
 - `/api/app/readiness`와 백엔드 release check가 `ALPHAMATE_PRIVACY_POLICY_URL`을 확인하도록 했다.
 - 개인정보처리방침 URL은 공개 HTTPS 주소여야 readiness가 통과한다.
 - 매매복기 배포 준비 상태 화면에 `개인정보처리방침` 항목을 추가했다.
+- 앱 안의 `개인정보/AI 이용 안내`에서 설정된 개인정보처리방침 URL을 바로 열 수 있게 했다.
 - `.env.example`에 복기 보관함 DB 경로와 개인정보처리방침 URL 예시를 보강했다.
 
 ## 2026-06-21 AI/개인정보 이용 안내
