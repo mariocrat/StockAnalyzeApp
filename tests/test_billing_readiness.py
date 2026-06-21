@@ -402,6 +402,64 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual(150, entitlements["basic"]["pro_monthly_remaining"])
             self.assertEqual(5, entitlements["advanced"]["pro_monthly_remaining"])
 
+    def test_google_play_subscription_token_cannot_be_reused_by_another_user(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCOUNT_DB_PATH=os.path.join(tmpdir, "accounts.sqlite3"),
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+            GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
+        ):
+            from backend.core import access_control, account_store
+
+            access_control = importlib.reload(access_control)
+            account_store = importlib.reload(account_store)
+            buyer = account_store.login_dev_provider(
+                provider="kakao",
+                provider_user_id="buyer",
+                display_name="Buyer",
+            )
+            other = account_store.login_dev_provider(
+                provider="naver",
+                provider_user_id="other",
+                display_name="Other",
+            )
+            access_control._verify_google_play_subscription = lambda **kwargs: {
+                "package_name": "com.alphamate.app",
+                "product_id": "alphamate.pro.monthly",
+                "subscription_state": "SUBSCRIPTION_STATE_ACTIVE",
+                "expiry_time": "2099-01-01T00:00:00Z",
+                "latest_order_id": "GPA.pro.shared",
+                "auto_renewing": True,
+            }
+
+            access_control.apply_google_play_purchase(
+                authorization=f"Bearer {buyer['session_token']}",
+                product_id="pro_monthly",
+                purchase_token="shared-subscription-token",
+                package_name="com.alphamate.app",
+            )
+
+            with self.assertRaises(HTTPException) as raised:
+                access_control.apply_google_play_purchase(
+                    authorization=f"Bearer {other['session_token']}",
+                    product_id="pro_monthly",
+                    purchase_token="shared-subscription-token",
+                    package_name="com.alphamate.app",
+                )
+
+            self.assertEqual(409, raised.exception.status_code)
+            self.assertEqual("pro", access_control.get_user_entitlements(
+                authorization=f"Bearer {buyer['session_token']}",
+                entitlement_token="",
+            )["plan"])
+            self.assertEqual("free", access_control.get_user_entitlements(
+                authorization=f"Bearer {other['session_token']}",
+                entitlement_token="",
+            )["plan"])
+
     def test_expired_google_play_subscription_does_not_enable_pro(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="development",

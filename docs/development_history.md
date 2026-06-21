@@ -9,6 +9,7 @@
 - Added the review history interstitial AdMob variable to `frontend/.env.example` so the example matches `npm run release:check`.
 - Added tests that keep backend and frontend release-check environment examples aligned with required settings.
 - Added a tracked-file secret pattern scan to catch accidental API keys, private keys, service account JSON, and hard-coded password assignments before commit.
+- Blocked Google Play Pro subscription token reuse across different user accounts, and added a DB unique index on subscription token hashes as a second guard.
 
 ## 2026-06-21 frontend code splitting
 

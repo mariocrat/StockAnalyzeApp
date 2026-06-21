@@ -157,6 +157,12 @@ def _connect_access_db():
     )
     conn.execute(
         """
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_google_play_subscriptions_purchase_token_hash
+        ON google_play_subscriptions (purchase_token_hash)
+        """
+    )
+    conn.execute(
+        """
         CREATE TABLE IF NOT EXISTS admob_reward_events (
             transaction_id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
@@ -833,35 +839,56 @@ def _save_google_subscription(
     now = datetime.datetime.now().isoformat(timespec="seconds")
     conn = _connect_access_db()
     try:
-        conn.execute(
-            """
-            INSERT OR REPLACE INTO google_play_subscriptions (
-                user_id,
-                purchase_token_hash,
-                local_product_id,
-                google_play_product_id,
-                status,
-                expiry_time,
-                auto_renewing,
-                latest_order_id,
-                updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                user_id,
-                token_hash,
-                local_product_id,
-                google_product_id,
-                status,
-                expiry_time,
-                1 if auto_renewing else 0,
-                latest_order_id,
-                now,
-            ),
-        )
+        try:
+            conn.execute(
+                """
+                INSERT INTO google_play_subscriptions (
+                    user_id,
+                    purchase_token_hash,
+                    local_product_id,
+                    google_play_product_id,
+                    status,
+                    expiry_time,
+                    auto_renewing,
+                    latest_order_id,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    purchase_token_hash = excluded.purchase_token_hash,
+                    local_product_id = excluded.local_product_id,
+                    google_play_product_id = excluded.google_play_product_id,
+                    status = excluded.status,
+                    expiry_time = excluded.expiry_time,
+                    auto_renewing = excluded.auto_renewing,
+                    latest_order_id = excluded.latest_order_id,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    user_id,
+                    token_hash,
+                    local_product_id,
+                    google_product_id,
+                    status,
+                    expiry_time,
+                    1 if auto_renewing else 0,
+                    latest_order_id,
+                    now,
+                ),
+            )
+        except sqlite3.IntegrityError as exc:
+            raise HTTPException(status_code=409, detail="Google Play subscription token is already linked to another account.") from exc
         conn.commit()
     finally:
         conn.close()
+
+
+def _ensure_google_subscription_token_owner(*, token_hash: str, user_id: str):
+    row = _load_google_subscription_by_token_hash(token_hash)
+    if row and row["user_id"] != user_id:
+        raise HTTPException(status_code=409, detail="Google Play subscription token is already linked to another account.")
+    if row and row["user_id"] == user_id:
+        return row
+    return None
 
 
 def _save_wallet_and_record_google_purchase(
@@ -1278,6 +1305,7 @@ def apply_google_play_purchase(
     plan = _plan_for(user_id, None)
 
     if product_id in SUBSCRIPTIONS:
+        _ensure_google_subscription_token_owner(token_hash=token_hash, user_id=user_id)
         verification = _verify_google_play_subscription(
             package_name=normalized_package,
             google_product_id=google_product_id,
