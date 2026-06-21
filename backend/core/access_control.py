@@ -729,8 +729,21 @@ def _verify_google_play_subscription(
         "expiry_time": str(matching_item.get("expiryTime") or ""),
         "latest_order_id": str(matching_item.get("latestSuccessfulOrderId") or data.get("latestOrderId") or ""),
         "auto_renewing": auto_renewing,
+        "acknowledgement_state": str(data.get("acknowledgementState") or ""),
         "raw": data,
     }
+
+
+def _acknowledge_google_play_subscription(*, package_name: str, google_product_id: str, purchase_token: str) -> bool:
+    url = (
+        "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"
+        f"{package_name}/purchases/subscriptions/{google_product_id}/tokens/{purchase_token}:acknowledge"
+    )
+    try:
+        response = requests.post(url, headers=_google_play_headers(), json={}, timeout=10)
+    except requests.RequestException:
+        return False
+    return response.status_code < 400
 
 
 def _consume_google_play_product(*, package_name: str, google_product_id: str, purchase_token: str) -> bool:
@@ -797,6 +810,7 @@ def _write_google_purchase(
     google_product_id: str,
     kind: str,
     order_id: str,
+    status: str = "applied",
 ):
     now = datetime.datetime.now().isoformat(timespec="seconds")
     conn.execute(
@@ -819,7 +833,7 @@ def _write_google_purchase(
             google_product_id,
             kind,
             str(order_id or ""),
-            "applied",
+            status,
             now,
         ),
     )
@@ -900,6 +914,7 @@ def _save_wallet_and_record_google_purchase(
     google_product_id: str,
     kind: str,
     order_id: str,
+    status: str = "applied",
 ):
     conn = _connect_access_db()
     try:
@@ -911,8 +926,25 @@ def _save_wallet_and_record_google_purchase(
             google_product_id=google_product_id,
             kind=kind,
             order_id=order_id,
+            status=status,
         )
         _write_wallet(conn, user_id, wallet)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _update_google_purchase_status(token_hash: str, status: str):
+    conn = _connect_access_db()
+    try:
+        conn.execute(
+            """
+            UPDATE google_play_purchases
+            SET status = ?
+            WHERE purchase_token_hash = ?
+            """,
+            (status, token_hash),
+        )
         conn.commit()
     finally:
         conn.close()
@@ -1331,6 +1363,17 @@ def apply_google_play_purchase(
             )
             raise HTTPException(status_code=402, detail="Google Play subscription is not active.")
 
+        acknowledgement_state = str(verification.get("acknowledgement_state") or "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED")
+        acknowledged = acknowledgement_state == "ACKNOWLEDGEMENT_STATE_ACKNOWLEDGED"
+        if not acknowledged:
+            acknowledged = _acknowledge_google_play_subscription(
+                package_name=normalized_package,
+                google_product_id=google_product_id,
+                purchase_token=purchase_token,
+            )
+            if not acknowledged:
+                raise HTTPException(status_code=503, detail="Google Play subscription acknowledgement failed.")
+
         _save_google_subscription(
             user_id=user_id,
             token_hash=token_hash,
@@ -1350,6 +1393,7 @@ def apply_google_play_purchase(
             "kind": "pro",
             "expiry_time": expiry_time,
             "auto_renewing": bool(verification.get("auto_renewing")),
+            "acknowledged": acknowledged,
         }
         return snapshot
 
@@ -1357,12 +1401,27 @@ def apply_google_play_purchase(
         wallet = _wallet_for(user_id)
         existing = _load_google_purchase(token_hash)
         if existing:
+            purchase_status = "already_applied"
+            consumed = None
+            if existing["status"] == "consume_pending":
+                consumed = _consume_google_play_product(
+                    package_name=normalized_package,
+                    google_product_id=existing["google_play_product_id"],
+                    purchase_token=purchase_token,
+                )
+                if consumed:
+                    _update_google_purchase_status(token_hash, "applied")
+                    purchase_status = "consume_completed"
+                else:
+                    purchase_status = "consume_pending"
             snapshot = _wallet_snapshot(wallet, plan)
             snapshot["purchase"] = {
-                "status": "already_applied",
+                "status": purchase_status,
                 "product_id": existing["local_product_id"],
                 "kind": existing["kind"],
             }
+            if consumed is not None:
+                snapshot["purchase"]["consumed"] = consumed
             return snapshot
 
     verification = _verify_google_play_purchase(
@@ -1383,12 +1442,27 @@ def apply_google_play_purchase(
         wallet = _wallet_for(user_id)
         existing = _load_google_purchase(token_hash)
         if existing:
+            purchase_status = "already_applied"
+            consumed = None
+            if existing["status"] == "consume_pending":
+                consumed = _consume_google_play_product(
+                    package_name=normalized_package,
+                    google_product_id=existing["google_play_product_id"],
+                    purchase_token=purchase_token,
+                )
+                if consumed:
+                    _update_google_purchase_status(token_hash, "applied")
+                    purchase_status = "consume_completed"
+                else:
+                    purchase_status = "consume_pending"
             snapshot = _wallet_snapshot(wallet, plan)
             snapshot["purchase"] = {
-                "status": "already_applied",
+                "status": purchase_status,
                 "product_id": existing["local_product_id"],
                 "kind": existing["kind"],
             }
+            if consumed is not None:
+                snapshot["purchase"]["consumed"] = consumed
             return snapshot
         if product["kind"] == "basic":
             wallet.purchased_basic += product["quantity"]
@@ -1402,6 +1476,7 @@ def apply_google_play_purchase(
             google_product_id=google_product_id,
             kind=product["kind"],
             order_id=str(verification.get("order_id") or ""),
+            status="consume_pending",
         )
         snapshot = _wallet_snapshot(wallet, plan)
 
@@ -1410,8 +1485,10 @@ def apply_google_play_purchase(
         google_product_id=google_product_id,
         purchase_token=purchase_token,
     )
+    if consumed:
+        _update_google_purchase_status(token_hash, "applied")
     snapshot["purchase"] = {
-        "status": "applied",
+        "status": "applied" if consumed else "consume_pending",
         "product_id": product_id,
         "kind": product["kind"],
         "quantity": product["quantity"],

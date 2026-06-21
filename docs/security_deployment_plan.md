@@ -148,8 +148,9 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` 또는 `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` 값 자체는 응답에 포함하지 않는다.
 - `POST /api/journal/google-play-purchase`는 소모성 복기권에 대해 서버에서 purchase token을 Google Play에 검증한 뒤에만 지급한다.
 - purchase token 원문은 저장하지 않고 SHA-256 해시만 저장해 중복 지급을 막는다.
-- 소모성 상품은 지급 후 consume 요청을 수행한다. consume 실패 시에도 서버 DB의 중복 지급 방지 기록이 우선 방어선이다.
+- 소모성 상품은 먼저 `consume_pending` 상태로 지급 기록을 남긴 뒤 consume 요청을 수행한다. consume 실패 시에도 이용권을 중복 지급하지 않고, 같은 purchase token이 다시 제출되면 consume만 재시도한다.
 - Pro 구독은 `purchases.subscriptionsv2.get`으로 구독 토큰을 검증하고, 활성 상태와 만료 시간이 유효할 때만 Pro 플랜으로 저장한다.
+- Pro 구독이 미확인 상태면 Google Play subscription acknowledge가 성공한 뒤에만 Pro 권한을 활성화한다.
 - 저장 시 구독 토큰 원문은 남기지 않고 SHA-256 해시, 상품 ID, 상태, 만료 시간, 최신 주문 ID만 남긴다.
 - 만료/비활성 구독 검증 결과도 저장해 기존 Pro 상태가 남아 비용이 새는 일을 막는다.
 - Google Play RTDN Pub/Sub push endpoint는 공유 토큰 헤더가 맞을 때만 처리하며, 알림 수신 후 Google Play API를 다시 조회해 구독 상태를 갱신한다.

@@ -889,7 +889,11 @@ export default function TradingJournal({ apiBase }) {
       );
       setEntitlements(res.data || null);
       await loadDataSummary(authSession.session_token);
-      setMessage('Google Play 구매가 서버에서 검증되어 이용권에 반영됐습니다.');
+      if (res.data?.purchase?.status === 'consume_pending') {
+        setMessage('이용권은 반영됐습니다. Google Play 확정 처리는 다음 구매 확인 때 다시 시도됩니다.');
+      } else {
+        setMessage('Google Play 구매가 서버에서 검증되어 이용권에 반영됐습니다.');
+      }
     } catch (err) {
       setMessage(err.response?.data?.detail || err?.message || 'Google Play 구매를 완료하지 못했습니다.');
     } finally {

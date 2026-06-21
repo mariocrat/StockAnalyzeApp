@@ -10,6 +10,7 @@
 - Added tests that keep backend and frontend release-check environment examples aligned with required settings.
 - Added a tracked-file secret pattern scan to catch accidental API keys, private keys, service account JSON, and hard-coded password assignments before commit.
 - Blocked Google Play Pro subscription token reuse across different user accounts, and added a DB unique index on subscription token hashes as a second guard.
+- Added Google Play consumable consume retry tracking and subscription acknowledgement before enabling Pro access.
 
 ## 2026-06-21 frontend code splitting
 
