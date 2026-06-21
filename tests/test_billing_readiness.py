@@ -60,6 +60,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
             ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
             ALPHAMATE_EVENT_LOG_DB_PATH="D:/secure/alphamate/events.sqlite3",
+            ALPHAMATE_ADMIN_TOKEN="admin-token",
         ):
             from backend.core import readiness
 
@@ -72,6 +73,7 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertTrue(status["sections"]["google_play"]["ready"])
             self.assertTrue(status["sections"]["admob"]["ready"])
             self.assertTrue(status["sections"]["data_storage"]["ready"])
+            self.assertTrue(status["sections"]["admin"]["ready"])
             self.assertTrue(status["sections"]["privacy_policy"]["ready"])
             self.assertEqual("https://alphamate.example/privacy", status["sections"]["privacy_policy"]["url"])
             self.assertNotIn("sk-secret-openai", str(status))
@@ -95,6 +97,8 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_JOURNAL_DB_PATH=None,
             ALPHAMATE_ACCESS_DB_PATH=None,
             ALPHAMATE_REVIEW_HISTORY_DB_PATH=None,
+            ALPHAMATE_EVENT_LOG_DB_PATH=None,
+            ALPHAMATE_ADMIN_TOKEN=None,
         ):
             from backend.core import readiness
 
@@ -108,6 +112,8 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertIn("ALPHAMATE_PRIVACY_POLICY_URL", status["sections"]["privacy_policy"]["missing_server_settings"])
             self.assertIn("ALPHAMATE_ACCOUNT_DB_PATH", status["sections"]["data_storage"]["missing_server_settings"])
             self.assertIn("ALPHAMATE_REVIEW_HISTORY_DB_PATH", status["sections"]["data_storage"]["missing_server_settings"])
+            self.assertIn("ALPHAMATE_EVENT_LOG_DB_PATH", status["sections"]["data_storage"]["missing_server_settings"])
+            self.assertIn("ALPHAMATE_ADMIN_TOKEN", status["sections"]["admin"]["missing_server_settings"])
             self.assertIn("KAKAO_CLIENT_ID", status["sections"]["login"]["providers"]["kakao"]["missing_server_settings"])
             self.assertIn("NAVER_CLIENT_SECRET", status["sections"]["login"]["providers"]["naver"]["missing_server_settings"])
 

@@ -35,9 +35,11 @@ from core.access_control import (
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
 from core.readiness import get_app_readiness
-from core.event_log import record_api_exception, record_api_failure, record_event
+from core.env import env_value
+from core.event_log import list_events, record_api_exception, record_api_failure, record_event
 
 from contextlib import asynccontextmanager
+import hmac
 import threading
 import logging
 from fastapi import HTTPException
@@ -324,6 +326,37 @@ async def log_failed_api_requests(request: Request, call_next):
 def _clean_client_event_text(value: str, fallback: str, *, limit: int = 120) -> str:
     text = "".join(ch for ch in str(value or "") if ch.isalnum() or ch in {"_", "-", ".", "/", ":"}).strip()
     return (text or fallback)[:limit]
+
+
+def _bearer_value(authorization: Optional[str]) -> str:
+    text = str(authorization or "").strip()
+    if text.lower().startswith("bearer "):
+        return text[7:].strip()
+    return text
+
+
+def _require_admin_token(authorization: Optional[str]) -> bool:
+    configured = env_value("ALPHAMATE_ADMIN_TOKEN")
+    if not configured:
+        raise HTTPException(status_code=503, detail="Admin event log access is not configured.")
+    token = _bearer_value(authorization)
+    if not token:
+        raise HTTPException(status_code=401, detail="Admin token is required.")
+    if not hmac.compare_digest(token, configured):
+        raise HTTPException(status_code=403, detail="Admin token is invalid.")
+    return True
+
+
+@app.get("/api/admin/operational-events")
+def get_admin_operational_events(
+    authorization: Optional[str] = Header(default=None),
+    limit: int = 100,
+    level: str = "",
+    event_type: str = "",
+):
+    _require_admin_token(authorization)
+    events = list_events(limit=limit, level=level, event_type=event_type)
+    return {"events": events, "count": len(events)}
 
 
 @app.post("/api/client-events")

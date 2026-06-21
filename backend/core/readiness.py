@@ -10,6 +10,7 @@ REQUIRED_DATA_STORAGE_SETTINGS = [
     "ALPHAMATE_EVENT_LOG_DB_PATH",
 ]
 PRIVACY_POLICY_URL_SETTING = "ALPHAMATE_PRIVACY_POLICY_URL"
+ADMIN_TOKEN_SETTING = "ALPHAMATE_ADMIN_TOKEN"
 
 
 def _env_value(name: str) -> str:
@@ -63,12 +64,23 @@ def _privacy_policy_status() -> dict:
     }
 
 
+def _admin_status() -> dict:
+    configured = bool(_env_value(ADMIN_TOKEN_SETTING))
+    return {
+        "ready": configured,
+        "missing_server_settings": [] if configured else [ADMIN_TOKEN_SETTING],
+        "required_server_settings": [ADMIN_TOKEN_SETTING],
+        "note": "Required for protected operational event log lookup.",
+    }
+
+
 def get_app_readiness() -> dict:
     catalog = get_product_catalog()
     sections = {
         "ai": _ai_status(),
         "login": _login_status(),
         "data_storage": _data_storage_status(),
+        "admin": _admin_status(),
         "privacy_policy": _privacy_policy_status(),
         "google_play": catalog["google_play"],
         "admob": catalog["admob"],

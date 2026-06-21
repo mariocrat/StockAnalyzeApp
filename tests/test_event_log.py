@@ -108,6 +108,32 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(402, rows[0]["status_code"])
             self.assertIn("Basic review quota exhausted.", rows[0]["message"])
 
+    def test_list_events_can_filter_by_level_and_event_type(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            event_log.record_event(
+                level="warning",
+                event_type="google_play_purchase_failed",
+                path="/journal",
+                message="purchase failed",
+            )
+            event_log.record_event(
+                level="info",
+                event_type="client_navigation",
+                path="/journal",
+                message="opened",
+            )
+
+            rows = event_log.list_events(limit=10, level="warning", event_type="google_play_purchase_failed")
+
+            self.assertEqual(1, len(rows))
+            self.assertEqual("warning", rows[0]["level"])
+            self.assertEqual("google_play_purchase_failed", rows[0]["event_type"])
+
 
 if __name__ == "__main__":
     unittest.main()

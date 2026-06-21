@@ -220,6 +220,13 @@ Backend release environment check passed.
 
 모바일 앱에서 AdMob 보상형 광고나 Google Play 결제 처리 중 실패가 나면 프론트가 `POST /api/client-events`로 실패 정보를 보냅니다. 이 보고 자체가 실패해도 사용자의 원래 작업을 추가로 막지 않으며, 결제 token이나 세션 token 같은 값은 프론트와 서버 양쪽에서 가려집니다.
 
+서버 관리자만 최근 운영 로그를 조회하려면 운영 서버에 `ALPHAMATE_ADMIN_TOKEN`을 긴 랜덤 값으로 설정한 뒤 아래처럼 호출합니다. 이 토큰은 앱이나 frontend `.env`에 넣으면 안 됩니다.
+
+```powershell
+$env:ALPHAMATE_ADMIN_TOKEN='서버에_설정한_관리자_토큰'
+Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events?limit=50&level=error' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
+```
+
 ## 9. Android 앱 래퍼, APK, Play Store AAB 빌드 확인
 
 현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 이 PC에서는 프로젝트 안의 `.tools` 폴더에 JDK와 Android SDK command-line tools를 받아 디버그 APK 빌드까지 확인했습니다. `.tools`는 PC 전용 도구라 GitHub에는 올리지 않습니다.

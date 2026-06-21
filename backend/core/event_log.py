@@ -187,17 +187,29 @@ def record_api_exception(*, method: str, path: str, exc: Exception, user_id: str
     )
 
 
-def list_events(*, limit: int = 100) -> list[dict]:
+def list_events(*, limit: int = 100, level: str = "", event_type: str = "") -> list[dict]:
+    filters = []
+    params = []
+    if str(level or "").strip():
+        filters.append("level = ?")
+        params.append(str(level).strip())
+    if str(event_type or "").strip():
+        filters.append("event_type = ?")
+        params.append(str(event_type).strip())
+    where_sql = f"WHERE {' AND '.join(filters)}" if filters else ""
+    params.append(max(1, min(int(limit or 100), 1000)))
+
     conn = _connect()
     try:
         rows = conn.execute(
-            """
+            f"""
             SELECT *
             FROM operational_events
+            {where_sql}
             ORDER BY created_at DESC, id DESC
             LIMIT ?
             """,
-            (max(1, min(int(limit or 100), 1000)),),
+            tuple(params),
         ).fetchall()
         return [
             {
