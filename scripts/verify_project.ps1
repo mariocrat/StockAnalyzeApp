@@ -40,6 +40,7 @@ try {
     Push-Location $frontend
     Run-Step "Frontend release-env tests" { & npm.cmd run test:release-env }
     Run-Step "Frontend Android branding tests" { & npm.cmd run test:android-branding }
+    Run-Step "Frontend mobile billing tests" { & npm.cmd run test:mobile-billing }
     Run-Step "Frontend mobile AdMob tests" { & npm.cmd run test:mobile-admob }
     Run-Step "Frontend lint" { & npm.cmd run lint }
     if (-not $env:VITE_APP_NAME) {

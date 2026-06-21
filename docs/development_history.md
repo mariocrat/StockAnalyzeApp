@@ -11,6 +11,7 @@
 - Added a tracked-file secret pattern scan to catch accidental API keys, private keys, service account JSON, and hard-coded password assignments before commit.
 - Blocked Google Play Pro subscription token reuse across different user accounts, and added a DB unique index on subscription token hashes as a second guard.
 - Added Google Play consumable consume retry tracking and subscription acknowledgement before enabling Pro access.
+- Added mobile billing finalization policy tests so Android purchase transactions are finished only after the server reports a finalized purchase state.
 
 ## 2026-06-21 frontend code splitting
 
