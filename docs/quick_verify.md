@@ -3,9 +3,13 @@
 Run this from the project root before committing or before asking someone else
 to continue the work:
 
-```powershell
-powershell.exe -ExecutionPolicy Bypass -File .\scripts\verify_project.ps1
+```cmd
+verify_project.bat
 ```
+
+You can also double-click `verify_project.bat` in the project folder. The batch
+file calls the PowerShell script with the correct project path, so it works from
+Command Prompt without having to remember the long command.
 
 The script checks:
 
