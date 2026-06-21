@@ -195,5 +195,6 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 실패한 `/api/...` 요청은 `operational_events` 테이블에 method, path, status code, 사용자 ID, 메시지, 안전한 부가정보로 저장된다. Authorization, token, secret, password, private key처럼 비밀값으로 보이는 필드는 저장 전에 `[redacted]`로 바뀐다.
 - 모바일 앱의 광고/결제 SDK 실패는 `POST /api/client-events`를 통해 같은 `operational_events` 테이블에 저장한다. 클라이언트 보고는 장애 분석용 보조 정보이며, 광고 보상이나 결제 지급의 신뢰 근거로 사용하면 안 된다.
 - `GET /api/admin/operational-events`는 `Authorization: Bearer ...`에 담긴 `ALPHAMATE_ADMIN_TOKEN`이 맞을 때만 최근 운영 로그를 반환한다. 이 토큰은 서버 secret으로만 관리하고 앱, frontend 환경변수, GitHub에 넣지 않는다.
+- `GET /api/admin/operational-events/summary`도 같은 관리자 토큰으로 보호하며, 최근 운영 로그를 level, event type, path 기준으로 집계해 장애 원인 분류에 사용한다.
 - 기본 개발 경로인 `backend/data/*.sqlite3`는 로컬 개발용으로만 보고, 운영에서는 백업 가능한 서버 볼륨이나 관리형 DB 마이그레이션 대상으로 분리해야 한다.
 - 현재 코드는 SQLite 기반이므로 초기 운영은 명시 경로 + 백업 정책으로 시작할 수 있지만, 사용자 수가 늘면 PostgreSQL 같은 관리형 DB로 옮기는 것이 다음 큰 단계다.

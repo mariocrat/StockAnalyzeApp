@@ -227,6 +227,12 @@ $env:ALPHAMATE_ADMIN_TOKEN='서버에_설정한_관리자_토큰'
 Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events?limit=50&level=error' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
 ```
 
+최근 로그를 하나씩 보기 전에 어떤 오류가 많은지 먼저 보려면 요약 API를 호출합니다.
+
+```powershell
+Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events/summary?limit=500' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
+```
+
 ## 9. Android 앱 래퍼, APK, Play Store AAB 빌드 확인
 
 현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 이 PC에서는 프로젝트 안의 `.tools` 폴더에 JDK와 Android SDK command-line tools를 받아 디버그 APK 빌드까지 확인했습니다. `.tools`는 PC 전용 도구라 GitHub에는 올리지 않습니다.

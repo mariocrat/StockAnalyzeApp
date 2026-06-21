@@ -134,6 +134,25 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual("warning", rows[0]["level"])
             self.assertEqual("google_play_purchase_failed", rows[0]["event_type"])
 
+    def test_summarize_events_groups_recent_events(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            event_log.record_event(level="error", event_type="google_play_purchase_failed", path="/journal")
+            event_log.record_event(level="error", event_type="google_play_purchase_failed", path="/journal")
+            event_log.record_event(level="warning", event_type="rewarded_ad_basic_review_failed", path="/journal")
+
+            summary = event_log.summarize_events(limit=100)
+
+            self.assertEqual(3, summary["total"])
+            self.assertEqual({"error": 2, "warning": 1}, summary["by_level"])
+            self.assertEqual(2, summary["by_event_type"]["google_play_purchase_failed"])
+            self.assertEqual(1, summary["by_event_type"]["rewarded_ad_basic_review_failed"])
+            self.assertEqual(2, summary["top_events"][0]["count"])
+
 
 if __name__ == "__main__":
     unittest.main()

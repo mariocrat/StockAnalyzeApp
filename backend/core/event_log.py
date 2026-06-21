@@ -220,3 +220,35 @@ def list_events(*, limit: int = 100, level: str = "", event_type: str = "") -> l
         ]
     finally:
         conn.close()
+
+
+def summarize_events(*, limit: int = 500) -> dict:
+    rows = list_events(limit=limit)
+    by_level: dict[str, int] = {}
+    by_event_type: dict[str, int] = {}
+    by_path: dict[str, int] = {}
+
+    for row in rows:
+        level = str(row.get("level") or "info")
+        event_type = str(row.get("event_type") or "event")
+        path = str(row.get("path") or "")
+        by_level[level] = by_level.get(level, 0) + 1
+        by_event_type[event_type] = by_event_type.get(event_type, 0) + 1
+        if path:
+            by_path[path] = by_path.get(path, 0) + 1
+
+    def _top_items(values: dict[str, int]) -> list[dict]:
+        return [
+            {"name": name, "count": count}
+            for name, count in sorted(values.items(), key=lambda item: (-item[1], item[0]))[:10]
+        ]
+
+    return {
+        "total": len(rows),
+        "sample_limit": max(1, min(int(limit or 500), 1000)),
+        "by_level": by_level,
+        "by_event_type": by_event_type,
+        "by_path": by_path,
+        "top_events": _top_items(by_event_type),
+        "top_paths": _top_items(by_path),
+    }

@@ -36,7 +36,7 @@ from core.account_store import login_dev_provider, authenticate_session, revoke_
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
 from core.readiness import get_app_readiness
 from core.env import env_value
-from core.event_log import list_events, record_api_exception, record_api_failure, record_event
+from core.event_log import list_events, record_api_exception, record_api_failure, record_event, summarize_events
 
 from contextlib import asynccontextmanager
 import hmac
@@ -357,6 +357,15 @@ def get_admin_operational_events(
     _require_admin_token(authorization)
     events = list_events(limit=limit, level=level, event_type=event_type)
     return {"events": events, "count": len(events)}
+
+
+@app.get("/api/admin/operational-events/summary")
+def get_admin_operational_event_summary(
+    authorization: Optional[str] = Header(default=None),
+    limit: int = 500,
+):
+    _require_admin_token(authorization)
+    return summarize_events(limit=limit)
 
 
 @app.post("/api/client-events")

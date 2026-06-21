@@ -17,6 +17,7 @@
 - Added a server-side operational event log for failed API actions, with secret-like fields redacted and `ALPHAMATE_EVENT_LOG_DB_PATH` required for production readiness.
 - Added a client-side event reporting endpoint so Android ad and Google Play purchase failures can be stored in the same operational event log without exposing tokens.
 - Added protected admin lookup for recent operational events with `ALPHAMATE_ADMIN_TOKEN`, plus release readiness checks for that token.
+- Added protected operational event summary counts by level, event type, and path for faster troubleshooting.
 
 ## 2026-06-21 frontend code splitting
 
