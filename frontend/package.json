@@ -12,6 +12,7 @@
     "test:android-branding": "node --test scripts/android-branding.test.js",
     "test:mobile-billing": "node --test scripts/mobile-billing-policy.test.js",
     "test:mobile-admob": "node --test scripts/mobile-admob-policy.test.js",
+    "test:client-events": "node --test scripts/client-event-log.test.js",
     "test:release-env": "node --test scripts/validate-release-env.test.js",
     "mobile:build": "npm run build && npx cap sync android",
     "mobile:release:check": "npm run release:check && npm run mobile:build",

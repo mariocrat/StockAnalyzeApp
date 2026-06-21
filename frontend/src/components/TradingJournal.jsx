@@ -6,6 +6,7 @@ import JournalTradeChart from './JournalTradeChart';
 import { getAdMobRuntimeStatus, initializeAdMob, showReviewHistoryInterstitial, showRewardedReviewAd } from '../mobile/admob';
 import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct } from '../mobile/billing';
 import { shouldFinishGooglePlayTransaction } from '../mobile/billingPolicy';
+import { reportClientEvent } from '../utils/clientEventLog';
 
 const sideLabels = { buy: '매수', sell: '매도' };
 const DEFAULT_FEE_RATE = '0.015';
@@ -157,6 +158,13 @@ export default function TradingJournal({ apiBase }) {
   const authHeaders = { Authorization: `Bearer ${activeAuthToken}` };
   const savedJournalMode = Boolean(authSession?.session_token && authSession?.user?.journal_storage_enabled);
   const transientJournalMode = oneTimeMode && !savedJournalMode;
+
+  const reportJournalClientEvent = (event) => reportClientEvent({
+    apiBase,
+    sessionToken: authSession?.session_token || '',
+    path: '/journal',
+    ...event,
+  });
 
   const oauthRedirectUri = (provider) => {
     if (provider === 'kakao' && KAKAO_REDIRECT_URI) return KAKAO_REDIRECT_URI;
@@ -689,6 +697,16 @@ export default function TradingJournal({ apiBase }) {
       await loadAiReview(trades, 'basic', { adRewardToken: '' });
       await loadEntitlements();
     } catch (err) {
+      reportJournalClientEvent({
+        eventType: 'rewarded_ad_basic_review_failed',
+        level: 'warning',
+        message: err?.message || 'Rewarded ad basic review failed.',
+        details: {
+          native: mobileAdStatus.native,
+          platform: mobileAdStatus.platform,
+          userId: authSession?.user?.id,
+        },
+      });
       setMessage(err?.message || '광고 시청 또는 보상 확인을 완료하지 못했습니다.');
     } finally {
       setAdLoading(false);
@@ -899,6 +917,17 @@ export default function TradingJournal({ apiBase }) {
         setMessage('Google Play 구매가 서버에서 검증되어 이용권에 반영됐습니다.');
       }
     } catch (err) {
+      reportJournalClientEvent({
+        eventType: 'google_play_purchase_failed',
+        level: 'error',
+        message: err.response?.data?.detail || err?.message || 'Google Play purchase failed.',
+        details: {
+          productId,
+          native: billingStatus.native,
+          platform: billingStatus.platform,
+          serverStatus: err.response?.status,
+        },
+      });
       setMessage(err.response?.data?.detail || err?.message || 'Google Play 구매를 완료하지 못했습니다.');
     } finally {
       setPurchaseLoadingId('');

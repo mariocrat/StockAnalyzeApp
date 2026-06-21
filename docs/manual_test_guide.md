@@ -218,6 +218,8 @@ Backend release environment check passed.
 
 운영 장애 확인용 로그는 `ALPHAMATE_EVENT_LOG_DB_PATH`에 지정한 SQLite DB의 `operational_events` 테이블에 저장됩니다. 로컬 개발 기본값은 `backend/data/event_log.sqlite3`입니다. 실패한 `/api/...` 요청의 method, path, status code, 사용자 ID, 메시지를 확인할 수 있고, token/secret/password/private key처럼 비밀값으로 보이는 필드는 저장 전에 가려집니다.
 
+모바일 앱에서 AdMob 보상형 광고나 Google Play 결제 처리 중 실패가 나면 프론트가 `POST /api/client-events`로 실패 정보를 보냅니다. 이 보고 자체가 실패해도 사용자의 원래 작업을 추가로 막지 않으며, 결제 token이나 세션 token 같은 값은 프론트와 서버 양쪽에서 가려집니다.
+
 ## 9. Android 앱 래퍼, APK, Play Store AAB 빌드 확인
 
 현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 이 PC에서는 프로젝트 안의 `.tools` 폴더에 JDK와 Android SDK command-line tools를 받아 디버그 APK 빌드까지 확인했습니다. `.tools`는 PC 전용 도구라 GitHub에는 올리지 않습니다.

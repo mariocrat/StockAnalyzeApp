@@ -31,6 +31,7 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("/api/journal/admob-ssv", paths)
         self.assertIn("/api/journal/review-history", paths)
         self.assertIn("/api/journal/review-history/{review_id}", paths)
+        self.assertIn("/api/client-events", paths)
 
 
 if __name__ == "__main__":

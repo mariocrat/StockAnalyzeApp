@@ -14,6 +14,7 @@
 - Added mobile billing finalization policy tests so Android purchase transactions are not finished in-app after the server has already consumed or acknowledged them.
 - Added `verify_android_debug.bat` and `scripts/verify_android_debug.ps1` for the heavier Android Capacitor sync plus debug APK build check.
 - Added a server-side operational event log for failed API actions, with secret-like fields redacted and `ALPHAMATE_EVENT_LOG_DB_PATH` required for production readiness.
+- Added a client-side event reporting endpoint so Android ad and Google Play purchase failures can be stored in the same operational event log without exposing tokens.
 
 ## 2026-06-21 frontend code splitting
 

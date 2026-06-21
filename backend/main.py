@@ -35,7 +35,7 @@ from core.access_control import (
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
 from core.readiness import get_app_readiness
-from core.event_log import record_api_exception, record_api_failure
+from core.event_log import record_api_exception, record_api_failure, record_event
 
 from contextlib import asynccontextmanager
 import threading
@@ -108,6 +108,14 @@ class AuthProviderCodeIn(BaseModel):
 
 class JournalStorageSettingIn(BaseModel):
     enabled: bool
+
+
+class ClientEventIn(BaseModel):
+    event_type: str = "client_event"
+    level: str = "warning"
+    message: str = ""
+    path: str = ""
+    details: dict = {}
 
 
 def _journal_batch_payload(batch: JournalBatchIn) -> list[dict]:
@@ -311,6 +319,31 @@ async def log_failed_api_requests(request: Request, call_next):
             },
         )
     return response
+
+
+def _clean_client_event_text(value: str, fallback: str, *, limit: int = 120) -> str:
+    text = "".join(ch for ch in str(value or "") if ch.isalnum() or ch in {"_", "-", ".", "/", ":"}).strip()
+    return (text or fallback)[:limit]
+
+
+@app.post("/api/client-events")
+def create_client_event(event: ClientEventIn, authorization: Optional[str] = Header(default=None)):
+    user = _optional_session_user(authorization)
+    level = _clean_client_event_text(event.level, "warning", limit=20)
+    if level not in {"debug", "info", "warning", "error"}:
+        level = "warning"
+    record_event(
+        level=level,
+        event_type=_clean_client_event_text(event.event_type, "client_event"),
+        method="CLIENT",
+        path=_clean_client_event_text(event.path, "/client", limit=200),
+        status_code=0,
+        user_id=str(user.get("id") or "") if user else "",
+        message=str(event.message or "")[:500],
+        details=event.details if isinstance(event.details, dict) else {},
+    )
+    return {"ok": True}
+
 
 def calculate_indicators(df: pd.DataFrame, indicators: list):
     df = df.copy()

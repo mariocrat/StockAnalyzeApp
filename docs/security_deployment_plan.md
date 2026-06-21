@@ -192,5 +192,6 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 운영 배포에서는 계정, 매매 기록, 이용권/광고 보상, 복기 보관함, 운영 이벤트 로그 DB 경로를 반드시 명시해야 한다.
 - 필요한 환경변수는 `ALPHAMATE_ACCOUNT_DB_PATH`, `ALPHAMATE_JOURNAL_DB_PATH`, `ALPHAMATE_ACCESS_DB_PATH`, `ALPHAMATE_REVIEW_HISTORY_DB_PATH`, `ALPHAMATE_EVENT_LOG_DB_PATH`다.
 - 실패한 `/api/...` 요청은 `operational_events` 테이블에 method, path, status code, 사용자 ID, 메시지, 안전한 부가정보로 저장된다. Authorization, token, secret, password, private key처럼 비밀값으로 보이는 필드는 저장 전에 `[redacted]`로 바뀐다.
+- 모바일 앱의 광고/결제 SDK 실패는 `POST /api/client-events`를 통해 같은 `operational_events` 테이블에 저장한다. 클라이언트 보고는 장애 분석용 보조 정보이며, 광고 보상이나 결제 지급의 신뢰 근거로 사용하면 안 된다.
 - 기본 개발 경로인 `backend/data/*.sqlite3`는 로컬 개발용으로만 보고, 운영에서는 백업 가능한 서버 볼륨이나 관리형 DB 마이그레이션 대상으로 분리해야 한다.
 - 현재 코드는 SQLite 기반이므로 초기 운영은 명시 경로 + 백업 정책으로 시작할 수 있지만, 사용자 수가 늘면 PostgreSQL 같은 관리형 DB로 옮기는 것이 다음 큰 단계다.
