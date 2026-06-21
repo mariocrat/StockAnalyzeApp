@@ -7,6 +7,7 @@
 - Added `docs/quick_verify.md` with the command and scope.
 - Added `verify_project.bat` for Command Prompt and double-click use, and made the PowerShell script stop when any native command returns a non-zero exit code.
 - Added the review history interstitial AdMob variable to `frontend/.env.example` so the example matches `npm run release:check`.
+- Added tests that keep backend and frontend release-check environment examples aligned with required settings.
 
 ## 2026-06-21 frontend code splitting
 

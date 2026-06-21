@@ -41,6 +41,37 @@ def patched_env(**values):
 
 
 class BackendReleaseCheckTest(unittest.TestCase):
+    def test_backend_env_example_documents_release_check_settings(self):
+        with open(".env.example", encoding="utf-8") as env_file:
+            example = env_file.read()
+
+        required_names = [
+            "ALPHAMATE_ENV",
+            "OPENAI_API_KEY",
+            "KAKAO_CLIENT_ID",
+            "KAKAO_CLIENT_SECRET",
+            "NAVER_CLIENT_ID",
+            "NAVER_CLIENT_SECRET",
+            "GOOGLE_PLAY_PACKAGE_NAME",
+            "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+            "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE",
+            "GOOGLE_PLAY_BASIC_REVIEW_30_ID",
+            "GOOGLE_PLAY_BASIC_REVIEW_100_ID",
+            "GOOGLE_PLAY_ADVANCED_REVIEW_5_ID",
+            "GOOGLE_PLAY_ADVANCED_REVIEW_10_ID",
+            "GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID",
+            "GOOGLE_PLAY_PRO_MONTHLY_ID",
+            "ADMOB_REWARDED_AD_UNIT_ID",
+            "ALPHAMATE_PRIVACY_POLICY_URL",
+            "ALPHAMATE_ACCOUNT_DB_PATH",
+            "ALPHAMATE_JOURNAL_DB_PATH",
+            "ALPHAMATE_ACCESS_DB_PATH",
+            "ALPHAMATE_REVIEW_HISTORY_DB_PATH",
+        ]
+
+        for name in required_names:
+            self.assertIn(name, example)
+
     def test_rejects_missing_production_backend_settings_without_secret_values(self):
         with patched_env(
             ALPHAMATE_ENV="development",

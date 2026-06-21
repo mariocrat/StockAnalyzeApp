@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import process from 'node:process';
 
 import { validateReleaseEnv } from './validate-release-env.js';
 
@@ -86,4 +87,27 @@ test('rejects missing Android keystore file for release builds', () => {
   assert.equal(result.ok, false);
   assert.match(result.errors.join('\n'), /ALPHAMATE_ANDROID_KEYSTORE_FILE/);
   assert.match(result.errors.join('\n'), /does not exist/);
+});
+
+test('frontend env example documents release check settings', () => {
+  const example = fs.readFileSync(path.resolve(process.cwd(), '.env.example'), 'utf8');
+  const requiredKeys = [
+    'VITE_ALPHAMATE_ENV',
+    'VITE_APP_NAME',
+    'VITE_ENABLE_DEV_TOOLS',
+    'VITE_API_BASE',
+    'VITE_ADMOB_REWARDED_AD_UNIT_ID',
+    'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID',
+    'VITE_GOOGLE_PLAY_PACKAGE_NAME',
+    'ALPHAMATE_ANDROID_KEYSTORE_FILE',
+    'ALPHAMATE_ANDROID_KEYSTORE_PASSWORD',
+    'ALPHAMATE_ANDROID_KEY_ALIAS',
+    'ALPHAMATE_ANDROID_KEY_PASSWORD',
+    'ALPHAMATE_ANDROID_VERSION_CODE',
+    'ALPHAMATE_ANDROID_VERSION_NAME',
+  ];
+
+  for (const key of requiredKeys) {
+    assert.match(example, new RegExp(`(^|\\n)#?\\s*${key}=`), `${key} should be documented in frontend/.env.example`);
+  }
 });
