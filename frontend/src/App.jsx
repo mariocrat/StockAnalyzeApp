@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
-import StockChart from './components/StockChart';
-import TradingJournal from './components/TradingJournal';
 import './App.css';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
+const StockChart = lazy(() => import('./components/StockChart'));
+const TradingJournal = lazy(() => import('./components/TradingJournal'));
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const fmt8 = (d) => d.toISOString().split('T')[0].replace(/-/g, '');
@@ -423,7 +423,9 @@ export default function App() {
       {/* ── Main Content ────────────────────────────────────────────────── */}
       <div className="main-content">
         {activeView === 'journal' ? (
-          <TradingJournal apiBase={API_BASE} />
+          <Suspense fallback={<div className="themes-loading">매매복기 화면을 불러오는 중입니다.</div>}>
+            <TradingJournal apiBase={API_BASE} />
+          </Suspense>
         ) : (
           <>
 
@@ -592,26 +594,38 @@ export default function App() {
               );
             }
             return (
-              <StockChart
+              <Suspense
                 key={s.ticker}
-                ref={el => { chartRefs.current[s.ticker] = el; }}
-                ticker={s.ticker}
-                name={s.name}
-                data={data}
-                chartPeriod={chartPeriod}
-                candlePeriod={candlePeriod}
-                visibleCandleCount={visibleCandleCount}
-                setVisibleCandleCount={setVisibleCandleCount}
-                candleCountApplySeq={candleCountApplySeq}
-                onApplyCandleCount={applyVisibleCandleCount}
-                scaleMode={scaleMode}
-                activeInds={activeInds}
-                bbMultiplier={bbMultiplier}
-                onTimeRangeChange={handleTimeRangeChange}
-                onCandlePeriodChange={handleCandlePeriodChange}
-                onChartPeriodChange={handleChartPeriodChange}
-                onRemove={() => setSelectedStocks(prev => prev.filter(st => st.ticker !== s.ticker))}
-              />
+                fallback={(
+                  <div style={{
+                    height: '80px', background: '#131722', borderRadius: '8px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#555', fontSize: '13px', marginBottom: '4px',
+                  }}>
+                    {s.name} 차트를 불러오는 중입니다.
+                  </div>
+                )}
+              >
+                <StockChart
+                  ref={el => { chartRefs.current[s.ticker] = el; }}
+                  ticker={s.ticker}
+                  name={s.name}
+                  data={data}
+                  chartPeriod={chartPeriod}
+                  candlePeriod={candlePeriod}
+                  visibleCandleCount={visibleCandleCount}
+                  setVisibleCandleCount={setVisibleCandleCount}
+                  candleCountApplySeq={candleCountApplySeq}
+                  onApplyCandleCount={applyVisibleCandleCount}
+                  scaleMode={scaleMode}
+                  activeInds={activeInds}
+                  bbMultiplier={bbMultiplier}
+                  onTimeRangeChange={handleTimeRangeChange}
+                  onCandlePeriodChange={handleCandlePeriodChange}
+                  onChartPeriodChange={handleChartPeriodChange}
+                  onRemove={() => setSelectedStocks(prev => prev.filter(st => st.ticker !== s.ticker))}
+                />
+              </Suspense>
             );
           })}
         </div>

@@ -1,5 +1,11 @@
 # AlphaMate Development History
 
+## 2026-06-21 frontend code splitting
+
+- `TradingJournal` and `StockChart` are now loaded lazily from `App.jsx`.
+- The production build no longer emits Vite's large chunk warning for the main app bundle.
+- The app shows a small loading fallback while the journal or chart component is being fetched.
+
 ## 2026-06-21 개인정보처리방침 URL 배포 점검
 
 - `/api/app/readiness`와 백엔드 release check가 `ALPHAMATE_PRIVACY_POLICY_URL`을 확인하도록 했다.
