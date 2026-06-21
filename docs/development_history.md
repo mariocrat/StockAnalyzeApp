@@ -8,6 +8,7 @@
 - Added `verify_project.bat` for Command Prompt and double-click use, and made the PowerShell script stop when any native command returns a non-zero exit code.
 - Added the review history interstitial AdMob variable to `frontend/.env.example` so the example matches `npm run release:check`.
 - Added tests that keep backend and frontend release-check environment examples aligned with required settings.
+- Added a tracked-file secret pattern scan to catch accidental API keys, private keys, service account JSON, and hard-coded password assignments before commit.
 
 ## 2026-06-21 frontend code splitting
 

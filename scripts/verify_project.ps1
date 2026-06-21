@@ -34,6 +34,7 @@ try {
     Push-Location $root
     Run-Step "Backend tests" { & $python -m unittest discover -s tests }
     Run-Step "Backend compile" { & $python -m compileall backend }
+    Run-Step "Tracked secret scan" { & $python scripts\check_no_tracked_secrets.py }
     Pop-Location
 
     Push-Location $frontend

@@ -15,6 +15,7 @@ The script checks:
 
 - backend unittest suite
 - backend Python compile check
+- tracked secret pattern scan
 - frontend release environment tests
 - Android branding tests
 - mobile AdMob policy tests
