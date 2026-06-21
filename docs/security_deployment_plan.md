@@ -177,6 +177,8 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - AI 복기 동의는 `ALPHAMATE_PRIVACY_CONSENT_VERSION` 값과 UTC 시각으로 계정에 저장된다.
 - 동의 이력은 최신 상태만 저장하며, 계정 데이터 내보내기와 계정 삭제 범위에 포함된다.
 - 개인정보처리방침 문구를 바꾸는 경우 `ALPHAMATE_PRIVACY_CONSENT_VERSION`도 함께 올려야 한다.
+- 매매복기 계정 관리 화면은 현재 동의 안내 버전과 AI/개인정보 이용 안내를 보여준다.
+- 안내 문구가 실제 개인정보처리방침과 달라지지 않도록, 배포 전 정책 문구와 앱 내 안내를 함께 검토해야 한다.
 
 ## 2026-06-20 운영 데이터 저장소 설정
 

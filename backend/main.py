@@ -32,7 +32,7 @@ from core.access_control import (
     record_admob_ssv_reward,
     verify_ai_review_access,
 )
-from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, delete_user_account_data
+from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
 from core.readiness import get_app_readiness
 
@@ -478,6 +478,7 @@ def get_me_data_summary(authorization: Optional[str] = Header(default=None)):
         ],
         "delete_scope": "current_user_only",
         "server_keeps_ai_review_history": bool(user.get("journal_storage_enabled")),
+        "privacy_consent_current_version": get_privacy_consent_version(),
         "privacy_consent_version": user.get("privacy_consent_version", ""),
         "privacy_consented_at": user.get("privacy_consented_at", ""),
     }

@@ -11,6 +11,7 @@ class MeDataRoutesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
             os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = os.path.join(tmpdir, "trades.sqlite3")
+            os.environ["ALPHAMATE_PRIVACY_CONSENT_VERSION"] = "ai-review-privacy-summary"
 
             backend_dir = os.path.join(os.getcwd(), "backend")
             if backend_dir not in sys.path:
@@ -55,6 +56,7 @@ class MeDataRoutesTest(unittest.TestCase):
                     "connected_providers": ["kakao"],
                     "delete_scope": "current_user_only",
                     "server_keeps_ai_review_history": False,
+                    "privacy_consent_current_version": "ai-review-privacy-summary",
                     "privacy_consent_version": "",
                     "privacy_consented_at": "",
                 },

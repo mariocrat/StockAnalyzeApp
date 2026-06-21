@@ -893,6 +893,34 @@ body {
   line-height: 1.6;
 }
 
+.journal-privacy-disclosure {
+  margin-top: 10px;
+  background: #10141f;
+  border: 1px solid #252b38;
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #aeb7c8;
+  font-size: 12px;
+}
+
+.journal-privacy-disclosure summary {
+  color: #f2f5ff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.journal-privacy-disclosure p {
+  margin: 8px 0 0;
+  line-height: 1.55;
+}
+
+.journal-privacy-disclosure span {
+  display: block;
+  margin-top: 8px;
+  color: #777f91;
+  font-size: 11px;
+}
+
 .journal-entitlement-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

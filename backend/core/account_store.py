@@ -21,6 +21,10 @@ PRIVACY_CONSENT_VERSION = env_value("ALPHAMATE_PRIVACY_CONSENT_VERSION") or "ai-
 _ACCOUNT_LOCK = threading.Lock()
 
 
+def get_privacy_consent_version() -> str:
+    return PRIVACY_CONSENT_VERSION
+
+
 def _env_value(name: str) -> str:
     return env_value(name)
 

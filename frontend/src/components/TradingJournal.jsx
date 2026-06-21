@@ -989,6 +989,7 @@ export default function TradingJournal({ apiBase }) {
     .join(', ') || '-';
   const consentRecordedAt = dataSummary?.privacy_consented_at || authSession?.user?.privacy_consented_at || '';
   const consentVersion = dataSummary?.privacy_consent_version || authSession?.user?.privacy_consent_version || '';
+  const currentConsentVersion = dataSummary?.privacy_consent_current_version || consentVersion || 'ai-review-privacy-v1';
   const consentStatusText = consentRecordedAt ? '동의 완료' : '미기록';
   const consentDetailText = consentRecordedAt ? `${consentVersion || '현재 버전'} · ${consentRecordedAt.slice(0, 10)}` : 'AI 복기 실행 전 동의 필요';
   const missingText = (items = []) => items.length ? `누락: ${items.join(', ')}` : '설정 완료';
@@ -1241,6 +1242,15 @@ export default function TradingJournal({ apiBase }) {
             <em>{consentDetailText}</em>
           </div>
         </div>
+        <details className="journal-privacy-disclosure">
+          <summary>개인정보/AI 이용 안내</summary>
+          <div>
+            <p>AI 복기는 입력한 매매 기록, 메모, 차트 요약을 서버와 AI 제공업체로 전송해 분석합니다.</p>
+            <p>매매 이력 저장을 켠 계정은 AI 복기 결과와 당시 차트 스냅샷이 복기 보관함에 저장될 수 있습니다.</p>
+            <p>내 데이터 내보내기로 저장 내용을 확인할 수 있고, 계정 데이터 삭제로 현재 계정의 저장 데이터를 지울 수 있습니다.</p>
+            <span>현재 동의 안내 버전: {currentConsentVersion}</span>
+          </div>
+        </details>
         <label className="journal-auth-toggle">
           <input
             type="checkbox"
