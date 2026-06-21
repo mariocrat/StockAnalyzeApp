@@ -6,6 +6,7 @@
 - The script runs backend tests, backend compile, frontend release-env tests, Android branding tests, AdMob policy tests, frontend lint, and frontend production build.
 - Added `docs/quick_verify.md` with the command and scope.
 - Added `verify_project.bat` for Command Prompt and double-click use, and made the PowerShell script stop when any native command returns a non-zero exit code.
+- Added the review history interstitial AdMob variable to `frontend/.env.example` so the example matches `npm run release:check`.
 
 ## 2026-06-21 frontend code splitting
 
