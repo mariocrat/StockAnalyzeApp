@@ -8,6 +8,7 @@ REQUIRED_DATA_STORAGE_SETTINGS = [
     "ALPHAMATE_ACCESS_DB_PATH",
     "ALPHAMATE_REVIEW_HISTORY_DB_PATH",
 ]
+PRIVACY_POLICY_URL_SETTING = "ALPHAMATE_PRIVACY_POLICY_URL"
 
 
 def _env_value(name: str) -> str:
@@ -48,12 +49,26 @@ def _data_storage_status() -> dict:
     }
 
 
+def _privacy_policy_status() -> dict:
+    url = _env_value(PRIVACY_POLICY_URL_SETTING).strip()
+    valid_url = url.startswith("https://")
+    missing = [] if valid_url else [PRIVACY_POLICY_URL_SETTING]
+    return {
+        "ready": valid_url,
+        "url": url if valid_url else "",
+        "missing_server_settings": missing,
+        "required_server_settings": [PRIVACY_POLICY_URL_SETTING],
+        "note": "Google Play release should point to a public HTTPS privacy policy URL.",
+    }
+
+
 def get_app_readiness() -> dict:
     catalog = get_product_catalog()
     sections = {
         "ai": _ai_status(),
         "login": _login_status(),
         "data_storage": _data_storage_status(),
+        "privacy_policy": _privacy_policy_status(),
         "google_play": catalog["google_play"],
         "admob": catalog["admob"],
     }

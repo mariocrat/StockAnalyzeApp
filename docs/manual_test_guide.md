@@ -210,7 +210,9 @@ cd D:\작업\windsurf\StockAnalyze
 Backend release environment check passed.
 ```
 
-설정이 빠져 있거나 Google Play 서비스 계정 JSON/private key 형식이 잘못되면 `ALPHAMATE_ENV`, `OPENAI_API_KEY`, `KAKAO_CLIENT_ID`, `GOOGLE_PLAY_*`, `ADMOB_REWARDED_AD_UNIT_ID`처럼 필요한 환경변수 이름만 표시합니다. API Key나 Google 서비스 계정 JSON 원문은 출력하면 안 됩니다.
+설정이 빠져 있거나 Google Play 서비스 계정 JSON/private key 형식이 잘못되면 `ALPHAMATE_ENV`, `OPENAI_API_KEY`, `KAKAO_CLIENT_ID`, `GOOGLE_PLAY_*`, `ADMOB_REWARDED_AD_UNIT_ID`, `ALPHAMATE_PRIVACY_POLICY_URL`처럼 필요한 환경변수 이름만 표시합니다. API Key나 Google 서비스 계정 JSON 원문은 출력하면 안 됩니다.
+
+`ALPHAMATE_PRIVACY_POLICY_URL`은 Play Store에 등록할 공개 HTTPS 개인정보처리방침 주소입니다. 실제 배포 전에는 앱 안의 `개인정보/AI 이용 안내` 문구와 이 URL의 정책 문서 내용이 서로 어긋나지 않는지 확인합니다.
 
 운영용 환경변수를 별도 파일에 둘 경우 `ALPHAMATE_ENV_FILE=D:\secure\alphamate-backend.env`처럼 지정한 뒤 같은 명령을 실행할 수 있습니다.
 

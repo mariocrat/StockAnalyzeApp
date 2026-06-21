@@ -180,6 +180,12 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 매매복기 계정 관리 화면은 현재 동의 안내 버전과 AI/개인정보 이용 안내를 보여준다.
 - 안내 문구가 실제 개인정보처리방침과 달라지지 않도록, 배포 전 정책 문구와 앱 내 안내를 함께 검토해야 한다.
 
+## 2026-06-21 개인정보처리방침 URL 점검
+
+- 운영 배포 전 `ALPHAMATE_PRIVACY_POLICY_URL`에 공개 HTTPS 개인정보처리방침 주소를 설정해야 한다.
+- `/api/app/readiness`와 `backend/scripts/validate_release_env.py`는 이 값이 없거나 HTTPS 주소가 아니면 실패한다.
+- Play Store 등록 정보의 개인정보처리방침 URL, 앱 내 `개인정보/AI 이용 안내`, 서버의 `ALPHAMATE_PRIVACY_CONSENT_VERSION`은 같은 정책 문서를 기준으로 함께 관리해야 한다.
+
 ## 2026-06-20 운영 데이터 저장소 설정
 
 - 운영 배포에서는 계정, 매매 기록, 이용권/광고 보상, 복기 보관함 DB 경로를 반드시 명시해야 한다.

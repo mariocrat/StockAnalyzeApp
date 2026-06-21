@@ -54,6 +54,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+            ALPHAMATE_PRIVACY_POLICY_URL="https://alphamate.example/privacy",
             ALPHAMATE_ACCOUNT_DB_PATH="D:/secure/alphamate/accounts.sqlite3",
             ALPHAMATE_JOURNAL_DB_PATH="D:/secure/alphamate/trades.sqlite3",
             ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
@@ -70,6 +71,8 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertTrue(status["sections"]["google_play"]["ready"])
             self.assertTrue(status["sections"]["admob"]["ready"])
             self.assertTrue(status["sections"]["data_storage"]["ready"])
+            self.assertTrue(status["sections"]["privacy_policy"]["ready"])
+            self.assertEqual("https://alphamate.example/privacy", status["sections"]["privacy_policy"]["url"])
             self.assertNotIn("sk-secret-openai", str(status))
             self.assertNotIn("kakao-secret", str(status))
             self.assertNotIn("naver-secret", str(status))
@@ -86,6 +89,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=None,
             GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
             ADMOB_REWARDED_AD_UNIT_ID=None,
+            ALPHAMATE_PRIVACY_POLICY_URL=None,
             ALPHAMATE_ACCOUNT_DB_PATH=None,
             ALPHAMATE_JOURNAL_DB_PATH=None,
             ALPHAMATE_ACCESS_DB_PATH=None,
@@ -100,6 +104,7 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertIn("OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY", status["sections"]["ai"]["missing_server_settings"])
             self.assertIn("GOOGLE_PLAY_PACKAGE_NAME", status["sections"]["google_play"]["missing_server_settings"])
             self.assertIn("ADMOB_REWARDED_AD_UNIT_ID", status["sections"]["admob"]["missing_server_settings"])
+            self.assertIn("ALPHAMATE_PRIVACY_POLICY_URL", status["sections"]["privacy_policy"]["missing_server_settings"])
             self.assertIn("ALPHAMATE_ACCOUNT_DB_PATH", status["sections"]["data_storage"]["missing_server_settings"])
             self.assertIn("ALPHAMATE_REVIEW_HISTORY_DB_PATH", status["sections"]["data_storage"]["missing_server_settings"])
             self.assertIn("KAKAO_CLIENT_ID", status["sections"]["login"]["providers"]["kakao"]["missing_server_settings"])

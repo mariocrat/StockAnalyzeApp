@@ -969,6 +969,7 @@ export default function TradingJournal({ apiBase }) {
   const adPolicy = productCatalog?.settings?.ad_policy || entitlements?.settings?.ad_policy || {};
   const readinessSections = appReadiness?.sections || {};
   const dataStorageReadiness = readinessSections.data_storage || {};
+  const privacyPolicyReadiness = readinessSections.privacy_policy || {};
   const googlePlayReadiness = readinessSections.google_play || productCatalog?.google_play || {};
   const admobStatus = readinessSections.admob || productCatalog?.admob || {};
   const aiReadiness = readinessSections.ai || {};
@@ -1010,6 +1011,11 @@ export default function TradingJournal({ apiBase }) {
       label: '데이터 저장소',
       ready: dataStorageReadiness.ready === true,
       detail: missingText(dataStorageReadiness.missing_server_settings || []),
+    },
+    {
+      label: '개인정보처리방침',
+      ready: privacyPolicyReadiness.ready === true,
+      detail: privacyPolicyReadiness.url || missingText(privacyPolicyReadiness.missing_server_settings || []),
     },
     {
       label: 'AdMob 보상 광고',

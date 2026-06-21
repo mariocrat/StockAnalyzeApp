@@ -54,6 +54,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=None,
             GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
             ADMOB_REWARDED_AD_UNIT_ID=None,
+            ALPHAMATE_PRIVACY_POLICY_URL=None,
             ALPHAMATE_ACCOUNT_DB_PATH=None,
             ALPHAMATE_JOURNAL_DB_PATH=None,
             ALPHAMATE_ACCESS_DB_PATH=None,
@@ -69,6 +70,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             self.assertIn("OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY", "\n".join(result["errors"]))
             self.assertIn("GOOGLE_PLAY_PACKAGE_NAME", "\n".join(result["errors"]))
             self.assertIn("ADMOB_REWARDED_AD_UNIT_ID", "\n".join(result["errors"]))
+            self.assertIn("ALPHAMATE_PRIVACY_POLICY_URL", "\n".join(result["errors"]))
             self.assertIn("ALPHAMATE_ACCOUNT_DB_PATH", "\n".join(result["errors"]))
             self.assertIn("ALPHAMATE_REVIEW_HISTORY_DB_PATH", "\n".join(result["errors"]))
             self.assertNotIn("sk-", formatted)
@@ -91,6 +93,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+            ALPHAMATE_PRIVACY_POLICY_URL="https://alphamate.example/privacy",
             ALPHAMATE_ACCOUNT_DB_PATH="D:/secure/alphamate/accounts.sqlite3",
             ALPHAMATE_JOURNAL_DB_PATH="D:/secure/alphamate/trades.sqlite3",
             ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
@@ -124,6 +127,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID=alphamate.pro.launch",
             "GOOGLE_PLAY_PRO_MONTHLY_ID=alphamate.pro.monthly",
             "ADMOB_REWARDED_AD_UNIT_ID=rewarded-unit-1",
+            "ALPHAMATE_PRIVACY_POLICY_URL=https://alphamate.example/privacy",
             "ALPHAMATE_ACCOUNT_DB_PATH=D:/secure/alphamate/accounts.sqlite3",
             "ALPHAMATE_JOURNAL_DB_PATH=D:/secure/alphamate/trades.sqlite3",
             "ALPHAMATE_ACCESS_DB_PATH=D:/secure/alphamate/access.sqlite3",
@@ -153,6 +157,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
                 GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID=None,
                 GOOGLE_PLAY_PRO_MONTHLY_ID=None,
                 ADMOB_REWARDED_AD_UNIT_ID=None,
+                ALPHAMATE_PRIVACY_POLICY_URL=None,
                 ALPHAMATE_ACCOUNT_DB_PATH=None,
                 ALPHAMATE_JOURNAL_DB_PATH=None,
                 ALPHAMATE_ACCESS_DB_PATH=None,
