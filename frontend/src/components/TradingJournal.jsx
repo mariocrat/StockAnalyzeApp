@@ -5,7 +5,7 @@ import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
 import { getAdMobRuntimeStatus, initializeAdMob, showReviewHistoryInterstitial, showRewardedReviewAd } from '../mobile/admob';
 import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct } from '../mobile/billing';
-import { finishGooglePlayTransactionIfFinalized } from '../mobile/billingPolicy';
+import { shouldFinishGooglePlayTransaction } from '../mobile/billingPolicy';
 
 const sideLabels = { buy: '매수', sell: '매도' };
 const DEFAULT_FEE_RATE = '0.015';
@@ -890,14 +890,11 @@ export default function TradingJournal({ apiBase }) {
       );
       setEntitlements(res.data || null);
       await loadDataSummary(authSession.session_token);
-      const finishResult = await finishGooglePlayTransactionIfFinalized({
-        serverResponse: res.data,
-        transaction: purchase.transaction,
-      });
+      if (shouldFinishGooglePlayTransaction(res.data)) {
+        await purchase.transaction?.finish?.();
+      }
       if (res.data?.purchase?.status === 'consume_pending') {
         setMessage('이용권은 반영됐습니다. Google Play 확정 처리는 다음 구매 확인 때 다시 시도됩니다.');
-      } else if (finishResult.attempted && !finishResult.finished) {
-        setMessage('구매는 서버에 반영됐습니다. Google Play 앱 거래 마무리는 다음 실행 때 다시 확인됩니다.');
       } else {
         setMessage('Google Play 구매가 서버에서 검증되어 이용권에 반영됐습니다.');
       }
