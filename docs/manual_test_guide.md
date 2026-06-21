@@ -233,6 +233,12 @@ Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-event
 Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events/summary?limit=500' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
 ```
 
+오래된 운영 로그를 정리하려면 아래처럼 보관기간을 일 단위로 지정합니다. 실수 방지를 위해 7일 미만은 거부되며, 보통은 90일 이상을 권장합니다.
+
+```powershell
+Invoke-RestMethod -Method Delete -Uri 'https://your-api.example.com/api/admin/operational-events/retention?retention_days=90' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
+```
+
 ## 9. Android 앱 래퍼, APK, Play Store AAB 빌드 확인
 
 현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 이 PC에서는 프로젝트 안의 `.tools` 폴더에 JDK와 Android SDK command-line tools를 받아 디버그 APK 빌드까지 확인했습니다. `.tools`는 PC 전용 도구라 GitHub에는 올리지 않습니다.

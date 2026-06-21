@@ -1,5 +1,7 @@
 import importlib
+import datetime
 import os
+import sqlite3
 import tempfile
 import unittest
 from contextlib import contextmanager
@@ -152,6 +154,36 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(2, summary["by_event_type"]["google_play_purchase_failed"])
             self.assertEqual(1, summary["by_event_type"]["rewarded_ad_basic_review_failed"])
             self.assertEqual(2, summary["top_events"][0]["count"])
+
+    def test_purge_events_older_than_retention_days_keeps_recent_events(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            old_event = event_log.record_event(level="error", event_type="old_error", path="/old")
+            recent_event = event_log.record_event(level="warning", event_type="recent_warning", path="/recent")
+            old_created_at = (
+                datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=120)
+            ).isoformat(timespec="seconds")
+
+            conn = sqlite3.connect(event_log.event_log_db_path())
+            try:
+                conn.execute(
+                    "UPDATE operational_events SET created_at = ? WHERE id = ?",
+                    (old_created_at, old_event["id"]),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+            result = event_log.purge_events_older_than(retention_days=90)
+            rows = event_log.list_events(limit=10)
+
+            self.assertEqual(1, result["deleted_count"])
+            self.assertEqual(90, result["retention_days"])
+            self.assertEqual([recent_event["id"]], [row["id"] for row in rows])
 
 
 if __name__ == "__main__":

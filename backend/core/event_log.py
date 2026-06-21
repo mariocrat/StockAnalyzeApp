@@ -252,3 +252,29 @@ def summarize_events(*, limit: int = 500) -> dict:
         "top_events": _top_items(by_event_type),
         "top_paths": _top_items(by_path),
     }
+
+
+def purge_events_older_than(*, retention_days: int = 90) -> dict:
+    days = int(retention_days or 90)
+    if days < 7:
+        raise ValueError("retention_days must be at least 7.")
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
+    cutoff_text = cutoff.isoformat(timespec="seconds")
+
+    with _EVENT_LOG_LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute(
+                "DELETE FROM operational_events WHERE created_at < ?",
+                (cutoff_text,),
+            )
+            conn.commit()
+            deleted_count = int(cur.rowcount or 0)
+        finally:
+            conn.close()
+
+    return {
+        "deleted_count": deleted_count,
+        "retention_days": days,
+        "cutoff": cutoff_text,
+    }

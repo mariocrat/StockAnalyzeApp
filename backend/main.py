@@ -36,7 +36,7 @@ from core.account_store import login_dev_provider, authenticate_session, revoke_
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
 from core.readiness import get_app_readiness
 from core.env import env_value
-from core.event_log import list_events, record_api_exception, record_api_failure, record_event, summarize_events
+from core.event_log import list_events, purge_events_older_than, record_api_exception, record_api_failure, record_event, summarize_events
 
 from contextlib import asynccontextmanager
 import hmac
@@ -366,6 +366,18 @@ def get_admin_operational_event_summary(
 ):
     _require_admin_token(authorization)
     return summarize_events(limit=limit)
+
+
+@app.delete("/api/admin/operational-events/retention")
+def delete_old_admin_operational_events(
+    authorization: Optional[str] = Header(default=None),
+    retention_days: int = 90,
+):
+    _require_admin_token(authorization)
+    try:
+        return purge_events_older_than(retention_days=retention_days)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/api/client-events")

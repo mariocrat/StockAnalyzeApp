@@ -18,6 +18,7 @@
 - Added a client-side event reporting endpoint so Android ad and Google Play purchase failures can be stored in the same operational event log without exposing tokens.
 - Added protected admin lookup for recent operational events with `ALPHAMATE_ADMIN_TOKEN`, plus release readiness checks for that token.
 - Added protected operational event summary counts by level, event type, and path for faster troubleshooting.
+- Added protected operational event retention cleanup so old server troubleshooting logs can be purged without touching current events.
 
 ## 2026-06-21 frontend code splitting
 

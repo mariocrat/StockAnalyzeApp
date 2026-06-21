@@ -34,6 +34,7 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("/api/client-events", paths)
         self.assertIn("/api/admin/operational-events", paths)
         self.assertIn("/api/admin/operational-events/summary", paths)
+        self.assertIn("/api/admin/operational-events/retention", paths)
 
 
 if __name__ == "__main__":
