@@ -197,5 +197,6 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - `GET /api/admin/operational-events`는 `Authorization: Bearer ...`에 담긴 `ALPHAMATE_ADMIN_TOKEN`이 맞을 때만 최근 운영 로그를 반환한다. 이 토큰은 서버 secret으로만 관리하고 앱, frontend 환경변수, GitHub에 넣지 않는다.
 - `GET /api/admin/operational-events/summary`도 같은 관리자 토큰으로 보호하며, 최근 운영 로그를 level, event type, path 기준으로 집계해 장애 원인 분류에 사용한다.
 - `DELETE /api/admin/operational-events/retention`은 같은 관리자 토큰으로 보호하며, 지정한 보관기간보다 오래된 운영 로그만 삭제한다. 보관기간은 7일 미만으로 설정할 수 없고, 개인정보 최소 보관과 장애 분석 필요성 사이에서 운영 정책으로 정한다.
+- `ALPHAMATE_EVENT_LOG_RETENTION_DAYS`를 설정하면 서버 시작 시 같은 보관기간 정책을 자동 적용한다. 값이 없으면 자동 삭제하지 않고, 잘못된 값은 삭제 없이 건너뛴다.
 - 기본 개발 경로인 `backend/data/*.sqlite3`는 로컬 개발용으로만 보고, 운영에서는 백업 가능한 서버 볼륨이나 관리형 DB 마이그레이션 대상으로 분리해야 한다.
 - 현재 코드는 SQLite 기반이므로 초기 운영은 명시 경로 + 백업 정책으로 시작할 수 있지만, 사용자 수가 늘면 PostgreSQL 같은 관리형 DB로 옮기는 것이 다음 큰 단계다.

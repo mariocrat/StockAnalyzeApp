@@ -278,3 +278,17 @@ def purge_events_older_than(*, retention_days: int = 90) -> dict:
         "retention_days": days,
         "cutoff": cutoff_text,
     }
+
+
+def purge_configured_retention() -> dict:
+    configured = str(_env_value("ALPHAMATE_EVENT_LOG_RETENTION_DAYS") or "").strip()
+    if not configured:
+        return {"skipped": True, "reason": "not_configured"}
+    try:
+        retention_days = int(configured)
+    except ValueError:
+        return {"skipped": True, "reason": "invalid_retention_days"}
+    try:
+        return purge_events_older_than(retention_days=retention_days)
+    except ValueError as exc:
+        return {"skipped": True, "reason": str(exc)}

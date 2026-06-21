@@ -36,7 +36,7 @@ from core.account_store import login_dev_provider, authenticate_session, revoke_
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
 from core.readiness import get_app_readiness
 from core.env import env_value
-from core.event_log import list_events, purge_events_older_than, record_api_exception, record_api_failure, record_event, summarize_events
+from core.event_log import list_events, purge_configured_retention, purge_events_older_than, record_api_exception, record_api_failure, record_event, summarize_events
 
 from contextlib import asynccontextmanager
 import hmac
@@ -243,6 +243,10 @@ def _schedule_theme_cache_refresh(start_date: str, end_date: str):
 def _warm_cache():
     """Pre-warm theme caches in the background."""
     try:
+        cleanup_result = purge_configured_retention()
+        if not cleanup_result.get("skipped"):
+            print(f"[startup] Operational event log cleanup: {cleanup_result}")
+
         base_date = _last_completed_market_date()
         print("[startup] Warming theme caches...")
 

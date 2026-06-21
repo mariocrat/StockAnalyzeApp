@@ -185,6 +185,51 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(90, result["retention_days"])
             self.assertEqual([recent_event["id"]], [row["id"] for row in rows])
 
+    def test_purge_configured_retention_skips_without_setting(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+            ALPHAMATE_EVENT_LOG_RETENTION_DAYS=None,
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            event_log.record_event(level="error", event_type="kept", path="/kept")
+
+            result = event_log.purge_configured_retention()
+            rows = event_log.list_events(limit=10)
+
+            self.assertEqual({"skipped": True, "reason": "not_configured"}, result)
+            self.assertEqual(1, len(rows))
+
+    def test_purge_configured_retention_uses_environment_setting(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+            ALPHAMATE_EVENT_LOG_RETENTION_DAYS="90",
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            old_event = event_log.record_event(level="error", event_type="old_error", path="/old")
+            event_log.record_event(level="warning", event_type="recent_warning", path="/recent")
+            old_created_at = (
+                datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=120)
+            ).isoformat(timespec="seconds")
+
+            conn = sqlite3.connect(event_log.event_log_db_path())
+            try:
+                conn.execute(
+                    "UPDATE operational_events SET created_at = ? WHERE id = ?",
+                    (old_created_at, old_event["id"]),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+            result = event_log.purge_configured_retention()
+
+            self.assertEqual(1, result["deleted_count"])
+            self.assertEqual(90, result["retention_days"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -19,6 +19,7 @@
 - Added protected admin lookup for recent operational events with `ALPHAMATE_ADMIN_TOKEN`, plus release readiness checks for that token.
 - Added protected operational event summary counts by level, event type, and path for faster troubleshooting.
 - Added protected operational event retention cleanup so old server troubleshooting logs can be purged without touching current events.
+- Added optional startup cleanup via `ALPHAMATE_EVENT_LOG_RETENTION_DAYS` so operational logs can follow a retention policy automatically.
 
 ## 2026-06-21 frontend code splitting
 
