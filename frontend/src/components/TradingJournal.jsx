@@ -4,7 +4,7 @@ import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
 import { getAdMobRuntimeStatus, initializeAdMob, showReviewHistoryInterstitial, showRewardedReviewAd } from '../mobile/admob';
-import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct } from '../mobile/billing';
+import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct, recoverGooglePlayPurchases } from '../mobile/billing';
 import { shouldFinishGooglePlayTransaction } from '../mobile/billingPolicy';
 import { reportClientEvent } from '../utils/clientEventLog';
 
@@ -127,6 +127,7 @@ export default function TradingJournal({ apiBase }) {
   const [aiReviewType, setAiReviewType] = useState('basic');
   const [adLoading, setAdLoading] = useState(false);
   const [purchaseLoadingId, setPurchaseLoadingId] = useState('');
+  const [purchaseRecoveryLoading, setPurchaseRecoveryLoading] = useState(false);
   const [mobileAdStatus, setMobileAdStatus] = useState(getAdMobRuntimeStatus);
   const [billingStatus, setBillingStatus] = useState(getBillingRuntimeStatus);
   const [entitlements, setEntitlements] = useState(null);
@@ -934,6 +935,66 @@ export default function TradingJournal({ apiBase }) {
     }
   };
 
+  const recoverPurchases = async () => {
+    if (!productCatalog) {
+      setMessage('상품 정보를 아직 불러오지 못했습니다. 잠시 뒤 다시 시도하세요.');
+      return;
+    }
+    if (!billingStatus.native) {
+      setMessage('구매 복구는 Android 앱에서 사용할 수 있습니다.');
+      return;
+    }
+    if (!authSession?.session_token || !authSession?.user?.id) {
+      setMessage('구매 복구는 로그인 후 사용할 수 있습니다.');
+      return;
+    }
+
+    setPurchaseRecoveryLoading(true);
+    try {
+      const candidates = await recoverGooglePlayPurchases({
+        productCatalog,
+        userId: authSession.user.id,
+      });
+      if (!candidates.length) {
+        setMessage('복구할 Google Play 구매 내역이 없습니다.');
+        return;
+      }
+
+      let appliedCount = 0;
+      for (const candidate of candidates) {
+        const res = await axios.post(
+          `${apiBase}/api/journal/google-play-purchase`,
+          {
+            product_id: candidate.localProductId,
+            purchase_token: candidate.purchaseToken,
+            package_name: GOOGLE_PLAY_PACKAGE_NAME,
+          },
+          { headers: { Authorization: `Bearer ${authSession.session_token}` } },
+        );
+        if (res.data) {
+          appliedCount += 1;
+          setEntitlements(res.data);
+        }
+      }
+      await loadDataSummary(authSession.session_token);
+      setMessage(`Google Play 구매 ${appliedCount}건을 다시 확인했습니다.`);
+    } catch (err) {
+      reportJournalClientEvent({
+        eventType: 'google_play_purchase_recovery_failed',
+        level: 'error',
+        message: err.response?.data?.detail || err?.message || 'Google Play purchase recovery failed.',
+        details: {
+          native: billingStatus.native,
+          platform: billingStatus.platform,
+          serverStatus: err.response?.status,
+        },
+      });
+      setMessage(err.response?.data?.detail || err?.message || 'Google Play 구매 복구를 완료하지 못했습니다.');
+    } finally {
+      setPurchaseRecoveryLoading(false);
+    }
+  };
+
   const submitManual = async () => {
     if (!form.trade_date || !form.name || !form.price || !form.quantity) {
       setMessage('일시, 종목명, 가격, 수량은 꼭 입력해야 합니다.');
@@ -1439,6 +1500,15 @@ export default function TradingJournal({ apiBase }) {
                 {purchaseLoadingId === id ? '구매 확인중' : `${label} · ${price}`}
               </button>
             ))}
+            {billingStatus.native && (
+              <button
+                className="journal-secondary"
+                disabled={Boolean(purchaseLoadingId) || purchaseRecoveryLoading}
+                onClick={recoverPurchases}
+              >
+                {purchaseRecoveryLoading ? '구매 복구중' : 'Google Play 구매 복구'}
+              </button>
+            )}
           </div>
         ) : (
           <p className="journal-privacy-note">

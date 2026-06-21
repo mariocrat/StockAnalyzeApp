@@ -1,4 +1,5 @@
 import { Capacitor } from '@capacitor/core';
+import { buildGooglePlayRecoveryCandidates } from './billingPolicy';
 
 const APP_ENV = import.meta.env.VITE_ALPHAMATE_ENV || (import.meta.env.PROD ? 'production' : 'development');
 const PRODUCT_KIND = {
@@ -159,4 +160,22 @@ export async function purchaseGooglePlayProduct({ productCatalog, localProductId
     purchaseToken: result.purchaseToken,
     transaction: result.transaction,
   };
+}
+
+export async function recoverGooglePlayPurchases({ productCatalog, userId }) {
+  if (!Capacitor.isNativePlatform()) {
+    throw new Error('Google Play purchase recovery is available only in the mobile app.');
+  }
+  if (!userId) {
+    throw new Error('A logged-in user is required before recovering purchases.');
+  }
+
+  await initializeBilling(productCatalog);
+
+  const { store } = await loadPurchaseModule();
+  await store.update();
+  return buildGooglePlayRecoveryCandidates({
+    productCatalog,
+    localReceipts: store.localReceipts || [],
+  });
 }

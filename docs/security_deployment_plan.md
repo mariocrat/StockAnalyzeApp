@@ -153,6 +153,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - Pro 구독이 미확인 상태면 Google Play subscription acknowledge가 성공한 뒤에만 Pro 권한을 활성화한다.
 - 저장 시 구독 토큰 원문은 남기지 않고 SHA-256 해시, 상품 ID, 상태, 만료 시간, 최신 주문 ID만 남긴다.
 - 만료/비활성 구독 검증 결과도 저장해 기존 Pro 상태가 남아 비용이 새는 일을 막는다.
+- 앱의 `Google Play 구매 복구`는 로컬 영수증에 남은 purchase token을 서버에 다시 제출하는 보조 흐름이다. 서버는 token hash로 중복 지급을 막아야 하며, 복구 요청도 최초 구매 요청과 같은 서버 검증을 반드시 통과해야 한다.
 - Google Play RTDN Pub/Sub push endpoint는 공유 토큰 헤더가 맞을 때만 처리하며, 알림 수신 후 Google Play API를 다시 조회해 구독 상태를 갱신한다.
 - 운영 배포에서는 `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE`와 `GOOGLE_PLAY_RTDN_OIDC_EMAIL`을 설정해 Pub/Sub push JWT의 audience, email, 서명을 검증한다.
 - `ALPHAMATE_ENV=production`에서는 Play Console에 등록한 상품 ID 환경변수 6개가 모두 설정되어야 Google Play readiness가 통과한다.

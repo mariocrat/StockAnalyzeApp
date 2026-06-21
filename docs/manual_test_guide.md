@@ -275,6 +275,8 @@ frontend/android/app/build/outputs/bundle/release/app-release.aab
 `frontend/android/local.properties`는 이 PC의 SDK 위치만 적는 파일이라 GitHub에는 올리지 않습니다. 새 PC에서 다시 빌드할 때는 Android Studio를 설치하거나, 같은 방식으로 `.tools`에 JDK/SDK를 다시 준비하면 됩니다.
 
 현재 프로젝트에는 앱 아이콘, 스플래시 이미지, AdMob SDK, Google Play Billing SDK, 환경변수 기반 release signing 연결이 들어가 있습니다. 실제 Google Play Console/AdMob 운영 계정 테스트는 별도 준비가 필요합니다.
+
+Google Play 결제 후 앱 종료, 네트워크 끊김, 서버 일시 장애 때문에 복기권이 바로 반영되지 않으면 매매복기 화면의 `Google Play 구매 복구` 버튼을 누릅니다. 이 버튼은 Android 앱에서만 보이며, 로그인한 사용자 기준으로 Google Play 로컬 영수증을 다시 읽어 서버 검증을 재시도합니다. 서버는 같은 purchase token이 다시 들어와도 중복 지급하지 않고 필요한 consume/acknowledge 재시도만 수행해야 합니다.
 ## 복기 보관함 확인
 
 1. 매매복기 화면에서 카카오 또는 네이버 개발 계정으로 로그인합니다.
