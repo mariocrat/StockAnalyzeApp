@@ -22,6 +22,7 @@
 - Added optional startup cleanup via `ALPHAMATE_EVENT_LOG_RETENTION_DAYS` so operational logs can follow a retention policy automatically.
 - Added a lightweight per-IP rate limit for `/api/client-events` so client-side error reporting cannot flood the operational log database.
 - Added a separate per-IP rate limit for protected admin operational log APIs to reduce brute-force and accidental polling risk.
+- Required production readiness to reject short `ALPHAMATE_ADMIN_TOKEN` values while still keeping the token value out of diagnostics.
 
 ## 2026-06-21 frontend code splitting
 

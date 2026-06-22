@@ -60,7 +60,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
             ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
             ALPHAMATE_EVENT_LOG_DB_PATH="D:/secure/alphamate/events.sqlite3",
-            ALPHAMATE_ADMIN_TOKEN="admin-token",
+            ALPHAMATE_ADMIN_TOKEN="admin-token-with-at-least-32-characters",
         ):
             from backend.core import readiness
 
@@ -80,6 +80,17 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertNotIn("kakao-secret", str(status))
             self.assertNotIn("naver-secret", str(status))
             self.assertNotIn("fake-private-key", str(status))
+
+    def test_app_readiness_rejects_short_admin_token_without_exposing_value(self):
+        with patched_env(ALPHAMATE_ADMIN_TOKEN="short-token"):
+            from backend.core import readiness
+
+            readiness = importlib.reload(readiness)
+            status = readiness.get_app_readiness()
+
+            self.assertFalse(status["sections"]["admin"]["ready"])
+            self.assertIn("ALPHAMATE_ADMIN_TOKEN_MIN_LENGTH_32", status["sections"]["admin"]["missing_server_settings"])
+            self.assertNotIn("short-token", str(status))
 
     def test_app_readiness_reports_missing_settings_by_section(self):
         with patched_env(

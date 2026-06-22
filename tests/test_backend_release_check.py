@@ -135,7 +135,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
             ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
             ALPHAMATE_EVENT_LOG_DB_PATH="D:/secure/alphamate/events.sqlite3",
-            ALPHAMATE_ADMIN_TOKEN="admin-token",
+            ALPHAMATE_ADMIN_TOKEN="admin-token-with-at-least-32-characters",
         ):
             from backend.core.release_check import format_backend_release_check, validate_backend_release_env
 
@@ -171,7 +171,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_ACCESS_DB_PATH=D:/secure/alphamate/access.sqlite3",
             "ALPHAMATE_REVIEW_HISTORY_DB_PATH=D:/secure/alphamate/review-history.sqlite3",
             "ALPHAMATE_EVENT_LOG_DB_PATH=D:/secure/alphamate/events.sqlite3",
-            "ALPHAMATE_ADMIN_TOKEN=admin-token",
+            "ALPHAMATE_ADMIN_TOKEN=admin-token-with-at-least-32-characters",
         ])
         with tempfile.NamedTemporaryFile("w", encoding="utf-8-sig", delete=False) as env_file:
             env_file.write(env_text)

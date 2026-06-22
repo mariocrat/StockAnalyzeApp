@@ -11,6 +11,7 @@ REQUIRED_DATA_STORAGE_SETTINGS = [
 ]
 PRIVACY_POLICY_URL_SETTING = "ALPHAMATE_PRIVACY_POLICY_URL"
 ADMIN_TOKEN_SETTING = "ALPHAMATE_ADMIN_TOKEN"
+ADMIN_TOKEN_MIN_LENGTH = 32
 
 
 def _env_value(name: str) -> str:
@@ -65,12 +66,19 @@ def _privacy_policy_status() -> dict:
 
 
 def _admin_status() -> dict:
-    configured = bool(_env_value(ADMIN_TOKEN_SETTING))
+    token = _env_value(ADMIN_TOKEN_SETTING)
+    configured = bool(token)
+    strong_enough = len(token) >= ADMIN_TOKEN_MIN_LENGTH
+    missing = []
+    if not configured:
+        missing.append(ADMIN_TOKEN_SETTING)
+    elif not strong_enough:
+        missing.append(f"{ADMIN_TOKEN_SETTING}_MIN_LENGTH_{ADMIN_TOKEN_MIN_LENGTH}")
     return {
-        "ready": configured,
-        "missing_server_settings": [] if configured else [ADMIN_TOKEN_SETTING],
+        "ready": configured and strong_enough,
+        "missing_server_settings": missing,
         "required_server_settings": [ADMIN_TOKEN_SETTING],
-        "note": "Required for protected operational event log lookup.",
+        "note": f"Required for protected operational event log lookup. Use at least {ADMIN_TOKEN_MIN_LENGTH} random characters.",
     }
 
 
