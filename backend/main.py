@@ -35,6 +35,7 @@ from core.access_control import (
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
 from core.readiness import get_app_readiness
+from core.rate_limit import InMemoryRateLimiter
 from core.env import env_value
 from core.event_log import list_events, purge_configured_retention, purge_events_older_than, record_api_exception, record_api_failure, record_event, summarize_events
 
@@ -49,6 +50,7 @@ logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 
 _theme_refresh_lock = threading.Lock()
 _theme_refresh_jobs = set()
+_client_event_rate_limiter = InMemoryRateLimiter()
 
 
 class JournalTradeIn(BaseModel):
@@ -295,6 +297,20 @@ def _request_user_id_for_log(request: Request) -> str:
         return ""
 
 
+def _request_client_key(request: Request) -> str:
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip() or "unknown"
+    return request.client.host if request.client else "unknown"
+
+
+def _client_event_rate_limit() -> int:
+    try:
+        return int(env_value("ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE") or 60)
+    except ValueError:
+        return 60
+
+
 @app.middleware("http")
 async def log_failed_api_requests(request: Request, call_next):
     path = request.url.path
@@ -385,7 +401,23 @@ def delete_old_admin_operational_events(
 
 
 @app.post("/api/client-events")
-def create_client_event(event: ClientEventIn, authorization: Optional[str] = Header(default=None)):
+def create_client_event(
+    event: ClientEventIn,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+):
+    rate_limit = _client_event_rate_limiter.check(
+        _request_client_key(request),
+        limit=_client_event_rate_limit(),
+        window_seconds=60,
+    )
+    if not rate_limit["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many client event reports. Retry after {rate_limit['retry_after_seconds']} seconds.",
+            headers={"Retry-After": str(rate_limit["retry_after_seconds"])},
+        )
+
     user = _optional_session_user(authorization)
     level = _clean_client_event_text(event.level, "warning", limit=20)
     if level not in {"debug", "info", "warning", "error"}:

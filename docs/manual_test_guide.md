@@ -241,6 +241,8 @@ Invoke-RestMethod -Method Delete -Uri 'https://your-api.example.com/api/admin/op
 
 서버 시작 시 자동으로 같은 정책을 적용하려면 운영 서버 환경변수에 `ALPHAMATE_EVENT_LOG_RETENTION_DAYS=90`처럼 설정합니다. 이 값이 없으면 자동 삭제는 실행하지 않습니다.
 
+클라이언트 오류 보고 API는 IP별 분당 기본 60회로 제한됩니다. 운영 환경에서 필요하면 `ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE` 값으로 조정합니다.
+
 ## 9. Android 앱 래퍼, APK, Play Store AAB 빌드 확인
 
 현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 이 PC에서는 프로젝트 안의 `.tools` 폴더에 JDK와 Android SDK command-line tools를 받아 디버그 APK 빌드까지 확인했습니다. `.tools`는 PC 전용 도구라 GitHub에는 올리지 않습니다.
