@@ -247,6 +247,8 @@ Invoke-RestMethod -Method Delete -Uri 'https://your-api.example.com/api/admin/op
 
 운영 서버에서 웹 또는 Android WebView가 API를 호출해야 하면 `ALPHAMATE_CORS_ORIGINS`에 허용할 주소를 쉼표로 넣습니다. 예: `https://your-app.example.com,capacitor://localhost`
 
+서버 생존 여부만 확인하는 모니터링에는 `/healthz` 또는 `/api/healthz`를 사용합니다. 이 응답은 `{"ok": true, "service": "alphamate-api"}`처럼 최소 정보만 반환하고, 설정 누락이나 secret 이름은 반환하지 않습니다.
+
 ## 9. Android 앱 래퍼, APK, Play Store AAB 빌드 확인
 
 현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 이 PC에서는 프로젝트 안의 `.tools` 폴더에 JDK와 Android SDK command-line tools를 받아 디버그 APK 빌드까지 확인했습니다. `.tools`는 PC 전용 도구라 GitHub에는 올리지 않습니다.

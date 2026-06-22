@@ -24,6 +24,7 @@
 - Added a separate per-IP rate limit for protected admin operational log APIs to reduce brute-force and accidental polling risk.
 - Required production readiness to reject short `ALPHAMATE_ADMIN_TOKEN` values while still keeping the token value out of diagnostics.
 - Added configurable backend CORS origins with Capacitor WebView defaults so mobile app and deployed web clients can call the API without hard-coded localhost-only settings.
+- Added lightweight `/healthz` and `/api/healthz` endpoints for deployment health checks without exposing readiness settings or secret names.
 
 ## 2026-06-21 frontend code splitting
 

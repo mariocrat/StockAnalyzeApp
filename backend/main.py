@@ -362,6 +362,12 @@ async def log_failed_api_requests(request: Request, call_next):
     return response
 
 
+@app.get("/healthz")
+@app.get("/api/healthz")
+def healthz():
+    return {"ok": True, "service": "alphamate-api"}
+
+
 def _clean_client_event_text(value: str, fallback: str, *, limit: int = 120) -> str:
     text = "".join(ch for ch in str(value or "") if ch.isalnum() or ch in {"_", "-", ".", "/", ":"}).strip()
     return (text or fallback)[:limit]
