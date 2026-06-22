@@ -226,6 +226,8 @@ Backend release environment check passed.
 
 API 응답에는 `X-Request-ID` 헤더가 붙습니다. 사용자가 오류 화면을 제보할 때 이 값을 함께 받으면 운영 로그의 `request_id`와 맞춰 어떤 요청이 실패했는지 찾기 쉽습니다. 앱이나 프론트가 직접 `X-Request-ID`를 보내면 안전한 형식일 때 같은 값을 이어 씁니다.
 
+프론트에서 API 실패 메시지를 표시할 때 `X-Request-ID`가 있으면 메시지 끝에 `(문의용 ID: ...)`가 붙습니다. 사용자가 문의할 때 이 값을 알려주면 아래 `request_id` 조회로 같은 실패 로그를 찾을 수 있습니다.
+
 특정 요청 ID만 조회하려면 관리자 로그 API에 `request_id`를 같이 넘깁니다.
 
 ```powershell

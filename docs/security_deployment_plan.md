@@ -197,6 +197,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 프론트 전역 JavaScript 오류와 처리되지 않은 Promise 오류도 `POST /api/client-events`로 보고한다. 같은 페이지 로딩 중 같은 종류의 전역 오류는 한 번만 보내서 오류 루프가 로그 DB를 채우지 않게 한다.
 - 운영 이벤트 details는 긴 문자열, 큰 배열, 큰 객체를 저장 전에 제한한다. 이는 로그 DB 폭증과 과도한 개인정보 보관을 줄이기 위한 보조 안전장치다.
 - 모든 응답에는 `X-Request-ID`를 붙이고, 실패 로그에는 같은 request id를 저장한다. 사용자가 오류를 제보할 때 request id로 추적하되, request id 자체에는 개인정보나 토큰을 넣지 않는다.
+- 프론트는 API 실패 응답의 `X-Request-ID`를 사용자 오류 메시지에 `문의용 ID`로 덧붙인다. 이는 사용자가 복잡한 개발자 도구를 열지 않아도 운영자가 같은 요청을 찾을 수 있게 하기 위한 표시다.
 - `GET /api/admin/operational-events`는 `Authorization: Bearer ...`에 담긴 `ALPHAMATE_ADMIN_TOKEN`이 맞을 때만 최근 운영 로그를 반환한다. 이 토큰은 서버 secret으로만 관리하고 앱, frontend 환경변수, GitHub에 넣지 않는다.
 - `GET /api/admin/operational-events?request_id=...`로 특정 실패 요청만 조회할 수 있다. 이 기능은 사용자 제보와 서버 로그를 연결하기 위한 관리자 전용 기능이다.
 - 배포 준비 점검은 `ALPHAMATE_ADMIN_TOKEN`이 32자 미만이면 실패시킨다. 토큰 값은 readiness, release check, 로그 어디에도 출력하지 않는다.
