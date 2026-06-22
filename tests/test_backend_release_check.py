@@ -68,6 +68,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_ACCESS_DB_PATH",
             "ALPHAMATE_REVIEW_HISTORY_DB_PATH",
             "ALPHAMATE_EVENT_LOG_DB_PATH",
+            "ALPHAMATE_CORS_ORIGINS",
         ]
 
         for name in required_names:

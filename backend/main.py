@@ -34,6 +34,7 @@ from core.access_control import (
 )
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
 from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
+from core.cors import allowed_cors_origins
 from core.readiness import get_app_readiness
 from core.rate_limit import InMemoryRateLimiter
 from core.env import env_value
@@ -275,12 +276,7 @@ app = FastAPI(title="Stock Analysis API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5174",
-        "http://localhost:5174",
-        "http://127.0.0.1:4173",
-        "http://localhost:4173",
-    ],
+    allow_origins=allowed_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
