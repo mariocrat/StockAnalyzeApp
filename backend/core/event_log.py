@@ -184,16 +184,25 @@ def record_api_failure(
     )
 
 
-def record_api_exception(*, method: str, path: str, exc: Exception, user_id: str = "") -> dict:
+def record_api_exception(
+    *,
+    method: str,
+    path: str,
+    exc: Exception,
+    user_id: str = "",
+    details: dict | None = None,
+) -> dict:
     status_code = exc.status_code if isinstance(exc, HTTPException) else 500
     detail = exc.detail if isinstance(exc, HTTPException) else exc.__class__.__name__
+    safe_details = {"exception_type": exc.__class__.__name__}
+    safe_details.update(details or {})
     return record_api_failure(
         method=method,
         path=path,
         status_code=status_code,
         user_id=user_id,
         message=str(detail or ""),
-        details={"exception_type": exc.__class__.__name__},
+        details=safe_details,
     )
 
 

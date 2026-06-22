@@ -128,12 +128,14 @@ class EventLogTest(unittest.TestCase):
                 path="/api/journal/ai-review-once",
                 exc=error,
                 user_id="user-1",
+                details={"request_id": "request-123"},
             )
 
             rows = event_log.list_events(limit=10)
             self.assertEqual(1, len(rows))
             self.assertEqual(402, rows[0]["status_code"])
             self.assertIn("Basic review quota exhausted.", rows[0]["message"])
+            self.assertEqual("request-123", rows[0]["details"]["request_id"])
 
     def test_list_events_can_filter_by_level_and_event_type(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(

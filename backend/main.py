@@ -42,6 +42,7 @@ from core.event_log import list_events, purge_configured_retention, purge_events
 
 from contextlib import asynccontextmanager
 import hmac
+import uuid
 import threading
 import logging
 from fastapi import HTTPException
@@ -53,6 +54,7 @@ _theme_refresh_lock = threading.Lock()
 _theme_refresh_jobs = set()
 _client_event_rate_limiter = InMemoryRateLimiter()
 _admin_rate_limiter = InMemoryRateLimiter()
+REQUEST_ID_HEADER = "X-Request-ID"
 
 
 class JournalTradeIn(BaseModel):
@@ -330,11 +332,22 @@ def _enforce_admin_rate_limit(client_key: str) -> bool:
     return True
 
 
+def _request_id_from_header(value: str | None) -> str:
+    text = str(value or "").strip()
+    safe = "".join(ch for ch in text if ch.isalnum() or ch in {"-", "_", "."})
+    if safe == text and 8 <= len(safe) <= 80:
+        return safe
+    return uuid.uuid4().hex
+
+
 @app.middleware("http")
 async def log_failed_api_requests(request: Request, call_next):
     path = request.url.path
+    request_id = _request_id_from_header(request.headers.get(REQUEST_ID_HEADER))
     if not path.startswith("/api/"):
-        return await call_next(request)
+        response = await call_next(request)
+        response.headers[REQUEST_ID_HEADER] = request_id
+        return response
 
     user_id = _request_user_id_for_log(request)
     try:
@@ -345,8 +358,10 @@ async def log_failed_api_requests(request: Request, call_next):
             path=path,
             exc=exc,
             user_id=user_id,
+            details={"request_id": request_id},
         )
         raise
+    response.headers[REQUEST_ID_HEADER] = request_id
 
     if response.status_code >= 400:
         record_api_failure(
@@ -356,6 +371,7 @@ async def log_failed_api_requests(request: Request, call_next):
             user_id=user_id,
             message=f"HTTP {response.status_code}",
             details={
+                "request_id": request_id,
                 "user_agent": request.headers.get("user-agent", ""),
             },
         )

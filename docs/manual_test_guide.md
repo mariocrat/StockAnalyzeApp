@@ -222,6 +222,8 @@ Backend release environment check passed.
 
 운영 로그 details는 비밀값을 가릴 뿐 아니라, 긴 문자열과 큰 배열/객체도 저장 전에 잘라냅니다. 장애 원인 파악에 필요한 요약 정보만 남기고 로그 DB가 커지는 일을 줄이기 위한 장치입니다.
 
+API 응답에는 `X-Request-ID` 헤더가 붙습니다. 사용자가 오류 화면을 제보할 때 이 값을 함께 받으면 운영 로그의 `request_id`와 맞춰 어떤 요청이 실패했는지 찾기 쉽습니다. 앱이나 프론트가 직접 `X-Request-ID`를 보내면 안전한 형식일 때 같은 값을 이어 씁니다.
+
 서버 관리자만 최근 운영 로그를 조회하려면 운영 서버에 `ALPHAMATE_ADMIN_TOKEN`을 32자 이상의 긴 랜덤 값으로 설정한 뒤 아래처럼 호출합니다. 이 토큰은 앱이나 frontend `.env`에 넣으면 안 됩니다.
 
 ```powershell
