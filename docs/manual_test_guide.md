@@ -226,6 +226,12 @@ Backend release environment check passed.
 
 API 응답에는 `X-Request-ID` 헤더가 붙습니다. 사용자가 오류 화면을 제보할 때 이 값을 함께 받으면 운영 로그의 `request_id`와 맞춰 어떤 요청이 실패했는지 찾기 쉽습니다. 앱이나 프론트가 직접 `X-Request-ID`를 보내면 안전한 형식일 때 같은 값을 이어 씁니다.
 
+특정 요청 ID만 조회하려면 관리자 로그 API에 `request_id`를 같이 넘깁니다.
+
+```powershell
+Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events?request_id=요청ID' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
+```
+
 서버 관리자만 최근 운영 로그를 조회하려면 운영 서버에 `ALPHAMATE_ADMIN_TOKEN`을 32자 이상의 긴 랜덤 값으로 설정한 뒤 아래처럼 호출합니다. 이 토큰은 앱이나 frontend `.env`에 넣으면 안 됩니다.
 
 ```powershell

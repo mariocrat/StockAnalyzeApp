@@ -415,10 +415,11 @@ def get_admin_operational_events(
     limit: int = 100,
     level: str = "",
     event_type: str = "",
+    request_id: str = "",
 ):
     _enforce_admin_rate_limit(_request_client_key(request))
     _require_admin_token(authorization)
-    events = list_events(limit=limit, level=level, event_type=event_type)
+    events = list_events(limit=limit, level=level, event_type=event_type, request_id=request_id)
     return {"events": events, "count": len(events)}
 
 

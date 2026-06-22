@@ -33,11 +33,15 @@ class AdminEventRoutesTest(unittest.TestCase):
     def test_admin_operational_events_route_is_registered(self):
         import main
 
-        paths = set(main.app.openapi()["paths"].keys())
+        openapi = main.app.openapi()
+        paths = set(openapi["paths"].keys())
+        event_route = openapi["paths"]["/api/admin/operational-events"]["get"]
+        parameter_names = {param["name"] for param in event_route["parameters"]}
 
         self.assertIn("/api/admin/operational-events", paths)
         self.assertIn("/api/admin/operational-events/summary", paths)
         self.assertIn("/api/admin/operational-events/retention", paths)
+        self.assertIn("request_id", parameter_names)
 
     def test_admin_event_route_requires_admin_token(self):
         with patched_env(ALPHAMATE_ADMIN_TOKEN="admin-secret"):

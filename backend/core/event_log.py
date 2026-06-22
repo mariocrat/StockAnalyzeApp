@@ -206,7 +206,11 @@ def record_api_exception(
     )
 
 
-def list_events(*, limit: int = 100, level: str = "", event_type: str = "") -> list[dict]:
+def _json_like_text(value: str) -> str:
+    return json.dumps(str(value or "").strip(), ensure_ascii=False)[1:-1]
+
+
+def list_events(*, limit: int = 100, level: str = "", event_type: str = "", request_id: str = "") -> list[dict]:
     filters = []
     params = []
     if str(level or "").strip():
@@ -215,6 +219,9 @@ def list_events(*, limit: int = 100, level: str = "", event_type: str = "") -> l
     if str(event_type or "").strip():
         filters.append("event_type = ?")
         params.append(str(event_type).strip())
+    if str(request_id or "").strip():
+        filters.append("details_json LIKE ?")
+        params.append(f'%"request_id": "{_json_like_text(request_id)}"%')
     where_sql = f"WHERE {' AND '.join(filters)}" if filters else ""
     params.append(max(1, min(int(limit or 100), 1000)))
 

@@ -198,6 +198,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 운영 이벤트 details는 긴 문자열, 큰 배열, 큰 객체를 저장 전에 제한한다. 이는 로그 DB 폭증과 과도한 개인정보 보관을 줄이기 위한 보조 안전장치다.
 - 모든 응답에는 `X-Request-ID`를 붙이고, 실패 로그에는 같은 request id를 저장한다. 사용자가 오류를 제보할 때 request id로 추적하되, request id 자체에는 개인정보나 토큰을 넣지 않는다.
 - `GET /api/admin/operational-events`는 `Authorization: Bearer ...`에 담긴 `ALPHAMATE_ADMIN_TOKEN`이 맞을 때만 최근 운영 로그를 반환한다. 이 토큰은 서버 secret으로만 관리하고 앱, frontend 환경변수, GitHub에 넣지 않는다.
+- `GET /api/admin/operational-events?request_id=...`로 특정 실패 요청만 조회할 수 있다. 이 기능은 사용자 제보와 서버 로그를 연결하기 위한 관리자 전용 기능이다.
 - 배포 준비 점검은 `ALPHAMATE_ADMIN_TOKEN`이 32자 미만이면 실패시킨다. 토큰 값은 readiness, release check, 로그 어디에도 출력하지 않는다.
 - `GET /api/admin/operational-events/summary`도 같은 관리자 토큰으로 보호하며, 최근 운영 로그를 level, event type, path 기준으로 집계해 장애 원인 분류에 사용한다.
 - `DELETE /api/admin/operational-events/retention`은 같은 관리자 토큰으로 보호하며, 지정한 보관기간보다 오래된 운영 로그만 삭제한다. 보관기간은 7일 미만으로 설정할 수 없고, 개인정보 최소 보관과 장애 분석 필요성 사이에서 운영 정책으로 정한다.

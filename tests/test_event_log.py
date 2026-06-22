@@ -163,6 +163,33 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual("warning", rows[0]["level"])
             self.assertEqual("google_play_purchase_failed", rows[0]["event_type"])
 
+    def test_list_events_can_filter_by_request_id(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            event_log.record_api_failure(
+                method="POST",
+                path="/api/journal/ai-review-once",
+                status_code=500,
+                message="failed",
+                details={"request_id": "request-target"},
+            )
+            event_log.record_api_failure(
+                method="POST",
+                path="/api/journal/ai-review-once",
+                status_code=500,
+                message="other",
+                details={"request_id": "request-other"},
+            )
+
+            rows = event_log.list_events(limit=10, request_id="request-target")
+
+            self.assertEqual(1, len(rows))
+            self.assertEqual("request-target", rows[0]["details"]["request_id"])
+
     def test_summarize_events_groups_recent_events(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
