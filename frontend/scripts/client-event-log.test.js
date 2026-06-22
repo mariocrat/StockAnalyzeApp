@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
   buildClientEventPayload,
+  getStoredAuthSessionToken,
+  installGlobalClientEventReporting,
   reportClientEvent,
 } from '../src/utils/clientEventLog.js';
 
@@ -47,4 +49,85 @@ test('reportClientEvent posts with auth header and never throws when reporting f
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, 'http://127.0.0.1:8002/api/client-events');
   assert.equal(calls[0].options.headers.Authorization, 'Bearer session-token');
+});
+
+test('installGlobalClientEventReporting reports unhandled window errors once', async () => {
+  const listeners = {};
+  const fakeWindow = {
+    location: { pathname: '/journal' },
+    addEventListener: (type, handler) => {
+      listeners[type] = handler;
+    },
+  };
+  const calls = [];
+
+  const cleanup = installGlobalClientEventReporting({
+    apiBase: 'http://127.0.0.1:8002',
+    getSessionToken: () => 'session-token',
+    targetWindow: fakeWindow,
+    post: async (url, body) => {
+      calls.push({ url, payload: JSON.parse(body) });
+    },
+  });
+
+  await listeners.error({
+    message: 'render exploded',
+    filename: 'TradingJournal.jsx',
+    lineno: 12,
+    colno: 34,
+    error: new Error('secret-token should not leak'),
+  });
+  await listeners.error({ message: 'duplicate' });
+
+  assert.equal(typeof cleanup, 'function');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'http://127.0.0.1:8002/api/client-events');
+  assert.equal(calls[0].payload.event_type, 'client_unhandled_error');
+  assert.equal(calls[0].payload.level, 'error');
+  assert.equal(calls[0].payload.message, 'render exploded');
+  assert.equal(calls[0].payload.path, '/journal');
+  assert.equal(calls[0].payload.details.filename, 'TradingJournal.jsx');
+  assert.equal(calls[0].payload.details.lineno, 12);
+  assert.doesNotMatch(JSON.stringify(calls[0].payload), /secret-token/);
+});
+
+test('installGlobalClientEventReporting reports unhandled promise rejections', async () => {
+  const listeners = {};
+  const fakeWindow = {
+    location: { pathname: '/journal' },
+    addEventListener: (type, handler) => {
+      listeners[type] = handler;
+    },
+  };
+  const calls = [];
+
+  installGlobalClientEventReporting({
+    apiBase: 'http://127.0.0.1:8002',
+    getSessionToken: () => '',
+    targetWindow: fakeWindow,
+    post: async (url, body) => {
+      calls.push({ url, payload: JSON.parse(body) });
+    },
+  });
+
+  await listeners.unhandledrejection({
+    reason: new Error('network failed'),
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].payload.event_type, 'client_unhandled_rejection');
+  assert.equal(calls[0].payload.message, 'network failed');
+  assert.equal(calls[0].payload.details.reason_name, 'Error');
+});
+
+test('getStoredAuthSessionToken reads only the saved session token', () => {
+  const storage = {
+    getItem: key => key === 'alphamate.devAuth.v1'
+      ? JSON.stringify({ session_token: 'session-token', secret: 'ignore-me' })
+      : null,
+  };
+
+  assert.equal(getStoredAuthSessionToken(storage), 'session-token');
+  assert.equal(getStoredAuthSessionToken({ getItem: () => 'not-json' }), '');
+  assert.equal(getStoredAuthSessionToken(null), '');
 });

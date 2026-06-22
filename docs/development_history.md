@@ -27,6 +27,7 @@
 - Added lightweight `/healthz` and `/api/healthz` endpoints for deployment health checks without exposing readiness settings or secret names.
 - Added operational event detail size limits so oversized client reports cannot bloat the server log database.
 - Added `X-Request-ID` response headers and operational event request IDs so API failures can be correlated with user reports without exposing secrets.
+- Added global frontend error and unhandled promise rejection reporting so unexpected app-side failures can reach the operational event log once per page load.
 
 ## 2026-06-21 frontend code splitting
 

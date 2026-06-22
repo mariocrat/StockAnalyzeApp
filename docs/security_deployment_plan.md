@@ -194,6 +194,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 필요한 환경변수는 `ALPHAMATE_ACCOUNT_DB_PATH`, `ALPHAMATE_JOURNAL_DB_PATH`, `ALPHAMATE_ACCESS_DB_PATH`, `ALPHAMATE_REVIEW_HISTORY_DB_PATH`, `ALPHAMATE_EVENT_LOG_DB_PATH`, `ALPHAMATE_ADMIN_TOKEN`이다.
 - 실패한 `/api/...` 요청은 `operational_events` 테이블에 method, path, status code, 사용자 ID, 메시지, 안전한 부가정보로 저장된다. Authorization, token, secret, password, private key처럼 비밀값으로 보이는 필드는 저장 전에 `[redacted]`로 바뀐다.
 - 모바일 앱의 광고/결제 SDK 실패는 `POST /api/client-events`를 통해 같은 `operational_events` 테이블에 저장한다. 클라이언트 보고는 장애 분석용 보조 정보이며, 광고 보상이나 결제 지급의 신뢰 근거로 사용하면 안 된다.
+- 프론트 전역 JavaScript 오류와 처리되지 않은 Promise 오류도 `POST /api/client-events`로 보고한다. 같은 페이지 로딩 중 같은 종류의 전역 오류는 한 번만 보내서 오류 루프가 로그 DB를 채우지 않게 한다.
 - 운영 이벤트 details는 긴 문자열, 큰 배열, 큰 객체를 저장 전에 제한한다. 이는 로그 DB 폭증과 과도한 개인정보 보관을 줄이기 위한 보조 안전장치다.
 - 모든 응답에는 `X-Request-ID`를 붙이고, 실패 로그에는 같은 request id를 저장한다. 사용자가 오류를 제보할 때 request id로 추적하되, request id 자체에는 개인정보나 토큰을 넣지 않는다.
 - `GET /api/admin/operational-events`는 `Authorization: Bearer ...`에 담긴 `ALPHAMATE_ADMIN_TOKEN`이 맞을 때만 최근 운영 로그를 반환한다. 이 토큰은 서버 secret으로만 관리하고 앱, frontend 환경변수, GitHub에 넣지 않는다.
