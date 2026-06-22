@@ -51,6 +51,7 @@ logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 _theme_refresh_lock = threading.Lock()
 _theme_refresh_jobs = set()
 _client_event_rate_limiter = InMemoryRateLimiter()
+_admin_rate_limiter = InMemoryRateLimiter()
 
 
 class JournalTradeIn(BaseModel):
@@ -311,6 +312,28 @@ def _client_event_rate_limit() -> int:
         return 60
 
 
+def _admin_rate_limit() -> int:
+    try:
+        return int(env_value("ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE") or 30)
+    except ValueError:
+        return 30
+
+
+def _enforce_admin_rate_limit(client_key: str) -> bool:
+    rate_limit = _admin_rate_limiter.check(
+        client_key or "unknown",
+        limit=_admin_rate_limit(),
+        window_seconds=60,
+    )
+    if not rate_limit["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many admin requests. Retry after {rate_limit['retry_after_seconds']} seconds.",
+            headers={"Retry-After": str(rate_limit["retry_after_seconds"])},
+        )
+    return True
+
+
 @app.middleware("http")
 async def log_failed_api_requests(request: Request, call_next):
     path = request.url.path
@@ -369,11 +392,13 @@ def _require_admin_token(authorization: Optional[str]) -> bool:
 
 @app.get("/api/admin/operational-events")
 def get_admin_operational_events(
+    request: Request,
     authorization: Optional[str] = Header(default=None),
     limit: int = 100,
     level: str = "",
     event_type: str = "",
 ):
+    _enforce_admin_rate_limit(_request_client_key(request))
     _require_admin_token(authorization)
     events = list_events(limit=limit, level=level, event_type=event_type)
     return {"events": events, "count": len(events)}
@@ -381,18 +406,22 @@ def get_admin_operational_events(
 
 @app.get("/api/admin/operational-events/summary")
 def get_admin_operational_event_summary(
+    request: Request,
     authorization: Optional[str] = Header(default=None),
     limit: int = 500,
 ):
+    _enforce_admin_rate_limit(_request_client_key(request))
     _require_admin_token(authorization)
     return summarize_events(limit=limit)
 
 
 @app.delete("/api/admin/operational-events/retention")
 def delete_old_admin_operational_events(
+    request: Request,
     authorization: Optional[str] = Header(default=None),
     retention_days: int = 90,
 ):
+    _enforce_admin_rate_limit(_request_client_key(request))
     _require_admin_token(authorization)
     try:
         return purge_events_older_than(retention_days=retention_days)

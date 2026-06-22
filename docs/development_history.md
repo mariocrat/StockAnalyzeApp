@@ -21,6 +21,7 @@
 - Added protected operational event retention cleanup so old server troubleshooting logs can be purged without touching current events.
 - Added optional startup cleanup via `ALPHAMATE_EVENT_LOG_RETENTION_DAYS` so operational logs can follow a retention policy automatically.
 - Added a lightweight per-IP rate limit for `/api/client-events` so client-side error reporting cannot flood the operational log database.
+- Added a separate per-IP rate limit for protected admin operational log APIs to reduce brute-force and accidental polling risk.
 
 ## 2026-06-21 frontend code splitting
 

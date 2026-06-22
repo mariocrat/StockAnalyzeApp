@@ -199,5 +199,6 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - `DELETE /api/admin/operational-events/retention`은 같은 관리자 토큰으로 보호하며, 지정한 보관기간보다 오래된 운영 로그만 삭제한다. 보관기간은 7일 미만으로 설정할 수 없고, 개인정보 최소 보관과 장애 분석 필요성 사이에서 운영 정책으로 정한다.
 - `ALPHAMATE_EVENT_LOG_RETENTION_DAYS`를 설정하면 서버 시작 시 같은 보관기간 정책을 자동 적용한다. 값이 없으면 자동 삭제하지 않고, 잘못된 값은 삭제 없이 건너뛴다.
 - `/api/client-events`는 IP별 분당 기본 60회 rate limit을 적용한다. `ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE`로 조정할 수 있으며, 이 API는 장애 분석 보조 정보만 받는 통로라서 과도한 호출은 429로 거부한다.
+- 관리자 운영 로그 API들은 IP별 분당 기본 30회 rate limit을 적용한다. `ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE`로 조정할 수 있으며, 토큰 무작위 대입과 실수성 과다 조회를 줄이기 위한 보조 방어다.
 - 기본 개발 경로인 `backend/data/*.sqlite3`는 로컬 개발용으로만 보고, 운영에서는 백업 가능한 서버 볼륨이나 관리형 DB 마이그레이션 대상으로 분리해야 한다.
 - 현재 코드는 SQLite 기반이므로 초기 운영은 명시 경로 + 백업 정책으로 시작할 수 있지만, 사용자 수가 늘면 PostgreSQL 같은 관리형 DB로 옮기는 것이 다음 큰 단계다.

@@ -53,6 +53,19 @@ class AdminEventRoutesTest(unittest.TestCase):
 
             self.assertTrue(main._require_admin_token("Bearer admin-secret"))
 
+    def test_admin_rate_limit_rejects_excessive_requests(self):
+        with patched_env(ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE="2"):
+            import main
+            from core.rate_limit import InMemoryRateLimiter
+
+            main._admin_rate_limiter = InMemoryRateLimiter()
+
+            self.assertTrue(main._enforce_admin_rate_limit("client-a"))
+            self.assertTrue(main._enforce_admin_rate_limit("client-a"))
+            with self.assertRaises(HTTPException) as blocked:
+                main._enforce_admin_rate_limit("client-a")
+            self.assertEqual(429, blocked.exception.status_code)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -243,6 +243,8 @@ Invoke-RestMethod -Method Delete -Uri 'https://your-api.example.com/api/admin/op
 
 클라이언트 오류 보고 API는 IP별 분당 기본 60회로 제한됩니다. 운영 환경에서 필요하면 `ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE` 값으로 조정합니다.
 
+관리자 운영 로그 API는 IP별 분당 기본 30회로 제한됩니다. 운영 환경에서 필요하면 `ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE` 값으로 조정하되, 관리자 토큰은 계속 서버 secret으로만 보관합니다.
+
 ## 9. Android 앱 래퍼, APK, Play Store AAB 빌드 확인
 
 현재 frontend에는 Capacitor 앱 래퍼와 Android 프로젝트 골격이 들어간 상태입니다. 이 PC에서는 프로젝트 안의 `.tools` 폴더에 JDK와 Android SDK command-line tools를 받아 디버그 APK 빌드까지 확인했습니다. `.tools`는 PC 전용 도구라 GitHub에는 올리지 않습니다.
