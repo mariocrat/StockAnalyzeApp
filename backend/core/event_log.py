@@ -24,6 +24,9 @@ SECRET_KEY_PARTS = {
     "signature",
     "token",
 }
+MAX_DETAIL_STRING_LENGTH = 1000
+MAX_DETAIL_LIST_LENGTH = 50
+MAX_DETAIL_DICT_KEYS = 50
 _EVENT_LOG_LOCK = threading.Lock()
 
 
@@ -85,13 +88,20 @@ def _should_redact_key(key: str) -> bool:
 
 def _redact(value):
     if isinstance(value, dict):
-        return {
-            str(key): "[redacted]" if _should_redact_key(str(key)) else _redact(item)
-            for key, item in value.items()
-        }
+        safe = {}
+        items = list(value.items())
+        for key, item in items[:MAX_DETAIL_DICT_KEYS]:
+            safe[str(key)] = "[redacted]" if _should_redact_key(str(key)) else _redact(item)
+        if len(items) > MAX_DETAIL_DICT_KEYS:
+            safe["__truncated_keys__"] = len(items) - MAX_DETAIL_DICT_KEYS
+        return safe
     if isinstance(value, list):
-        return [_redact(item) for item in value[:50]]
-    if isinstance(value, (str, int, float, bool)) or value is None:
+        return [_redact(item) for item in value[:MAX_DETAIL_LIST_LENGTH]]
+    if isinstance(value, str):
+        if len(value) > MAX_DETAIL_STRING_LENGTH:
+            return f"{value[:MAX_DETAIL_STRING_LENGTH]}[truncated]"
+        return value
+    if isinstance(value, (int, float, bool)) or value is None:
         return value
     return str(value)
 

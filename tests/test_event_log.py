@@ -58,6 +58,31 @@ class EventLogTest(unittest.TestCase):
             self.assertNotIn("secret-value", row_text)
             self.assertIn("[redacted]", row_text)
 
+    def test_event_log_truncates_oversized_detail_values(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            event_log.record_event(
+                level="warning",
+                event_type="oversized_client_event",
+                details={
+                    "long_text": "x" * 5000,
+                    "items": list(range(100)),
+                    "many_keys": {f"key_{index}": index for index in range(80)},
+                },
+            )
+
+            row = event_log.list_events(limit=1)[0]
+
+            self.assertLessEqual(len(row["details"]["long_text"]), event_log.MAX_DETAIL_STRING_LENGTH + 20)
+            self.assertIn("[truncated]", row["details"]["long_text"])
+            self.assertEqual(event_log.MAX_DETAIL_LIST_LENGTH, len(row["details"]["items"]))
+            self.assertLessEqual(len(row["details"]["many_keys"]), event_log.MAX_DETAIL_DICT_KEYS + 1)
+            self.assertIn("__truncated_keys__", row["details"]["many_keys"])
+
     def test_api_failure_event_helper_records_without_authorization_token(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),

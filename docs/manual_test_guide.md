@@ -220,6 +220,8 @@ Backend release environment check passed.
 
 모바일 앱에서 AdMob 보상형 광고나 Google Play 결제 처리 중 실패가 나면 프론트가 `POST /api/client-events`로 실패 정보를 보냅니다. 이 보고 자체가 실패해도 사용자의 원래 작업을 추가로 막지 않으며, 결제 token이나 세션 token 같은 값은 프론트와 서버 양쪽에서 가려집니다.
 
+운영 로그 details는 비밀값을 가릴 뿐 아니라, 긴 문자열과 큰 배열/객체도 저장 전에 잘라냅니다. 장애 원인 파악에 필요한 요약 정보만 남기고 로그 DB가 커지는 일을 줄이기 위한 장치입니다.
+
 서버 관리자만 최근 운영 로그를 조회하려면 운영 서버에 `ALPHAMATE_ADMIN_TOKEN`을 32자 이상의 긴 랜덤 값으로 설정한 뒤 아래처럼 호출합니다. 이 토큰은 앱이나 frontend `.env`에 넣으면 안 됩니다.
 
 ```powershell
