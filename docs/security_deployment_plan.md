@@ -200,6 +200,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 프론트는 API 실패 응답의 `X-Request-ID`를 사용자 오류 메시지에 `문의용 ID`로 덧붙인다. 이는 사용자가 복잡한 개발자 도구를 열지 않아도 운영자가 같은 요청을 찾을 수 있게 하기 위한 표시다.
 - `GET /api/admin/operational-events`는 `Authorization: Bearer ...`에 담긴 `ALPHAMATE_ADMIN_TOKEN`이 맞을 때만 최근 운영 로그를 반환한다. 이 토큰은 서버 secret으로만 관리하고 앱, frontend 환경변수, GitHub에 넣지 않는다.
 - `GET /api/admin/operational-events?request_id=...`로 특정 실패 요청만 조회할 수 있다. 이 기능은 사용자 제보와 서버 로그를 연결하기 위한 관리자 전용 기능이다.
+- 같은 관리자 API는 `user_id`, `path`, `status_code` 필터도 지원한다. 사용자별 장애 조사나 특정 결제/광고/AI 복기 API 장애 범위 확인에만 사용하고, 일반 앱 화면에는 노출하지 않는다.
 - 배포 준비 점검은 `ALPHAMATE_ADMIN_TOKEN`이 32자 미만이면 실패시킨다. 토큰 값은 readiness, release check, 로그 어디에도 출력하지 않는다.
 - `GET /api/admin/operational-events/summary`도 같은 관리자 토큰으로 보호하며, 최근 운영 로그를 level, event type, path 기준으로 집계해 장애 원인 분류에 사용한다.
 - `DELETE /api/admin/operational-events/retention`은 같은 관리자 토큰으로 보호하며, 지정한 보관기간보다 오래된 운영 로그만 삭제한다. 보관기간은 7일 미만으로 설정할 수 없고, 개인정보 최소 보관과 장애 분석 필요성 사이에서 운영 정책으로 정한다.

@@ -190,6 +190,47 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(1, len(rows))
             self.assertEqual("request-target", rows[0]["details"]["request_id"])
 
+    def test_list_events_can_filter_by_user_path_and_status_code(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            event_log.record_api_failure(
+                method="POST",
+                path="/api/journal/google-play-purchase",
+                status_code=402,
+                user_id="user-target",
+                message="purchase failed",
+            )
+            event_log.record_api_failure(
+                method="POST",
+                path="/api/journal/ai-review-once",
+                status_code=402,
+                user_id="user-target",
+                message="review failed",
+            )
+            event_log.record_api_failure(
+                method="POST",
+                path="/api/journal/google-play-purchase",
+                status_code=500,
+                user_id="user-other",
+                message="other failed",
+            )
+
+            rows = event_log.list_events(
+                limit=10,
+                user_id="user-target",
+                path="/api/journal/google-play-purchase",
+                status_code=402,
+            )
+
+            self.assertEqual(1, len(rows))
+            self.assertEqual("user-target", rows[0]["user_id"])
+            self.assertEqual("/api/journal/google-play-purchase", rows[0]["path"])
+            self.assertEqual(402, rows[0]["status_code"])
+
     def test_summarize_events_groups_recent_events(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),

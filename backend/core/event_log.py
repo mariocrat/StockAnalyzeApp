@@ -210,7 +210,16 @@ def _json_like_text(value: str) -> str:
     return json.dumps(str(value or "").strip(), ensure_ascii=False)[1:-1]
 
 
-def list_events(*, limit: int = 100, level: str = "", event_type: str = "", request_id: str = "") -> list[dict]:
+def list_events(
+    *,
+    limit: int = 100,
+    level: str = "",
+    event_type: str = "",
+    request_id: str = "",
+    user_id: str = "",
+    path: str = "",
+    status_code: int | None = None,
+) -> list[dict]:
     filters = []
     params = []
     if str(level or "").strip():
@@ -222,6 +231,15 @@ def list_events(*, limit: int = 100, level: str = "", event_type: str = "", requ
     if str(request_id or "").strip():
         filters.append("details_json LIKE ?")
         params.append(f'%"request_id": "{_json_like_text(request_id)}"%')
+    if str(user_id or "").strip():
+        filters.append("user_id = ?")
+        params.append(str(user_id).strip())
+    if str(path or "").strip():
+        filters.append("path = ?")
+        params.append(str(path).strip())
+    if status_code is not None:
+        filters.append("status_code = ?")
+        params.append(int(status_code))
     where_sql = f"WHERE {' AND '.join(filters)}" if filters else ""
     params.append(max(1, min(int(limit or 100), 1000)))
 

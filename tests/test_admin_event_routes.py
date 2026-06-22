@@ -42,6 +42,9 @@ class AdminEventRoutesTest(unittest.TestCase):
         self.assertIn("/api/admin/operational-events/summary", paths)
         self.assertIn("/api/admin/operational-events/retention", paths)
         self.assertIn("request_id", parameter_names)
+        self.assertIn("user_id", parameter_names)
+        self.assertIn("path", parameter_names)
+        self.assertIn("status_code", parameter_names)
 
     def test_admin_event_route_requires_admin_token(self):
         with patched_env(ALPHAMATE_ADMIN_TOKEN="admin-secret"):
