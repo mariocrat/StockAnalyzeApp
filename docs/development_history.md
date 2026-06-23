@@ -2,6 +2,7 @@
 
 ## 2026-06-21 quick verification script
 
+- Added `docs/release_preparation_checklist.md` as a non-developer launch checklist for API keys, server setup, login, Google Play, AdMob, privacy policy, Android builds, operational logs, and final verification.
 - Added `docs/project_owner_dashboard.md` as a non-developer project status dashboard that summarizes completed areas, remaining launch work, and recommended next steps.
 - Added `scripts/verify_project.ps1` so local project quality checks can be run with one PowerShell command.
 - The script runs backend tests, backend compile, frontend release-env tests, Android branding tests, AdMob policy tests, frontend lint, and frontend production build.

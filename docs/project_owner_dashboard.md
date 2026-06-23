@@ -87,6 +87,8 @@ AlphaMate는 현재 테마 상승률/차트 기능과 매매복기 기능의 큰
 
 ## 아직 실제 출시 전에 필요한 것
 
+자세한 체크 항목은 `docs/release_preparation_checklist.md`에 따로 정리했습니다. 이 현황판은 큰 그림, 체크리스트는 실제 준비물을 하나씩 확인하는 용도입니다.
+
 ### 꼭 필요한 외부 준비
 
 - OpenAI API Key 준비
