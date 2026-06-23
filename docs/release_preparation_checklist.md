@@ -316,6 +316,7 @@ verify_android_debug.bat
 2. 복사한 파일에만 OpenAI Key, 카카오/네이버 Secret, Google Play 서비스 계정, AdMob 광고 단위, Android 서명 정보를 채운다.
 3. 채운 파일은 GitHub에 올리지 않는다.
 4. `release_readiness_report.bat`를 실행해서 빠진 설정이 줄어드는지 확인한다.
+5. 루트의 `.env.release`와 `frontend/.env.release`가 있으면 보고서가 자동으로 그 파일을 우선 읽는다.
 
 주의:
 

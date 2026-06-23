@@ -126,6 +126,15 @@ class BackendReleaseCheckTest(unittest.TestCase):
         for name in ignored_names:
             self.assertIn(name, gitignore)
 
+    def test_release_readiness_report_uses_release_env_files_when_present(self):
+        with open("release_readiness_report.bat", encoding="utf-8") as report_file:
+            script = report_file.read()
+
+        self.assertIn(".env.release", script)
+        self.assertIn("ALPHAMATE_ENV_FILE", script)
+        self.assertIn("ALPHAMATE_FRONTEND_ENV_FILE", script)
+        self.assertIn("frontend\\.env.release", script)
+
     def test_format_owner_release_readiness_report_hides_secret_values(self):
         from backend.core.release_check import format_owner_release_readiness_report
 

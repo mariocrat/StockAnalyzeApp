@@ -6,7 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { spawnSync } from 'node:child_process';
 
-import { formatOwnerFrontendReleaseReport, validateReleaseEnv } from './validate-release-env.js';
+import { formatOwnerFrontendReleaseReport, releaseEnvFromProcess, validateReleaseEnv } from './validate-release-env.js';
 
 function validReleaseEnv(overrides = {}) {
   const keystoreFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'alphamate-release-')), 'upload.jks');
@@ -140,6 +140,36 @@ test('frontend release env template is production focused', () => {
   }
   assert.doesNotMatch(template, /VITE_DEV_/);
   assert.doesNotMatch(template, /dev-token/);
+});
+
+test('release env loader accepts an explicit frontend env file', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'alphamate-frontend-env-'));
+  const envPath = path.join(tempDir, '.env.release');
+  fs.writeFileSync(envPath, [
+    'VITE_APP_NAME=ReleaseFileAlphaMate',
+    'VITE_ALPHAMATE_ENV=production',
+  ].join('\n'));
+
+  const previousEnvFile = process.env.ALPHAMATE_FRONTEND_ENV_FILE;
+  const previousAppName = process.env.VITE_APP_NAME;
+  const previousAppEnv = process.env.VITE_ALPHAMATE_ENV;
+  try {
+    process.env.ALPHAMATE_FRONTEND_ENV_FILE = envPath;
+    delete process.env.VITE_APP_NAME;
+    delete process.env.VITE_ALPHAMATE_ENV;
+
+    const env = releaseEnvFromProcess();
+
+    assert.equal(env.VITE_APP_NAME, 'ReleaseFileAlphaMate');
+    assert.equal(env.VITE_ALPHAMATE_ENV, 'production');
+  } finally {
+    if (previousEnvFile === undefined) delete process.env.ALPHAMATE_FRONTEND_ENV_FILE;
+    else process.env.ALPHAMATE_FRONTEND_ENV_FILE = previousEnvFile;
+    if (previousAppName === undefined) delete process.env.VITE_APP_NAME;
+    else process.env.VITE_APP_NAME = previousAppName;
+    if (previousAppEnv === undefined) delete process.env.VITE_ALPHAMATE_ENV;
+    else process.env.VITE_ALPHAMATE_ENV = previousAppEnv;
+  }
 });
 
 test('formats owner frontend release report without exposing secret values', () => {

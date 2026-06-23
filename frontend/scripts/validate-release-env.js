@@ -196,7 +196,10 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
 }
 
 function loadLocalEnv() {
-  const envPath = path.resolve(process.cwd(), '.env');
+  const configuredEnvPath = envValue(process.env, 'ALPHAMATE_FRONTEND_ENV_FILE');
+  const envPath = configuredEnvPath
+    ? path.resolve(configuredEnvPath)
+    : path.resolve(process.cwd(), '.env');
   if (!fs.existsSync(envPath)) return {};
   return parseEnvFile(fs.readFileSync(envPath, 'utf8'));
 }

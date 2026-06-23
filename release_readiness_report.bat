@@ -7,6 +7,16 @@ set REPORT_EXIT=0
 set BACKEND_REPORT_EXIT=0
 set FRONTEND_REPORT_EXIT=0
 
+if exist ".env.release" (
+  set ALPHAMATE_ENV_FILE=%cd%\.env.release
+  echo Using backend release env file: %cd%\.env.release
+)
+
+if exist "frontend\.env.release" (
+  set ALPHAMATE_FRONTEND_ENV_FILE=%cd%\frontend\.env.release
+  echo Using frontend release env file: %cd%\frontend\.env.release
+)
+
 if not exist ".venv\Scripts\python.exe" (
   echo Python venv was not found at %cd%\.venv\Scripts\python.exe
   pause

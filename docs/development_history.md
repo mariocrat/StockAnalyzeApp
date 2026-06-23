@@ -41,6 +41,7 @@
 - Added a frontend/Android owner release report that reuses the existing release environment validator without printing API keys, keystore passwords, or other secret values.
 - Updated `release_readiness_report.bat` to show both backend readiness and frontend/Android readiness in one double-click report, with UTF-8 output for Korean text.
 - Added `.env.release.example` and `frontend/.env.release.example` as production-focused templates so real launch keys can be filled outside Git without mixing in development helper tokens.
+- Updated `release_readiness_report.bat` to automatically use `.env.release` and `frontend/.env.release` when those private release files exist locally.
 
 ## 2026-06-21 frontend code splitting
 

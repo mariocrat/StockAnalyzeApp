@@ -14,7 +14,9 @@ SECRET_PATTERNS = [
 ]
 ALLOWED_ASSIGNMENT_FILES = {
     ".env.example",
+    ".env.release.example",
     "frontend/.env.example",
+    "frontend/.env.release.example",
     "docs/manual_test_guide.md",
     "docs/security_deployment_plan.md",
     "tests/test_backend_release_check.py",
