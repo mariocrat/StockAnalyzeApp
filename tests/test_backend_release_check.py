@@ -74,6 +74,45 @@ class BackendReleaseCheckTest(unittest.TestCase):
         for name in required_names:
             self.assertIn(name, example)
 
+    def test_format_owner_release_readiness_report_hides_secret_values(self):
+        from backend.core.release_check import format_owner_release_readiness_report
+
+        report = format_owner_release_readiness_report({
+            "ok": False,
+            "errors": [
+                "ai: OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY",
+                "admin: ALPHAMATE_ADMIN_TOKEN_MIN_LENGTH_32",
+            ],
+            "readiness": {
+                "overall_ready": False,
+                "sections": {
+                    "ai": {
+                        "ready": False,
+                        "missing_server_settings": ["OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY"],
+                        "required_server_settings": ["OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY"],
+                    },
+                    "admin": {
+                        "ready": False,
+                        "missing_server_settings": ["ALPHAMATE_ADMIN_TOKEN_MIN_LENGTH_32"],
+                        "required_server_settings": ["ALPHAMATE_ADMIN_TOKEN"],
+                    },
+                    "privacy_policy": {
+                        "ready": True,
+                        "missing_server_settings": [],
+                        "required_server_settings": ["ALPHAMATE_PRIVACY_POLICY_URL"],
+                    },
+                },
+            },
+        })
+
+        self.assertIn("AlphaMate 출시 준비 보고서", report)
+        self.assertIn("[필요] AI 복기", report)
+        self.assertIn("[준비됨] 개인정보처리방침", report)
+        self.assertIn("OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY", report)
+        self.assertIn("다음에 할 일", report)
+        self.assertNotIn("sk-", report)
+        self.assertNotIn("secret", report.lower())
+
     def test_rejects_missing_production_backend_settings_without_secret_values(self):
         with patched_env(
             ALPHAMATE_ENV="development",

@@ -82,9 +82,10 @@ ALPHAMATE_EVENT_LOG_DB_PATH=/secure-data/event_log.sqlite3
 VITE_KAKAO_REST_API_KEY=카카오_REST_API_KEY
 VITE_KAKAO_REDIRECT_URI=https://your-app.example.com/oauth/kakao
 KAKAO_CLIENT_ID=카카오_REST_API_KEY
-KAKAO_CLIENT_SECRET=필요한_경우만
 KAKAO_REDIRECT_URI=https://your-app.example.com/oauth/kakao
 ```
+
+`KAKAO_CLIENT_SECRET`은 카카오 설정에서 필요한 경우에만 서버 Secret으로 따로 설정합니다. 실제 값은 문서나 GitHub에 적지 않습니다.
 
 ### 네이버 로그인
 
@@ -100,9 +101,10 @@ KAKAO_REDIRECT_URI=https://your-app.example.com/oauth/kakao
 VITE_NAVER_CLIENT_ID=네이버_Client_ID
 VITE_NAVER_REDIRECT_URI=https://your-app.example.com/oauth/naver
 NAVER_CLIENT_ID=네이버_Client_ID
-NAVER_CLIENT_SECRET=네이버_Client_Secret
 NAVER_REDIRECT_URI=https://your-app.example.com/oauth/naver
 ```
+
+`NAVER_CLIENT_SECRET`은 서버 Secret으로 따로 설정합니다. 실제 값은 문서나 GitHub에 적지 않습니다.
 
 확인 방법:
 
@@ -254,6 +256,14 @@ Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-event
 ```
 
 ## 9. 최종 검증
+
+내 PC나 서버 설정이 출시 준비에 얼마나 가까운지 먼저 보고 싶으면 아래 파일을 실행합니다.
+
+```bat
+release_readiness_report.bat
+```
+
+이 보고서는 필요한 설정 이름만 보여주고 API Key, 토큰, 서비스 계정 원문은 출력하지 않습니다.
 
 일반 전체 검증:
 

@@ -129,6 +129,12 @@ AlphaMate는 현재 테마 상승률/차트 기능과 매매복기 기능의 큰
 verify_project.bat
 ```
 
+출시 준비 상태 보고서:
+
+```bat
+release_readiness_report.bat
+```
+
 앱 실행:
 
 ```bat

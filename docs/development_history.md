@@ -2,6 +2,7 @@
 
 ## 2026-06-21 quick verification script
 
+- Added `release_readiness_report.bat` and `backend/scripts/owner_release_report.py` to print a non-secret Korean launch readiness report from the existing backend readiness checks.
 - Added `docs/release_preparation_checklist.md` as a non-developer launch checklist for API keys, server setup, login, Google Play, AdMob, privacy policy, Android builds, operational logs, and final verification.
 - Added `docs/project_owner_dashboard.md` as a non-developer project status dashboard that summarizes completed areas, remaining launch work, and recommended next steps.
 - Added `scripts/verify_project.ps1` so local project quality checks can be run with one PowerShell command.
