@@ -278,8 +278,31 @@ def list_events(
         conn.close()
 
 
-def summarize_events(*, limit: int = 500) -> dict:
-    rows = list_events(limit=limit)
+def summarize_events(
+    *,
+    limit: int = 500,
+    level: str = "",
+    event_type: str = "",
+    request_id: str = "",
+    user_id: str = "",
+    path: str = "",
+    status_code: int | None = None,
+    event_id: str = "",
+    created_after: str = "",
+    created_before: str = "",
+) -> dict:
+    rows = list_events(
+        limit=limit,
+        level=level,
+        event_type=event_type,
+        request_id=request_id,
+        user_id=user_id,
+        path=path,
+        status_code=status_code,
+        event_id=event_id,
+        created_after=created_after,
+        created_before=created_before,
+    )
     by_level: dict[str, int] = {}
     by_event_type: dict[str, int] = {}
     by_path: dict[str, int] = {}

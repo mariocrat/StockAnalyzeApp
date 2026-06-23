@@ -49,6 +49,16 @@ class AdminEventRoutesTest(unittest.TestCase):
         self.assertIn("created_after", parameter_names)
         self.assertIn("created_before", parameter_names)
 
+        summary_route = openapi["paths"]["/api/admin/operational-events/summary"]["get"]
+        summary_parameter_names = {param["name"] for param in summary_route["parameters"]}
+        self.assertIn("request_id", summary_parameter_names)
+        self.assertIn("user_id", summary_parameter_names)
+        self.assertIn("path", summary_parameter_names)
+        self.assertIn("status_code", summary_parameter_names)
+        self.assertIn("event_id", summary_parameter_names)
+        self.assertIn("created_after", summary_parameter_names)
+        self.assertIn("created_before", summary_parameter_names)
+
     def test_admin_event_route_requires_admin_token(self):
         with patched_env(ALPHAMATE_ADMIN_TOKEN="admin-secret"):
             import main

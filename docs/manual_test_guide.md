@@ -253,10 +253,14 @@ $env:ALPHAMATE_ADMIN_TOKEN='서버에_설정한_관리자_토큰'
 Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events?limit=50&level=error' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
 ```
 
-최근 로그를 하나씩 보기 전에 어떤 오류가 많은지 먼저 보려면 요약 API를 호출합니다.
+최근 로그를 하나씩 보기 전에 어떤 오류가 많은지 먼저 보려면 요약 API를 호출합니다. 요약 API도 위의 `request_id`, `user_id`, `path`, `status_code`, `event_id`, `created_after`, `created_before` 필터를 똑같이 사용할 수 있습니다.
 
 ```powershell
 Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events/summary?limit=500' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
+```
+
+```powershell
+Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events/summary?path=/api/journal/google-play-purchase&status_code=402' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
 ```
 
 오래된 운영 로그를 정리하려면 아래처럼 보관기간을 일 단위로 지정합니다. 실수 방지를 위해 7일 미만은 거부되며, 보통은 90일 이상을 권장합니다.

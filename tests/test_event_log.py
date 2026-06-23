@@ -289,6 +289,63 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(1, summary["by_event_type"]["rewarded_ad_basic_review_failed"])
             self.assertEqual(2, summary["top_events"][0]["count"])
 
+    def test_summarize_events_uses_the_same_filters_as_event_lookup(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            target_event = event_log.record_api_failure(
+                method="POST",
+                path="/api/journal/google-play-purchase",
+                status_code=402,
+                user_id="user-target",
+                message="purchase failed",
+                details={"request_id": "request-target"},
+            )
+            event_log.record_api_failure(
+                method="POST",
+                path="/api/journal/ai-review-once",
+                status_code=402,
+                user_id="user-target",
+                message="review failed",
+                details={"request_id": "request-other"},
+            )
+            event_log.record_api_failure(
+                method="POST",
+                path="/api/journal/google-play-purchase",
+                status_code=500,
+                user_id="user-other",
+                message="other failed",
+                details={"request_id": "request-other"},
+            )
+
+            conn = sqlite3.connect(event_log.event_log_db_path())
+            try:
+                conn.execute(
+                    "UPDATE operational_events SET created_at = ? WHERE id = ?",
+                    ("2026-06-22T12:00:00+00:00", target_event["id"]),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+            summary = event_log.summarize_events(
+                limit=100,
+                request_id="request-target",
+                user_id="user-target",
+                path="/api/journal/google-play-purchase",
+                status_code=402,
+                created_after="2026-06-22T11:00:00+00:00",
+                created_before="2026-06-22T13:00:00+00:00",
+            )
+
+            self.assertEqual(1, summary["total"])
+            self.assertEqual({"warning": 1}, summary["by_level"])
+            self.assertEqual({"api_request_failed": 1}, summary["by_event_type"])
+            self.assertEqual({"/api/journal/google-play-purchase": 1}, summary["by_path"])
+
     def test_purge_events_older_than_retention_days_keeps_recent_events(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),

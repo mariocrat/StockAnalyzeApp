@@ -445,10 +445,30 @@ def get_admin_operational_event_summary(
     request: Request,
     authorization: Optional[str] = Header(default=None),
     limit: int = 500,
+    level: str = "",
+    event_type: str = "",
+    request_id: str = "",
+    user_id: str = "",
+    path: str = "",
+    status_code: Optional[int] = None,
+    event_id: str = "",
+    created_after: str = "",
+    created_before: str = "",
 ):
     _enforce_admin_rate_limit(_request_client_key(request))
     _require_admin_token(authorization)
-    return summarize_events(limit=limit)
+    return summarize_events(
+        limit=limit,
+        level=level,
+        event_type=event_type,
+        request_id=request_id,
+        user_id=user_id,
+        path=path,
+        status_code=status_code,
+        event_id=event_id,
+        created_after=created_after,
+        created_before=created_before,
+    )
 
 
 @app.delete("/api/admin/operational-events/retention")
