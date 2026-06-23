@@ -253,7 +253,7 @@ $env:ALPHAMATE_ADMIN_TOKEN='서버에_설정한_관리자_토큰'
 Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events?limit=50&level=error' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
 ```
 
-최근 로그를 하나씩 보기 전에 어떤 오류가 많은지 먼저 보려면 요약 API를 호출합니다. 요약 API도 위의 `request_id`, `user_id`, `path`, `status_code`, `event_id`, `created_after`, `created_before` 필터를 똑같이 사용할 수 있습니다.
+최근 로그를 하나씩 보기 전에 어떤 오류가 많은지 먼저 보려면 요약 API를 호출합니다. 요약 API도 위의 `request_id`, `user_id`, `path`, `status_code`, `event_id`, `created_after`, `created_before` 필터를 똑같이 사용할 수 있습니다. 응답에는 level, event type, path뿐 아니라 status code와 사용자별 집계도 포함됩니다.
 
 ```powershell
 Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events/summary?limit=500' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }

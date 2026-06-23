@@ -306,15 +306,22 @@ def summarize_events(
     by_level: dict[str, int] = {}
     by_event_type: dict[str, int] = {}
     by_path: dict[str, int] = {}
+    by_status_code: dict[int, int] = {}
+    by_user: dict[str, int] = {}
 
     for row in rows:
         level = str(row.get("level") or "info")
         event_type = str(row.get("event_type") or "event")
         path = str(row.get("path") or "")
+        status_code = int(row.get("status_code") or 0)
+        user_id = str(row.get("user_id") or "")
         by_level[level] = by_level.get(level, 0) + 1
         by_event_type[event_type] = by_event_type.get(event_type, 0) + 1
+        by_status_code[status_code] = by_status_code.get(status_code, 0) + 1
         if path:
             by_path[path] = by_path.get(path, 0) + 1
+        if user_id:
+            by_user[user_id] = by_user.get(user_id, 0) + 1
 
     def _top_items(values: dict[str, int]) -> list[dict]:
         return [
@@ -328,8 +335,11 @@ def summarize_events(
         "by_level": by_level,
         "by_event_type": by_event_type,
         "by_path": by_path,
+        "by_status_code": by_status_code,
+        "by_user": by_user,
         "top_events": _top_items(by_event_type),
         "top_paths": _top_items(by_path),
+        "top_users": _top_items(by_user),
     }
 
 

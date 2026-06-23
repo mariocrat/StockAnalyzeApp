@@ -203,7 +203,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - 같은 관리자 API는 `user_id`, `path`, `status_code` 필터도 지원한다. 사용자별 장애 조사나 특정 결제/광고/AI 복기 API 장애 범위 확인에만 사용하고, 일반 앱 화면에는 노출하지 않는다.
 - 같은 관리자 API는 `event_id`, `created_after`, `created_before` 필터도 지원한다. 시간대 필터는 장애 발생 시간대를 좁혀 확인하기 위한 기능이며, 관리자 토큰 없이 노출하면 안 된다.
 - 배포 준비 점검은 `ALPHAMATE_ADMIN_TOKEN`이 32자 미만이면 실패시킨다. 토큰 값은 readiness, release check, 로그 어디에도 출력하지 않는다.
-- `GET /api/admin/operational-events/summary`도 같은 관리자 토큰으로 보호하며, 최근 운영 로그를 level, event type, path 기준으로 집계해 장애 원인 분류에 사용한다. 상세 조회와 같은 필터를 지원하므로 특정 사용자, API, 요청 ID, 시간대만 요약할 수 있다.
+- `GET /api/admin/operational-events/summary`도 같은 관리자 토큰으로 보호하며, 최근 운영 로그를 level, event type, path, status code, user 기준으로 집계해 장애 원인 분류에 사용한다. 상세 조회와 같은 필터를 지원하므로 특정 사용자, API, 요청 ID, 시간대만 요약할 수 있다.
 - `DELETE /api/admin/operational-events/retention`은 같은 관리자 토큰으로 보호하며, 지정한 보관기간보다 오래된 운영 로그만 삭제한다. 보관기간은 7일 미만으로 설정할 수 없고, 개인정보 최소 보관과 장애 분석 필요성 사이에서 운영 정책으로 정한다.
 - `ALPHAMATE_EVENT_LOG_RETENTION_DAYS`를 설정하면 서버 시작 시 같은 보관기간 정책을 자동 적용한다. 값이 없으면 자동 삭제하지 않고, 잘못된 값은 삭제 없이 건너뛴다.
 - `/api/client-events`는 IP별 분당 기본 60회 rate limit을 적용한다. `ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE`로 조정할 수 있으며, 이 API는 장애 분석 보조 정보만 받는 통로라서 과도한 호출은 429로 거부한다.
