@@ -2,6 +2,7 @@
 
 ## 2026-06-21 quick verification script
 
+- Added `docs/project_owner_dashboard.md` as a non-developer project status dashboard that summarizes completed areas, remaining launch work, and recommended next steps.
 - Added `scripts/verify_project.ps1` so local project quality checks can be run with one PowerShell command.
 - The script runs backend tests, backend compile, frontend release-env tests, Android branding tests, AdMob policy tests, frontend lint, and frontend production build.
 - Added `docs/quick_verify.md` with the command and scope.
