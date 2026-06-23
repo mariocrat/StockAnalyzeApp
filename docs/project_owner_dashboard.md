@@ -135,6 +135,12 @@ verify_project.bat
 release_readiness_report.bat
 ```
 
+출시용 설정 파일 처음 만들기:
+
+```bat
+prepare_release_env_files.bat
+```
+
 앱 실행:
 
 ```bat

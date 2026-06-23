@@ -312,7 +312,7 @@ verify_android_debug.bat
 
 사용 흐름:
 
-1. 템플릿 파일을 실제 설정 파일로 복사한다.
+1. `prepare_release_env_files.bat`를 실행해서 템플릿을 실제 설정 파일로 복사한다.
 2. 복사한 파일에만 OpenAI Key, 카카오/네이버 Secret, Google Play 서비스 계정, AdMob 광고 단위, Android 서명 정보를 채운다.
 3. 채운 파일은 GitHub에 올리지 않는다.
 4. `release_readiness_report.bat`를 실행해서 빠진 설정이 줄어드는지 확인한다.

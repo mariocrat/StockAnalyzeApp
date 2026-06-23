@@ -42,6 +42,7 @@
 - Updated `release_readiness_report.bat` to show both backend readiness and frontend/Android readiness in one double-click report, with UTF-8 output for Korean text.
 - Added `.env.release.example` and `frontend/.env.release.example` as production-focused templates so real launch keys can be filled outside Git without mixing in development helper tokens.
 - Updated `release_readiness_report.bat` to automatically use `.env.release` and `frontend/.env.release` when those private release files exist locally.
+- Added `prepare_release_env_files.bat` and `scripts/create_release_env_files.py` to create private `.env.release` files from templates without overwriting existing secret-filled files.
 
 ## 2026-06-21 frontend code splitting
 
