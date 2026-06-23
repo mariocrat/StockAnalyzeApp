@@ -113,6 +113,35 @@ test('frontend env example documents release check settings', () => {
   }
 });
 
+test('frontend release env template is production focused', () => {
+  const template = fs.readFileSync(path.resolve(process.cwd(), '.env.release.example'), 'utf8');
+  const requiredKeys = [
+    'VITE_ALPHAMATE_ENV=production',
+    'VITE_APP_NAME',
+    'VITE_ENABLE_DEV_TOOLS=false',
+    'VITE_API_BASE',
+    'VITE_KAKAO_REST_API_KEY',
+    'VITE_KAKAO_REDIRECT_URI',
+    'VITE_NAVER_CLIENT_ID',
+    'VITE_NAVER_REDIRECT_URI',
+    'VITE_ADMOB_REWARDED_AD_UNIT_ID',
+    'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID',
+    'VITE_GOOGLE_PLAY_PACKAGE_NAME',
+    'ALPHAMATE_ANDROID_VERSION_CODE',
+    'ALPHAMATE_ANDROID_VERSION_NAME',
+    'ALPHAMATE_ANDROID_KEYSTORE_FILE',
+    'ALPHAMATE_ANDROID_KEYSTORE_PASSWORD',
+    'ALPHAMATE_ANDROID_KEY_ALIAS',
+    'ALPHAMATE_ANDROID_KEY_PASSWORD',
+  ];
+
+  for (const key of requiredKeys) {
+    assert.match(template, new RegExp(`(^|\\n)#?\\s*${key}`), `${key} should be documented in frontend/.env.release.example`);
+  }
+  assert.doesNotMatch(template, /VITE_DEV_/);
+  assert.doesNotMatch(template, /dev-token/);
+});
+
 test('formats owner frontend release report without exposing secret values', () => {
   const result = validateReleaseEnv(validReleaseEnv({
     VITE_ALPHAMATE_ENV: 'development',

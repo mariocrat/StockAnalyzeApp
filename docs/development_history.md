@@ -40,6 +40,7 @@
 - Added `offset` pagination for admin operational event lookup and summary samples so support can inspect older log pages without increasing the page size.
 - Added a frontend/Android owner release report that reuses the existing release environment validator without printing API keys, keystore passwords, or other secret values.
 - Updated `release_readiness_report.bat` to show both backend readiness and frontend/Android readiness in one double-click report, with UTF-8 output for Korean text.
+- Added `.env.release.example` and `frontend/.env.release.example` as production-focused templates so real launch keys can be filled outside Git without mixing in development helper tokens.
 
 ## 2026-06-21 frontend code splitting
 

@@ -302,3 +302,23 @@ verify_android_debug.bat
 5. Google Play Console과 AdMob 설정을 시작한다.
 
 이 다섯 가지가 준비되면, 앱을 실제 서비스 환경처럼 테스트하는 단계로 넘어갈 수 있습니다.
+
+## 10. 출시용 설정 파일 템플릿
+
+실제 Key나 비밀번호는 GitHub에 올리면 안 됩니다. 대신 아래 템플릿을 개인 PC나 운영 서버에서 복사해서 실제 값을 채웁니다.
+
+- 서버용: `.env.release.example`
+- 프론트/Android 빌드용: `frontend/.env.release.example`
+
+사용 흐름:
+
+1. 템플릿 파일을 실제 설정 파일로 복사한다.
+2. 복사한 파일에만 OpenAI Key, 카카오/네이버 Secret, Google Play 서비스 계정, AdMob 광고 단위, Android 서명 정보를 채운다.
+3. 채운 파일은 GitHub에 올리지 않는다.
+4. `release_readiness_report.bat`를 실행해서 빠진 설정이 줄어드는지 확인한다.
+
+주의:
+
+- OpenAI API Key는 서버 설정에만 넣고 frontend 설정에는 넣지 않는다.
+- Android 키스토어 파일과 비밀번호는 GitHub에 올리지 않는다.
+- 운영 서버 주소와 Google Play 패키지명은 서버용 설정과 프론트/Android 설정이 서로 맞아야 한다.

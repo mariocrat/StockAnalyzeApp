@@ -74,6 +74,58 @@ class BackendReleaseCheckTest(unittest.TestCase):
         for name in required_names:
             self.assertIn(name, example)
 
+    def test_backend_release_env_template_is_production_focused(self):
+        with open(".env.release.example", encoding="utf-8") as env_file:
+            template = env_file.read()
+
+        required_names = [
+            "ALPHAMATE_ENV=production",
+            "OPENAI_API_KEY",
+            "OPENAI_BASIC_REVIEW_MODEL",
+            "OPENAI_ADVANCED_REVIEW_MODEL",
+            "KAKAO_CLIENT_ID",
+            "KAKAO_CLIENT_SECRET",
+            "NAVER_CLIENT_ID",
+            "NAVER_CLIENT_SECRET",
+            "GOOGLE_PLAY_PACKAGE_NAME",
+            "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE",
+            "GOOGLE_PLAY_BASIC_REVIEW_30_ID",
+            "GOOGLE_PLAY_BASIC_REVIEW_100_ID",
+            "GOOGLE_PLAY_ADVANCED_REVIEW_5_ID",
+            "GOOGLE_PLAY_ADVANCED_REVIEW_10_ID",
+            "GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID",
+            "GOOGLE_PLAY_PRO_MONTHLY_ID",
+            "ADMOB_REWARDED_AD_UNIT_ID",
+            "ALPHAMATE_PRIVACY_POLICY_URL",
+            "ALPHAMATE_ACCOUNT_DB_PATH",
+            "ALPHAMATE_JOURNAL_DB_PATH",
+            "ALPHAMATE_ACCESS_DB_PATH",
+            "ALPHAMATE_REVIEW_HISTORY_DB_PATH",
+            "ALPHAMATE_EVENT_LOG_DB_PATH",
+            "ALPHAMATE_ADMIN_TOKEN",
+            "ALPHAMATE_CORS_ORIGINS",
+        ]
+
+        for name in required_names:
+            self.assertIn(name, template)
+        self.assertNotIn("ALPHAMATE_ALLOW_DEV_ACCESS", template)
+        self.assertNotIn("ALPHAMATE_DEV_AUTH_TOKEN", template)
+
+    def test_gitignore_blocks_filled_release_env_files(self):
+        with open(".gitignore", encoding="utf-8") as gitignore_file:
+            gitignore = gitignore_file.read()
+
+        ignored_names = [
+            ".env.local",
+            ".env.release",
+            ".env.release.local",
+            ".env.production",
+            ".env.production.local",
+        ]
+
+        for name in ignored_names:
+            self.assertIn(name, gitignore)
+
     def test_format_owner_release_readiness_report_hides_secret_values(self):
         from backend.core.release_check import format_owner_release_readiness_report
 

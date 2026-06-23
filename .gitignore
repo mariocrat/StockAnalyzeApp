@@ -21,6 +21,11 @@ var/
 *.egg
 venv/
 .env
+.env.local
+.env.release
+.env.release.local
+.env.production
+.env.production.local
 .venv
 
 # Node / React (Frontend)
