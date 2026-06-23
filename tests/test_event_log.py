@@ -231,6 +231,45 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual("/api/journal/google-play-purchase", rows[0]["path"])
             self.assertEqual(402, rows[0]["status_code"])
 
+    def test_list_events_can_filter_by_event_id_and_created_range(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            old_event = event_log.record_event(level="warning", event_type="old", path="/old")
+            target_event = event_log.record_event(level="error", event_type="target", path="/target")
+            new_event = event_log.record_event(level="warning", event_type="new", path="/new")
+            old_created_at = "2026-06-22T09:00:00+00:00"
+            target_created_at = "2026-06-22T12:00:00+00:00"
+            new_created_at = "2026-06-22T15:00:00+00:00"
+
+            conn = sqlite3.connect(event_log.event_log_db_path())
+            try:
+                conn.executemany(
+                    "UPDATE operational_events SET created_at = ? WHERE id = ?",
+                    [
+                        (old_created_at, old_event["id"]),
+                        (target_created_at, target_event["id"]),
+                        (new_created_at, new_event["id"]),
+                    ],
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+            rows = event_log.list_events(
+                limit=10,
+                event_id=target_event["id"],
+                created_after="2026-06-22T10:00:00+00:00",
+                created_before="2026-06-22T13:00:00+00:00",
+            )
+
+            self.assertEqual(1, len(rows))
+            self.assertEqual(target_event["id"], rows[0]["id"])
+            self.assertEqual(target_created_at, rows[0]["created_at"])
+
     def test_summarize_events_groups_recent_events(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),

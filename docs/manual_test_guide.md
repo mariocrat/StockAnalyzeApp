@@ -240,6 +240,12 @@ Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-event
 Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events?user_id=사용자ID&path=/api/journal/google-play-purchase&status_code=402' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
 ```
 
+특정 로그 한 건이나 장애가 발생한 시간대만 보려면 `event_id`, `created_after`, `created_before`를 사용합니다. 시간 값은 운영 로그의 `created_at`처럼 ISO 형식으로 넣습니다.
+
+```powershell
+Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events?created_after=2026-06-22T10:00:00%2B00:00&created_before=2026-06-22T11:00:00%2B00:00' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
+```
+
 서버 관리자만 최근 운영 로그를 조회하려면 운영 서버에 `ALPHAMATE_ADMIN_TOKEN`을 32자 이상의 긴 랜덤 값으로 설정한 뒤 아래처럼 호출합니다. 이 토큰은 앱이나 frontend `.env`에 넣으면 안 됩니다.
 
 ```powershell

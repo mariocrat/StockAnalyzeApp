@@ -419,6 +419,9 @@ def get_admin_operational_events(
     user_id: str = "",
     path: str = "",
     status_code: Optional[int] = None,
+    event_id: str = "",
+    created_after: str = "",
+    created_before: str = "",
 ):
     _enforce_admin_rate_limit(_request_client_key(request))
     _require_admin_token(authorization)
@@ -430,6 +433,9 @@ def get_admin_operational_events(
         user_id=user_id,
         path=path,
         status_code=status_code,
+        event_id=event_id,
+        created_after=created_after,
+        created_before=created_before,
     )
     return {"events": events, "count": len(events)}
 

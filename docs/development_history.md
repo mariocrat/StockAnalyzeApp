@@ -31,6 +31,7 @@
 - Added admin operational event filtering by `request_id` so support can find a user-reported failure directly from the response header value.
 - Added frontend API failure message request IDs so users can copy the support ID shown in an error message and admins can search the matching operational event.
 - Added admin operational event filters for `user_id`, `path`, and `status_code` so support can narrow logs by affected account or API endpoint.
+- Added admin operational event filters for `event_id`, `created_after`, and `created_before` so support can inspect a single log entry or a specific incident time window.
 
 ## 2026-06-21 frontend code splitting
 

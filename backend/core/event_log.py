@@ -219,9 +219,15 @@ def list_events(
     user_id: str = "",
     path: str = "",
     status_code: int | None = None,
+    event_id: str = "",
+    created_after: str = "",
+    created_before: str = "",
 ) -> list[dict]:
     filters = []
     params = []
+    if str(event_id or "").strip():
+        filters.append("id = ?")
+        params.append(str(event_id).strip())
     if str(level or "").strip():
         filters.append("level = ?")
         params.append(str(level).strip())
@@ -240,6 +246,12 @@ def list_events(
     if status_code is not None:
         filters.append("status_code = ?")
         params.append(int(status_code))
+    if str(created_after or "").strip():
+        filters.append("created_at >= ?")
+        params.append(str(created_after).strip())
+    if str(created_before or "").strip():
+        filters.append("created_at <= ?")
+        params.append(str(created_before).strip())
     where_sql = f"WHERE {' AND '.join(filters)}" if filters else ""
     params.append(max(1, min(int(limit or 100), 1000)))
 
