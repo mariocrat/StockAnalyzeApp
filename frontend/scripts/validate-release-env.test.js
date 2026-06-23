@@ -4,8 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { spawnSync } from 'node:child_process';
 
-import { validateReleaseEnv } from './validate-release-env.js';
+import { formatOwnerFrontendReleaseReport, validateReleaseEnv } from './validate-release-env.js';
 
 function validReleaseEnv(overrides = {}) {
   const keystoreFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'alphamate-release-')), 'upload.jks');
@@ -110,4 +111,51 @@ test('frontend env example documents release check settings', () => {
   for (const key of requiredKeys) {
     assert.match(example, new RegExp(`(^|\\n)#?\\s*${key}=`), `${key} should be documented in frontend/.env.example`);
   }
+});
+
+test('formats owner frontend release report without exposing secret values', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    VITE_ALPHAMATE_ENV: 'development',
+    VITE_API_BASE: 'http://127.0.0.1:8002',
+    VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-3940256099942544/5224354917',
+    ALPHAMATE_ANDROID_KEYSTORE_PASSWORD: 'never-print-this-keystore-password',
+    ALPHAMATE_ANDROID_KEY_PASSWORD: 'never-print-this-key-password',
+  }));
+
+  const report = formatOwnerFrontendReleaseReport(result, {
+    VITE_APP_NAME: 'AlphaMate',
+    VITE_GOOGLE_PLAY_PACKAGE_NAME: 'com.mariocrat.stockanalyze',
+  });
+
+  assert.match(report, /프론트\/앱 출시 준비 보고서/);
+  assert.match(report, /전체 상태: 준비 필요/);
+  assert.match(report, /앱 이름: AlphaMate/);
+  assert.match(report, /구글 플레이 패키지: com\.mariocrat\.stockanalyze/);
+  assert.match(report, /다음에 할 일/);
+  assert.match(report, /VITE_ALPHAMATE_ENV/);
+  assert.doesNotMatch(report, /never-print-this/);
+});
+
+test('owner frontend release report CLI prints report and hides secret values', () => {
+  const script = path.resolve(process.cwd(), 'scripts/owner-release-report.js');
+  const env = validReleaseEnv({
+    ALPHAMATE_ANDROID_KEYSTORE_PASSWORD: 'never-print-cli-keystore-password',
+    ALPHAMATE_ANDROID_KEY_PASSWORD: 'never-print-cli-key-password',
+  });
+  const result = spawnSync(process.execPath, [script], {
+    cwd: process.cwd(),
+    env: { ...process.env, ...env },
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /프론트\/앱 출시 준비 보고서/);
+  assert.match(result.stdout, /전체 상태: 준비됨/);
+  assert.doesNotMatch(result.stdout, /never-print-cli/);
+});
+
+test('package script exposes owner release report command', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'));
+
+  assert.equal(pkg.scripts['release:report'], 'node scripts/owner-release-report.js');
 });

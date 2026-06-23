@@ -122,6 +122,79 @@ export function validateReleaseEnv(env) {
   return { ok: errors.length === 0, errors };
 }
 
+function publicEnvValue(env, key, fallback = '미설정') {
+  const value = envValue(env, key);
+  return value || fallback;
+}
+
+function statusLabel(ok) {
+  return ok ? '준비됨' : '준비 필요';
+}
+
+function hasError(result, keyword) {
+  return result.errors.some((error) => error.includes(keyword));
+}
+
+function lineForSetting(label, ready, detail = '') {
+  return `- [${statusLabel(ready)}] ${label}${detail ? `: ${detail}` : ''}`;
+}
+
+export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromProcess()) {
+  const appName = publicEnvValue(env, 'ALPHAMATE_ANDROID_APP_NAME', envValue(env, 'VITE_APP_NAME') || '미설정');
+  const packageName = publicEnvValue(env, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
+  const appEnvReady = !hasError(result, 'VITE_ALPHAMATE_ENV');
+  const appNameReady = !hasError(result, 'VITE_APP_NAME') && appName !== '미설정';
+  const devToolsReady = !hasError(result, 'VITE_ENABLE_DEV_TOOLS');
+  const apiReady = !hasError(result, 'VITE_API_BASE');
+  const admobReady = !hasError(result, 'VITE_ADMOB_REWARDED_AD_UNIT_ID')
+    && !hasError(result, 'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID');
+  const packageReady = !hasError(result, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
+  const signingReady = !hasError(result, 'ALPHAMATE_ANDROID_KEYSTORE_FILE')
+    && !hasError(result, 'ALPHAMATE_ANDROID_KEYSTORE_PASSWORD')
+    && !hasError(result, 'ALPHAMATE_ANDROID_KEY_ALIAS')
+    && !hasError(result, 'ALPHAMATE_ANDROID_KEY_PASSWORD');
+  const versionReady = !hasError(result, 'ALPHAMATE_ANDROID_VERSION_CODE')
+    && !hasError(result, 'ALPHAMATE_ANDROID_VERSION_NAME');
+
+  const lines = [
+    'AlphaMate 프론트/앱 출시 준비 보고서',
+    '',
+    `전체 상태: ${statusLabel(result.ok)}`,
+    '',
+    `앱 이름: ${appName}`,
+    `구글 플레이 패키지: ${packageName}`,
+    '',
+    '항목별 상태:',
+    lineForSetting('운영 모드', appEnvReady),
+    lineForSetting('앱 이름', appNameReady, appName),
+    lineForSetting('개발 도구 비활성화', devToolsReady),
+    lineForSetting('API 서버 주소', apiReady),
+    lineForSetting('AdMob 광고 단위', admobReady),
+    lineForSetting('Google Play 패키지명', packageReady, packageName),
+    lineForSetting('Android 서명 키', signingReady),
+    lineForSetting('Android 버전', versionReady),
+    '',
+    '다음에 할 일:',
+  ];
+
+  if (result.errors.length === 0) {
+    lines.push('1. 실제 기기에서 로그인, 결제, 광고, AI 복기를 수동으로 확인하세요.');
+  } else {
+    result.errors.slice(0, 10).forEach((error, index) => {
+      lines.push(`${index + 1}. ${error}`);
+    });
+    if (result.errors.length > 10) {
+      lines.push(`- 그 외 누락 항목 ${result.errors.length - 10}개`);
+    }
+  }
+
+  lines.push(
+    '',
+    '주의: 이 보고서는 필요한 설정 이름과 공개 식별자만 보여주고 비밀번호, 키스토어 암호, API Key 값은 출력하지 않습니다.',
+  );
+  return lines.join('\n');
+}
+
 function loadLocalEnv() {
   const envPath = path.resolve(process.cwd(), '.env');
   if (!fs.existsSync(envPath)) return {};

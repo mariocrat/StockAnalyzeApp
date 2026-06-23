@@ -29,8 +29,11 @@ function Run-Step {
 }
 
 $oldViteAppName = $env:VITE_APP_NAME
+$oldNpmUpdateNotifier = $env:npm_config_update_notifier
 
 try {
+    $env:npm_config_update_notifier = "false"
+
     Push-Location $root
     Run-Step "Backend tests" { & $python -m unittest discover -s tests }
     Run-Step "Backend compile" { & $python -m compileall backend }
@@ -59,4 +62,5 @@ finally {
         Pop-Location
     }
     $env:VITE_APP_NAME = $oldViteAppName
+    $env:npm_config_update_notifier = $oldNpmUpdateNotifier
 }

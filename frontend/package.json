@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "release:check": "node scripts/validate-release-env.js",
+    "release:report": "node scripts/owner-release-report.js",
     "test:android-branding": "node --test scripts/android-branding.test.js",
     "test:mobile-billing": "node --test scripts/mobile-billing-policy.test.js",
     "test:mobile-admob": "node --test scripts/mobile-admob-policy.test.js",

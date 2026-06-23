@@ -38,6 +38,8 @@
 - Added the same operational event filters to the admin summary endpoint so support can summarize only the affected user, API, request, or time window.
 - Added status-code and user aggregation to the admin operational event summary so support can quickly spot repeated quota, payment, rate-limit, or account-specific failures.
 - Added `offset` pagination for admin operational event lookup and summary samples so support can inspect older log pages without increasing the page size.
+- Added a frontend/Android owner release report that reuses the existing release environment validator without printing API keys, keystore passwords, or other secret values.
+- Updated `release_readiness_report.bat` to show both backend readiness and frontend/Android readiness in one double-click report, with UTF-8 output for Korean text.
 
 ## 2026-06-21 frontend code splitting
 
