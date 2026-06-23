@@ -413,6 +413,7 @@ def get_admin_operational_events(
     request: Request,
     authorization: Optional[str] = Header(default=None),
     limit: int = 100,
+    offset: int = 0,
     level: str = "",
     event_type: str = "",
     request_id: str = "",
@@ -427,6 +428,7 @@ def get_admin_operational_events(
     _require_admin_token(authorization)
     events = list_events(
         limit=limit,
+        offset=offset,
         level=level,
         event_type=event_type,
         request_id=request_id,
@@ -437,7 +439,7 @@ def get_admin_operational_events(
         created_after=created_after,
         created_before=created_before,
     )
-    return {"events": events, "count": len(events)}
+    return {"events": events, "count": len(events), "limit": limit, "offset": max(0, int(offset or 0))}
 
 
 @app.get("/api/admin/operational-events/summary")
@@ -445,6 +447,7 @@ def get_admin_operational_event_summary(
     request: Request,
     authorization: Optional[str] = Header(default=None),
     limit: int = 500,
+    offset: int = 0,
     level: str = "",
     event_type: str = "",
     request_id: str = "",
@@ -459,6 +462,7 @@ def get_admin_operational_event_summary(
     _require_admin_token(authorization)
     return summarize_events(
         limit=limit,
+        offset=offset,
         level=level,
         event_type=event_type,
         request_id=request_id,

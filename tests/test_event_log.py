@@ -270,6 +270,37 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(target_event["id"], rows[0]["id"])
             self.assertEqual(target_created_at, rows[0]["created_at"])
 
+    def test_list_events_can_offset_for_next_page(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            first = event_log.record_event(level="warning", event_type="first", path="/first")
+            second = event_log.record_event(level="warning", event_type="second", path="/second")
+            third = event_log.record_event(level="warning", event_type="third", path="/third")
+
+            conn = sqlite3.connect(event_log.event_log_db_path())
+            try:
+                conn.executemany(
+                    "UPDATE operational_events SET created_at = ? WHERE id = ?",
+                    [
+                        ("2026-06-22T10:00:00+00:00", first["id"]),
+                        ("2026-06-22T11:00:00+00:00", second["id"]),
+                        ("2026-06-22T12:00:00+00:00", third["id"]),
+                    ],
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+            first_page = event_log.list_events(limit=2, offset=0)
+            second_page = event_log.list_events(limit=2, offset=2)
+
+            self.assertEqual([third["id"], second["id"]], [row["id"] for row in first_page])
+            self.assertEqual([first["id"]], [row["id"] for row in second_page])
+
     def test_summarize_events_groups_recent_events(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
@@ -326,6 +357,38 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual({402: 2, 500: 1, 429: 1}, summary["by_status_code"])
             self.assertEqual({"user-a": 2, "user-b": 1}, summary["by_user"])
             self.assertEqual({"name": "user-a", "count": 2}, summary["top_users"][0])
+
+    def test_summarize_events_reports_sample_offset(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            first = event_log.record_event(level="warning", event_type="first", path="/first")
+            second = event_log.record_event(level="warning", event_type="second", path="/second")
+            third = event_log.record_event(level="warning", event_type="third", path="/third")
+
+            conn = sqlite3.connect(event_log.event_log_db_path())
+            try:
+                conn.executemany(
+                    "UPDATE operational_events SET created_at = ? WHERE id = ?",
+                    [
+                        ("2026-06-22T10:00:00+00:00", first["id"]),
+                        ("2026-06-22T11:00:00+00:00", second["id"]),
+                        ("2026-06-22T12:00:00+00:00", third["id"]),
+                    ],
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+            summary = event_log.summarize_events(limit=1, offset=1)
+
+            self.assertEqual(1, summary["total"])
+            self.assertEqual(1, summary["sample_limit"])
+            self.assertEqual(1, summary["sample_offset"])
+            self.assertEqual({"/second": 1}, summary["by_path"])
 
     def test_summarize_events_uses_the_same_filters_as_event_lookup(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(

@@ -34,6 +34,7 @@
 - Added admin operational event filters for `event_id`, `created_after`, and `created_before` so support can inspect a single log entry or a specific incident time window.
 - Added the same operational event filters to the admin summary endpoint so support can summarize only the affected user, API, request, or time window.
 - Added status-code and user aggregation to the admin operational event summary so support can quickly spot repeated quota, payment, rate-limit, or account-specific failures.
+- Added `offset` pagination for admin operational event lookup and summary samples so support can inspect older log pages without increasing the page size.
 
 ## 2026-06-21 frontend code splitting
 

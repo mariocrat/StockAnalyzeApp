@@ -213,6 +213,7 @@ def _json_like_text(value: str) -> str:
 def list_events(
     *,
     limit: int = 100,
+    offset: int = 0,
     level: str = "",
     event_type: str = "",
     request_id: str = "",
@@ -253,7 +254,9 @@ def list_events(
         filters.append("created_at <= ?")
         params.append(str(created_before).strip())
     where_sql = f"WHERE {' AND '.join(filters)}" if filters else ""
-    params.append(max(1, min(int(limit or 100), 1000)))
+    safe_limit = max(1, min(int(limit or 100), 1000))
+    safe_offset = max(0, int(offset or 0))
+    params.extend([safe_limit, safe_offset])
 
     conn = _connect()
     try:
@@ -263,7 +266,7 @@ def list_events(
             FROM operational_events
             {where_sql}
             ORDER BY created_at DESC, id DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
             """,
             tuple(params),
         ).fetchall()
@@ -281,6 +284,7 @@ def list_events(
 def summarize_events(
     *,
     limit: int = 500,
+    offset: int = 0,
     level: str = "",
     event_type: str = "",
     request_id: str = "",
@@ -293,6 +297,7 @@ def summarize_events(
 ) -> dict:
     rows = list_events(
         limit=limit,
+        offset=offset,
         level=level,
         event_type=event_type,
         request_id=request_id,
@@ -332,6 +337,7 @@ def summarize_events(
     return {
         "total": len(rows),
         "sample_limit": max(1, min(int(limit or 500), 1000)),
+        "sample_offset": max(0, int(offset or 0)),
         "by_level": by_level,
         "by_event_type": by_event_type,
         "by_path": by_path,

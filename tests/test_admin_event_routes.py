@@ -48,9 +48,11 @@ class AdminEventRoutesTest(unittest.TestCase):
         self.assertIn("event_id", parameter_names)
         self.assertIn("created_after", parameter_names)
         self.assertIn("created_before", parameter_names)
+        self.assertIn("offset", parameter_names)
 
         summary_route = openapi["paths"]["/api/admin/operational-events/summary"]["get"]
         summary_parameter_names = {param["name"] for param in summary_route["parameters"]}
+        self.assertIn("offset", summary_parameter_names)
         self.assertIn("request_id", summary_parameter_names)
         self.assertIn("user_id", summary_parameter_names)
         self.assertIn("path", summary_parameter_names)
