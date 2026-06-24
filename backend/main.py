@@ -45,6 +45,7 @@ from contextlib import asynccontextmanager
 import copy
 import hmac
 import hashlib
+import json
 import uuid
 import threading
 import logging
@@ -431,6 +432,12 @@ def _ai_review_idempotency_cache_key(authorization: str | None, key: str) -> str
     return f"{_ai_review_rate_key(authorization)}:idem:{key_hash}"
 
 
+def _ai_review_payload_fingerprint(batch: JournalAiReviewIn) -> str:
+    payload = batch.model_dump(exclude={"ad_reward_token", "entitlement_token"})
+    text = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def _prune_ai_review_idempotency_cache(now: datetime.datetime):
     expired = [
         key for key, item in _ai_review_idempotency_cache.items()
@@ -440,7 +447,11 @@ def _prune_ai_review_idempotency_cache(now: datetime.datetime):
         _ai_review_idempotency_cache.pop(key, None)
 
 
-def _begin_ai_review_idempotency(authorization: str | None, raw_key: str | None) -> tuple[str, dict | None]:
+def _begin_ai_review_idempotency(
+    authorization: str | None,
+    raw_key: str | None,
+    payload_fingerprint: str,
+) -> tuple[str, dict | None]:
     key = _clean_ai_review_idempotency_key(raw_key)
     if not key:
         return "", None
@@ -449,6 +460,11 @@ def _begin_ai_review_idempotency(authorization: str | None, raw_key: str | None)
     with _ai_review_idempotency_lock:
         _prune_ai_review_idempotency_cache(now)
         cached = _ai_review_idempotency_cache.get(cache_key)
+        if cached and cached.get("payload_fingerprint") != payload_fingerprint:
+            raise HTTPException(
+                status_code=409,
+                detail="Idempotency key was reused with a different AI review request.",
+            )
         if cached and cached.get("status") == "done":
             result = copy.deepcopy(cached["result"])
             result.setdefault("access", {})["idempotent_replay"] = True
@@ -461,6 +477,7 @@ def _begin_ai_review_idempotency(authorization: str | None, raw_key: str | None)
             )
         _ai_review_idempotency_cache[cache_key] = {
             "status": "pending",
+            "payload_fingerprint": payload_fingerprint,
             "expires_at": now + datetime.timedelta(seconds=_ai_review_idempotency_ttl_seconds()),
         }
     return cache_key, None
@@ -476,9 +493,11 @@ def _finish_ai_review_idempotency(cache_key: str, result: dict | None):
             return
         stored = copy.deepcopy(result)
         stored.setdefault("access", {})["idempotent_replay"] = False
+        previous = _ai_review_idempotency_cache.get(cache_key) or {}
         _ai_review_idempotency_cache[cache_key] = {
             "status": "done",
             "result": stored,
+            "payload_fingerprint": previous.get("payload_fingerprint"),
             "expires_at": now + datetime.timedelta(seconds=_ai_review_idempotency_ttl_seconds()),
         }
 
@@ -1143,7 +1162,11 @@ def get_journal_ai_review_once(
 ):
     _enforce_journal_batch_limit(batch, max_trades=_ai_review_max_trades(), label="AI 복기")
     batch.review_type = _normalize_ai_review_type(batch.review_type)
-    idempotency_cache_key, idempotent_result = _begin_ai_review_idempotency(authorization, x_idempotency_key)
+    idempotency_cache_key, idempotent_result = _begin_ai_review_idempotency(
+        authorization,
+        x_idempotency_key,
+        _ai_review_payload_fingerprint(batch),
+    )
     if idempotent_result is not None:
         return idempotent_result
 

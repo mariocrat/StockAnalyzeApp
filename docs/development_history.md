@@ -470,3 +470,9 @@
 - AI 복기 중복 요청 방지 캐시 키에 `X-Idempotency-Key` 원문이 그대로 남지 않도록 SHA-256 해시로 저장한다.
 - 동일한 idempotency key의 중복 차감 방지 동작은 유지하면서, 내부 메모리 키에 요청 토큰 원문이 노출되지 않도록 했다.
 - `tests/test_ai_review_safety.py`에 idempotency 캐시 키가 세션 토큰과 요청 키 원문을 포함하지 않는 회귀 테스트를 추가했다.
+
+### AI 복기 idempotency 요청 충돌 방지
+
+- 같은 `X-Idempotency-Key`가 다른 AI 복기 요청 본문에 재사용되면 기존 결과를 돌려주지 않고 HTTP 409로 거절한다.
+- 요청 본문 지문은 민감 토큰 필드를 제외한 복기 입력값으로 계산해, 같은 요청 재시도는 허용하고 다른 요청 재사용은 차단한다.
+- `tests/test_ai_review_safety.py`에 다른 매매 payload가 같은 idempotency key를 재사용해도 추가 차감 없이 충돌 처리되는 회귀 테스트를 추가했다.
