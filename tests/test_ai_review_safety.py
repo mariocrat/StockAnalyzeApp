@@ -116,6 +116,23 @@ class AiReviewSafetyTest(unittest.TestCase):
             self.assertEqual(5, result["access"]["quota"]["basic"]["signup_remaining"])
             self.assertEqual(5, entitlements["basic"]["signup_remaining"])
 
+    def test_ai_review_rejects_unknown_review_type_without_charging(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            main, access_control, token = _load_main_with_temp_state(tmpdir)
+            batch = _basic_batch(main)
+            batch.review_type = "premium"
+
+            with self.assertRaises(HTTPException) as blocked:
+                main.get_journal_ai_review_once(batch, authorization=token)
+            entitlements = access_control.get_user_entitlements(
+                authorization=token,
+                entitlement_token="",
+            )
+
+            self.assertEqual(400, blocked.exception.status_code)
+            self.assertIn("review_type", blocked.exception.detail)
+            self.assertEqual(5, entitlements["basic"]["signup_remaining"])
+
     def test_ai_review_idempotency_key_prevents_duplicate_charge(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             main, access_control, token = _load_main_with_temp_state(tmpdir)

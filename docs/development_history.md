@@ -458,3 +458,9 @@
 - `GET /api/me/export-data`를 추가해 현재 로그인 계정의 사용자 정보, 저장 매매 기록, 이용권 현황을 JSON으로 내려받을 수 있게 했다.
 - 내보내기 응답에는 세션 토큰을 포함하지 않도록 테스트로 확인한다.
 - `tests/test_account_store.py`, `tests/test_me_data_routes.py`에 계정 삭제와 내보내기 회귀 테스트를 추가했다.
+
+### AI 복기 종류 검증
+
+- `POST /api/journal/ai-review-once`에서 `review_type`은 `basic` 또는 `advanced`만 허용하도록 막았다.
+- 잘못된 복기 종류는 idempotency, 요청 제한, AI 실행, 복기권 차감 전에 HTTP 400으로 거절한다.
+- `tests/test_ai_review_safety.py`에 잘못된 복기 종류가 가입 기본 복기권을 차감하지 않는 회귀 테스트를 추가했다.

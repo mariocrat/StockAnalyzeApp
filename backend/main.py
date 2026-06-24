@@ -84,6 +84,13 @@ def _ai_review_max_trades() -> int:
     return _env_int("ALPHAMATE_AI_REVIEW_MAX_TRADES", 100, 1)
 
 
+def _normalize_ai_review_type(review_type: str | None) -> str:
+    normalized = str(review_type or "basic").strip().lower()
+    if normalized not in {"basic", "advanced"}:
+        raise HTTPException(status_code=400, detail="review_type must be basic or advanced.")
+    return normalized
+
+
 def _journal_memo_max_chars() -> int:
     return _env_int("ALPHAMATE_JOURNAL_MEMO_MAX_CHARS", 2000, 1)
 
@@ -1133,6 +1140,7 @@ def get_journal_ai_review_once(
     x_idempotency_key: Optional[str] = Header(default=None, alias="X-Idempotency-Key"),
 ):
     _enforce_journal_batch_limit(batch, max_trades=_ai_review_max_trades(), label="AI 복기")
+    batch.review_type = _normalize_ai_review_type(batch.review_type)
     idempotency_cache_key, idempotent_result = _begin_ai_review_idempotency(authorization, x_idempotency_key)
     if idempotent_result is not None:
         return idempotent_result
