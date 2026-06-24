@@ -88,6 +88,10 @@ def _journal_memo_max_chars() -> int:
     return _env_int("ALPHAMATE_JOURNAL_MEMO_MAX_CHARS", 2000, 1)
 
 
+def _journal_query_max_limit() -> int:
+    return _env_int("ALPHAMATE_JOURNAL_QUERY_MAX_LIMIT", 500, 1)
+
+
 class JournalTradeIn(BaseModel):
     trade_date: str
     ticker: str = ""
@@ -190,6 +194,14 @@ def _enforce_trade_text_limits(trades: list[JournalTradeIn]):
                 status_code=413,
                 detail=f"{index}번째 매매 메모는 최대 {max_memo_chars}자까지 입력할 수 있습니다.",
             )
+
+
+def _safe_journal_query_limit(limit: int, *, default: int = 100) -> int:
+    try:
+        requested = int(limit or default)
+    except (TypeError, ValueError):
+        requested = default
+    return max(1, min(requested, _journal_query_max_limit()))
 
 
 def _optional_session_user(authorization: Optional[str]):
@@ -946,12 +958,13 @@ def get_journal_trades(
     limit: int = 500,
     authorization: Optional[str] = Header(default=None),
 ):
+    safe_limit = _safe_journal_query_limit(limit, default=500)
     user = _optional_session_user(authorization)
     if user:
         if not user.get("journal_storage_enabled"):
             return []
-        return list_trades(limit=limit, user_id=user["id"])
-    return list_trades(limit=limit)
+        return list_trades(limit=safe_limit, user_id=user["id"])
+    return list_trades(limit=safe_limit)
 
 
 @app.post("/api/journal/trades")
@@ -1022,7 +1035,7 @@ def get_journal_review_history(
     user = authenticate_session(authorization)
     if not user.get("journal_storage_enabled"):
         return []
-    return list_review_history(user_id=user["id"], limit=limit)
+    return list_review_history(user_id=user["id"], limit=_safe_journal_query_limit(limit, default=100))
 
 
 @app.get("/api/journal/review-history/{review_id}")

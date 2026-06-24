@@ -50,6 +50,7 @@
 - Added server-side one-time journal and AI review batch size limits so oversized direct API requests cannot trigger excessive chart or AI work.
 - Added server-side journal memo length limits so oversized text cannot inflate saved data or AI review payloads.
 - Converted invalid journal trade input into clear HTTP 400 responses instead of uncaught server errors.
+- Added server-side caps for journal trade and review-history query limits so oversized direct API reads cannot force excessive DB scans.
 
 ## 2026-06-21 frontend code splitting
 
