@@ -168,6 +168,33 @@ class JournalBatchLimitTest(unittest.TestCase):
         self.assertEqual(400, blocked.exception.status_code)
         self.assertIn("trade_date must be ISO date or datetime", blocked.exception.detail)
 
+    def test_saved_trade_returns_bad_request_for_oversized_stock_name(self):
+        main = _load_main()
+
+        with self.assertRaises(HTTPException) as blocked:
+            main.create_journal_trade(_trade(main, 1, name="삼성전자" * 50))
+
+        self.assertEqual(400, blocked.exception.status_code)
+        self.assertIn("name must be 120 characters or fewer", blocked.exception.detail)
+
+    def test_review_once_returns_bad_request_for_oversized_ticker_and_source(self):
+        main = _load_main()
+        batch = main.JournalBatchIn(trades=[_trade(main, 1, ticker="0" * 21, source="manual")])
+
+        with self.assertRaises(HTTPException) as ticker_blocked:
+            main.get_journal_review_once(batch)
+
+        self.assertEqual(400, ticker_blocked.exception.status_code)
+        self.assertIn("ticker must be 20 characters or fewer", ticker_blocked.exception.detail)
+
+        batch = main.JournalBatchIn(trades=[_trade(main, 1, source="x" * 41)])
+
+        with self.assertRaises(HTTPException) as source_blocked:
+            main.get_journal_review_once(batch)
+
+        self.assertEqual(400, source_blocked.exception.status_code)
+        self.assertIn("source must be 40 characters or fewer", source_blocked.exception.detail)
+
 
 if __name__ == "__main__":
     unittest.main()

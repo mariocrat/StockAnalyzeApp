@@ -7,6 +7,9 @@ from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 DB_PATH = DATA_DIR / "trades.sqlite3"
+MAX_TICKER_CHARS = 20
+MAX_NAME_CHARS = 120
+MAX_SOURCE_CHARS = 40
 
 
 def _env_value(name: str) -> str:
@@ -74,6 +77,11 @@ def _connect():
     return conn
 
 
+def _require_max_chars(value: str, field_name: str, max_chars: int):
+    if len(value) > max_chars:
+        raise ValueError(f"{field_name} must be {max_chars} characters or fewer")
+
+
 def normalize_trade(payload: dict) -> dict:
     side = str(payload.get("side", "")).strip().lower()
     if side in ("매수", "buy", "b"):
@@ -93,6 +101,10 @@ def normalize_trade(payload: dict) -> dict:
         raise ValueError("trade_date must be ISO date or datetime") from exc
 
     ticker = str(payload.get("ticker", "") or "").strip()
+    source = str(payload.get("source", "manual") or "manual").strip()
+    _require_max_chars(ticker, "ticker", MAX_TICKER_CHARS)
+    _require_max_chars(name, "name", MAX_NAME_CHARS)
+    _require_max_chars(source, "source", MAX_SOURCE_CHARS)
     price = float(payload.get("price", 0) or 0)
     quantity = float(payload.get("quantity", 0) or 0)
     if not math.isfinite(price) or not math.isfinite(quantity):
@@ -116,7 +128,7 @@ def normalize_trade(payload: dict) -> dict:
         "fee": fee,
         "tax": tax,
         "memo": str(payload.get("memo", "") or "").strip(),
-        "source": str(payload.get("source", "manual") or "manual").strip(),
+        "source": source,
     }
 
 
