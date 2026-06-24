@@ -48,6 +48,7 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_REQUIRED_FIELDS = {
     "private_key",
     "token_uri",
 }
+RTDN_SHARED_TOKEN_MIN_LENGTH = 32
 
 
 @dataclass
@@ -1034,6 +1035,8 @@ def handle_google_play_rtdn(
     configured_token = _env_value("GOOGLE_PLAY_RTDN_SHARED_TOKEN")
     if not configured_token:
         raise HTTPException(status_code=503, detail="Google Play RTDN shared token is not configured.")
+    if _is_production() and len(configured_token) < RTDN_SHARED_TOKEN_MIN_LENGTH:
+        raise HTTPException(status_code=503, detail="Google Play RTDN shared token must be at least 32 characters in production.")
     if not hmac.compare_digest(str(shared_token or ""), configured_token):
         raise HTTPException(status_code=403, detail="Google Play RTDN token is invalid.")
     oidc_claims = _verify_rtdn_oidc_token(authorization)

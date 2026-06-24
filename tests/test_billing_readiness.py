@@ -839,6 +839,23 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual(403, raised.exception.status_code)
             self.assertEqual([("wrong", "rtdn-secret")], calls)
 
+    def test_rtdn_rejects_short_shared_token_in_production(self):
+        with patched_env(
+            ALPHAMATE_ENV="production",
+            GOOGLE_PLAY_RTDN_SHARED_TOKEN="short-rtdn-token",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            with self.assertRaises(HTTPException) as raised:
+                access_control.handle_google_play_rtdn(
+                    pubsub_payload={"message": {"data": "e30="}},
+                    shared_token="short-rtdn-token",
+                )
+
+            self.assertEqual(503, raised.exception.status_code)
+            self.assertIn("RTDN shared token", raised.exception.detail)
+
     def test_rtdn_requires_oidc_when_configured(self):
         with patched_env(
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret",
