@@ -500,3 +500,9 @@
 - `ALPHAMATE_ENV=production`에서는 Google Play RTDN 공유 토큰이 32자 미만이면 웹훅 처리를 HTTP 503으로 차단한다.
 - 개발 환경의 짧은 테스트 토큰은 유지하면서, 배포 환경의 서버 간 비밀값은 관리자 토큰과 같은 최소 길이 기준을 적용했다.
 - `tests/test_billing_readiness.py`에 짧은 프로덕션 RTDN 공유 토큰이 거절되는 회귀 테스트를 추가했다.
+
+### Google Play RTDN release readiness 검증
+
+- production Google Play readiness가 `GOOGLE_PLAY_RTDN_SHARED_TOKEN` 누락 또는 32자 미만 설정을 배포 전 오류로 표시하도록 했다.
+- 런타임 웹훅 보호와 release readiness 기준을 맞추고, `.env.release.example`의 RTDN 설명을 필수 보안 설정으로 정리했다.
+- `tests/test_billing_readiness.py`, `tests/test_backend_release_check.py`에 RTDN 공유 토큰 readiness 회귀 테스트와 완전한 배포 설정 샘플을 갱신했다.

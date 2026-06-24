@@ -365,6 +365,20 @@ def _google_play_product_id_status() -> dict:
     }
 
 
+def _google_play_rtdn_status() -> dict:
+    token = _env_value("GOOGLE_PLAY_RTDN_SHARED_TOKEN")
+    missing = []
+    if _is_production():
+        if not token:
+            missing.append("GOOGLE_PLAY_RTDN_SHARED_TOKEN")
+        elif len(token) < RTDN_SHARED_TOKEN_MIN_LENGTH:
+            missing.append(f"GOOGLE_PLAY_RTDN_SHARED_TOKEN_MIN_LENGTH_{RTDN_SHARED_TOKEN_MIN_LENGTH}")
+    return {
+        "shared_token_configured": bool(token),
+        "missing_server_settings": missing,
+    }
+
+
 def _google_play_service_account_status() -> dict:
     raw_json = _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
     file_path = _env_value("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE")
@@ -422,6 +436,7 @@ def _google_play_status() -> dict:
     package_name = _env_value("GOOGLE_PLAY_PACKAGE_NAME")
     service_account = _google_play_service_account_status()
     product_ids = _google_play_product_id_status()
+    rtdn = _google_play_rtdn_status()
     missing = []
     if not package_name:
         missing.append("GOOGLE_PLAY_PACKAGE_NAME")
@@ -429,12 +444,14 @@ def _google_play_status() -> dict:
         missing.extend(service_account["missing_server_settings"])
     if _is_production():
         missing.extend(product_ids["missing_server_settings"])
+        missing.extend(rtdn["missing_server_settings"])
     return {
         "ready": not missing,
         "package_name_configured": bool(package_name),
         "service_account_configured": service_account["configured"],
         "service_account_source": service_account["source"],
         "product_id_mappings": product_ids,
+        "rtdn": rtdn,
         "missing_server_settings": missing,
     }
 
