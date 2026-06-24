@@ -46,6 +46,7 @@
 - Added AI review traffic protection: per-user request limiting, server-wide concurrent AI review limiting, and credit refund when an AI review returns an error.
 - Added AI review idempotency keys so retrying the same short-window request does not run duplicate analysis or charge credits twice.
 - Added configurable OpenAI timeout and short transient retry settings so temporary 429/5xx failures do not immediately burn a review attempt.
+- Added frontend `Retry-After` error messaging so AI review rate-limit or busy-server responses tell users when to try again.
 
 ## 2026-06-21 frontend code splitting
 

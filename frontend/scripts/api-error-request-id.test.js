@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 
 import {
   appendRequestIdToMessage,
+  appendRetryAfterToMessage,
   installAxiosRequestIdMessages,
   requestIdFromAxiosError,
+  retryAfterSecondsFromAxiosError,
 } from '../src/utils/apiErrorRequestId.js';
 
 test('appendRequestIdToMessage adds a short support id once', () => {
@@ -48,6 +50,35 @@ test('requestIdFromAxiosError ignores unsafe or oversized request ids', () => {
     }),
     '',
   );
+});
+
+test('retryAfterSecondsFromAxiosError reads safe retry-after values', () => {
+  assert.equal(
+    retryAfterSecondsFromAxiosError({
+      response: { headers: { 'retry-after': '12' } },
+    }),
+    12,
+  );
+  assert.equal(
+    retryAfterSecondsFromAxiosError({
+      response: { headers: { 'Retry-After': '0' } },
+    }),
+    0,
+  );
+  assert.equal(
+    retryAfterSecondsFromAxiosError({
+      response: { headers: { 'Retry-After': '999999' } },
+    }),
+    null,
+  );
+});
+
+test('appendRetryAfterToMessage explains when the user can retry once', () => {
+  const message = appendRetryAfterToMessage('AI 분석 요청이 많습니다.', 15);
+
+  assert.equal(message, 'AI 분석 요청이 많습니다. 15초 뒤 다시 시도하세요.');
+  assert.equal(appendRetryAfterToMessage(message, 15), message);
+  assert.equal(appendRetryAfterToMessage('AI 분석 요청이 많습니다.', null), 'AI 분석 요청이 많습니다.');
 });
 
 test('installAxiosRequestIdMessages appends request id to axios error detail', async () => {
