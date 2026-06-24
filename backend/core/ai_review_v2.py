@@ -1,10 +1,33 @@
 import datetime
 import json
+import time
 import urllib.error
 import urllib.request
 
 from core.ai_review import _env_value, _fmt8, _parse_date, _prepare_ohlcv, _chart_context_for_trade
 from core.data_fetcher import get_stock_ohlcv
+
+
+def _env_int(name: str, default: int, minimum: int) -> int:
+    try:
+        value = int(_env_value(name) or default)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, value)
+
+
+def _env_float(name: str, default: float, minimum: float) -> float:
+    try:
+        value = float(_env_value(name) or default)
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, value)
+
+
+def _is_retryable_openai_error(error: BaseException) -> bool:
+    if isinstance(error, urllib.error.HTTPError):
+        return error.code in {408, 409, 429, 500, 502, 503, 504}
+    return isinstance(error, (urllib.error.URLError, TimeoutError))
 
 
 def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
@@ -26,11 +49,26 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
         },
         method="POST",
     )
-    try:
-        with urllib.request.urlopen(req, timeout=45) as res:
-            data = json.loads(res.read().decode("utf-8"))
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as e:
-        raise RuntimeError(str(e)) from e
+    timeout_seconds = _env_int("ALPHAMATE_OPENAI_TIMEOUT_SECONDS", 45, 5)
+    max_retries = _env_int("ALPHAMATE_OPENAI_MAX_RETRIES", 1, 0)
+    retry_backoff_seconds = _env_float("ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS", 0.5, 0.0)
+
+    last_error = None
+    for attempt in range(max_retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout_seconds) as res:
+                data = json.loads(res.read().decode("utf-8"))
+            break
+        except (urllib.error.URLError, TimeoutError) as e:
+            last_error = e
+            if attempt >= max_retries or not _is_retryable_openai_error(e):
+                raise RuntimeError(str(e)) from e
+            if retry_backoff_seconds:
+                time.sleep(retry_backoff_seconds)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(str(e)) from e
+    else:
+        raise RuntimeError(str(last_error))
 
     if data.get("output_text"):
         return str(data["output_text"]).strip()

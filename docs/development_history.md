@@ -45,6 +45,7 @@
 - Added `prepare_release_env_files.bat` and `scripts/create_release_env_files.py` to create private `.env.release` files from templates without overwriting existing secret-filled files.
 - Added AI review traffic protection: per-user request limiting, server-wide concurrent AI review limiting, and credit refund when an AI review returns an error.
 - Added AI review idempotency keys so retrying the same short-window request does not run duplicate analysis or charge credits twice.
+- Added configurable OpenAI timeout and short transient retry settings so temporary 429/5xx failures do not immediately burn a review attempt.
 
 ## 2026-06-21 frontend code splitting
 
