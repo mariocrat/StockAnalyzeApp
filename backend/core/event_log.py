@@ -27,6 +27,8 @@ SECRET_KEY_PARTS = {
 MAX_DETAIL_STRING_LENGTH = 1000
 MAX_DETAIL_LIST_LENGTH = 50
 MAX_DETAIL_DICT_KEYS = 50
+MAX_EVENT_FIELD_LENGTH = 250
+MAX_EVENT_MESSAGE_LENGTH = 1000
 _EVENT_LOG_LOCK = threading.Lock()
 
 
@@ -111,6 +113,13 @@ def _details_json(details: dict | None) -> str:
     return json.dumps(safe_details, ensure_ascii=False, sort_keys=True)
 
 
+def _short_text(value, fallback: str = "", *, limit: int = MAX_EVENT_FIELD_LENGTH) -> str:
+    text = str(value or fallback)
+    if len(text) > limit:
+        return text[:limit]
+    return text
+
+
 def record_event(
     *,
     level: str,
@@ -125,13 +134,13 @@ def record_event(
     event = {
         "id": uuid.uuid4().hex,
         "created_at": _now(),
-        "level": str(level or "info"),
-        "event_type": str(event_type or "event"),
-        "method": str(method or ""),
-        "path": str(path or ""),
+        "level": _short_text(level, "info"),
+        "event_type": _short_text(event_type, "event"),
+        "method": _short_text(method),
+        "path": _short_text(path),
         "status_code": int(status_code or 0),
-        "user_id": str(user_id or ""),
-        "message": str(message or "")[:1000],
+        "user_id": _short_text(user_id),
+        "message": _short_text(message, limit=MAX_EVENT_MESSAGE_LENGTH),
         "details_json": _details_json(details),
     }
     with _EVENT_LOG_LOCK:

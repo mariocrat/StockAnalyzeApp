@@ -512,3 +512,9 @@
 - `DELETE /api/me/account-data` 흐름에서 삭제 대상 사용자의 운영 로그(`operational_events.user_id`)도 함께 삭제하도록 했다.
 - 다른 사용자의 운영 로그는 유지하면서 탈퇴한 사용자 ID가 운영 로그 조회 결과에 남지 않도록 `clear_events_for_user`를 추가했다.
 - `tests/test_account_store.py`에 계정 삭제가 매매, 복기, 이용권, 광고 보상뿐 아니라 운영 로그까지 정리하는 회귀 테스트를 추가했다.
+
+### 운영 로그 상단 필드 크기 제한
+
+- 운영 로그의 `level`, `event_type`, `method`, `path`, `user_id`를 최대 250자로 제한하고 `message`는 최대 1000자로 명시적으로 제한했다.
+- details 필드뿐 아니라 상단 필드로도 과도한 문자열이 저장되어 DB가 커지는 것을 방지한다.
+- `tests/test_event_log.py`에 운영 로그 상단 필드가 제한 길이를 넘지 않는 회귀 테스트를 추가했다.

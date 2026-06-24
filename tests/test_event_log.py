@@ -83,6 +83,31 @@ class EventLogTest(unittest.TestCase):
             self.assertLessEqual(len(row["details"]["many_keys"]), event_log.MAX_DETAIL_DICT_KEYS + 1)
             self.assertIn("__truncated_keys__", row["details"]["many_keys"])
 
+    def test_event_log_truncates_oversized_top_level_fields(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            event_log.record_event(
+                level="warning" * 100,
+                event_type="event-type-" + ("x" * 5000),
+                method="POST" * 100,
+                path="/api/" + ("path" * 2000),
+                user_id="user-" + ("id" * 2000),
+                message="message-" + ("m" * 5000),
+            )
+
+            row = event_log.list_events(limit=1)[0]
+
+            self.assertLessEqual(len(row["level"]), event_log.MAX_EVENT_FIELD_LENGTH)
+            self.assertLessEqual(len(row["event_type"]), event_log.MAX_EVENT_FIELD_LENGTH)
+            self.assertLessEqual(len(row["method"]), event_log.MAX_EVENT_FIELD_LENGTH)
+            self.assertLessEqual(len(row["path"]), event_log.MAX_EVENT_FIELD_LENGTH)
+            self.assertLessEqual(len(row["user_id"]), event_log.MAX_EVENT_FIELD_LENGTH)
+            self.assertLessEqual(len(row["message"]), event_log.MAX_EVENT_MESSAGE_LENGTH)
+
     def test_api_failure_event_helper_records_without_authorization_token(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
