@@ -353,6 +353,8 @@ def purge_events_older_than(*, retention_days: int = 90) -> dict:
     days = int(retention_days or 90)
     if days < 7:
         raise ValueError("retention_days must be at least 7.")
+    if days > 3650:
+        raise ValueError("retention_days must be 3650 or less.")
     cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)
     cutoff_text = cutoff.isoformat(timespec="seconds")
 

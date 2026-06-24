@@ -477,6 +477,19 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(90, result["retention_days"])
             self.assertEqual([recent_event["id"]], [row["id"] for row in rows])
 
+    def test_purge_events_older_than_rejects_excessive_retention_days(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+
+            with self.assertRaises(ValueError) as blocked:
+                event_log.purge_events_older_than(retention_days=999999999)
+
+            self.assertIn("retention_days", str(blocked.exception))
+
     def test_purge_configured_retention_skips_without_setting(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
