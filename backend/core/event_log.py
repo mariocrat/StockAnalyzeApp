@@ -27,6 +27,7 @@ SECRET_KEY_PARTS = {
 MAX_DETAIL_STRING_LENGTH = 1000
 MAX_DETAIL_LIST_LENGTH = 50
 MAX_DETAIL_DICT_KEYS = 50
+MAX_DETAIL_KEY_LENGTH = 120
 MAX_EVENT_FIELD_LENGTH = 250
 MAX_EVENT_MESSAGE_LENGTH = 1000
 _EVENT_LOG_LOCK = threading.Lock()
@@ -88,12 +89,20 @@ def _should_redact_key(key: str) -> bool:
     return any(part in normalized for part in SECRET_KEY_PARTS)
 
 
+def _safe_detail_key(key) -> str:
+    text = str(key or "")
+    if len(text) > MAX_DETAIL_KEY_LENGTH:
+        return text[:MAX_DETAIL_KEY_LENGTH]
+    return text
+
+
 def _redact(value):
     if isinstance(value, dict):
         safe = {}
         items = list(value.items())
         for key, item in items[:MAX_DETAIL_DICT_KEYS]:
-            safe[str(key)] = "[redacted]" if _should_redact_key(str(key)) else _redact(item)
+            raw_key = str(key)
+            safe[_safe_detail_key(raw_key)] = "[redacted]" if _should_redact_key(raw_key) else _redact(item)
         if len(items) > MAX_DETAIL_DICT_KEYS:
             safe["__truncated_keys__"] = len(items) - MAX_DETAIL_DICT_KEYS
         return safe

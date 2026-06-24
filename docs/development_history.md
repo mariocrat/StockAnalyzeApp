@@ -1,5 +1,11 @@
 # AlphaMate Development History
 
+## 2026-06-25 operational log hardening
+
+- Limited operational event `details` dictionary key names to 120 characters so malformed client reports cannot bloat the local event log database with oversized keys.
+- Kept secret-like key detection based on the original key name before truncation, so long `authorization`, `token`, or `secret` keys are still redacted.
+- Added a backend unit test that covers oversized detail keys together with secret redaction.
+
 ## 2026-06-21 quick verification script
 
 - Added `release_readiness_report.bat` and `backend/scripts/owner_release_report.py` to print a non-secret Korean launch readiness report from the existing backend readiness checks.
