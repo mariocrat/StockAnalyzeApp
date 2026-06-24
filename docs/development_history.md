@@ -53,6 +53,7 @@
 - Added server-side caps for journal trade and review-history query limits so oversized direct API reads cannot force excessive DB scans.
 - Added a separate saved-journal analysis limit so review and chart endpoints analyze a bounded recent trade set instead of always reading 5000 saved rows.
 - Added finite-number and non-negative fee/tax validation for journal trades so invalid numeric payloads are rejected before storage or analysis.
+- Added ISO date/datetime validation for journal trades so invalid trade dates are rejected before storage or analysis.
 
 ## 2026-06-21 frontend code splitting
 

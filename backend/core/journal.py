@@ -87,6 +87,10 @@ def normalize_trade(payload: dict) -> dict:
     name = str(payload.get("name", "")).strip()
     if not trade_date or not name:
         raise ValueError("trade_date and name are required")
+    try:
+        datetime.datetime.fromisoformat(trade_date.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("trade_date must be ISO date or datetime") from exc
 
     ticker = str(payload.get("ticker", "") or "").strip()
     price = float(payload.get("price", 0) or 0)

@@ -149,6 +149,25 @@ class JournalBatchLimitTest(unittest.TestCase):
         self.assertEqual(400, blocked.exception.status_code)
         self.assertIn("fee and tax must be non-negative", blocked.exception.detail)
 
+    def test_saved_trade_returns_bad_request_for_invalid_trade_date(self):
+        main = _load_main()
+
+        with self.assertRaises(HTTPException) as blocked:
+            main.create_journal_trade(_trade(main, 1, trade_date="not-a-date"))
+
+        self.assertEqual(400, blocked.exception.status_code)
+        self.assertIn("trade_date must be ISO date or datetime", blocked.exception.detail)
+
+    def test_review_once_returns_bad_request_for_invalid_trade_date(self):
+        main = _load_main()
+        batch = main.JournalBatchIn(trades=[_trade(main, 1, trade_date="2026-99-99")])
+
+        with self.assertRaises(HTTPException) as blocked:
+            main.get_journal_review_once(batch)
+
+        self.assertEqual(400, blocked.exception.status_code)
+        self.assertIn("trade_date must be ISO date or datetime", blocked.exception.detail)
+
 
 if __name__ == "__main__":
     unittest.main()
