@@ -62,6 +62,7 @@ _ai_review_rate_limiter = InMemoryRateLimiter()
 _ai_review_idempotency_lock = threading.Lock()
 _ai_review_idempotency_cache = {}
 REQUEST_ID_HEADER = "X-Request-ID"
+ADMIN_TOKEN_MIN_LENGTH = 32
 
 
 def _env_int(name: str, default: int, minimum: int = 1) -> int:
@@ -614,6 +615,8 @@ def _require_admin_token(authorization: Optional[str]) -> bool:
     configured = env_value("ALPHAMATE_ADMIN_TOKEN")
     if not configured:
         raise HTTPException(status_code=503, detail="Admin event log access is not configured.")
+    if env_value("ALPHAMATE_ENV").lower() == "production" and len(configured) < ADMIN_TOKEN_MIN_LENGTH:
+        raise HTTPException(status_code=503, detail="Admin token must be at least 32 characters in production.")
     token = _bearer_value(authorization)
     if not token:
         raise HTTPException(status_code=401, detail="Admin token is required.")

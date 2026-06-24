@@ -482,3 +482,9 @@
 - 운영 로그 삭제의 `retention_days`가 비정상적으로 큰 값일 때 날짜 계산 `OverflowError`로 서버 오류가 나지 않도록 최대 3650일로 제한했다.
 - 너무 큰 보관일수는 기존 최소값 검증과 같은 방식으로 `ValueError`가 되고, 관리자 API에서는 HTTP 400으로 응답된다.
 - `tests/test_event_log.py`에 과도한 보관일수를 명확히 거절하는 회귀 테스트를 추가했다.
+
+### 프로덕션 관리자 토큰 강도 검증
+
+- `ALPHAMATE_ENV=production`에서는 운영 로그 관리자 토큰이 32자 미만이면 실제 관리자 API 접근도 HTTP 503으로 차단한다.
+- readiness에서만 경고하던 관리자 토큰 길이 요구사항을 런타임 API 보호에도 맞췄다.
+- `tests/test_admin_event_routes.py`에 짧은 프로덕션 관리자 토큰이 거절되는 회귀 테스트를 추가했다.

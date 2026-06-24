@@ -75,6 +75,16 @@ class AdminEventRoutesTest(unittest.TestCase):
 
             self.assertTrue(main._require_admin_token("Bearer admin-secret"))
 
+    def test_admin_event_route_rejects_short_admin_token_in_production(self):
+        with patched_env(ALPHAMATE_ENV="production", ALPHAMATE_ADMIN_TOKEN="short-admin-token"):
+            import main
+
+            with self.assertRaises(HTTPException) as blocked:
+                main._require_admin_token("Bearer short-admin-token")
+
+            self.assertEqual(503, blocked.exception.status_code)
+            self.assertIn("Admin token", blocked.exception.detail)
+
     def test_admin_rate_limit_rejects_excessive_requests(self):
         with patched_env(ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE="2"):
             import main
