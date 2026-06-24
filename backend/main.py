@@ -92,6 +92,10 @@ def _journal_query_max_limit() -> int:
     return _env_int("ALPHAMATE_JOURNAL_QUERY_MAX_LIMIT", 500, 1)
 
 
+def _saved_journal_analysis_max_trades() -> int:
+    return _env_int("ALPHAMATE_SAVED_JOURNAL_ANALYSIS_MAX_TRADES", 500, 1)
+
+
 class JournalTradeIn(BaseModel):
     trade_date: str
     ticker: str = ""
@@ -1010,7 +1014,7 @@ def get_journal_review(authorization: Optional[str] = Header(default=None)):
     if user:
         if not user.get("journal_storage_enabled"):
             return build_review([])
-        return build_review(list_trades(limit=5000, user_id=user["id"]))
+        return build_review(list_trades(limit=_saved_journal_analysis_max_trades(), user_id=user["id"]))
     return build_review()
 
 
@@ -1023,7 +1027,8 @@ def get_journal_review_once(batch: JournalBatchIn):
 @app.get("/api/journal/ai-review")
 def get_journal_ai_review(authorization: Optional[str] = Header(default=None)):
     user = _optional_session_user(authorization)
-    trades = list_trades(limit=5000, user_id=user["id"]) if user and user.get("journal_storage_enabled") else list_trades(limit=5000)
+    limit = _saved_journal_analysis_max_trades()
+    trades = list_trades(limit=limit, user_id=user["id"]) if user and user.get("journal_storage_enabled") else list_trades(limit=limit)
     return build_ai_review(trades)
 
 
@@ -1194,7 +1199,8 @@ def get_journal_ai_review_once(
 @app.get("/api/journal/charts")
 def get_journal_charts(authorization: Optional[str] = Header(default=None)):
     user = _optional_session_user(authorization)
-    trades = list_trades(limit=5000, user_id=user["id"]) if user and user.get("journal_storage_enabled") else list_trades(limit=5000)
+    limit = _saved_journal_analysis_max_trades()
+    trades = list_trades(limit=limit, user_id=user["id"]) if user and user.get("journal_storage_enabled") else list_trades(limit=limit)
     return build_journal_charts(trades)
 
 
