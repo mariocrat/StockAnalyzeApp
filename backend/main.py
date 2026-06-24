@@ -158,7 +158,17 @@ class ClientEventIn(BaseModel):
 
 
 def _journal_batch_payload(batch: JournalBatchIn) -> list[dict]:
-    return [normalize_trade(trade.model_dump()) for trade in batch.trades]
+    try:
+        return [normalize_trade(trade.model_dump()) for trade in batch.trades]
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _add_journal_trade(payload: dict, *, user_id: str = "") -> dict:
+    try:
+        return add_trade(payload, user_id=user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _enforce_journal_batch_limit(batch: JournalBatchIn, *, max_trades: int, label: str = "매매 기록"):
@@ -954,8 +964,8 @@ def create_journal_trade(
     if user:
         if not user.get("journal_storage_enabled"):
             raise HTTPException(status_code=403, detail="매매 이력 저장을 먼저 켜야 합니다.")
-        return add_trade(trade.model_dump(), user_id=user["id"])
-    return add_trade(trade.model_dump())
+        return _add_journal_trade(trade.model_dump(), user_id=user["id"])
+    return _add_journal_trade(trade.model_dump())
 
 
 @app.delete("/api/journal/trades/{trade_id}")

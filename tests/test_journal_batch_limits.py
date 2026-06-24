@@ -111,6 +111,25 @@ class JournalBatchLimitTest(unittest.TestCase):
         self.assertEqual(413, blocked.exception.status_code)
         self.assertIn("메모는 최대 5자", blocked.exception.detail)
 
+    def test_review_once_returns_bad_request_for_invalid_trade_side(self):
+        main = _load_main()
+        batch = main.JournalBatchIn(trades=[_trade(main, 1, side="hold")])
+
+        with self.assertRaises(HTTPException) as blocked:
+            main.get_journal_review_once(batch)
+
+        self.assertEqual(400, blocked.exception.status_code)
+        self.assertIn("side must be buy or sell", blocked.exception.detail)
+
+    def test_saved_trade_returns_bad_request_for_invalid_quantity(self):
+        main = _load_main()
+
+        with self.assertRaises(HTTPException) as blocked:
+            main.create_journal_trade(_trade(main, 1, quantity=0))
+
+        self.assertEqual(400, blocked.exception.status_code)
+        self.assertIn("price and quantity must be positive", blocked.exception.detail)
+
 
 if __name__ == "__main__":
     unittest.main()

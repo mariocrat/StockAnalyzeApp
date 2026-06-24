@@ -49,6 +49,7 @@
 - Added frontend `Retry-After` error messaging so AI review rate-limit or busy-server responses tell users when to try again.
 - Added server-side one-time journal and AI review batch size limits so oversized direct API requests cannot trigger excessive chart or AI work.
 - Added server-side journal memo length limits so oversized text cannot inflate saved data or AI review payloads.
+- Converted invalid journal trade input into clear HTTP 400 responses instead of uncaught server errors.
 
 ## 2026-06-21 frontend code splitting
 
