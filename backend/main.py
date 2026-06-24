@@ -44,6 +44,7 @@ from core.event_log import list_events, purge_configured_retention, purge_events
 from contextlib import asynccontextmanager
 import copy
 import hmac
+import hashlib
 import uuid
 import threading
 import logging
@@ -426,7 +427,8 @@ def _clean_ai_review_idempotency_key(value: str | None) -> str:
 
 
 def _ai_review_idempotency_cache_key(authorization: str | None, key: str) -> str:
-    return f"{_ai_review_rate_key(authorization)}:{key}"
+    key_hash = hashlib.sha256(str(key or "").encode("utf-8")).hexdigest()
+    return f"{_ai_review_rate_key(authorization)}:idem:{key_hash}"
 
 
 def _prune_ai_review_idempotency_cache(now: datetime.datetime):

@@ -464,3 +464,9 @@
 - `POST /api/journal/ai-review-once`에서 `review_type`은 `basic` 또는 `advanced`만 허용하도록 막았다.
 - 잘못된 복기 종류는 idempotency, 요청 제한, AI 실행, 복기권 차감 전에 HTTP 400으로 거절한다.
 - `tests/test_ai_review_safety.py`에 잘못된 복기 종류가 가입 기본 복기권을 차감하지 않는 회귀 테스트를 추가했다.
+
+### AI 복기 idempotency 키 비식별화
+
+- AI 복기 중복 요청 방지 캐시 키에 `X-Idempotency-Key` 원문이 그대로 남지 않도록 SHA-256 해시로 저장한다.
+- 동일한 idempotency key의 중복 차감 방지 동작은 유지하면서, 내부 메모리 키에 요청 토큰 원문이 노출되지 않도록 했다.
+- `tests/test_ai_review_safety.py`에 idempotency 캐시 키가 세션 토큰과 요청 키 원문을 포함하지 않는 회귀 테스트를 추가했다.

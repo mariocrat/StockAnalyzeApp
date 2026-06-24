@@ -163,6 +163,16 @@ class AiReviewSafetyTest(unittest.TestCase):
             self.assertEqual(1, calls["count"])
             self.assertEqual(4, entitlements["basic"]["signup_remaining"])
 
+    def test_ai_review_idempotency_cache_key_does_not_expose_request_tokens(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            main, _, token = _load_main_with_temp_state(tmpdir)
+            idempotency_key = "same-request-1"
+
+            cache_key = main._ai_review_idempotency_cache_key(token, idempotency_key)
+
+            self.assertNotIn(token, cache_key)
+            self.assertNotIn(idempotency_key, cache_key)
+
 
 if __name__ == "__main__":
     unittest.main()
