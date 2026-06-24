@@ -116,6 +116,36 @@ class AiReviewSafetyTest(unittest.TestCase):
             self.assertEqual(5, result["access"]["quota"]["basic"]["signup_remaining"])
             self.assertEqual(5, entitlements["basic"]["signup_remaining"])
 
+    def test_ai_review_idempotency_key_prevents_duplicate_charge(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            main, access_control, token = _load_main_with_temp_state(tmpdir)
+            calls = {"count": 0}
+
+            def fake_basic_review(trades, target_trade_id=None):
+                calls["count"] += 1
+                return {
+                    "status": "ready",
+                    "source": "openai",
+                    "review_type": "basic",
+                    "summary": f"ok-{calls['count']}",
+                }
+
+            main.build_basic_ai_review = fake_basic_review
+            batch = _basic_batch(main)
+
+            first = main.get_journal_ai_review_once(batch, authorization=token, x_idempotency_key="same-request-1")
+            second = main.get_journal_ai_review_once(batch, authorization=token, x_idempotency_key="same-request-1")
+            entitlements = access_control.get_user_entitlements(
+                authorization=token,
+                entitlement_token="",
+            )
+
+            self.assertEqual("ok-1", first["summary"])
+            self.assertEqual("ok-1", second["summary"])
+            self.assertTrue(second["access"]["idempotent_replay"])
+            self.assertEqual(1, calls["count"])
+            self.assertEqual(4, entitlements["basic"]["signup_remaining"])
+
 
 if __name__ == "__main__":
     unittest.main()

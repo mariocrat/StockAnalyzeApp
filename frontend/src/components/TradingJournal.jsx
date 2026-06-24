@@ -6,6 +6,7 @@ import JournalTradeChart from './JournalTradeChart';
 import { getAdMobRuntimeStatus, initializeAdMob, showReviewHistoryInterstitial, showRewardedReviewAd } from '../mobile/admob';
 import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct, recoverGooglePlayPurchases } from '../mobile/billing';
 import { shouldFinishGooglePlayTransaction } from '../mobile/billingPolicy';
+import { buildAiReviewIdempotencyKey } from '../utils/aiReviewIdempotency';
 import { reportClientEvent } from '../utils/clientEventLog';
 
 const sideLabels = { buy: '매수', sell: '매도' };
@@ -633,6 +634,11 @@ export default function TradingJournal({ apiBase }) {
 
     setAiLoading(true);
     try {
+      const idempotencyKey = buildAiReviewIdempotencyKey({
+        trades: nextTrades,
+        reviewType,
+        targetTradeId: options.targetTradeId || '',
+      });
       const res = await axios.post(
         `${apiBase}/api/journal/ai-review-once`,
         {
@@ -642,7 +648,7 @@ export default function TradingJournal({ apiBase }) {
           entitlement_token: DEV_ENTITLEMENT_TOKEN,
           privacy_consent: aiConsentAccepted,
         },
-        { headers: authHeaders },
+        { headers: { ...authHeaders, 'X-Idempotency-Key': idempotencyKey } },
       );
       setAiReview(res.data || null);
       if (res.data?.access?.wallet) setEntitlements(res.data.access.wallet);

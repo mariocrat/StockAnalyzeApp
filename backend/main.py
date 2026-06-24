@@ -42,6 +42,7 @@ from core.env import env_value
 from core.event_log import list_events, purge_configured_retention, purge_events_older_than, record_api_exception, record_api_failure, record_event, summarize_events
 
 from contextlib import asynccontextmanager
+import copy
 import hmac
 import uuid
 import threading
@@ -56,6 +57,8 @@ _theme_refresh_jobs = set()
 _client_event_rate_limiter = InMemoryRateLimiter()
 _admin_rate_limiter = InMemoryRateLimiter()
 _ai_review_rate_limiter = InMemoryRateLimiter()
+_ai_review_idempotency_lock = threading.Lock()
+_ai_review_idempotency_cache = {}
 REQUEST_ID_HEADER = "X-Request-ID"
 
 
@@ -337,11 +340,79 @@ def _ai_review_rate_limit() -> int:
     return _env_int("ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE", 10, 1)
 
 
+def _ai_review_idempotency_ttl_seconds() -> int:
+    return _env_int("ALPHAMATE_AI_REVIEW_IDEMPOTENCY_TTL_SECONDS", 300, 60)
+
+
 def _ai_review_rate_key(authorization: str | None) -> str:
     text = str(authorization or "").strip()
     if not text:
         return "anonymous"
     return "auth:" + uuid.uuid5(uuid.NAMESPACE_URL, text).hex
+
+
+def _clean_ai_review_idempotency_key(value: str | None) -> str:
+    text = str(value or "").strip()
+    if not 8 <= len(text) <= 120:
+        return ""
+    safe = "".join(ch for ch in text if ch.isalnum() or ch in {"-", "_", "."})
+    return safe if safe == text else ""
+
+
+def _ai_review_idempotency_cache_key(authorization: str | None, key: str) -> str:
+    return f"{_ai_review_rate_key(authorization)}:{key}"
+
+
+def _prune_ai_review_idempotency_cache(now: datetime.datetime):
+    expired = [
+        key for key, item in _ai_review_idempotency_cache.items()
+        if item.get("expires_at") and item["expires_at"] <= now
+    ]
+    for key in expired:
+        _ai_review_idempotency_cache.pop(key, None)
+
+
+def _begin_ai_review_idempotency(authorization: str | None, raw_key: str | None) -> tuple[str, dict | None]:
+    key = _clean_ai_review_idempotency_key(raw_key)
+    if not key:
+        return "", None
+    cache_key = _ai_review_idempotency_cache_key(authorization, key)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    with _ai_review_idempotency_lock:
+        _prune_ai_review_idempotency_cache(now)
+        cached = _ai_review_idempotency_cache.get(cache_key)
+        if cached and cached.get("status") == "done":
+            result = copy.deepcopy(cached["result"])
+            result.setdefault("access", {})["idempotent_replay"] = True
+            return "", result
+        if cached and cached.get("status") == "pending":
+            raise HTTPException(
+                status_code=409,
+                detail="AI review request is already running. Please retry shortly.",
+                headers={"Retry-After": "5"},
+            )
+        _ai_review_idempotency_cache[cache_key] = {
+            "status": "pending",
+            "expires_at": now + datetime.timedelta(seconds=_ai_review_idempotency_ttl_seconds()),
+        }
+    return cache_key, None
+
+
+def _finish_ai_review_idempotency(cache_key: str, result: dict | None):
+    if not cache_key:
+        return
+    now = datetime.datetime.now(datetime.timezone.utc)
+    with _ai_review_idempotency_lock:
+        if result is None:
+            _ai_review_idempotency_cache.pop(cache_key, None)
+            return
+        stored = copy.deepcopy(result)
+        stored.setdefault("access", {})["idempotent_replay"] = False
+        _ai_review_idempotency_cache[cache_key] = {
+            "status": "done",
+            "result": stored,
+            "expires_at": now + datetime.timedelta(seconds=_ai_review_idempotency_ttl_seconds()),
+        }
 
 
 def _enforce_ai_review_rate_limit(authorization: str | None) -> bool:
@@ -996,10 +1067,16 @@ def get_journal_admob_ssv(request: Request):
 def get_journal_ai_review_once(
     batch: JournalAiReviewIn,
     authorization: Optional[str] = Header(default=None),
+    x_idempotency_key: Optional[str] = Header(default=None, alias="X-Idempotency-Key"),
 ):
+    idempotency_cache_key, idempotent_result = _begin_ai_review_idempotency(authorization, x_idempotency_key)
+    if idempotent_result is not None:
+        return idempotent_result
+
     _enforce_ai_review_rate_limit(authorization)
     _acquire_ai_review_capacity()
     access = None
+    result = None
     try:
         access = verify_ai_review_access(
             authorization=authorization,
@@ -1016,6 +1093,7 @@ def get_journal_ai_review_once(
         else:
             result = build_basic_ai_review(trades, target_trade_id=batch.target_trade_id)
     except Exception:
+        _finish_ai_review_idempotency(idempotency_cache_key, None)
         if access is not None:
             refund_ai_review_access(access)
         raise
@@ -1040,6 +1118,7 @@ def get_journal_ai_review_once(
         "quota": access_quota,
         "wallet": refunded_wallet,
         "refunded": refunded,
+        "idempotent_replay": False,
     }
     review_history_id = _save_ai_review_history_if_enabled(
         authorization=authorization,
@@ -1049,6 +1128,7 @@ def get_journal_ai_review_once(
     )
     if review_history_id:
         result["review_history_id"] = review_history_id
+    _finish_ai_review_idempotency(idempotency_cache_key, result)
     return result
 
 

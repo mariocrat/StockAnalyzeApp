@@ -71,6 +71,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_CORS_ORIGINS",
             "ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE",
             "ALPHAMATE_AI_REVIEW_MAX_CONCURRENT",
+            "ALPHAMATE_AI_REVIEW_IDEMPOTENCY_TTL_SECONDS",
         ]
 
         for name in required_names:
@@ -108,6 +109,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_CORS_ORIGINS",
             "ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE",
             "ALPHAMATE_AI_REVIEW_MAX_CONCURRENT",
+            "ALPHAMATE_AI_REVIEW_IDEMPOTENCY_TTL_SECONDS",
         ]
 
         for name in required_names:

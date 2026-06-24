@@ -47,6 +47,7 @@ try {
     Run-Step "Frontend mobile AdMob tests" { & npm.cmd run test:mobile-admob }
     Run-Step "Frontend client event tests" { & npm.cmd run test:client-events }
     Run-Step "Frontend API error request ID tests" { & npm.cmd run test:api-errors }
+    Run-Step "Frontend AI idempotency tests" { & npm.cmd run test:ai-idempotency }
     Run-Step "Frontend lint" { & npm.cmd run lint }
     if (-not $env:VITE_APP_NAME) {
         $env:VITE_APP_NAME = "AlphaMate"

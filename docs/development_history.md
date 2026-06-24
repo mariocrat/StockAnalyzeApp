@@ -44,6 +44,7 @@
 - Updated `release_readiness_report.bat` to automatically use `.env.release` and `frontend/.env.release` when those private release files exist locally.
 - Added `prepare_release_env_files.bat` and `scripts/create_release_env_files.py` to create private `.env.release` files from templates without overwriting existing secret-filled files.
 - Added AI review traffic protection: per-user request limiting, server-wide concurrent AI review limiting, and credit refund when an AI review returns an error.
+- Added AI review idempotency keys so retrying the same short-window request does not run duplicate analysis or charge credits twice.
 
 ## 2026-06-21 frontend code splitting
 
