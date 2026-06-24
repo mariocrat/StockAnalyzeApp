@@ -488,3 +488,9 @@
 - `ALPHAMATE_ENV=production`에서는 운영 로그 관리자 토큰이 32자 미만이면 실제 관리자 API 접근도 HTTP 503으로 차단한다.
 - readiness에서만 경고하던 관리자 토큰 길이 요구사항을 런타임 API 보호에도 맞췄다.
 - `tests/test_admin_event_routes.py`에 짧은 프로덕션 관리자 토큰이 거절되는 회귀 테스트를 추가했다.
+
+### Google Play RTDN 공유 토큰 비교 강화
+
+- Google Play RTDN 웹훅의 `X-AlphaMate-RTDN-Token` 검증을 일반 문자열 비교에서 `hmac.compare_digest` 기반 비교로 바꿨다.
+- 토큰 불일치 응답 동작은 기존처럼 HTTP 403을 유지하면서, 비밀값 비교 방식만 더 안전하게 맞췄다.
+- `tests/test_billing_readiness.py`에 RTDN 공유 토큰이 constant-time 비교 함수를 거치는 회귀 테스트를 추가했다.

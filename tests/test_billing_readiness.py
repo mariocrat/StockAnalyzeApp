@@ -816,6 +816,29 @@ class BillingReadinessTest(unittest.TestCase):
 
             self.assertEqual(403, raised.exception.status_code)
 
+    def test_rtdn_shared_token_uses_constant_time_compare(self):
+        with patched_env(GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret"):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            calls = []
+
+            class FakeHmac:
+                @staticmethod
+                def compare_digest(left, right):
+                    calls.append((left, right))
+                    return False
+
+            access_control.hmac = FakeHmac
+            with self.assertRaises(HTTPException) as raised:
+                access_control.handle_google_play_rtdn(
+                    pubsub_payload={"message": {"data": "e30="}},
+                    shared_token="wrong",
+                )
+
+            self.assertEqual(403, raised.exception.status_code)
+            self.assertEqual([("wrong", "rtdn-secret")], calls)
+
     def test_rtdn_requires_oidc_when_configured(self):
         with patched_env(
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret",

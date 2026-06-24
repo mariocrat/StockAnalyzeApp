@@ -1,6 +1,7 @@
 import base64
 import datetime
 import hashlib
+import hmac
 import json
 import requests
 import sqlite3
@@ -1033,7 +1034,7 @@ def handle_google_play_rtdn(
     configured_token = _env_value("GOOGLE_PLAY_RTDN_SHARED_TOKEN")
     if not configured_token:
         raise HTTPException(status_code=503, detail="Google Play RTDN shared token is not configured.")
-    if str(shared_token or "") != configured_token:
+    if not hmac.compare_digest(str(shared_token or ""), configured_token):
         raise HTTPException(status_code=403, detail="Google Play RTDN token is invalid.")
     oidc_claims = _verify_rtdn_oidc_token(authorization)
 
