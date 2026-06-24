@@ -76,6 +76,14 @@ def _ai_review_max_concurrent() -> int:
 _ai_review_concurrency_guard = threading.BoundedSemaphore(_ai_review_max_concurrent())
 
 
+def _journal_once_max_trades() -> int:
+    return _env_int("ALPHAMATE_JOURNAL_ONCE_MAX_TRADES", 500, 1)
+
+
+def _ai_review_max_trades() -> int:
+    return _env_int("ALPHAMATE_AI_REVIEW_MAX_TRADES", 100, 1)
+
+
 class JournalTradeIn(BaseModel):
     trade_date: str
     ticker: str = ""
@@ -147,6 +155,15 @@ class ClientEventIn(BaseModel):
 
 def _journal_batch_payload(batch: JournalBatchIn) -> list[dict]:
     return [normalize_trade(trade.model_dump()) for trade in batch.trades]
+
+
+def _enforce_journal_batch_limit(batch: JournalBatchIn, *, max_trades: int, label: str = "매매 기록"):
+    trade_count = len(batch.trades or [])
+    if trade_count > max_trades:
+        raise HTTPException(
+            status_code=413,
+            detail=f"{label}는 한 번에 최대 {max_trades}건까지 처리할 수 있습니다. 현재 {trade_count}건입니다.",
+        )
 
 
 def _optional_session_user(authorization: Optional[str]):
@@ -959,6 +976,7 @@ def get_journal_review(authorization: Optional[str] = Header(default=None)):
 
 @app.post("/api/journal/review-once")
 def get_journal_review_once(batch: JournalBatchIn):
+    _enforce_journal_batch_limit(batch, max_trades=_journal_once_max_trades())
     return build_review(_journal_batch_payload(batch))
 
 
@@ -1069,6 +1087,7 @@ def get_journal_ai_review_once(
     authorization: Optional[str] = Header(default=None),
     x_idempotency_key: Optional[str] = Header(default=None, alias="X-Idempotency-Key"),
 ):
+    _enforce_journal_batch_limit(batch, max_trades=_ai_review_max_trades(), label="AI 복기")
     idempotency_cache_key, idempotent_result = _begin_ai_review_idempotency(authorization, x_idempotency_key)
     if idempotent_result is not None:
         return idempotent_result
@@ -1141,6 +1160,7 @@ def get_journal_charts(authorization: Optional[str] = Header(default=None)):
 
 @app.post("/api/journal/charts-once")
 def get_journal_charts_once(batch: JournalBatchIn):
+    _enforce_journal_batch_limit(batch, max_trades=_journal_once_max_trades())
     return build_journal_charts(_journal_batch_payload(batch))
 
 @app.get("/api/stock/{ticker}")
