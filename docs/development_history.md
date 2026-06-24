@@ -48,6 +48,7 @@
 - Added configurable OpenAI timeout and short transient retry settings so temporary 429/5xx failures do not immediately burn a review attempt.
 - Added frontend `Retry-After` error messaging so AI review rate-limit or busy-server responses tell users when to try again.
 - Added server-side one-time journal and AI review batch size limits so oversized direct API requests cannot trigger excessive chart or AI work.
+- Added server-side journal memo length limits so oversized text cannot inflate saved data or AI review payloads.
 
 ## 2026-06-21 frontend code splitting
 

@@ -84,6 +84,10 @@ def _ai_review_max_trades() -> int:
     return _env_int("ALPHAMATE_AI_REVIEW_MAX_TRADES", 100, 1)
 
 
+def _journal_memo_max_chars() -> int:
+    return _env_int("ALPHAMATE_JOURNAL_MEMO_MAX_CHARS", 2000, 1)
+
+
 class JournalTradeIn(BaseModel):
     trade_date: str
     ticker: str = ""
@@ -164,6 +168,18 @@ def _enforce_journal_batch_limit(batch: JournalBatchIn, *, max_trades: int, labe
             status_code=413,
             detail=f"{label}는 한 번에 최대 {max_trades}건까지 처리할 수 있습니다. 현재 {trade_count}건입니다.",
         )
+    _enforce_trade_text_limits(batch.trades or [])
+
+
+def _enforce_trade_text_limits(trades: list[JournalTradeIn]):
+    max_memo_chars = _journal_memo_max_chars()
+    for index, trade in enumerate(trades, start=1):
+        memo = str(trade.memo or "")
+        if len(memo) > max_memo_chars:
+            raise HTTPException(
+                status_code=413,
+                detail=f"{index}번째 매매 메모는 최대 {max_memo_chars}자까지 입력할 수 있습니다.",
+            )
 
 
 def _optional_session_user(authorization: Optional[str]):
@@ -933,6 +949,7 @@ def create_journal_trade(
     trade: JournalTradeIn,
     authorization: Optional[str] = Header(default=None),
 ):
+    _enforce_trade_text_limits([trade])
     user = _optional_session_user(authorization)
     if user:
         if not user.get("journal_storage_enabled"):

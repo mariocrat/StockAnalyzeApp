@@ -15,14 +15,18 @@ def _load_main():
     return importlib.reload(importlib.import_module("main"))
 
 
-def _trade(main, index: int):
+def _trade(main, index: int, **overrides):
+    values = {
+        "trade_date": "2026-06-21T10:30",
+        "ticker": "005930",
+        "name": "삼성전자",
+        "side": "buy",
+        "price": 70000 + index,
+        "quantity": 1,
+    }
+    values.update(overrides)
     return main.JournalTradeIn(
-        trade_date="2026-06-21T10:30",
-        ticker="005930",
-        name="삼성전자",
-        side="buy",
-        price=70000 + index,
-        quantity=1,
+        **values,
     )
 
 
@@ -34,6 +38,7 @@ class JournalBatchLimitTest(unittest.TestCase):
         "ALPHAMATE_ENV",
         "ALPHAMATE_ACCOUNT_DB_PATH",
         "ALPHAMATE_ACCESS_DB_PATH",
+        "ALPHAMATE_JOURNAL_MEMO_MAX_CHARS",
     ]
 
     def setUp(self):
@@ -84,6 +89,27 @@ class JournalBatchLimitTest(unittest.TestCase):
 
             self.assertEqual(413, blocked.exception.status_code)
             self.assertIn("AI 복기는 한 번에 최대 1건", blocked.exception.detail)
+
+    def test_review_once_rejects_oversized_trade_memo(self):
+        os.environ["ALPHAMATE_JOURNAL_MEMO_MAX_CHARS"] = "5"
+        main = _load_main()
+        batch = main.JournalBatchIn(trades=[_trade(main, 1, memo="123456")])
+
+        with self.assertRaises(HTTPException) as blocked:
+            main.get_journal_review_once(batch)
+
+        self.assertEqual(413, blocked.exception.status_code)
+        self.assertIn("메모는 최대 5자", blocked.exception.detail)
+
+    def test_saved_trade_rejects_oversized_memo(self):
+        os.environ["ALPHAMATE_JOURNAL_MEMO_MAX_CHARS"] = "5"
+        main = _load_main()
+
+        with self.assertRaises(HTTPException) as blocked:
+            main.create_journal_trade(_trade(main, 1, memo="123456"))
+
+        self.assertEqual(413, blocked.exception.status_code)
+        self.assertIn("메모는 최대 5자", blocked.exception.detail)
 
 
 if __name__ == "__main__":
