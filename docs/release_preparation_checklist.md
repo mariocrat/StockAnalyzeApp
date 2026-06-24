@@ -10,6 +10,7 @@
 - [ ] Key는 모바일 앱이나 frontend `.env`에 넣지 않는다.
 - [ ] 운영 서버의 환경변수 또는 Secret Manager에만 넣는다.
 - [ ] 일반 복기 모델과 심층 복기 모델 환경변수를 설정한다.
+- [ ] AI 복기 분당 요청 제한과 서버 동시 처리 개수를 운영 비용에 맞게 설정한다.
 
 확인 방법:
 
@@ -17,6 +18,8 @@
 OPENAI_API_KEY=실제_Key
 OPENAI_BASIC_REVIEW_MODEL=사용할_일반_복기_모델
 OPENAI_ADVANCED_REVIEW_MODEL=사용할_심층_복기_모델
+ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE=10
+ALPHAMATE_AI_REVIEW_MAX_CONCURRENT=3
 ```
 
 주의:

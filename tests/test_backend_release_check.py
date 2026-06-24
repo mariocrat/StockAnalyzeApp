@@ -69,6 +69,8 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_REVIEW_HISTORY_DB_PATH",
             "ALPHAMATE_EVENT_LOG_DB_PATH",
             "ALPHAMATE_CORS_ORIGINS",
+            "ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE",
+            "ALPHAMATE_AI_REVIEW_MAX_CONCURRENT",
         ]
 
         for name in required_names:
@@ -104,6 +106,8 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_EVENT_LOG_DB_PATH",
             "ALPHAMATE_ADMIN_TOKEN",
             "ALPHAMATE_CORS_ORIGINS",
+            "ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE",
+            "ALPHAMATE_AI_REVIEW_MAX_CONCURRENT",
         ]
 
         for name in required_names:

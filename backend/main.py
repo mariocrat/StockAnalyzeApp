@@ -30,6 +30,7 @@ from core.access_control import (
     get_product_catalog,
     get_user_entitlements,
     record_admob_ssv_reward,
+    refund_ai_review_access,
     verify_ai_review_access,
 )
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
@@ -54,7 +55,22 @@ _theme_refresh_lock = threading.Lock()
 _theme_refresh_jobs = set()
 _client_event_rate_limiter = InMemoryRateLimiter()
 _admin_rate_limiter = InMemoryRateLimiter()
+_ai_review_rate_limiter = InMemoryRateLimiter()
 REQUEST_ID_HEADER = "X-Request-ID"
+
+
+def _env_int(name: str, default: int, minimum: int = 1) -> int:
+    try:
+        return max(minimum, int(env_value(name) or default))
+    except ValueError:
+        return default
+
+
+def _ai_review_max_concurrent() -> int:
+    return _env_int("ALPHAMATE_AI_REVIEW_MAX_CONCURRENT", 3, 1)
+
+
+_ai_review_concurrency_guard = threading.BoundedSemaphore(_ai_review_max_concurrent())
 
 
 class JournalTradeIn(BaseModel):
@@ -315,6 +331,46 @@ def _admin_rate_limit() -> int:
         return int(env_value("ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE") or 30)
     except ValueError:
         return 30
+
+
+def _ai_review_rate_limit() -> int:
+    return _env_int("ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE", 10, 1)
+
+
+def _ai_review_rate_key(authorization: str | None) -> str:
+    text = str(authorization or "").strip()
+    if not text:
+        return "anonymous"
+    return "auth:" + uuid.uuid5(uuid.NAMESPACE_URL, text).hex
+
+
+def _enforce_ai_review_rate_limit(authorization: str | None) -> bool:
+    rate_limit = _ai_review_rate_limiter.check(
+        _ai_review_rate_key(authorization),
+        limit=_ai_review_rate_limit(),
+        window_seconds=60,
+    )
+    if not rate_limit["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many AI review requests. Retry after {rate_limit['retry_after_seconds']} seconds.",
+            headers={"Retry-After": str(rate_limit["retry_after_seconds"])},
+        )
+    return True
+
+
+def _acquire_ai_review_capacity() -> bool:
+    if not _ai_review_concurrency_guard.acquire(blocking=False):
+        raise HTTPException(
+            status_code=429,
+            detail="AI review service is busy. Please try again shortly.",
+            headers={"Retry-After": "10"},
+        )
+    return True
+
+
+def _release_ai_review_capacity():
+    _ai_review_concurrency_guard.release()
 
 
 def _enforce_admin_rate_limit(client_key: str) -> bool:
@@ -941,27 +997,49 @@ def get_journal_ai_review_once(
     batch: JournalAiReviewIn,
     authorization: Optional[str] = Header(default=None),
 ):
-    access = verify_ai_review_access(
-        authorization=authorization,
-        ad_reward_token=batch.ad_reward_token,
-        entitlement_token=batch.entitlement_token,
-        privacy_consent=batch.privacy_consent,
-        review_type=batch.review_type,
-    )
-    if batch.privacy_consent and authorization:
-        record_privacy_consent(authorization=authorization)
-    trades = _journal_batch_payload(batch)
-    if access.review_type == "advanced":
-        result = build_advanced_ai_review(trades, target_trade_id=batch.target_trade_id)
+    _enforce_ai_review_rate_limit(authorization)
+    _acquire_ai_review_capacity()
+    access = None
+    try:
+        access = verify_ai_review_access(
+            authorization=authorization,
+            ad_reward_token=batch.ad_reward_token,
+            entitlement_token=batch.entitlement_token,
+            privacy_consent=batch.privacy_consent,
+            review_type=batch.review_type,
+        )
+        if batch.privacy_consent and authorization:
+            record_privacy_consent(authorization=authorization)
+        trades = _journal_batch_payload(batch)
+        if access.review_type == "advanced":
+            result = build_advanced_ai_review(trades, target_trade_id=batch.target_trade_id)
+        else:
+            result = build_basic_ai_review(trades, target_trade_id=batch.target_trade_id)
+    except Exception:
+        if access is not None:
+            refund_ai_review_access(access)
+        raise
+    finally:
+        _release_ai_review_capacity()
+
+    refunded = False
+    if result.get("status") == "error":
+        refunded = True
+        refunded_wallet = refund_ai_review_access(access)
     else:
-        result = build_basic_ai_review(trades, target_trade_id=batch.target_trade_id)
+        refunded_wallet = access.product_balances
+    access_quota = {
+        "basic": refunded_wallet["basic"],
+        "advanced": refunded_wallet["advanced"],
+    }
     result["access"] = {
         "auth_mode": access.auth_mode,
         "plan": access.plan,
         "review_type": access.review_type,
         "source": access.source,
-        "quota": access.quota,
-        "wallet": access.product_balances,
+        "quota": access_quota,
+        "wallet": refunded_wallet,
+        "refunded": refunded,
     }
     review_history_id = _save_ai_review_history_if_enabled(
         authorization=authorization,

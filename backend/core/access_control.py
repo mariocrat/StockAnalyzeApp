@@ -1531,3 +1531,40 @@ def verify_ai_review_access(
             "advanced": snapshot["advanced"],
         },
     )
+
+
+def refund_ai_review_access(access: AiAccessContext) -> dict:
+    if not isinstance(access, AiAccessContext):
+        raise HTTPException(status_code=400, detail="AI review access context is required.")
+
+    with _WALLET_LOCK:
+        wallet = _wallet_for(access.user_id)
+        usage = wallet.usage
+        source = str(access.source or "")
+
+        if source == "signup_basic":
+            wallet.basic_signup_remaining += 1
+        elif source == "free_daily_basic":
+            usage.free_basic_daily_used = max(0, usage.free_basic_daily_used - 1)
+            usage.free_basic_monthly_used = max(0, usage.free_basic_monthly_used - 1)
+        elif source == "rewarded_ad_basic":
+            usage.free_basic_daily_used = max(0, usage.free_basic_daily_used - 1)
+            usage.free_basic_monthly_used = max(0, usage.free_basic_monthly_used - 1)
+            usage.weekly_ad_views = max(0, usage.weekly_ad_views - 1)
+        elif source == "purchased_basic":
+            wallet.purchased_basic += 1
+        elif source == "purchased_advanced_as_basic":
+            wallet.purchased_advanced += 1
+        elif source == "pro_monthly_basic":
+            usage.pro_basic_monthly_used = max(0, usage.pro_basic_monthly_used - 1)
+        elif source == "pro_monthly_advanced":
+            usage.pro_advanced_monthly_used = max(0, usage.pro_advanced_monthly_used - 1)
+        elif source == "weekly_ad_advanced":
+            wallet.weekly_advanced += 1
+        elif source == "purchased_advanced":
+            wallet.purchased_advanced += 1
+        else:
+            return _wallet_snapshot(wallet, access.plan)
+
+        _save_wallet(access.user_id, wallet)
+        return _wallet_snapshot(wallet, access.plan)
