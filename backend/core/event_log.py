@@ -377,6 +377,20 @@ def purge_events_older_than(*, retention_days: int = 90) -> dict:
     }
 
 
+def clear_events_for_user(*, user_id: str) -> int:
+    user_id = str(user_id or "").strip()
+    if not user_id:
+        return 0
+    with _EVENT_LOG_LOCK:
+        conn = _connect()
+        try:
+            cur = conn.execute("DELETE FROM operational_events WHERE user_id = ?", (user_id,))
+            conn.commit()
+            return int(cur.rowcount or 0)
+        finally:
+            conn.close()
+
+
 def purge_configured_retention() -> dict:
     configured = str(_env_value("ALPHAMATE_EVENT_LOG_RETENTION_DAYS") or "").strip()
     if not configured:

@@ -506,3 +506,9 @@
 - production Google Play readiness가 `GOOGLE_PLAY_RTDN_SHARED_TOKEN` 누락 또는 32자 미만 설정을 배포 전 오류로 표시하도록 했다.
 - 런타임 웹훅 보호와 release readiness 기준을 맞추고, `.env.release.example`의 RTDN 설명을 필수 보안 설정으로 정리했다.
 - `tests/test_billing_readiness.py`, `tests/test_backend_release_check.py`에 RTDN 공유 토큰 readiness 회귀 테스트와 완전한 배포 설정 샘플을 갱신했다.
+
+### 계정 삭제 시 운영 로그 개인정보 정리
+
+- `DELETE /api/me/account-data` 흐름에서 삭제 대상 사용자의 운영 로그(`operational_events.user_id`)도 함께 삭제하도록 했다.
+- 다른 사용자의 운영 로그는 유지하면서 탈퇴한 사용자 ID가 운영 로그 조회 결과에 남지 않도록 `clear_events_for_user`를 추가했다.
+- `tests/test_account_store.py`에 계정 삭제가 매매, 복기, 이용권, 광고 보상뿐 아니라 운영 로그까지 정리하는 회귀 테스트를 추가했다.

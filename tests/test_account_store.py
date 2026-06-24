@@ -131,16 +131,19 @@ class AccountStoreTest(unittest.TestCase):
             access_db = os.path.join(tmpdir, "access.sqlite3")
             journal_db = os.path.join(tmpdir, "trades.sqlite3")
             review_history_db = os.path.join(tmpdir, "review_history.sqlite3")
+            event_log_db = os.path.join(tmpdir, "events.sqlite3")
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = account_db
             os.environ["ALPHAMATE_ACCESS_DB_PATH"] = access_db
             os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = journal_db
             os.environ["ALPHAMATE_REVIEW_HISTORY_DB_PATH"] = review_history_db
+            os.environ["ALPHAMATE_EVENT_LOG_DB_PATH"] = event_log_db
             os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
 
-            from backend.core import access_control, account_store, journal, review_history
+            from backend.core import access_control, account_store, event_log, journal, review_history
 
             account_store = importlib.reload(account_store)
             access_control = importlib.reload(access_control)
+            event_log = importlib.reload(event_log)
             journal = importlib.reload(journal)
             review_history = importlib.reload(review_history)
 
@@ -184,6 +187,8 @@ class AccountStoreTest(unittest.TestCase):
                 name="삼성전자",
                 ai_review={"summary": "deleted review"},
             )
+            event_log.record_event(level="warning", event_type="delete-me", path="/api/me", user_id=user_id)
+            event_log.record_event(level="warning", event_type="keep-other", path="/api/me", user_id="other-user")
 
             result = account_store.delete_user_account_data(token)
 
@@ -192,6 +197,7 @@ class AccountStoreTest(unittest.TestCase):
             self.assertEqual(1, result["deleted_wallets"])
             self.assertEqual(1, result["deleted_admob_rewards"])
             self.assertEqual(1, result["deleted_review_history"])
+            self.assertEqual(1, result["deleted_operational_events"])
             with self.assertRaises(Exception):
                 account_store.authenticate_session(token)
 
@@ -204,6 +210,8 @@ class AccountStoreTest(unittest.TestCase):
                 self.assertEqual(0, conn.execute("SELECT COUNT(*) FROM admob_reward_events WHERE user_id = ?", (user_id,)).fetchone()[0])
             self.assertEqual(0, journal.count_trades(user_id=user_id))
             self.assertEqual([], review_history.list_review_history(user_id=user_id))
+            self.assertEqual([], event_log.list_events(limit=10, user_id=user_id))
+            self.assertEqual(1, len(event_log.list_events(limit=10, user_id="other-user")))
 
 
 if __name__ == "__main__":

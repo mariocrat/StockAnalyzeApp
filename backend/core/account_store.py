@@ -343,15 +343,18 @@ def delete_user_account_data(authorization: str | None) -> dict:
 
     try:
         from core.access_control import delete_user_access_data
+        from core.event_log import clear_events_for_user
         from core.journal import clear_trades
         from core.review_history import clear_review_history
     except ModuleNotFoundError:
         from backend.core.access_control import delete_user_access_data
+        from backend.core.event_log import clear_events_for_user
         from backend.core.journal import clear_trades
         from backend.core.review_history import clear_review_history
 
     deleted_trades = clear_trades(user_id=user_id)
     deleted_review_history = clear_review_history(user_id=user_id)
+    deleted_operational_events = clear_events_for_user(user_id=user_id)
     access_counts = delete_user_access_data(user_id)
 
     with _ACCOUNT_LOCK:
@@ -366,6 +369,7 @@ def delete_user_account_data(authorization: str | None) -> dict:
                 "deleted_user_id": user_id,
                 "deleted_trades": deleted_trades,
                 "deleted_review_history": deleted_review_history,
+                "deleted_operational_events": deleted_operational_events,
                 "deleted_sessions": session_cur.rowcount,
                 "deleted_identities": identity_cur.rowcount,
                 "deleted_users": user_cur.rowcount,
