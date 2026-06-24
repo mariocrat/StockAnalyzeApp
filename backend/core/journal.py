@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 import sqlite3
 from pathlib import Path
@@ -90,8 +91,16 @@ def normalize_trade(payload: dict) -> dict:
     ticker = str(payload.get("ticker", "") or "").strip()
     price = float(payload.get("price", 0) or 0)
     quantity = float(payload.get("quantity", 0) or 0)
+    if not math.isfinite(price) or not math.isfinite(quantity):
+        raise ValueError("price and quantity must be finite")
     if price <= 0 or quantity <= 0:
         raise ValueError("price and quantity must be positive")
+    fee = float(payload.get("fee", 0) or 0)
+    tax = float(payload.get("tax", 0) or 0)
+    if not math.isfinite(fee) or not math.isfinite(tax):
+        raise ValueError("fee and tax must be finite")
+    if fee < 0 or tax < 0:
+        raise ValueError("fee and tax must be non-negative")
 
     return {
         "trade_date": trade_date,
@@ -100,8 +109,8 @@ def normalize_trade(payload: dict) -> dict:
         "side": side,
         "price": price,
         "quantity": quantity,
-        "fee": float(payload.get("fee", 0) or 0),
-        "tax": float(payload.get("tax", 0) or 0),
+        "fee": fee,
+        "tax": tax,
         "memo": str(payload.get("memo", "") or "").strip(),
         "source": str(payload.get("source", "manual") or "manual").strip(),
     }

@@ -130,6 +130,25 @@ class JournalBatchLimitTest(unittest.TestCase):
         self.assertEqual(400, blocked.exception.status_code)
         self.assertIn("price and quantity must be positive", blocked.exception.detail)
 
+    def test_saved_trade_returns_bad_request_for_non_finite_price(self):
+        main = _load_main()
+
+        with self.assertRaises(HTTPException) as blocked:
+            main.create_journal_trade(_trade(main, 1, price=float("inf")))
+
+        self.assertEqual(400, blocked.exception.status_code)
+        self.assertIn("price and quantity must be finite", blocked.exception.detail)
+
+    def test_review_once_returns_bad_request_for_negative_fee(self):
+        main = _load_main()
+        batch = main.JournalBatchIn(trades=[_trade(main, 1, fee=-1)])
+
+        with self.assertRaises(HTTPException) as blocked:
+            main.get_journal_review_once(batch)
+
+        self.assertEqual(400, blocked.exception.status_code)
+        self.assertIn("fee and tax must be non-negative", blocked.exception.detail)
+
 
 if __name__ == "__main__":
     unittest.main()
