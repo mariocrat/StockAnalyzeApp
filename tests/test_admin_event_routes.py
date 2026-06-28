@@ -1,7 +1,9 @@
 import os
 import sys
+import tempfile
 import unittest
 from contextlib import contextmanager
+from types import SimpleNamespace
 
 from fastapi import HTTPException
 
@@ -97,6 +99,28 @@ class AdminEventRoutesTest(unittest.TestCase):
             with self.assertRaises(HTTPException) as blocked:
                 main._enforce_admin_rate_limit("client-a")
             self.assertEqual(429, blocked.exception.status_code)
+
+    def test_admin_operational_events_reports_effective_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ADMIN_TOKEN="admin-secret",
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            import main
+            from core.rate_limit import InMemoryRateLimiter
+
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            main.record_event(level="warning", event_type="test_event", path="/api/test")
+
+            response = main.get_admin_operational_events(
+                SimpleNamespace(headers={}, client=SimpleNamespace(host="127.0.0.1")),
+                authorization="Bearer admin-secret",
+                limit=999999,
+                offset=-10,
+            )
+
+            self.assertEqual(1000, response["limit"])
+            self.assertEqual(0, response["offset"])
+            self.assertEqual(1, response["count"])
 
 
 if __name__ == "__main__":

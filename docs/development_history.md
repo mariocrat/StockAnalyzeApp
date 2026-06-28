@@ -9,6 +9,7 @@
 - Limited serialized operational event `details_json` to 20,000 characters so many individually valid fields cannot combine into an oversized log row.
 - Made operational event lookup tolerate malformed stored `details_json` rows by returning an `__invalid_details_json__` marker instead of crashing the admin log view.
 - Removed raw `details_json` from operational event lookup results so admin responses expose the parsed safe `details` object instead of the internal storage string.
+- Made the admin operational event list response report the effective capped `limit` and sanitized `offset`, matching the actual lookup window.
 
 ## 2026-06-21 quick verification script
 

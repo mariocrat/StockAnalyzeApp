@@ -643,9 +643,11 @@ def get_admin_operational_events(
 ):
     _enforce_admin_rate_limit(_request_client_key(request))
     _require_admin_token(authorization)
+    safe_limit = max(1, min(int(limit or 100), 1000))
+    safe_offset = max(0, int(offset or 0))
     events = list_events(
-        limit=limit,
-        offset=offset,
+        limit=safe_limit,
+        offset=safe_offset,
         level=level,
         event_type=event_type,
         request_id=request_id,
@@ -656,7 +658,7 @@ def get_admin_operational_events(
         created_after=created_after,
         created_before=created_before,
     )
-    return {"events": events, "count": len(events), "limit": limit, "offset": max(0, int(offset or 0))}
+    return {"events": events, "count": len(events), "limit": safe_limit, "offset": safe_offset}
 
 
 @app.get("/api/admin/operational-events/summary")
