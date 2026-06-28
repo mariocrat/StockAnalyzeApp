@@ -309,13 +309,13 @@ def list_events(
             """,
             tuple(params),
         ).fetchall()
-        return [
-            {
-                **dict(row),
-                "details": _load_details_json(row["details_json"]),
-            }
-            for row in rows
-        ]
+        events = []
+        for row in rows:
+            event = dict(row)
+            details_json = event.pop("details_json", "{}")
+            event["details"] = _load_details_json(details_json)
+            events.append(event)
+        return events
     finally:
         conn.close()
 

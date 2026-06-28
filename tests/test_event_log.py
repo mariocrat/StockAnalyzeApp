@@ -296,6 +296,25 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual("broken_details", rows[0]["event_type"])
             self.assertTrue(rows[0]["details"]["__invalid_details_json__"])
 
+    def test_list_events_omits_raw_details_json_from_results(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            event_log.record_event(
+                level="warning",
+                event_type="client_event",
+                details={"safe": "visible"},
+            )
+
+            row = event_log.list_events(limit=1)[0]
+
+            self.assertIn("details", row)
+            self.assertNotIn("details_json", row)
+            self.assertEqual("visible", row["details"]["safe"])
+
     def test_list_events_can_filter_by_request_id(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
