@@ -267,6 +267,35 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual("warning", rows[0]["level"])
             self.assertEqual("google_play_purchase_failed", rows[0]["event_type"])
 
+    def test_list_events_survives_invalid_details_json_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            broken_event = event_log.record_event(
+                level="warning",
+                event_type="broken_details",
+                path="/api/client-events",
+            )
+
+            conn = sqlite3.connect(event_log.event_log_db_path())
+            try:
+                conn.execute(
+                    "UPDATE operational_events SET details_json = ? WHERE id = ?",
+                    ("{broken-json", broken_event["id"]),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+            rows = event_log.list_events(limit=1)
+
+            self.assertEqual(1, len(rows))
+            self.assertEqual("broken_details", rows[0]["event_type"])
+            self.assertTrue(rows[0]["details"]["__invalid_details_json__"])
+
     def test_list_events_can_filter_by_request_id(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),

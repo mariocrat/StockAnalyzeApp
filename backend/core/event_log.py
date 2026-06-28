@@ -135,6 +135,14 @@ def _details_json(details: dict | None) -> str:
     return json.dumps(truncated_details, ensure_ascii=False, sort_keys=True)
 
 
+def _load_details_json(details_json: str) -> dict:
+    try:
+        loaded = json.loads(details_json or "{}")
+    except json.JSONDecodeError:
+        return {"__invalid_details_json__": True}
+    return loaded if isinstance(loaded, dict) else {"__invalid_details_json__": True}
+
+
 def _short_text(value, fallback: str = "", *, limit: int = MAX_EVENT_FIELD_LENGTH) -> str:
     text = str(value or fallback)
     if len(text) > limit:
@@ -304,7 +312,7 @@ def list_events(
         return [
             {
                 **dict(row),
-                "details": json.loads(row["details_json"] or "{}"),
+                "details": _load_details_json(row["details_json"]),
             }
             for row in rows
         ]

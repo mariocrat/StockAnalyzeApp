@@ -7,6 +7,7 @@
 - Added a backend unit test that covers oversized detail keys together with secret redaction.
 - Limited nested operational event `details` values to a depth of 12 so malformed deeply nested client reports cannot crash event logging with a recursion error.
 - Limited serialized operational event `details_json` to 20,000 characters so many individually valid fields cannot combine into an oversized log row.
+- Made operational event lookup tolerate malformed stored `details_json` rows by returning an `__invalid_details_json__` marker instead of crashing the admin log view.
 
 ## 2026-06-21 quick verification script
 
