@@ -134,6 +134,29 @@ class EventLogTest(unittest.TestCase):
             self.assertIn("[redacted]", row_text)
             self.assertNotIn("secret-session-token", row_text)
 
+    def test_event_log_truncates_deeply_nested_detail_values(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            nested = "leaf"
+            for _ in range(2000):
+                nested = {"nested": nested}
+
+            event_log.record_event(
+                level="warning",
+                event_type="deep_client_event",
+                details={"root": nested},
+            )
+
+            row = event_log.list_events(limit=1)[0]
+            row_text = str(row)
+
+            self.assertIn("[max_depth_exceeded]", row_text)
+            self.assertNotIn("leaf", row_text)
+
     def test_api_failure_event_helper_records_without_authorization_token(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),

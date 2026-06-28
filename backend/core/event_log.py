@@ -28,6 +28,7 @@ MAX_DETAIL_STRING_LENGTH = 1000
 MAX_DETAIL_LIST_LENGTH = 50
 MAX_DETAIL_DICT_KEYS = 50
 MAX_DETAIL_KEY_LENGTH = 120
+MAX_DETAIL_DEPTH = 12
 MAX_EVENT_FIELD_LENGTH = 250
 MAX_EVENT_MESSAGE_LENGTH = 1000
 _EVENT_LOG_LOCK = threading.Lock()
@@ -96,18 +97,22 @@ def _safe_detail_key(key) -> str:
     return text
 
 
-def _redact(value):
+def _redact(value, *, depth: int = 0):
+    if depth >= MAX_DETAIL_DEPTH:
+        return "[max_depth_exceeded]"
     if isinstance(value, dict):
         safe = {}
         items = list(value.items())
         for key, item in items[:MAX_DETAIL_DICT_KEYS]:
             raw_key = str(key)
-            safe[_safe_detail_key(raw_key)] = "[redacted]" if _should_redact_key(raw_key) else _redact(item)
+            safe[_safe_detail_key(raw_key)] = (
+                "[redacted]" if _should_redact_key(raw_key) else _redact(item, depth=depth + 1)
+            )
         if len(items) > MAX_DETAIL_DICT_KEYS:
             safe["__truncated_keys__"] = len(items) - MAX_DETAIL_DICT_KEYS
         return safe
     if isinstance(value, list):
-        return [_redact(item) for item in value[:MAX_DETAIL_LIST_LENGTH]]
+        return [_redact(item, depth=depth + 1) for item in value[:MAX_DETAIL_LIST_LENGTH]]
     if isinstance(value, str):
         if len(value) > MAX_DETAIL_STRING_LENGTH:
             return f"{value[:MAX_DETAIL_STRING_LENGTH]}[truncated]"
