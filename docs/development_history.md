@@ -11,6 +11,7 @@
 - Removed raw `details_json` from operational event lookup results so admin responses expose the parsed safe `details` object instead of the internal storage string.
 - Made the admin operational event list response report the effective capped `limit` and sanitized `offset`, matching the actual lookup window.
 - Escaped SQL `LIKE` wildcard characters in operational event `request_id` filtering so `%` and `_` are treated as literal characters.
+- Capped operational admin API rate limit settings at 300/minute and client event report rate limit settings at 600/minute to prevent accidental overexposure from oversized environment values.
 
 ## 2026-06-21 quick verification script
 

@@ -63,13 +63,18 @@ _ai_review_idempotency_lock = threading.Lock()
 _ai_review_idempotency_cache = {}
 REQUEST_ID_HEADER = "X-Request-ID"
 ADMIN_TOKEN_MIN_LENGTH = 32
+ADMIN_RATE_LIMIT_MAX_PER_MINUTE = 300
+CLIENT_EVENT_RATE_LIMIT_MAX_PER_MINUTE = 600
 
 
-def _env_int(name: str, default: int, minimum: int = 1) -> int:
+def _env_int(name: str, default: int, minimum: int = 1, maximum: int | None = None) -> int:
     try:
-        return max(minimum, int(env_value(name) or default))
+        value = max(minimum, int(env_value(name) or default))
     except ValueError:
-        return default
+        value = default
+    if maximum is not None:
+        value = min(value, maximum)
+    return value
 
 
 def _ai_review_max_concurrent() -> int:
@@ -392,17 +397,16 @@ def _request_client_key(request: Request) -> str:
 
 
 def _client_event_rate_limit() -> int:
-    try:
-        return int(env_value("ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE") or 60)
-    except ValueError:
-        return 60
+    return _env_int(
+        "ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE",
+        60,
+        1,
+        CLIENT_EVENT_RATE_LIMIT_MAX_PER_MINUTE,
+    )
 
 
 def _admin_rate_limit() -> int:
-    try:
-        return int(env_value("ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE") or 30)
-    except ValueError:
-        return 30
+    return _env_int("ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE", 30, 1, ADMIN_RATE_LIMIT_MAX_PER_MINUTE)
 
 
 def _ai_review_rate_limit() -> int:

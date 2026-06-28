@@ -100,6 +100,16 @@ class AdminEventRoutesTest(unittest.TestCase):
                 main._enforce_admin_rate_limit("client-a")
             self.assertEqual(429, blocked.exception.status_code)
 
+    def test_admin_and_client_event_rate_limits_have_upper_bounds(self):
+        with patched_env(
+            ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE="999999",
+            ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE="999999",
+        ):
+            import main
+
+            self.assertEqual(300, main._admin_rate_limit())
+            self.assertEqual(600, main._client_event_rate_limit())
+
     def test_admin_operational_events_reports_effective_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ADMIN_TOKEN="admin-secret",

@@ -352,3 +352,8 @@ Google Play 결제 후 앱 종료, 네트워크 끊김, 서버 일시 장애 때
 6. 같은 앱 세션에서 보관함 안의 다른 복기를 눌러도 전면 광고가 반복 진입처럼 과하게 뜨지 않는지 확인합니다.
 7. `내 데이터 내보내기` 파일에 `review_history`가 포함되는지 확인합니다.
 8. `계정 데이터 삭제` 후 다시 로그인하면 복기 보관함이 비어 있는지 확인합니다.
+
+# Operational Notes
+
+- Client event reports are limited to 60 requests per minute by default. `ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE` can tune this value, but the server caps it at 600 per minute.
+- Admin operational event APIs are limited to 30 requests per minute by default. `ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE` can tune this value, but the server caps it at 300 per minute.
