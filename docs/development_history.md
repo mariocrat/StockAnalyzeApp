@@ -10,6 +10,7 @@
 - Made operational event lookup tolerate malformed stored `details_json` rows by returning an `__invalid_details_json__` marker instead of crashing the admin log view.
 - Removed raw `details_json` from operational event lookup results so admin responses expose the parsed safe `details` object instead of the internal storage string.
 - Made the admin operational event list response report the effective capped `limit` and sanitized `offset`, matching the actual lookup window.
+- Escaped SQL `LIKE` wildcard characters in operational event `request_id` filtering so `%` and `_` are treated as literal characters.
 
 ## 2026-06-21 quick verification script
 

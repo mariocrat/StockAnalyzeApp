@@ -249,6 +249,11 @@ def _json_like_text(value: str) -> str:
     return json.dumps(str(value or "").strip(), ensure_ascii=False)[1:-1]
 
 
+def _escape_like_pattern(value: str) -> str:
+    text = str(value or "")
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def list_events(
     *,
     limit: int = 100,
@@ -275,8 +280,8 @@ def list_events(
         filters.append("event_type = ?")
         params.append(str(event_type).strip())
     if str(request_id or "").strip():
-        filters.append("details_json LIKE ?")
-        params.append(f'%"request_id": "{_json_like_text(request_id)}"%')
+        filters.append("details_json LIKE ? ESCAPE '\\'")
+        params.append(f'%"request_id": "{_escape_like_pattern(_json_like_text(request_id))}"%')
     if str(user_id or "").strip():
         filters.append("user_id = ?")
         params.append(str(user_id).strip())
