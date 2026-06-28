@@ -29,6 +29,7 @@ MAX_DETAIL_LIST_LENGTH = 50
 MAX_DETAIL_DICT_KEYS = 50
 MAX_DETAIL_KEY_LENGTH = 120
 MAX_DETAIL_DEPTH = 12
+MAX_DETAILS_JSON_LENGTH = 20000
 MAX_EVENT_FIELD_LENGTH = 250
 MAX_EVENT_MESSAGE_LENGTH = 1000
 _EVENT_LOG_LOCK = threading.Lock()
@@ -124,7 +125,14 @@ def _redact(value, *, depth: int = 0):
 
 def _details_json(details: dict | None) -> str:
     safe_details = _redact(details or {})
-    return json.dumps(safe_details, ensure_ascii=False, sort_keys=True)
+    details_text = json.dumps(safe_details, ensure_ascii=False, sort_keys=True)
+    if len(details_text) <= MAX_DETAILS_JSON_LENGTH:
+        return details_text
+    truncated_details = {
+        "__details_json_truncated__": True,
+        "__details_json_original_length__": len(details_text),
+    }
+    return json.dumps(truncated_details, ensure_ascii=False, sort_keys=True)
 
 
 def _short_text(value, fallback: str = "", *, limit: int = MAX_EVENT_FIELD_LENGTH) -> str:

@@ -157,6 +157,36 @@ class EventLogTest(unittest.TestCase):
             self.assertIn("[max_depth_exceeded]", row_text)
             self.assertNotIn("leaf", row_text)
 
+    def test_event_log_truncates_oversized_details_json(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            large_details = {f"field_{index}": "x" * 1000 for index in range(50)}
+            large_details["authorization"] = "secret-session-token"
+
+            event_log.record_event(
+                level="warning",
+                event_type="large_client_event",
+                details=large_details,
+            )
+
+            conn = sqlite3.connect(event_log.event_log_db_path())
+            try:
+                details_json = conn.execute(
+                    "SELECT details_json FROM operational_events LIMIT 1",
+                ).fetchone()[0]
+            finally:
+                conn.close()
+            row = event_log.list_events(limit=1)[0]
+            row_text = str(row)
+
+            self.assertLessEqual(len(details_json), event_log.MAX_DETAILS_JSON_LENGTH)
+            self.assertTrue(row["details"]["__details_json_truncated__"])
+            self.assertNotIn("secret-session-token", row_text)
+
     def test_api_failure_event_helper_records_without_authorization_token(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),

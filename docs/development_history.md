@@ -6,6 +6,7 @@
 - Kept secret-like key detection based on the original key name before truncation, so long `authorization`, `token`, or `secret` keys are still redacted.
 - Added a backend unit test that covers oversized detail keys together with secret redaction.
 - Limited nested operational event `details` values to a depth of 12 so malformed deeply nested client reports cannot crash event logging with a recursion error.
+- Limited serialized operational event `details_json` to 20,000 characters so many individually valid fields cannot combine into an oversized log row.
 
 ## 2026-06-21 quick verification script
 
