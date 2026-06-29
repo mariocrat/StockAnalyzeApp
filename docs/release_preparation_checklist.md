@@ -36,6 +36,7 @@ AI review rate limit safety cap: max 60 requests per minute.
 AI review concurrent execution safety cap: max 20 jobs.
 AI review idempotency cache safety cap: max 1,000 in-memory entries per server process.
 AI review idempotency TTL safety cap: max 3,600 seconds.
+Journal workload safety caps: one-time review max 1,000 trades, AI review max 200 trades, memo max 5,000 characters, query/analysis max 1,000 rows.
 
 주의:
 

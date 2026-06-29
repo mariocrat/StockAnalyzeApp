@@ -62,6 +62,16 @@ class JournalBatchLimitTest(unittest.TestCase):
         self.assertEqual(413, blocked.exception.status_code)
         self.assertIn("최대 2건", blocked.exception.detail)
 
+    def test_journal_workload_settings_have_upper_bounds(self):
+        os.environ["ALPHAMATE_JOURNAL_ONCE_MAX_TRADES"] = "999999"
+        os.environ["ALPHAMATE_AI_REVIEW_MAX_TRADES"] = "999999"
+        os.environ["ALPHAMATE_JOURNAL_MEMO_MAX_CHARS"] = "999999"
+        main = _load_main()
+
+        self.assertEqual(1000, main._journal_once_max_trades())
+        self.assertEqual(200, main._ai_review_max_trades())
+        self.assertEqual(5000, main._journal_memo_max_chars())
+
     def test_ai_review_once_rejects_batches_above_ai_limit_before_charging(self):
         import tempfile
 

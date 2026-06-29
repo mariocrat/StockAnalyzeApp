@@ -69,6 +69,11 @@ AI_REVIEW_RATE_LIMIT_MAX_PER_MINUTE = 60
 AI_REVIEW_MAX_CONCURRENT_LIMIT = 20
 AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE = 1000
 AI_REVIEW_IDEMPOTENCY_TTL_MAX_SECONDS = 3600
+JOURNAL_ONCE_MAX_TRADES_LIMIT = 1000
+AI_REVIEW_MAX_TRADES_LIMIT = 200
+JOURNAL_MEMO_MAX_CHARS_LIMIT = 5000
+JOURNAL_QUERY_MAX_LIMIT = 1000
+SAVED_JOURNAL_ANALYSIS_MAX_TRADES_LIMIT = 1000
 
 
 def _env_int(name: str, default: int, minimum: int = 1, maximum: int | None = None) -> int:
@@ -89,11 +94,11 @@ _ai_review_concurrency_guard = threading.BoundedSemaphore(_ai_review_max_concurr
 
 
 def _journal_once_max_trades() -> int:
-    return _env_int("ALPHAMATE_JOURNAL_ONCE_MAX_TRADES", 500, 1)
+    return _env_int("ALPHAMATE_JOURNAL_ONCE_MAX_TRADES", 500, 1, JOURNAL_ONCE_MAX_TRADES_LIMIT)
 
 
 def _ai_review_max_trades() -> int:
-    return _env_int("ALPHAMATE_AI_REVIEW_MAX_TRADES", 100, 1)
+    return _env_int("ALPHAMATE_AI_REVIEW_MAX_TRADES", 100, 1, AI_REVIEW_MAX_TRADES_LIMIT)
 
 
 def _normalize_ai_review_type(review_type: str | None) -> str:
@@ -104,15 +109,15 @@ def _normalize_ai_review_type(review_type: str | None) -> str:
 
 
 def _journal_memo_max_chars() -> int:
-    return _env_int("ALPHAMATE_JOURNAL_MEMO_MAX_CHARS", 2000, 1)
+    return _env_int("ALPHAMATE_JOURNAL_MEMO_MAX_CHARS", 2000, 1, JOURNAL_MEMO_MAX_CHARS_LIMIT)
 
 
 def _journal_query_max_limit() -> int:
-    return _env_int("ALPHAMATE_JOURNAL_QUERY_MAX_LIMIT", 500, 1)
+    return _env_int("ALPHAMATE_JOURNAL_QUERY_MAX_LIMIT", 500, 1, JOURNAL_QUERY_MAX_LIMIT)
 
 
 def _saved_journal_analysis_max_trades() -> int:
-    return _env_int("ALPHAMATE_SAVED_JOURNAL_ANALYSIS_MAX_TRADES", 500, 1)
+    return _env_int("ALPHAMATE_SAVED_JOURNAL_ANALYSIS_MAX_TRADES", 500, 1, SAVED_JOURNAL_ANALYSIS_MAX_TRADES_LIMIT)
 
 
 class JournalTradeIn(BaseModel):

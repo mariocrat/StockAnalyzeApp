@@ -44,6 +44,14 @@ class JournalQueryLimitTest(unittest.TestCase):
         self.assertEqual([], result)
         self.assertEqual(20, captured["limit"])
 
+    def test_journal_query_settings_have_upper_bounds(self):
+        os.environ["ALPHAMATE_JOURNAL_QUERY_MAX_LIMIT"] = "999999"
+        os.environ["ALPHAMATE_SAVED_JOURNAL_ANALYSIS_MAX_TRADES"] = "999999"
+        main = _load_main()
+
+        self.assertEqual(1000, main._journal_query_max_limit())
+        self.assertEqual(1000, main._saved_journal_analysis_max_trades())
+
     def test_review_history_query_limit_is_capped(self):
         os.environ["ALPHAMATE_JOURNAL_QUERY_MAX_LIMIT"] = "20"
         main = _load_main()
