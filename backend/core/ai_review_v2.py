@@ -8,20 +8,31 @@ from core.ai_review import _env_value, _fmt8, _parse_date, _prepare_ohlcv, _char
 from core.data_fetcher import get_stock_ohlcv
 
 
-def _env_int(name: str, default: int, minimum: int) -> int:
+OPENAI_TIMEOUT_MAX_SECONDS = 90
+OPENAI_MAX_RETRIES_LIMIT = 3
+OPENAI_RETRY_BACKOFF_MAX_SECONDS = 5.0
+
+
+def _env_int(name: str, default: int, minimum: int, maximum: int | None = None) -> int:
     try:
         value = int(_env_value(name) or default)
     except (TypeError, ValueError):
-        return default
-    return max(minimum, value)
+        value = default
+    value = max(minimum, value)
+    if maximum is not None:
+        value = min(value, maximum)
+    return value
 
 
-def _env_float(name: str, default: float, minimum: float) -> float:
+def _env_float(name: str, default: float, minimum: float, maximum: float | None = None) -> float:
     try:
         value = float(_env_value(name) or default)
     except (TypeError, ValueError):
-        return default
-    return max(minimum, value)
+        value = default
+    value = max(minimum, value)
+    if maximum is not None:
+        value = min(value, maximum)
+    return value
 
 
 def _is_retryable_openai_error(error: BaseException) -> bool:
@@ -49,9 +60,14 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
         },
         method="POST",
     )
-    timeout_seconds = _env_int("ALPHAMATE_OPENAI_TIMEOUT_SECONDS", 45, 5)
-    max_retries = _env_int("ALPHAMATE_OPENAI_MAX_RETRIES", 1, 0)
-    retry_backoff_seconds = _env_float("ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS", 0.5, 0.0)
+    timeout_seconds = _env_int("ALPHAMATE_OPENAI_TIMEOUT_SECONDS", 45, 5, OPENAI_TIMEOUT_MAX_SECONDS)
+    max_retries = _env_int("ALPHAMATE_OPENAI_MAX_RETRIES", 1, 0, OPENAI_MAX_RETRIES_LIMIT)
+    retry_backoff_seconds = _env_float(
+        "ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS",
+        0.5,
+        0.0,
+        OPENAI_RETRY_BACKOFF_MAX_SECONDS,
+    )
 
     last_error = None
     for attempt in range(max_retries + 1):

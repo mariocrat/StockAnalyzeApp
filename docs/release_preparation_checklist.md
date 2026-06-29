@@ -31,6 +31,8 @@ ALPHAMATE_OPENAI_MAX_RETRIES=1
 ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS=0.5
 ```
 
+OpenAI runtime safety caps: timeout max 90 seconds, retries max 3, retry backoff max 5 seconds.
+
 주의:
 
 - Key를 카카오톡, 메모장, GitHub, 앱 코드, frontend `.env`에 남기지 않는다.

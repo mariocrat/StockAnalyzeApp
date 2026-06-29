@@ -91,6 +91,39 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.assertEqual("timeout-ok", result)
         self.assertEqual(12, captured["timeout"])
 
+    def test_openai_review_runtime_settings_have_upper_bounds(self):
+        os.environ["OPENAI_API_KEY"] = "sk-test"
+        os.environ["ALPHAMATE_OPENAI_TIMEOUT_SECONDS"] = "999"
+        os.environ["ALPHAMATE_OPENAI_MAX_RETRIES"] = "999"
+        os.environ["ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS"] = "999"
+        calls = {"count": 0}
+        captured = {"timeouts": [], "sleeps": []}
+
+        def fake_urlopen(req, timeout):
+            calls["count"] += 1
+            captured["timeouts"].append(timeout)
+            raise urllib.error.HTTPError(
+                req.full_url,
+                429,
+                "rate limit",
+                hdrs=None,
+                fp=io.BytesIO(b'{"error":"rate limited"}'),
+            )
+
+        self.ai_review_v2.urllib.request.urlopen = fake_urlopen
+        self.ai_review_v2.time.sleep = lambda seconds: captured["sleeps"].append(seconds)
+
+        with self.assertRaises(RuntimeError):
+            self.ai_review_v2._call_openai_review(
+                {"trade": "sample"},
+                model="gpt-test",
+                instructions="test",
+            )
+
+        self.assertEqual(4, calls["count"])
+        self.assertEqual([90, 90, 90, 90], captured["timeouts"])
+        self.assertEqual([5.0, 5.0, 5.0], captured["sleeps"])
+
 
 if __name__ == "__main__":
     unittest.main()
