@@ -192,6 +192,9 @@ test('formats owner frontend release report without exposing secret values', () 
   assert.match(report, /앱 이름: AlphaMate/);
   assert.match(report, /구글 플레이 패키지: com\.mariocrat\.stockanalyze/);
   assert.match(report, /다음에 할 일/);
+  assert.match(report, /운영 모드로 바꾸기/);
+  assert.match(report, /API 서버 주소를 운영 HTTPS 주소로 바꾸기/);
+  assert.match(report, /AdMob 운영 광고 단위로 바꾸기/);
   assert.match(report, /VITE_ALPHAMATE_ENV/);
   assert.doesNotMatch(report, /never-print-this/);
 });

@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Added owner-friendly next action hints to release readiness reports while preserving the exact setting names needed for setup.
 - Added readiness progress counts to the owner-facing backend and frontend release reports so non-developers can see how much setup remains at a glance.
 - Added OAuth timeout settings to backend env examples so production setup docs match the implemented login timeout guard.
 - Added an in-memory rate limiter key cap so many unique client/user keys cannot grow the server-side limiter state without bound.

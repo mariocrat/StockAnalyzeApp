@@ -65,6 +65,38 @@ def _section_missing_items(section: dict) -> list[str]:
     return missing
 
 
+OWNER_NEXT_ACTION_HINTS = {
+    "OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY": "OpenAI API Key를 발급해서 서버 설정에 넣기",
+    "ALPHAMATE_ADMIN_TOKEN": "운영 로그 관리자 토큰을 32자 이상 랜덤 값으로 만들기",
+    "ALPHAMATE_ADMIN_TOKEN_MIN_LENGTH_32": "운영 로그 관리자 토큰을 32자 이상 랜덤 값으로 만들기",
+    "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file": "Google Play 서비스 계정 JSON 파일을 서버에 저장하고 경로 연결하기",
+    "GOOGLE_PLAY_RTDN_SHARED_TOKEN": "Google Play 결제 알림용 공유 토큰을 32자 이상 랜덤 값으로 만들기",
+    "KAKAO_CLIENT_ID": "카카오 개발자 콘솔에서 REST API Key를 확인해 서버 설정에 넣기",
+    "KAKAO_CLIENT_SECRET": "카카오 Client Secret 사용 여부를 정하고 서버 설정에 넣기",
+    "NAVER_CLIENT_ID": "네이버 개발자 센터에서 Client ID를 확인해 서버 설정에 넣기",
+    "NAVER_CLIENT_SECRET": "네이버 Client Secret을 확인해 서버 설정에 넣기",
+}
+
+
+def _owner_next_action_text(item: str) -> str:
+    provider = ""
+    setting = item
+    if ": " in item:
+        provider, setting = item.split(": ", 1)
+
+    hint = OWNER_NEXT_ACTION_HINTS.get(setting)
+    if not hint:
+        return item
+
+    provider_labels = {
+        "kakao": "카카오",
+        "naver": "네이버",
+    }
+    provider_label = provider_labels.get(provider)
+    prefix = f"{provider_label}: " if provider_label else ""
+    return f"{prefix}{hint} ({item})"
+
+
 def format_owner_release_readiness_report(result: dict) -> str:
     readiness = result.get("readiness", {})
     sections = readiness.get("sections", {})
@@ -96,7 +128,7 @@ def format_owner_release_readiness_report(result: dict) -> str:
     lines.extend(["", "다음에 할 일:"])
     if next_actions:
         for index, item in enumerate(next_actions[:10], start=1):
-            lines.append(f"{index}. {item}")
+            lines.append(f"{index}. {_owner_next_action_text(item)}")
         if len(next_actions) > 10:
             lines.append(f"- 그 외 누락 항목 {len(next_actions) - 10}개")
     else:

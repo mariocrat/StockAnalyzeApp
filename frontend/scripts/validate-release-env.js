@@ -139,6 +139,27 @@ function lineForSetting(label, ready, detail = '') {
   return `- [${statusLabel(ready)}] ${label}${detail ? `: ${detail}` : ''}`;
 }
 
+function ownerFrontendNextAction(error) {
+  const hints = [
+    ['VITE_ALPHAMATE_ENV', '운영 모드로 바꾸기'],
+    ['VITE_APP_NAME', '앱 이름을 최종 이름으로 설정하기'],
+    ['VITE_ENABLE_DEV_TOOLS', '개발 도구를 꺼서 운영 빌드에 노출되지 않게 하기'],
+    ['VITE_API_BASE', 'API 서버 주소를 운영 HTTPS 주소로 바꾸기'],
+    ['VITE_ADMOB_REWARDED_AD_UNIT_ID', 'AdMob 운영 광고 단위로 바꾸기'],
+    ['VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID', '복기 보관함 전면 광고 단위를 운영 광고 단위로 바꾸기'],
+    ['VITE_GOOGLE_PLAY_PACKAGE_NAME', 'Google Play 패키지명을 Android 앱 설정과 맞추기'],
+    ['ALPHAMATE_ANDROID_KEYSTORE_FILE', 'Android 서명 키 파일을 준비하고 경로를 연결하기'],
+    ['ALPHAMATE_ANDROID_KEYSTORE_PASSWORD', 'Android 서명 키 저장소 비밀번호를 설정하기'],
+    ['ALPHAMATE_ANDROID_KEY_ALIAS', 'Android 서명 키 별칭을 설정하기'],
+    ['ALPHAMATE_ANDROID_KEY_PASSWORD', 'Android 서명 키 비밀번호를 설정하기'],
+    ['ALPHAMATE_ANDROID_VERSION_CODE', 'Android 버전 코드를 이전 업로드보다 크게 올리기'],
+    ['ALPHAMATE_ANDROID_VERSION_NAME', 'Android 버전 이름을 설정하기'],
+  ];
+  const match = hints.find(([setting]) => error.includes(setting));
+  if (!match) return error;
+  return `${match[1]} (${error})`;
+}
+
 export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromProcess()) {
   const appName = publicEnvValue(env, 'ALPHAMATE_ANDROID_APP_NAME', envValue(env, 'VITE_APP_NAME') || '미설정');
   const packageName = publicEnvValue(env, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
@@ -194,7 +215,7 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
     lines.push('1. 실제 기기에서 로그인, 결제, 광고, AI 복기를 수동으로 확인하세요.');
   } else {
     result.errors.slice(0, 10).forEach((error, index) => {
-      lines.push(`${index + 1}. ${error}`);
+      lines.push(`${index + 1}. ${ownerFrontendNextAction(error)}`);
     });
     if (result.errors.length > 10) {
       lines.push(`- 그 외 누락 항목 ${result.errors.length - 10}개`);
