@@ -327,7 +327,7 @@ def update_journal_storage_setting(*, authorization: str | None, enabled: bool) 
 
 def record_privacy_consent(*, authorization: str | None, version: str = "") -> dict:
     user = authenticate_session(authorization)
-    consent_version = str(version or PRIVACY_CONSENT_VERSION).strip() or PRIVACY_CONSENT_VERSION
+    consent_version = _short_text(version or PRIVACY_CONSENT_VERSION) or _short_text(PRIVACY_CONSENT_VERSION)
     consented_at = _now()
     with _ACCOUNT_LOCK:
         conn = _connect()

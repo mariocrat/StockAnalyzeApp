@@ -149,6 +149,29 @@ class AccountStoreTest(unittest.TestCase):
             self.assertTrue(updated["privacy_consented_at"])
             self.assertTrue(current["privacy_consented_at"])
 
+    def test_privacy_consent_version_is_length_limited(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+
+            from backend.core import account_store
+
+            account_store = importlib.reload(account_store)
+            session = account_store.login_dev_provider(
+                provider="kakao",
+                provider_user_id="consent-long-user",
+                display_name="동의 사용자",
+            )
+            token = f"Bearer {session['session_token']}"
+
+            updated = account_store.record_privacy_consent(
+                authorization=token,
+                version="privacy-" + ("v" * 500),
+            )
+            current = account_store.authenticate_session(token)
+
+            self.assertLessEqual(len(updated["privacy_consent_version"]), 120)
+            self.assertLessEqual(len(current["privacy_consent_version"]), 120)
+
     def test_delete_user_account_data_removes_server_side_user_records(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             account_db = os.path.join(tmpdir, "accounts.sqlite3")

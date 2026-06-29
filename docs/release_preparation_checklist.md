@@ -41,6 +41,7 @@ Ad reward policy safety cap: max 20 rewarded ads per advanced review ticket.
 AdMob SSV storage safety caps: reward identifiers max 120 characters, custom data max 500 characters.
 Google Play storage safety caps: purchase and subscription product/order fields max 120 characters.
 Login storage safety caps: provider user IDs and display names max 120 characters.
+Privacy consent storage safety cap: consent version max 120 characters.
 
 주의:
 
