@@ -196,6 +196,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("준비율: 1/3 (33%)", report)
         self.assertIn("OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY", report)
         self.assertIn("OpenAI API Key를 발급해서 서버 설정에 넣기", report)
+        self.assertIn("https://platform.openai.com/api-keys", report)
         self.assertIn("운영 로그 관리자 토큰을 32자 이상 랜덤 값으로 만들기", report)
         self.assertIn("다음에 할 일", report)
         self.assertNotIn("sk-", report)

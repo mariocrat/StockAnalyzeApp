@@ -195,6 +195,7 @@ test('formats owner frontend release report without exposing secret values', () 
   assert.match(report, /운영 모드로 바꾸기/);
   assert.match(report, /API 서버 주소를 운영 HTTPS 주소로 바꾸기/);
   assert.match(report, /AdMob 운영 광고 단위로 바꾸기/);
+  assert.match(report, /https:\/\/apps\.admob\.com\//);
   assert.equal(report.match(/API 서버 주소를 운영 HTTPS 주소로 바꾸기/g).length, 1);
   assert.match(report, /VITE_ALPHAMATE_ENV/);
   assert.doesNotMatch(report, /never-print-this/);

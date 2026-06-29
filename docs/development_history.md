@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Added official setup links to owner-facing release readiness next actions for OpenAI, Kakao, Naver, Google Cloud, Google Play, and AdMob.
 - Deduplicated frontend release readiness next actions so one setting problem does not produce repeated owner-facing tasks.
 - Added owner-friendly next action hints to release readiness reports while preserving the exact setting names needed for setup.
 - Added readiness progress counts to the owner-facing backend and frontend release reports so non-developers can see how much setup remains at a glance.

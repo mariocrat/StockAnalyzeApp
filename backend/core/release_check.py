@@ -77,6 +77,16 @@ OWNER_NEXT_ACTION_HINTS = {
     "NAVER_CLIENT_SECRET": "네이버 Client Secret을 확인해 서버 설정에 넣기",
 }
 
+OWNER_NEXT_ACTION_LINKS = {
+    "OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY": "https://platform.openai.com/api-keys",
+    "KAKAO_CLIENT_ID": "https://developers.kakao.com/console/app",
+    "KAKAO_CLIENT_SECRET": "https://developers.kakao.com/console/app",
+    "NAVER_CLIENT_ID": "https://developers.naver.com/apps/",
+    "NAVER_CLIENT_SECRET": "https://developers.naver.com/apps/",
+    "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file": "https://console.cloud.google.com/iam-admin/serviceaccounts",
+    "GOOGLE_PLAY_RTDN_SHARED_TOKEN": "https://play.google.com/console",
+}
+
 
 def _owner_next_action_text(item: str) -> str:
     provider = ""
@@ -94,7 +104,9 @@ def _owner_next_action_text(item: str) -> str:
     }
     provider_label = provider_labels.get(provider)
     prefix = f"{provider_label}: " if provider_label else ""
-    return f"{prefix}{hint} ({item})"
+    link = OWNER_NEXT_ACTION_LINKS.get(setting)
+    suffix = f" - {link}" if link else ""
+    return f"{prefix}{hint} ({item}){suffix}"
 
 
 def format_owner_release_readiness_report(result: dict) -> str:

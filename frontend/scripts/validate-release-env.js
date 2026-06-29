@@ -145,9 +145,9 @@ function ownerFrontendNextAction(error) {
     ['VITE_APP_NAME', '앱 이름을 최종 이름으로 설정하기'],
     ['VITE_ENABLE_DEV_TOOLS', '개발 도구를 꺼서 운영 빌드에 노출되지 않게 하기'],
     ['VITE_API_BASE', 'API 서버 주소를 운영 HTTPS 주소로 바꾸기'],
-    ['VITE_ADMOB_REWARDED_AD_UNIT_ID', 'AdMob 운영 광고 단위로 바꾸기'],
-    ['VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID', '복기 보관함 전면 광고 단위를 운영 광고 단위로 바꾸기'],
-    ['VITE_GOOGLE_PLAY_PACKAGE_NAME', 'Google Play 패키지명을 Android 앱 설정과 맞추기'],
+    ['VITE_ADMOB_REWARDED_AD_UNIT_ID', 'AdMob 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
+    ['VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID', '복기 보관함 전면 광고 단위를 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
+    ['VITE_GOOGLE_PLAY_PACKAGE_NAME', 'Google Play 패키지명을 Android 앱 설정과 맞추기', 'https://play.google.com/console'],
     ['ALPHAMATE_ANDROID_KEYSTORE_FILE', 'Android 서명 키 파일을 준비하고 경로를 연결하기'],
     ['ALPHAMATE_ANDROID_KEYSTORE_PASSWORD', 'Android 서명 키 저장소 비밀번호를 설정하기'],
     ['ALPHAMATE_ANDROID_KEY_ALIAS', 'Android 서명 키 별칭을 설정하기'],
@@ -157,7 +157,7 @@ function ownerFrontendNextAction(error) {
   ];
   const match = hints.find(([setting]) => error.includes(setting));
   if (!match) return error;
-  return `${match[1]} (${match[0]})`;
+  return `${match[1]} (${match[0]})${match[2] ? ` - ${match[2]}` : ''}`;
 }
 
 function ownerFrontendNextActions(errors) {
