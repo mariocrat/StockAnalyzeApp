@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Capped AI review idempotency TTL at 3,600 seconds so duplicate-request cache entries cannot remain for an unexpectedly long time because of oversized environment values.
 - Limited the in-memory AI review idempotency cache to 1,000 entries and trims the oldest expiring entries first so duplicate-request protection cannot grow without bound.
 - Capped OpenAI review runtime settings at timeout 90 seconds, max retries 3, and retry backoff 5 seconds so oversized environment values cannot tie up server workers for too long.
 - Limited operational event `details` dictionary key names to 120 characters so malformed client reports cannot bloat the local event log database with oversized keys.

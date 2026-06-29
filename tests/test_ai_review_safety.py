@@ -50,6 +50,7 @@ class AiReviewSafetyTest(unittest.TestCase):
         "ALPHAMATE_ALLOW_DEV_ACCESS",
         "ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE",
         "ALPHAMATE_AI_REVIEW_MAX_CONCURRENT",
+        "ALPHAMATE_AI_REVIEW_IDEMPOTENCY_TTL_SECONDS",
     ]
 
     def setUp(self):
@@ -205,6 +206,13 @@ class AiReviewSafetyTest(unittest.TestCase):
 
             self.assertNotIn(token, cache_key)
             self.assertNotIn(idempotency_key, cache_key)
+
+    def test_ai_review_idempotency_ttl_has_upper_bound(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.environ["ALPHAMATE_AI_REVIEW_IDEMPOTENCY_TTL_SECONDS"] = "999999"
+            main, _, _ = _load_main_with_temp_state(tmpdir)
+
+            self.assertEqual(3600, main._ai_review_idempotency_ttl_seconds())
 
     def test_ai_review_idempotency_cache_has_maximum_size(self):
         with tempfile.TemporaryDirectory() as tmpdir:

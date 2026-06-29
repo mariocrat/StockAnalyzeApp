@@ -66,6 +66,7 @@ ADMIN_TOKEN_MIN_LENGTH = 32
 ADMIN_RATE_LIMIT_MAX_PER_MINUTE = 300
 CLIENT_EVENT_RATE_LIMIT_MAX_PER_MINUTE = 600
 AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE = 1000
+AI_REVIEW_IDEMPOTENCY_TTL_MAX_SECONDS = 3600
 
 
 def _env_int(name: str, default: int, minimum: int = 1, maximum: int | None = None) -> int:
@@ -415,7 +416,12 @@ def _ai_review_rate_limit() -> int:
 
 
 def _ai_review_idempotency_ttl_seconds() -> int:
-    return _env_int("ALPHAMATE_AI_REVIEW_IDEMPOTENCY_TTL_SECONDS", 300, 60)
+    return _env_int(
+        "ALPHAMATE_AI_REVIEW_IDEMPOTENCY_TTL_SECONDS",
+        300,
+        60,
+        AI_REVIEW_IDEMPOTENCY_TTL_MAX_SECONDS,
+    )
 
 
 def _ai_review_rate_key(authorization: str | None) -> str:
