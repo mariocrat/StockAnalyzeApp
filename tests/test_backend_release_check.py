@@ -80,6 +80,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_OPENAI_TIMEOUT_SECONDS",
             "ALPHAMATE_OPENAI_MAX_RETRIES",
             "ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS",
+            "ALPHAMATE_OAUTH_TIMEOUT_SECONDS",
         ]
 
         for name in required_names:
@@ -126,6 +127,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_OPENAI_TIMEOUT_SECONDS",
             "ALPHAMATE_OPENAI_MAX_RETRIES",
             "ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS",
+            "ALPHAMATE_OAUTH_TIMEOUT_SECONDS",
         ]
 
         for name in required_names:
