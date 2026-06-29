@@ -87,6 +87,16 @@ OWNER_NEXT_ACTION_LINKS = {
     "GOOGLE_PLAY_RTDN_SHARED_TOKEN": "https://play.google.com/console",
 }
 
+OWNER_REQUIRED_INPUTS = {
+    "OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY": "OpenAI API Key 값",
+    "KAKAO_CLIENT_ID": "카카오 REST API Key 값",
+    "KAKAO_CLIENT_SECRET": "카카오 Client Secret 값 또는 미사용 결정",
+    "NAVER_CLIENT_ID": "네이버 Client ID 값",
+    "NAVER_CLIENT_SECRET": "네이버 Client Secret 값",
+    "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file": "Google Play 서비스 계정 JSON 파일",
+    "GOOGLE_PLAY_RTDN_SHARED_TOKEN": "Google Play 결제 알림용 공유 토큰 값",
+}
+
 
 def _owner_next_action_text(item: str) -> str:
     provider = ""
@@ -107,6 +117,15 @@ def _owner_next_action_text(item: str) -> str:
     link = OWNER_NEXT_ACTION_LINKS.get(setting)
     suffix = f" - {link}" if link else ""
     return f"{prefix}{hint} ({item}){suffix}"
+
+
+def _owner_required_inputs(items: list[str]) -> list[str]:
+    inputs = []
+    for item in items:
+        setting = item.split(": ", 1)[1] if ": " in item else item
+        if setting in OWNER_REQUIRED_INPUTS:
+            inputs.append(OWNER_REQUIRED_INPUTS[setting])
+    return list(dict.fromkeys(inputs))
 
 
 def format_owner_release_readiness_report(result: dict) -> str:
@@ -145,6 +164,12 @@ def format_owner_release_readiness_report(result: dict) -> str:
             lines.append(f"- 그 외 누락 항목 {len(next_actions) - 10}개")
     else:
         lines.append("1. 출시 전 실제 기기 로그인, 결제, 광고, AI 복기를 수동으로 확인하세요.")
+
+    required_inputs = _owner_required_inputs(next_actions)
+    if required_inputs:
+        lines.extend(["", "내가 나중에 받아야 하는 정보/파일:"])
+        for index, item in enumerate(required_inputs, start=1):
+            lines.append(f"{index}. {item}")
 
     lines.extend([
         "",

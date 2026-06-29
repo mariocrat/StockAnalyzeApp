@@ -164,6 +164,26 @@ function ownerFrontendNextActions(errors) {
   return [...new Set(errors.map(ownerFrontendNextAction))];
 }
 
+function ownerFrontendRequiredInputs(errors) {
+  const inputs = [];
+  if (errors.some((error) => error.includes('VITE_API_BASE'))) {
+    inputs.push('운영 API 서버 HTTPS 주소');
+  }
+  if (errors.some((error) => error.includes('VITE_ADMOB_REWARDED_AD_UNIT_ID'))) {
+    inputs.push('AdMob 보상형 광고 단위 ID');
+  }
+  if (errors.some((error) => error.includes('VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID'))) {
+    inputs.push('AdMob 복기 보관함 전면 광고 단위 ID');
+  }
+  if (errors.some((error) => error.includes('VITE_GOOGLE_PLAY_PACKAGE_NAME'))) {
+    inputs.push('Google Play 패키지명');
+  }
+  if (errors.some((error) => error.includes('ALPHAMATE_ANDROID_KEYSTORE_FILE'))) {
+    inputs.push('Android 서명 키 파일');
+  }
+  return inputs;
+}
+
 export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromProcess()) {
   const appName = publicEnvValue(env, 'ALPHAMATE_ANDROID_APP_NAME', envValue(env, 'VITE_APP_NAME') || '미설정');
   const packageName = publicEnvValue(env, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
@@ -225,6 +245,14 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
     if (nextActions.length > 10) {
       lines.push(`- 그 외 누락 항목 ${nextActions.length - 10}개`);
     }
+  }
+
+  const requiredInputs = ownerFrontendRequiredInputs(result.errors);
+  if (requiredInputs.length > 0) {
+    lines.push('', '내가 나중에 받아야 하는 정보/파일:');
+    requiredInputs.forEach((input, index) => {
+      lines.push(`${index + 1}. ${input}`);
+    });
   }
 
   lines.push(

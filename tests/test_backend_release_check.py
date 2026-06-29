@@ -199,6 +199,8 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("https://platform.openai.com/api-keys", report)
         self.assertIn("운영 로그 관리자 토큰을 32자 이상 랜덤 값으로 만들기", report)
         self.assertIn("다음에 할 일", report)
+        self.assertIn("내가 나중에 받아야 하는 정보/파일", report)
+        self.assertIn("OpenAI API Key 값", report)
         self.assertNotIn("sk-", report)
         self.assertNotIn("secret", report.lower())
 
