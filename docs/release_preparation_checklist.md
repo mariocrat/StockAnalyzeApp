@@ -264,6 +264,8 @@ npm run mobile:release:check
 - [ ] 로그 보관 기간을 정한다.
 - [ ] 사용자가 오류 화면에 표시된 문의용 ID를 알려주면 로그를 조회할 수 있는지 확인한다.
 
+긴 랜덤 토큰이 필요하면 `generate_release_secrets.bat`를 실행해서 `ALPHAMATE_ADMIN_TOKEN`과 `GOOGLE_PLAY_RTDN_SHARED_TOKEN` 후보를 만들 수 있습니다. 출력된 값은 개인 서버의 `.env.release`에만 넣고 GitHub에는 올리지 않습니다.
+
 환경변수:
 
 ```env
@@ -341,10 +343,11 @@ verify_android_debug.bat
 사용 흐름:
 
 1. `prepare_release_env_files.bat`를 실행해서 템플릿을 실제 설정 파일로 복사한다.
-2. 복사한 파일에만 OpenAI Key, 카카오/네이버 Secret, Google Play 서비스 계정, AdMob 광고 단위, Android 서명 정보를 채운다.
-3. 채운 파일은 GitHub에 올리지 않는다.
-4. `release_readiness_report.bat`를 실행해서 빠진 설정이 줄어드는지 확인한다.
-5. 루트의 `.env.release`와 `frontend/.env.release`가 있으면 보고서가 자동으로 그 파일을 우선 읽는다.
+2. `generate_release_secrets.bat`를 실행해서 서버용 긴 랜덤 토큰 후보를 만든다.
+3. 복사한 파일에만 OpenAI Key, 카카오/네이버 Secret, Google Play 서비스 계정, AdMob 광고 단위, Android 서명 정보를 채운다.
+4. 채운 파일은 GitHub에 올리지 않는다.
+5. `release_readiness_report.bat`를 실행해서 빠진 설정이 줄어드는지 확인한다.
+6. 루트의 `.env.release`와 `frontend/.env.release`가 있으면 보고서가 자동으로 그 파일을 우선 읽는다.
 
 주의:
 
