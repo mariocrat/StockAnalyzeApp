@@ -50,6 +50,8 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_REQUIRED_FIELDS = {
     "token_uri",
 }
 RTDN_SHARED_TOKEN_MIN_LENGTH = 32
+ADMOB_SSV_FIELD_MAX_CHARS = 120
+ADMOB_SSV_CUSTOM_DATA_MAX_CHARS = 500
 
 
 @dataclass
@@ -94,6 +96,14 @@ DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 def _env_value(name: str) -> str:
     return env_value(name)
+
+
+def _short_text(value, *, limit: int) -> str:
+    text = str(value or "").strip()
+    if len(text) > limit:
+        suffix = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+        return f"{text[: max(0, limit - 17)]}:{suffix}"
+    return text
 
 
 def _access_db_path() -> Path:
@@ -566,8 +576,8 @@ def record_admob_ssv_reward(raw_query: str) -> dict:
     if expected_ad_unit and ad_unit != expected_ad_unit:
         raise HTTPException(status_code=403, detail="AdMob rewarded ad unit does not match server configuration.")
 
-    transaction_id = str(params.get("transaction_id") or "").strip()
-    user_id = str(params.get("user_id") or "").strip()
+    transaction_id = _short_text(params.get("transaction_id"), limit=ADMOB_SSV_FIELD_MAX_CHARS)
+    user_id = _short_text(params.get("user_id"), limit=ADMOB_SSV_FIELD_MAX_CHARS)
     if not transaction_id or not user_id:
         raise HTTPException(status_code=400, detail="AdMob SSV required parameters are missing.")
 
@@ -597,10 +607,10 @@ def record_admob_ssv_reward(raw_query: str) -> dict:
                 (
                     transaction_id,
                     user_id,
-                    ad_unit,
+                    _short_text(ad_unit, limit=ADMOB_SSV_FIELD_MAX_CHARS),
                     reward_amount,
-                    str(params.get("reward_item") or ""),
-                    str(params.get("custom_data") or ""),
+                    _short_text(params.get("reward_item"), limit=ADMOB_SSV_FIELD_MAX_CHARS),
+                    _short_text(params.get("custom_data"), limit=ADMOB_SSV_CUSTOM_DATA_MAX_CHARS),
                     now,
                 ),
             )

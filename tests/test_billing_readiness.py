@@ -961,6 +961,38 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("recorded", first["status"])
             self.assertEqual("already_recorded", second["status"])
 
+    def test_admob_ssv_stored_fields_are_length_limited(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_admob_ssv_signature = lambda raw_query: {
+                "transaction_id": "tx-" + ("x" * 500),
+                "user_id": "user-" + ("u" * 500),
+                "ad_unit": "rewarded-unit-1",
+                "reward_amount": "1",
+                "reward_item": "item-" + ("i" * 500),
+                "custom_data": "custom-" + ("c" * 500),
+            }
+
+            access_control.record_admob_ssv_reward("transaction_id=oversized")
+
+            conn = access_control._connect_access_db()
+            try:
+                row = conn.execute("SELECT * FROM admob_reward_events LIMIT 1").fetchone()
+            finally:
+                conn.close()
+
+            self.assertLessEqual(len(row["transaction_id"]), 120)
+            self.assertLessEqual(len(row["user_id"]), 120)
+            self.assertLessEqual(len(row["ad_unit"]), 120)
+            self.assertLessEqual(len(row["reward_item"]), 120)
+            self.assertLessEqual(len(row["custom_data"]), 500)
+
     def test_admob_ssv_rejects_wrong_ad_unit(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="development",
