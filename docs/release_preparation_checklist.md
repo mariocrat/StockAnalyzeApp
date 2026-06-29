@@ -33,6 +33,7 @@ ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS=0.5
 
 OpenAI runtime safety caps: timeout max 90 seconds, retries max 3, retry backoff max 5 seconds.
 AI review rate limit safety cap: max 60 requests per minute.
+AI review concurrent execution safety cap: max 20 jobs.
 AI review idempotency cache safety cap: max 1,000 in-memory entries per server process.
 AI review idempotency TTL safety cap: max 3,600 seconds.
 

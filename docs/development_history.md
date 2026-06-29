@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Capped AI review concurrent execution settings at 20 so oversized environment values cannot accidentally allow too many paid review jobs to run at once.
 - Capped AI review rate limit settings at 60/minute so oversized environment values cannot accidentally open excessive paid review traffic.
 - Capped AI review idempotency TTL at 3,600 seconds so duplicate-request cache entries cannot remain for an unexpectedly long time because of oversized environment values.
 - Limited the in-memory AI review idempotency cache to 1,000 entries and trims the oldest expiring entries first so duplicate-request protection cannot grow without bound.

@@ -66,6 +66,7 @@ ADMIN_TOKEN_MIN_LENGTH = 32
 ADMIN_RATE_LIMIT_MAX_PER_MINUTE = 300
 CLIENT_EVENT_RATE_LIMIT_MAX_PER_MINUTE = 600
 AI_REVIEW_RATE_LIMIT_MAX_PER_MINUTE = 60
+AI_REVIEW_MAX_CONCURRENT_LIMIT = 20
 AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE = 1000
 AI_REVIEW_IDEMPOTENCY_TTL_MAX_SECONDS = 3600
 
@@ -81,7 +82,7 @@ def _env_int(name: str, default: int, minimum: int = 1, maximum: int | None = No
 
 
 def _ai_review_max_concurrent() -> int:
-    return _env_int("ALPHAMATE_AI_REVIEW_MAX_CONCURRENT", 3, 1)
+    return _env_int("ALPHAMATE_AI_REVIEW_MAX_CONCURRENT", 3, 1, AI_REVIEW_MAX_CONCURRENT_LIMIT)
 
 
 _ai_review_concurrency_guard = threading.BoundedSemaphore(_ai_review_max_concurrent())

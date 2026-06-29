@@ -90,6 +90,13 @@ class AiReviewSafetyTest(unittest.TestCase):
 
             self.assertEqual(60, main._ai_review_rate_limit())
 
+    def test_ai_review_max_concurrent_has_upper_bound(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            main, _, _ = _load_main_with_temp_state(tmpdir)
+            os.environ["ALPHAMATE_AI_REVIEW_MAX_CONCURRENT"] = "999999"
+
+            self.assertEqual(20, main._ai_review_max_concurrent())
+
     def test_ai_review_concurrency_guard_rejects_when_server_is_busy(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             main, _, _ = _load_main_with_temp_state(tmpdir)
