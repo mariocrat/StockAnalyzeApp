@@ -68,10 +68,14 @@ def _section_missing_items(section: dict) -> list[str]:
 def format_owner_release_readiness_report(result: dict) -> str:
     readiness = result.get("readiness", {})
     sections = readiness.get("sections", {})
+    total_sections = len(sections)
+    ready_sections = sum(1 for section in sections.values() if section.get("ready"))
+    ready_percent = round((ready_sections / total_sections) * 100) if total_sections else 0
     lines = [
         "AlphaMate 출시 준비 보고서",
         "",
         f"전체 상태: {'준비됨' if result.get('ok') else '준비 필요'}",
+        f"준비율: {ready_sections}/{total_sections} ({ready_percent}%)",
         "",
         "항목별 상태:",
     ]

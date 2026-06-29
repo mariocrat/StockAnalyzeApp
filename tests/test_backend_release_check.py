@@ -193,6 +193,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("AlphaMate 출시 준비 보고서", report)
         self.assertIn("[필요] AI 복기", report)
         self.assertIn("[준비됨] 개인정보처리방침", report)
+        self.assertIn("준비율: 1/3 (33%)", report)
         self.assertIn("OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY", report)
         self.assertIn("다음에 할 일", report)
         self.assertNotIn("sk-", report)

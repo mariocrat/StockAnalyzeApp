@@ -155,11 +155,24 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
     && !hasError(result, 'ALPHAMATE_ANDROID_KEY_PASSWORD');
   const versionReady = !hasError(result, 'ALPHAMATE_ANDROID_VERSION_CODE')
     && !hasError(result, 'ALPHAMATE_ANDROID_VERSION_NAME');
+  const readinessItems = [
+    appEnvReady,
+    appNameReady,
+    devToolsReady,
+    apiReady,
+    admobReady,
+    packageReady,
+    signingReady,
+    versionReady,
+  ];
+  const readyCount = readinessItems.filter(Boolean).length;
+  const readyPercent = Math.round((readyCount / readinessItems.length) * 100);
 
   const lines = [
     'AlphaMate 프론트/앱 출시 준비 보고서',
     '',
     `전체 상태: ${statusLabel(result.ok)}`,
+    `준비율: ${readyCount}/${readinessItems.length} (${readyPercent}%)`,
     '',
     `앱 이름: ${appName}`,
     `구글 플레이 패키지: ${packageName}`,

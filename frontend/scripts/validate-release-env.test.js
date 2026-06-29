@@ -188,6 +188,7 @@ test('formats owner frontend release report without exposing secret values', () 
 
   assert.match(report, /프론트\/앱 출시 준비 보고서/);
   assert.match(report, /전체 상태: 준비 필요/);
+  assert.match(report, /준비율: \d\/8 \(\d+%\)/);
   assert.match(report, /앱 이름: AlphaMate/);
   assert.match(report, /구글 플레이 패키지: com\.mariocrat\.stockanalyze/);
   assert.match(report, /다음에 할 일/);
