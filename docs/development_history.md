@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Limited stored login provider IDs and display names so oversized OAuth profile fields cannot bloat the account database.
 - Limited stored Google Play purchase and subscription fields so oversized product or order identifiers cannot bloat the access database.
 - Limited stored AdMob SSV reward fields so oversized signed callback values cannot bloat the access database.
 - Capped the rewarded-ad policy setting for advanced review tickets at 20 ads so oversized environment values cannot silently make the reward path unreachable.

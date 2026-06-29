@@ -18,6 +18,7 @@ DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 SESSION_DAYS = 30
 SUPPORTED_PROVIDERS = {"kakao", "naver"}
 PRIVACY_CONSENT_VERSION = env_value("ALPHAMATE_PRIVACY_CONSENT_VERSION") or "ai-review-privacy-v1"
+ACCOUNT_FIELD_MAX_CHARS = 120
 _ACCOUNT_LOCK = threading.Lock()
 
 
@@ -51,6 +52,14 @@ def _hash_token(token: str) -> str:
 def _hash_optional(value: str) -> str:
     text = str(value or "").strip().lower()
     return hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
+
+
+def _short_text(value, *, limit: int = ACCOUNT_FIELD_MAX_CHARS) -> str:
+    text = str(value or "").strip()
+    if len(text) > limit:
+        suffix = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+        return f"{text[: max(0, limit - 17)]}:{suffix}"
+    return text
 
 
 def _bearer_token(authorization: str | None) -> str:
@@ -174,7 +183,8 @@ def login_provider_identity(
     email: str = "",
 ) -> dict:
     provider = _normalize_provider(provider)
-    provider_user_id = str(provider_user_id or "").strip()
+    provider_user_id = _short_text(provider_user_id)
+    display_name = _short_text(display_name)
     if not provider_user_id:
         raise HTTPException(status_code=400, detail="provider_user_id is required.")
 
@@ -199,7 +209,7 @@ def login_provider_identity(
                         last_login_at = ?
                     WHERE id = ?
                     """,
-                    (str(display_name or "").strip(), now, user_id),
+                    (display_name, now, user_id),
                 )
                 conn.execute(
                     """
@@ -218,7 +228,7 @@ def login_provider_identity(
                     (id, display_name, created_at, last_login_at)
                     VALUES (?, ?, ?, ?)
                     """,
-                    (user_id, str(display_name or "").strip(), now, now),
+                    (user_id, display_name, now, now),
                 )
                 conn.execute(
                     """

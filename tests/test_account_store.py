@@ -38,6 +38,30 @@ class AccountStoreTest(unittest.TestCase):
             self.assertEqual(first["user"]["id"], current["id"])
             self.assertEqual("kakao", current["identities"][0]["provider"])
 
+    def test_provider_login_stored_fields_are_length_limited(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            account_db = os.path.join(tmpdir, "accounts.sqlite3")
+            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = account_db
+
+            from backend.core import account_store
+
+            account_store = importlib.reload(account_store)
+            session = account_store.login_dev_provider(
+                provider="kakao",
+                provider_user_id="provider-" + ("p" * 500),
+                display_name="name-" + ("n" * 500),
+            )
+
+            self.assertLessEqual(len(session["user"]["display_name"]), 120)
+            self.assertLessEqual(len(session["user"]["identities"][0]["provider_user_id"]), 120)
+
+            with closing(sqlite3.connect(account_db)) as conn:
+                user_row = conn.execute("SELECT display_name FROM users LIMIT 1").fetchone()
+                identity_row = conn.execute("SELECT provider_user_id FROM user_identities LIMIT 1").fetchone()
+
+            self.assertLessEqual(len(user_row[0]), 120)
+            self.assertLessEqual(len(identity_row[0]), 120)
+
     def test_access_wallets_are_separated_by_login_session_user(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
