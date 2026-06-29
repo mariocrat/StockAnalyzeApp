@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Capped the rewarded-ad policy setting for advanced review tickets at 20 ads so oversized environment values cannot silently make the reward path unreachable.
 - Capped journal workload settings so oversized environment values cannot allow excessive one-time review batches, AI review batches, memo text, query windows, or saved-journal analysis windows.
 - Capped AI review concurrent execution settings at 20 so oversized environment values cannot accidentally allow too many paid review jobs to run at once.
 - Capped AI review rate limit settings at 60/minute so oversized environment values cannot accidentally open excessive paid review traffic.

@@ -153,6 +153,15 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertFalse(catalog["settings"]["ad_policy"]["force_rewarded_ad_chain"])
             self.assertNotIn("fake-private-key", str(catalog))
 
+    def test_ad_policy_caps_ads_per_advanced_ticket_setting(self):
+        with patched_env(ALPHAMATE_ADS_PER_ADVANCED_TICKET="999999"):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            catalog = access_control.get_product_catalog()
+
+            self.assertEqual(20, catalog["settings"]["ad_policy"]["ads_per_advanced_ticket"])
+
     def test_google_play_readiness_rejects_invalid_service_account_json(self):
         with patched_env(
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",

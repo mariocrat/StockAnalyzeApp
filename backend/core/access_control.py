@@ -35,6 +35,7 @@ FREE_DAILY_BASIC_GRANT = 1
 FREE_DAILY_BASIC_MAX = 5
 FREE_MONTHLY_BASIC_MAX = 50
 FREE_ADS_PER_ADVANCED_TICKET = 5
+ADS_PER_ADVANCED_TICKET_MAX = 20
 FREE_WEEKLY_ADVANCED_MAX = 1
 ADVANCED_TICKET_HOLD_MAX = 1
 
@@ -311,18 +312,26 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
-def _env_int(name: str, default: int, minimum: int = 0) -> int:
+def _env_int(name: str, default: int, minimum: int = 0, maximum: int | None = None) -> int:
     try:
         value = int(_env_value(name))
     except (TypeError, ValueError):
         return default
-    return max(minimum, value)
+    value = max(minimum, value)
+    if maximum is not None:
+        value = min(value, maximum)
+    return value
 
 
 def _ad_policy() -> dict:
     return {
         "basic_reviews_per_rewarded_ad": 1,
-        "ads_per_advanced_ticket": _env_int("ALPHAMATE_ADS_PER_ADVANCED_TICKET", FREE_ADS_PER_ADVANCED_TICKET, 1),
+        "ads_per_advanced_ticket": _env_int(
+            "ALPHAMATE_ADS_PER_ADVANCED_TICKET",
+            FREE_ADS_PER_ADVANCED_TICKET,
+            1,
+            ADS_PER_ADVANCED_TICKET_MAX,
+        ),
         "force_rewarded_ad_chain": _env_bool("ALPHAMATE_FORCE_REWARDED_AD_CHAIN", False),
         "preferred_rewarded_ad_sequence": "single",
     }
