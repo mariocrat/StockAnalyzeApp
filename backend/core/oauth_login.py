@@ -11,6 +11,23 @@ KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"
 KAKAO_USER_INFO_URL = "https://kapi.kakao.com/v2/user/me"
 NAVER_TOKEN_URL = "https://nid.naver.com/oauth2.0/token"
 NAVER_PROFILE_URL = "https://openapi.naver.com/v1/nid/me"
+OAUTH_TIMEOUT_DEFAULT_SECONDS = 8
+OAUTH_TIMEOUT_MAX_SECONDS = 20
+
+
+def _env_int(name: str, default: int, minimum: int = 1, maximum: int | None = None) -> int:
+    try:
+        value = int(_env_value(name))
+    except (TypeError, ValueError):
+        value = default
+    value = max(minimum, value)
+    if maximum is not None:
+        value = min(value, maximum)
+    return value
+
+
+def _oauth_timeout_seconds() -> int:
+    return _env_int("ALPHAMATE_OAUTH_TIMEOUT_SECONDS", OAUTH_TIMEOUT_DEFAULT_SECONDS, 2, OAUTH_TIMEOUT_MAX_SECONDS)
 
 
 def _exchange_json(url: str, payload: dict, headers: dict | None = None) -> dict:
@@ -19,7 +36,7 @@ def _exchange_json(url: str, payload: dict, headers: dict | None = None) -> dict
             url,
             data=payload,
             headers=headers or {},
-            timeout=8,
+            timeout=_oauth_timeout_seconds(),
         )
     except requests.RequestException as exc:
         raise HTTPException(status_code=502, detail="Login provider token endpoint did not respond.") from exc
@@ -36,7 +53,7 @@ def _request_json(url: str, access_token: str) -> dict:
         response = requests.get(
             url,
             headers={"Authorization": f"Bearer {access_token}"},
-            timeout=8,
+            timeout=_oauth_timeout_seconds(),
         )
     except requests.RequestException as exc:
         raise HTTPException(status_code=502, detail="Login provider did not respond.") from exc

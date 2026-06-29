@@ -42,6 +42,7 @@ AdMob SSV storage safety caps: reward identifiers max 120 characters, custom dat
 Google Play storage safety caps: purchase and subscription product/order fields max 120 characters.
 Login storage safety caps: provider user IDs and display names max 120 characters.
 Privacy consent safety cap: stored and exposed consent version max 120 characters.
+OAuth login timeout safety cap: max 20 seconds.
 
 주의:
 
@@ -107,6 +108,7 @@ VITE_KAKAO_REST_API_KEY=카카오_REST_API_KEY
 VITE_KAKAO_REDIRECT_URI=https://your-app.example.com/oauth/kakao
 KAKAO_CLIENT_ID=카카오_REST_API_KEY
 KAKAO_REDIRECT_URI=https://your-app.example.com/oauth/kakao
+ALPHAMATE_OAUTH_TIMEOUT_SECONDS=8
 ```
 
 `KAKAO_CLIENT_SECRET`은 카카오 설정에서 필요한 경우에만 서버 Secret으로 따로 설정합니다. 실제 값은 문서나 GitHub에 적지 않습니다.
@@ -126,6 +128,7 @@ VITE_NAVER_CLIENT_ID=네이버_Client_ID
 VITE_NAVER_REDIRECT_URI=https://your-app.example.com/oauth/naver
 NAVER_CLIENT_ID=네이버_Client_ID
 NAVER_REDIRECT_URI=https://your-app.example.com/oauth/naver
+ALPHAMATE_OAUTH_TIMEOUT_SECONDS=8
 ```
 
 `NAVER_CLIENT_SECRET`은 서버 Secret으로 따로 설정합니다. 실제 값은 문서나 GitHub에 적지 않습니다.

@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Added configurable OAuth provider request timeout settings capped at 20 seconds so login provider delays cannot tie up server workers for too long.
 - Limited the exposed current AI privacy consent version so oversized consent configuration values cannot bloat account summary responses.
 - Limited stored AI privacy consent version strings so oversized consent configuration values cannot bloat the account database.
 - Limited stored login provider IDs and display names so oversized OAuth profile fields cannot bloat the account database.

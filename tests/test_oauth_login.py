@@ -7,6 +7,43 @@ from fastapi import HTTPException
 
 
 class OAuthLoginTest(unittest.TestCase):
+    def test_oauth_request_timeout_setting_is_capped(self):
+        previous = os.environ.get("ALPHAMATE_OAUTH_TIMEOUT_SECONDS")
+        try:
+            os.environ["ALPHAMATE_OAUTH_TIMEOUT_SECONDS"] = "999"
+
+            from backend.core import oauth_login
+
+            oauth_login = importlib.reload(oauth_login)
+            captured = {}
+
+            class FakeResponse:
+                status_code = 200
+
+                def json(self):
+                    return {"ok": True}
+
+            def fake_post(url, *, data, headers, timeout):
+                captured["post_timeout"] = timeout
+                return FakeResponse()
+
+            def fake_get(url, *, headers, timeout):
+                captured["get_timeout"] = timeout
+                return FakeResponse()
+
+            oauth_login.requests.post = fake_post
+            oauth_login.requests.get = fake_get
+
+            self.assertEqual({"ok": True}, oauth_login._exchange_json("https://example.com/token", {"code": "x"}))
+            self.assertEqual({"ok": True}, oauth_login._request_json("https://example.com/me", "token"))
+            self.assertEqual(20, captured["post_timeout"])
+            self.assertEqual(20, captured["get_timeout"])
+        finally:
+            if previous is None:
+                os.environ.pop("ALPHAMATE_OAUTH_TIMEOUT_SECONDS", None)
+            else:
+                os.environ["ALPHAMATE_OAUTH_TIMEOUT_SECONDS"] = previous
+
     def test_kakao_access_token_profile_creates_alphamate_session(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
