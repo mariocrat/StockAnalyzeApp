@@ -141,7 +141,7 @@ release_readiness_report.bat
 prepare_release_env_files.bat
 ```
 
-출시용 관리자/결제 알림 랜덤 토큰 후보 만들기:
+출시용 관리자/결제 알림 랜덤 토큰 빈 값 채우기:
 
 ```bat
 generate_release_secrets.bat

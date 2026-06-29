@@ -9,7 +9,7 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 
-".venv\Scripts\python.exe" scripts\generate_release_secrets.py
+".venv\Scripts\python.exe" scripts\generate_release_secrets.py --fill-empty
 set SETUP_EXIT=%ERRORLEVEL%
 echo.
 pause

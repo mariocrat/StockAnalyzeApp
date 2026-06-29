@@ -1,4 +1,5 @@
 import importlib.util
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -41,10 +42,41 @@ class ReleaseSecretGenerationTest(unittest.TestCase):
         self.assertIn("Do not commit", output)
         self.assertIn(".env.release", output)
 
+    def test_fills_empty_backend_release_secret_values_without_overwriting_existing_values(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / ".env.release").write_text(
+                "\n".join([
+                    "ALPHAMATE_ENV=production",
+                    "ALPHAMATE_ADMIN_TOKEN=",
+                    "GOOGLE_PLAY_RTDN_SHARED_TOKEN=keep-existing-rtdn-token",
+                    "OPENAI_API_KEY=",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+
+            result = module.fill_empty_release_secret_values(
+                root,
+                {
+                    "ALPHAMATE_ADMIN_TOKEN": "new-admin-token",
+                    "GOOGLE_PLAY_RTDN_SHARED_TOKEN": "new-rtdn-token",
+                },
+            )
+
+            env_text = (root / ".env.release").read_text(encoding="utf-8")
+            self.assertEqual(["ALPHAMATE_ADMIN_TOKEN"], result["filled"])
+            self.assertEqual(["GOOGLE_PLAY_RTDN_SHARED_TOKEN"], result["skipped_existing"])
+            self.assertIn("ALPHAMATE_ADMIN_TOKEN=new-admin-token", env_text)
+            self.assertIn("GOOGLE_PLAY_RTDN_SHARED_TOKEN=keep-existing-rtdn-token", env_text)
+            self.assertNotIn("new-rtdn-token", env_text)
+
     def test_double_click_batch_runs_secret_generation_script(self):
         batch = (ROOT / "generate_release_secrets.bat").read_text(encoding="utf-8")
 
         self.assertIn("scripts\\generate_release_secrets.py", batch)
+        self.assertIn("--fill-empty", batch)
         self.assertIn(".venv\\Scripts\\python.exe", batch)
         self.assertIn("pause", batch.lower())
 
