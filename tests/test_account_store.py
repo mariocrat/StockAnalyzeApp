@@ -172,6 +172,22 @@ class AccountStoreTest(unittest.TestCase):
             self.assertLessEqual(len(updated["privacy_consent_version"]), 120)
             self.assertLessEqual(len(current["privacy_consent_version"]), 120)
 
+    def test_current_privacy_consent_version_is_length_limited(self):
+        previous = os.environ.get("ALPHAMATE_PRIVACY_CONSENT_VERSION")
+        try:
+            os.environ["ALPHAMATE_PRIVACY_CONSENT_VERSION"] = "privacy-" + ("v" * 500)
+
+            from backend.core import account_store
+
+            account_store = importlib.reload(account_store)
+
+            self.assertLessEqual(len(account_store.get_privacy_consent_version()), 120)
+        finally:
+            if previous is None:
+                os.environ.pop("ALPHAMATE_PRIVACY_CONSENT_VERSION", None)
+            else:
+                os.environ["ALPHAMATE_PRIVACY_CONSENT_VERSION"] = previous
+
     def test_delete_user_account_data_removes_server_side_user_records(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             account_db = os.path.join(tmpdir, "accounts.sqlite3")

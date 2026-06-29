@@ -23,7 +23,7 @@ _ACCOUNT_LOCK = threading.Lock()
 
 
 def get_privacy_consent_version() -> str:
-    return PRIVACY_CONSENT_VERSION
+    return _short_text(PRIVACY_CONSENT_VERSION)
 
 
 def _env_value(name: str) -> str:
