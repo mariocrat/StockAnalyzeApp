@@ -157,7 +157,11 @@ function ownerFrontendNextAction(error) {
   ];
   const match = hints.find(([setting]) => error.includes(setting));
   if (!match) return error;
-  return `${match[1]} (${error})`;
+  return `${match[1]} (${match[0]})`;
+}
+
+function ownerFrontendNextActions(errors) {
+  return [...new Set(errors.map(ownerFrontendNextAction))];
 }
 
 export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromProcess()) {
@@ -214,11 +218,12 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
   if (result.errors.length === 0) {
     lines.push('1. 실제 기기에서 로그인, 결제, 광고, AI 복기를 수동으로 확인하세요.');
   } else {
-    result.errors.slice(0, 10).forEach((error, index) => {
-      lines.push(`${index + 1}. ${ownerFrontendNextAction(error)}`);
+    const nextActions = ownerFrontendNextActions(result.errors);
+    nextActions.slice(0, 10).forEach((action, index) => {
+      lines.push(`${index + 1}. ${action}`);
     });
-    if (result.errors.length > 10) {
-      lines.push(`- 그 외 누락 항목 ${result.errors.length - 10}개`);
+    if (nextActions.length > 10) {
+      lines.push(`- 그 외 누락 항목 ${nextActions.length - 10}개`);
     }
   }
 
