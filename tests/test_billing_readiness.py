@@ -387,6 +387,45 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("already_applied", second["purchase"]["status"])
             self.assertEqual(1, len(consumed))
 
+    def test_google_play_purchase_stored_fields_are_length_limited(self):
+        long_product_id = "alphamate.basic." + ("p" * 500)
+        long_order_id = "GPA." + ("o" * 500)
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+            GOOGLE_PLAY_BASIC_REVIEW_30_ID=long_product_id,
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_google_play_purchase = lambda **kwargs: {
+                "package_name": "com.alphamate.app",
+                "product_id": kwargs["google_product_id"],
+                "purchase_state": "purchased",
+                "order_id": long_order_id,
+                "acknowledgement_state": "acknowledged",
+            }
+            access_control._consume_google_play_product = lambda **kwargs: True
+
+            access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="basic_review_30",
+                purchase_token="purchase-token",
+                package_name="com.alphamate.app",
+            )
+
+            conn = access_control._connect_access_db()
+            try:
+                row = conn.execute("SELECT * FROM google_play_purchases LIMIT 1").fetchone()
+            finally:
+                conn.close()
+
+            self.assertLessEqual(len(row["google_play_product_id"]), 120)
+            self.assertLessEqual(len(row["order_id"]), 120)
+
     def test_google_play_consumable_consume_failure_can_be_retried_without_duplicate_credits(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="development",
@@ -502,6 +541,45 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("pro", entitlements["plan"])
             self.assertEqual(150, entitlements["basic"]["pro_monthly_remaining"])
             self.assertEqual(5, entitlements["advanced"]["pro_monthly_remaining"])
+
+    def test_google_play_subscription_stored_fields_are_length_limited(self):
+        long_product_id = "alphamate.pro." + ("p" * 500)
+        long_order_id = "GPA.pro." + ("o" * 500)
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+            GOOGLE_PLAY_PRO_MONTHLY_ID=long_product_id,
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_google_play_subscription = lambda **kwargs: {
+                "package_name": "com.alphamate.app",
+                "product_id": kwargs["google_product_id"],
+                "subscription_state": "SUBSCRIPTION_STATE_ACTIVE",
+                "expiry_time": "2099-01-01T00:00:00Z",
+                "latest_order_id": long_order_id,
+                "auto_renewing": True,
+            }
+
+            access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="pro_monthly",
+                purchase_token="subscription-token",
+                package_name="com.alphamate.app",
+            )
+
+            conn = access_control._connect_access_db()
+            try:
+                row = conn.execute("SELECT * FROM google_play_subscriptions LIMIT 1").fetchone()
+            finally:
+                conn.close()
+
+            self.assertLessEqual(len(row["google_play_product_id"]), 120)
+            self.assertLessEqual(len(row["latest_order_id"]), 120)
 
     def test_unacknowledged_google_play_subscription_is_acknowledged_before_pro_plan(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(

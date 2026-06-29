@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Limited stored Google Play purchase and subscription fields so oversized product or order identifiers cannot bloat the access database.
 - Limited stored AdMob SSV reward fields so oversized signed callback values cannot bloat the access database.
 - Capped the rewarded-ad policy setting for advanced review tickets at 20 ads so oversized environment values cannot silently make the reward path unreachable.
 - Capped journal workload settings so oversized environment values cannot allow excessive one-time review batches, AI review batches, memo text, query windows, or saved-journal analysis windows.

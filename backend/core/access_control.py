@@ -52,6 +52,7 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_REQUIRED_FIELDS = {
 RTDN_SHARED_TOKEN_MIN_LENGTH = 32
 ADMOB_SSV_FIELD_MAX_CHARS = 120
 ADMOB_SSV_CUSTOM_DATA_MAX_CHARS = 500
+GOOGLE_PLAY_FIELD_MAX_CHARS = 120
 
 
 @dataclass
@@ -867,11 +868,11 @@ def _write_google_purchase(
         (
             token_hash,
             user_id,
-            local_product_id,
-            google_product_id,
+            _short_text(local_product_id, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
+            _short_text(google_product_id, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
             kind,
-            str(order_id or ""),
-            status,
+            _short_text(order_id, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
+            _short_text(status, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
             now,
         ),
     )
@@ -918,12 +919,12 @@ def _save_google_subscription(
                 (
                     user_id,
                     token_hash,
-                    local_product_id,
-                    google_product_id,
-                    status,
-                    expiry_time,
+                    _short_text(local_product_id, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
+                    _short_text(google_product_id, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
+                    _short_text(status, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
+                    _short_text(expiry_time, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
                     1 if auto_renewing else 0,
-                    latest_order_id,
+                    _short_text(latest_order_id, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
                     now,
                 ),
             )
