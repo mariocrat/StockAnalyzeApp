@@ -181,6 +181,11 @@ class BackendReleaseCheckTest(unittest.TestCase):
                         "missing_server_settings": ["ALPHAMATE_ADMIN_TOKEN_MIN_LENGTH_32"],
                         "required_server_settings": ["ALPHAMATE_ADMIN_TOKEN"],
                     },
+                    "google_play": {
+                        "ready": False,
+                        "missing_server_settings": ["GOOGLE_PLAY_RTDN_SHARED_TOKEN"],
+                        "required_server_settings": ["GOOGLE_PLAY_RTDN_SHARED_TOKEN"],
+                    },
                     "privacy_policy": {
                         "ready": True,
                         "missing_server_settings": [],
@@ -193,16 +198,18 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("AlphaMate 출시 준비 보고서", report)
         self.assertIn("[필요] AI 복기", report)
         self.assertIn("[준비됨] 개인정보처리방침", report)
-        self.assertIn("준비율: 1/3 (33%)", report)
+        self.assertIn("준비율: 1/4 (25%)", report)
         self.assertIn("OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY", report)
         self.assertIn("OpenAI API Key를 발급해서 서버 설정에 넣기", report)
         self.assertIn("https://platform.openai.com/api-keys", report)
-        self.assertIn("운영 로그 관리자 토큰을 32자 이상 랜덤 값으로 만들기", report)
+        self.assertIn("generate_release_secrets.bat를 실행해서 운영 로그 관리자 토큰 빈 값을 채우기", report)
+        self.assertIn("generate_release_secrets.bat를 실행해서 Google Play 결제 알림용 공유 토큰 빈 값을 채우기", report)
         self.assertIn("다음에 할 일", report)
         self.assertIn("내가 나중에 받아야 하는 정보/파일", report)
         self.assertIn("OpenAI API Key 값", report)
+        self.assertNotIn("Google Play 결제 알림용 공유 토큰 값", report)
         self.assertNotIn("sk-", report)
-        self.assertNotIn("secret", report.lower())
+        self.assertNotIn("google-secret-json", report)
 
     def test_rejects_missing_production_backend_settings_without_secret_values(self):
         with patched_env(

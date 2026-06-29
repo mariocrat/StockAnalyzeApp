@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Updated the owner release readiness report so locally generatable release tokens point to `generate_release_secrets.bat` instead of being listed as values the owner must provide later.
 - Added `generate_release_secrets.bat` and `scripts/generate_release_secrets.py` so empty owner-only release token values can be filled locally without writing them to tracked files.
 - Added owner input summaries to release readiness reports so required future secrets/files are visible without printing their actual values.
 - Added official setup links to owner-facing release readiness next actions for OpenAI, Kakao, Naver, Google Cloud, Google Play, and AdMob.
