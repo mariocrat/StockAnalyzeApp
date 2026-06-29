@@ -206,6 +206,35 @@ class AiReviewSafetyTest(unittest.TestCase):
             self.assertNotIn(token, cache_key)
             self.assertNotIn(idempotency_key, cache_key)
 
+    def test_ai_review_idempotency_cache_has_maximum_size(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            main, _, token = _load_main_with_temp_state(tmpdir)
+            previous_max_size = main.AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE
+            try:
+                main.AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE = 3
+                now = main.datetime.datetime.now(main.datetime.timezone.utc)
+                main._ai_review_idempotency_cache = {
+                    f"old-{index}": {
+                        "status": "done",
+                        "result": {"summary": f"old-{index}"},
+                        "payload_fingerprint": f"old-{index}",
+                        "expires_at": now + main.datetime.timedelta(seconds=300 + index),
+                    }
+                    for index in range(3)
+                }
+
+                cache_key, replay = main._begin_ai_review_idempotency(
+                    token,
+                    "new-request-1",
+                    "new-payload",
+                )
+
+                self.assertIsNone(replay)
+                self.assertIn(cache_key, main._ai_review_idempotency_cache)
+                self.assertLessEqual(len(main._ai_review_idempotency_cache), 3)
+            finally:
+                main.AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE = previous_max_size
+
 
 if __name__ == "__main__":
     unittest.main()

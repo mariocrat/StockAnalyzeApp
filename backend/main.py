@@ -65,6 +65,7 @@ REQUEST_ID_HEADER = "X-Request-ID"
 ADMIN_TOKEN_MIN_LENGTH = 32
 ADMIN_RATE_LIMIT_MAX_PER_MINUTE = 300
 CLIENT_EVENT_RATE_LIMIT_MAX_PER_MINUTE = 600
+AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE = 1000
 
 
 def _env_int(name: str, default: int, minimum: int = 1, maximum: int | None = None) -> int:
@@ -452,6 +453,25 @@ def _prune_ai_review_idempotency_cache(now: datetime.datetime):
         _ai_review_idempotency_cache.pop(key, None)
 
 
+def _trim_ai_review_idempotency_cache(protected_keys: set[str] | None = None):
+    protected_keys = protected_keys or set()
+    overflow = len(_ai_review_idempotency_cache) - max(1, int(AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE))
+    if overflow <= 0:
+        return
+    ordered = sorted(
+        _ai_review_idempotency_cache.items(),
+        key=lambda item: item[1].get("expires_at") or datetime.datetime.max.replace(tzinfo=datetime.timezone.utc),
+    )
+    removed = 0
+    for key, _ in ordered:
+        if key in protected_keys:
+            continue
+        _ai_review_idempotency_cache.pop(key, None)
+        removed += 1
+        if removed >= overflow:
+            break
+
+
 def _begin_ai_review_idempotency(
     authorization: str | None,
     raw_key: str | None,
@@ -464,6 +484,7 @@ def _begin_ai_review_idempotency(
     now = datetime.datetime.now(datetime.timezone.utc)
     with _ai_review_idempotency_lock:
         _prune_ai_review_idempotency_cache(now)
+        _trim_ai_review_idempotency_cache()
         cached = _ai_review_idempotency_cache.get(cache_key)
         if cached and cached.get("payload_fingerprint") != payload_fingerprint:
             raise HTTPException(
@@ -485,6 +506,7 @@ def _begin_ai_review_idempotency(
             "payload_fingerprint": payload_fingerprint,
             "expires_at": now + datetime.timedelta(seconds=_ai_review_idempotency_ttl_seconds()),
         }
+        _trim_ai_review_idempotency_cache({cache_key})
     return cache_key, None
 
 
@@ -505,6 +527,7 @@ def _finish_ai_review_idempotency(cache_key: str, result: dict | None):
             "payload_fingerprint": previous.get("payload_fingerprint"),
             "expires_at": now + datetime.timedelta(seconds=_ai_review_idempotency_ttl_seconds()),
         }
+        _trim_ai_review_idempotency_cache({cache_key})
 
 
 def _enforce_ai_review_rate_limit(authorization: str | None) -> bool:
