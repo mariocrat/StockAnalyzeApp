@@ -135,6 +135,14 @@ verify_project.bat
 release_readiness_report.bat
 ```
 
+출시용 개인 설정 파일, 랜덤 토큰, Android 서명 키를 한 번에 준비:
+
+```bat
+prepare_private_release_setup.bat
+```
+
+이 파일은 GitHub에 올리면 안 되는 로컬 설정만 만들고, 마지막에 출시 준비 보고서를 보여줍니다.
+
 출시용 설정 파일 처음 만들기:
 
 ```bat
