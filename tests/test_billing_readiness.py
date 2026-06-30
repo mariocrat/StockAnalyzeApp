@@ -128,6 +128,22 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertIn("KAKAO_CLIENT_ID", status["sections"]["login"]["providers"]["kakao"]["missing_server_settings"])
             self.assertIn("NAVER_CLIENT_SECRET", status["sections"]["login"]["providers"]["naver"]["missing_server_settings"])
 
+    def test_app_readiness_rejects_placeholder_release_values(self):
+        with patched_env(
+            ADMOB_REWARDED_AD_UNIT_ID="ca-app-pub-0000000000000000/0000000000",
+            ALPHAMATE_PRIVACY_POLICY_URL="https://your-domain.example/privacy",
+        ):
+            from backend.core import access_control, readiness
+
+            access_control = importlib.reload(access_control)
+            readiness = importlib.reload(readiness)
+            status = readiness.get_app_readiness()
+
+            self.assertFalse(status["sections"]["admob"]["ready"])
+            self.assertIn("ADMOB_REWARDED_AD_UNIT_ID_PLACEHOLDER", status["sections"]["admob"]["missing_server_settings"])
+            self.assertFalse(status["sections"]["privacy_policy"]["ready"])
+            self.assertIn("ALPHAMATE_PRIVACY_POLICY_URL_PLACEHOLDER", status["sections"]["privacy_policy"]["missing_server_settings"])
+
     def test_product_catalog_exposes_public_ids_and_readiness_only(self):
         with patched_env(
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",

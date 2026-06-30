@@ -15,7 +15,11 @@ function validReleaseEnv(overrides = {}) {
     VITE_ALPHAMATE_ENV: 'production',
     VITE_APP_NAME: 'AlphaMate',
     VITE_ENABLE_DEV_TOOLS: 'false',
-    VITE_API_BASE: 'https://api.example.com',
+    VITE_API_BASE: 'https://api.alphamate.kr',
+    VITE_KAKAO_REST_API_KEY: 'kakao-rest-api-key',
+    VITE_KAKAO_REDIRECT_URI: 'https://api.alphamate.kr/api/auth/kakao/callback',
+    VITE_NAVER_CLIENT_ID: 'naver-client-id',
+    VITE_NAVER_REDIRECT_URI: 'https://api.alphamate.kr/api/auth/naver/callback',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-1234567890123456/9876543210',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-1234567890123456/1234567890',
     VITE_GOOGLE_PLAY_PACKAGE_NAME: 'com.mariocrat.stockanalyze',
@@ -45,6 +49,39 @@ test('rejects localhost API and enabled dev tools for release builds', () => {
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REWARDED_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_GOOGLE_PLAY_PACKAGE_NAME/);
+});
+
+test('rejects placeholder release URLs and AdMob ad unit IDs', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    VITE_API_BASE: 'https://your-api.example.com',
+    VITE_KAKAO_REDIRECT_URI: 'https://your-api.example.com/api/auth/kakao/callback',
+    VITE_NAVER_REDIRECT_URI: 'https://your-api.example.com/api/auth/naver/callback',
+    VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-0000000000000000/0000000000',
+    VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/1111111111',
+  }));
+
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join('\n'), /VITE_API_BASE/);
+  assert.match(result.errors.join('\n'), /VITE_KAKAO_REDIRECT_URI/);
+  assert.match(result.errors.join('\n'), /VITE_NAVER_REDIRECT_URI/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_REWARDED_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /placeholder/);
+});
+
+test('requires public OAuth settings for release builds', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    VITE_KAKAO_REST_API_KEY: '',
+    VITE_KAKAO_REDIRECT_URI: '',
+    VITE_NAVER_CLIENT_ID: '',
+    VITE_NAVER_REDIRECT_URI: '',
+  }));
+
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join('\n'), /VITE_KAKAO_REST_API_KEY/);
+  assert.match(result.errors.join('\n'), /VITE_KAKAO_REDIRECT_URI/);
+  assert.match(result.errors.join('\n'), /VITE_NAVER_CLIENT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_NAVER_REDIRECT_URI/);
 });
 
 test('accepts production release settings without exposing secret requirements', () => {
@@ -205,7 +242,7 @@ test('formats owner frontend release report without exposing secret values', () 
 
   assert.match(report, /프론트\/앱 출시 준비 보고서/);
   assert.match(report, /전체 상태: 준비 필요/);
-  assert.match(report, /준비율: \d\/8 \(\d+%\)/);
+  assert.match(report, /준비율: \d\/9 \(\d+%\)/);
   assert.match(report, /앱 이름: AlphaMate/);
   assert.match(report, /구글 플레이 패키지: com\.mariocrat\.stockanalyze/);
   assert.match(report, /다음에 할 일/);
@@ -218,6 +255,21 @@ test('formats owner frontend release report without exposing secret values', () 
   assert.match(report, /운영 API 서버 HTTPS 주소/);
   assert.match(report, /VITE_ALPHAMATE_ENV/);
   assert.doesNotMatch(report, /never-print-this/);
+});
+
+test('owner frontend release report explains placeholder OAuth redirect URLs', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    VITE_KAKAO_REDIRECT_URI: 'https://your-api.example.com/api/auth/kakao/callback',
+    VITE_NAVER_REDIRECT_URI: 'https://your-api.example.com/api/auth/naver/callback',
+  }));
+
+  const report = formatOwnerFrontendReleaseReport(result, {
+    VITE_APP_NAME: 'AlphaMate',
+    VITE_GOOGLE_PLAY_PACKAGE_NAME: 'com.mariocrat.stockanalyze',
+  });
+
+  assert.match(report, /카카오 Redirect URI를 실제 운영 주소로 바꾸기/);
+  assert.match(report, /네이버 Redirect URI를 실제 운영 주소로 바꾸기/);
 });
 
 test('owner frontend release report CLI prints report and hides secret values', () => {

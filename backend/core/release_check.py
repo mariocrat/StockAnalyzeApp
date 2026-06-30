@@ -71,6 +71,8 @@ OWNER_NEXT_ACTION_HINTS = {
     "ALPHAMATE_ADMIN_TOKEN_MIN_LENGTH_32": "generate_release_secrets.bat를 실행해서 운영 로그 관리자 토큰 빈 값을 채우기",
     "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file": "Google Play 서비스 계정 JSON 파일을 서버에 저장하고 경로 연결하기",
     "GOOGLE_PLAY_RTDN_SHARED_TOKEN": "generate_release_secrets.bat를 실행해서 Google Play 결제 알림용 공유 토큰 빈 값을 채우기",
+    "ALPHAMATE_PRIVACY_POLICY_URL_PLACEHOLDER": "공개 개인정보처리방침 HTTPS 주소로 바꾸기",
+    "ADMOB_REWARDED_AD_UNIT_ID_PLACEHOLDER": "AdMob 운영 보상형 광고 단위 ID로 바꾸기",
     "KAKAO_CLIENT_ID": "카카오 개발자 콘솔에서 REST API Key를 확인해 서버 설정에 넣기",
     "KAKAO_CLIENT_SECRET": "카카오 Client Secret 사용 여부를 정하고 서버 설정에 넣기",
     "NAVER_CLIENT_ID": "네이버 개발자 센터에서 Client ID를 확인해 서버 설정에 넣기",
@@ -84,6 +86,7 @@ OWNER_NEXT_ACTION_LINKS = {
     "NAVER_CLIENT_ID": "https://developers.naver.com/apps/",
     "NAVER_CLIENT_SECRET": "https://developers.naver.com/apps/",
     "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file": "https://console.cloud.google.com/iam-admin/serviceaccounts",
+    "ADMOB_REWARDED_AD_UNIT_ID_PLACEHOLDER": "https://apps.admob.com/",
 }
 
 OWNER_REQUIRED_INPUTS = {
@@ -93,6 +96,8 @@ OWNER_REQUIRED_INPUTS = {
     "NAVER_CLIENT_ID": "네이버 Client ID 값",
     "NAVER_CLIENT_SECRET": "네이버 Client Secret 값",
     "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file": "Google Play 서비스 계정 JSON 파일",
+    "ALPHAMATE_PRIVACY_POLICY_URL_PLACEHOLDER": "개인정보처리방침 공개 HTTPS 주소",
+    "ADMOB_REWARDED_AD_UNIT_ID_PLACEHOLDER": "AdMob 보상형 광고 단위 ID",
 }
 
 

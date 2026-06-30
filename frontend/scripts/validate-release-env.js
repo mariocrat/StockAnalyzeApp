@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 const GOOGLE_ANDROID_TEST_REWARDED_AD_ID = 'ca-app-pub-3940256099942544/5224354917';
 const GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID = 'ca-app-pub-3940256099942544/1033173712';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
+const PLACEHOLDER_HOST_PARTS = ['example.com', 'your-api', 'your-app', 'your-domain', 'your-site'];
+const PLACEHOLDER_AD_UNIT_PATTERN = /^ca-app-pub-0+\/[01]+$/;
 
 export function parseEnvFile(text) {
   return String(text || '')
@@ -52,11 +54,47 @@ function validateApiBase(value, errors) {
   if (LOCAL_HOSTS.has(url.hostname) || url.hostname.startsWith('127.')) {
     errors.push('VITE_API_BASE must not point to localhost or a local IP for release builds.');
   }
+  if (isPlaceholderUrl(value)) {
+    errors.push('VITE_API_BASE must not use a placeholder URL for release builds.');
+  }
+}
+
+function isPlaceholderUrl(value) {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return PLACEHOLDER_HOST_PARTS.some((part) => url.hostname.includes(part));
+  } catch {
+    return false;
+  }
+}
+
+function validateUrlPlaceholder(env, key, errors) {
+  const value = envValue(env, key);
+  if (value && isPlaceholderUrl(value)) {
+    errors.push(`${key} must not use a placeholder URL for release builds.`);
+  }
+}
+
+function validateAdUnitId(value, key, googleTestId, errors) {
+  if (!value) {
+    errors.push(`${key} must be set for release builds.`);
+  } else if (value === googleTestId) {
+    errors.push(`${key} must not use Google test ad unit for release builds.`);
+  } else if (PLACEHOLDER_AD_UNIT_PATTERN.test(value)) {
+    errors.push(`${key} must not use a placeholder ad unit ID for release builds.`);
+  }
 }
 
 function requireSetting(env, key, errors) {
   if (!envValue(env, key)) {
     errors.push(`${key} must be set for signed Android release builds.`);
+  }
+}
+
+function requireReleaseSetting(env, key, errors) {
+  if (!envValue(env, key)) {
+    errors.push(`${key} must be set for release builds.`);
   }
 }
 
@@ -99,16 +137,19 @@ export function validateReleaseEnv(env) {
     errors.push('VITE_ENABLE_DEV_TOOLS must be false for release builds.');
   }
   validateApiBase(apiBase, errors);
-  if (!rewardedAdUnitId) {
-    errors.push('VITE_ADMOB_REWARDED_AD_UNIT_ID must be set for release builds.');
-  } else if (rewardedAdUnitId === GOOGLE_ANDROID_TEST_REWARDED_AD_ID) {
-    errors.push('VITE_ADMOB_REWARDED_AD_UNIT_ID must not use Google test ad unit for release builds.');
-  }
-  if (!reviewHistoryInterstitialAdUnitId) {
-    errors.push('VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID must be set for release builds.');
-  } else if (reviewHistoryInterstitialAdUnitId === GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID) {
-    errors.push('VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID must not use Google test ad unit for release builds.');
-  }
+  requireReleaseSetting(env, 'VITE_KAKAO_REST_API_KEY', errors);
+  requireReleaseSetting(env, 'VITE_KAKAO_REDIRECT_URI', errors);
+  requireReleaseSetting(env, 'VITE_NAVER_CLIENT_ID', errors);
+  requireReleaseSetting(env, 'VITE_NAVER_REDIRECT_URI', errors);
+  validateUrlPlaceholder(env, 'VITE_KAKAO_REDIRECT_URI', errors);
+  validateUrlPlaceholder(env, 'VITE_NAVER_REDIRECT_URI', errors);
+  validateAdUnitId(rewardedAdUnitId, 'VITE_ADMOB_REWARDED_AD_UNIT_ID', GOOGLE_ANDROID_TEST_REWARDED_AD_ID, errors);
+  validateAdUnitId(
+    reviewHistoryInterstitialAdUnitId,
+    'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID',
+    GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID,
+    errors,
+  );
   if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$/.test(packageName)) {
     errors.push('VITE_GOOGLE_PLAY_PACKAGE_NAME must be a valid Android package name.');
   }
@@ -153,6 +194,10 @@ function ownerFrontendNextAction(error) {
     ['VITE_API_BASE', 'API 서버 주소를 운영 HTTPS 주소로 바꾸기'],
     ['VITE_ADMOB_REWARDED_AD_UNIT_ID', 'AdMob 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
     ['VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID', '복기 보관함 전면 광고 단위를 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
+    ['VITE_KAKAO_REST_API_KEY', '카카오 REST API Key를 앱 공개 설정에 넣기', 'https://developers.kakao.com/console/app'],
+    ['VITE_KAKAO_REDIRECT_URI', '카카오 Redirect URI를 실제 운영 주소로 바꾸기', 'https://developers.kakao.com/console/app'],
+    ['VITE_NAVER_CLIENT_ID', '네이버 Client ID를 앱 공개 설정에 넣기', 'https://developers.naver.com/apps/'],
+    ['VITE_NAVER_REDIRECT_URI', '네이버 Redirect URI를 실제 운영 주소로 바꾸기', 'https://developers.naver.com/apps/'],
     ['VITE_GOOGLE_PLAY_PACKAGE_NAME', 'Google Play 패키지명을 Android 앱 설정과 맞추기', 'https://play.google.com/console'],
     ['ALPHAMATE_ANDROID_VERSION_CODE', 'Android 버전 코드를 이전 업로드보다 크게 올리기'],
     ['ALPHAMATE_ANDROID_VERSION_NAME', 'Android 버전 이름을 설정하기'],
@@ -177,6 +222,18 @@ function ownerFrontendRequiredInputs(errors) {
   if (errors.some((error) => error.includes('VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID'))) {
     inputs.push('AdMob 복기 보관함 전면 광고 단위 ID');
   }
+  if (errors.some((error) => error.includes('VITE_KAKAO_REST_API_KEY'))) {
+    inputs.push('카카오 REST API Key 값');
+  }
+  if (errors.some((error) => error.includes('VITE_KAKAO_REDIRECT_URI'))) {
+    inputs.push('카카오 Redirect URI 운영 주소');
+  }
+  if (errors.some((error) => error.includes('VITE_NAVER_CLIENT_ID'))) {
+    inputs.push('네이버 Client ID 값');
+  }
+  if (errors.some((error) => error.includes('VITE_NAVER_REDIRECT_URI'))) {
+    inputs.push('네이버 Redirect URI 운영 주소');
+  }
   if (errors.some((error) => error.includes('VITE_GOOGLE_PLAY_PACKAGE_NAME'))) {
     inputs.push('Google Play 패키지명');
   }
@@ -190,6 +247,10 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
   const appNameReady = !hasError(result, 'VITE_APP_NAME') && appName !== '미설정';
   const devToolsReady = !hasError(result, 'VITE_ENABLE_DEV_TOOLS');
   const apiReady = !hasError(result, 'VITE_API_BASE');
+  const oauthReady = !hasError(result, 'VITE_KAKAO_REST_API_KEY')
+    && !hasError(result, 'VITE_KAKAO_REDIRECT_URI')
+    && !hasError(result, 'VITE_NAVER_CLIENT_ID')
+    && !hasError(result, 'VITE_NAVER_REDIRECT_URI');
   const admobReady = !hasError(result, 'VITE_ADMOB_REWARDED_AD_UNIT_ID')
     && !hasError(result, 'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID');
   const packageReady = !hasError(result, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
@@ -204,6 +265,7 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
     appNameReady,
     devToolsReady,
     apiReady,
+    oauthReady,
     admobReady,
     packageReady,
     signingReady,
@@ -226,6 +288,7 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
     lineForSetting('앱 이름', appNameReady, appName),
     lineForSetting('개발 도구 비활성화', devToolsReady),
     lineForSetting('API 서버 주소', apiReady),
+    lineForSetting('카카오/네이버 로그인 공개 설정', oauthReady),
     lineForSetting('AdMob 광고 단위', admobReady),
     lineForSetting('Google Play 패키지명', packageReady, packageName),
     lineForSetting('Android 서명 키', signingReady),

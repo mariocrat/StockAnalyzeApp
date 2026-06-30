@@ -52,6 +52,7 @@ GOOGLE_PLAY_SERVICE_ACCOUNT_REQUIRED_FIELDS = {
 RTDN_SHARED_TOKEN_MIN_LENGTH = 32
 ADMOB_SSV_FIELD_MAX_CHARS = 120
 ADMOB_SSV_CUSTOM_DATA_MAX_CHARS = 500
+ADMOB_PLACEHOLDER_AD_UNIT = "ca-app-pub-0000000000000000/0000000000"
 GOOGLE_PLAY_FIELD_MAX_CHARS = 120
 
 
@@ -350,12 +351,18 @@ def _ad_policy() -> dict:
 
 def _admob_status() -> dict:
     rewarded_ad_unit = _env_value("ADMOB_REWARDED_AD_UNIT_ID")
+    is_placeholder = rewarded_ad_unit == ADMOB_PLACEHOLDER_AD_UNIT
+    missing = []
+    if not rewarded_ad_unit:
+        missing.append("ADMOB_REWARDED_AD_UNIT_ID")
+    elif is_placeholder:
+        missing.append("ADMOB_REWARDED_AD_UNIT_ID_PLACEHOLDER")
     return {
-        "ready": bool(rewarded_ad_unit),
-        "rewarded_ad_unit_configured": bool(rewarded_ad_unit),
+        "ready": bool(rewarded_ad_unit) and not is_placeholder,
+        "rewarded_ad_unit_configured": bool(rewarded_ad_unit) and not is_placeholder,
         "ssv_callback_path": "/api/journal/admob-ssv",
         "ssv_key_url": _admob_key_url(),
-        "missing_server_settings": [] if rewarded_ad_unit else ["ADMOB_REWARDED_AD_UNIT_ID"],
+        "missing_server_settings": missing,
     }
 
 

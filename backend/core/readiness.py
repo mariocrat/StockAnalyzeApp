@@ -12,6 +12,7 @@ REQUIRED_DATA_STORAGE_SETTINGS = [
 PRIVACY_POLICY_URL_SETTING = "ALPHAMATE_PRIVACY_POLICY_URL"
 ADMIN_TOKEN_SETTING = "ALPHAMATE_ADMIN_TOKEN"
 ADMIN_TOKEN_MIN_LENGTH = 32
+PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
 
 
 def _env_value(name: str) -> str:
@@ -55,10 +56,15 @@ def _data_storage_status() -> dict:
 def _privacy_policy_status() -> dict:
     url = _env_value(PRIVACY_POLICY_URL_SETTING).strip()
     valid_url = url.startswith("https://")
-    missing = [] if valid_url else [PRIVACY_POLICY_URL_SETTING]
+    placeholder = any(part in url for part in PLACEHOLDER_URL_PARTS)
+    missing = []
+    if not valid_url:
+        missing.append(PRIVACY_POLICY_URL_SETTING)
+    elif placeholder:
+        missing.append(f"{PRIVACY_POLICY_URL_SETTING}_PLACEHOLDER")
     return {
-        "ready": valid_url,
-        "url": url if valid_url else "",
+        "ready": valid_url and not placeholder,
+        "url": url if valid_url and not placeholder else "",
         "missing_server_settings": missing,
         "required_server_settings": [PRIVACY_POLICY_URL_SETTING],
         "note": "Google Play release should point to a public HTTPS privacy policy URL.",
