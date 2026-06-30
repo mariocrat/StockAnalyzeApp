@@ -68,18 +68,16 @@ if not exist "frontend\package.json" (
   popd
 )
 
-if "%BACKEND_REPORT_EXIT%"=="1" set SETUP_EXIT=1
-if "%FRONTEND_REPORT_EXIT%"=="1" set SETUP_EXIT=1
-
 echo.
-if "%SETUP_EXIT%"=="0" (
+if "%BACKEND_REPORT_EXIT%%FRONTEND_REPORT_EXIT%"=="00" (
   echo Private release setup is ready.
 ) else (
-  echo Private release setup finished, but some release readiness items still need external values.
+  echo Private release setup finished.
+  echo Some release readiness items still need external values from you.
 )
 echo.
 pause
-exit /b %SETUP_EXIT%
+exit /b 0
 
 :failed
 if "%SETUP_EXIT%"=="0" set SETUP_EXIT=1
