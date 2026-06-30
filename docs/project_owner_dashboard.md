@@ -167,6 +167,14 @@ verify_android_debug.bat
 
 `verify_android_debug.bat`는 일반 검증보다 시간이 오래 걸릴 수 있습니다.
 
+Android 출시용 AAB 빌드까지 확인:
+
+```bat
+verify_android_release.bat
+```
+
+`verify_android_release.bat`는 `frontend/.env.release`와 Android 서명 키가 준비된 뒤 실행합니다.
+
 ## 지금 이해하면 되는 핵심
 
 최근에 만든 로그 기능들은 앱의 겉모습을 바꾸는 기능이 아닙니다. 대신 출시 후 사용자가 "결제가 안 됐어요", "AI 복기가 안 나와요", "광고 봤는데 복기가 안 돼요"라고 말했을 때 원인을 찾기 위한 장치입니다.

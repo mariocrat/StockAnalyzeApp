@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Added `verify_android_release.bat` and `scripts/verify_android_release.ps1` so a signed Play Store AAB can be built from `frontend/.env.release` after release signing is prepared.
 - Added `generate_android_upload_key.bat` and `scripts/generate_android_upload_key.py` so Android upload signing placeholders can be filled locally and a private upload keystore can be created without committing it.
 - Updated the owner release readiness report so locally generatable release tokens point to `generate_release_secrets.bat` instead of being listed as values the owner must provide later.
 - Added `generate_release_secrets.bat` and `scripts/generate_release_secrets.py` so empty owner-only release token values can be filled locally without writing them to tracked files.
