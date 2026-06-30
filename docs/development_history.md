@@ -557,3 +557,10 @@
 - 운영 로그의 `level`, `event_type`, `method`, `path`, `user_id`를 최대 250자로 제한하고 `message`는 최대 1000자로 명시적으로 제한했다.
 - details 필드뿐 아니라 상단 필드로도 과도한 문자열이 저장되어 DB가 커지는 것을 방지한다.
 - `tests/test_event_log.py`에 운영 로그 상단 필드가 제한 길이를 넘지 않는 회귀 테스트를 추가했다.
+
+### 서버 배포 예시값 차단 강화
+
+- 카카오/네이버 로그인 서버 설정에서 `your-api.example.com` 같은 예시 Redirect URI가 남아 있으면 release readiness가 준비 완료로 보지 않도록 했다.
+- Google Play RTDN OIDC audience/email도 배포 환경에서 예시 웹훅 주소나 예시 Pub/Sub 서비스 계정 이메일이면 Google Play 결제 readiness를 실패로 표시한다.
+- 사장님용 출시 준비 보고서에 해당 예시값을 실제 운영 주소와 실제 Pub/Sub push 서비스 계정으로 바꾸라는 안내를 추가했다.
+- `tests/test_oauth_login.py`, `tests/test_billing_readiness.py`, `tests/test_backend_release_check.py`에 회귀 테스트를 추가했다.

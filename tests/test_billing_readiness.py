@@ -49,8 +49,10 @@ class BillingReadinessTest(unittest.TestCase):
             OPENAI_API_KEY="sk-secret-openai",
             KAKAO_CLIENT_ID="kakao-client",
             KAKAO_CLIENT_SECRET="kakao-secret",
+            KAKAO_REDIRECT_URI=None,
             NAVER_CLIENT_ID="naver-client",
             NAVER_CLIENT_SECRET="naver-secret",
+            NAVER_REDIRECT_URI=None,
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
@@ -61,6 +63,8 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
             ALPHAMATE_EVENT_LOG_DB_PATH="D:/secure/alphamate/events.sqlite3",
             ALPHAMATE_ADMIN_TOKEN="admin-token-with-at-least-32-characters",
+            GOOGLE_PLAY_RTDN_OIDC_AUDIENCE=None,
+            GOOGLE_PLAY_RTDN_OIDC_EMAIL=None,
         ):
             from backend.core import readiness
 
@@ -270,6 +274,36 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertFalse(catalog["google_play"]["ready"])
             self.assertIn(
                 "GOOGLE_PLAY_RTDN_SHARED_TOKEN_MIN_LENGTH_32",
+                catalog["google_play"]["missing_server_settings"],
+            )
+
+    def test_production_readiness_rejects_placeholder_rtdn_oidc_settings(self):
+        with patched_env(
+            ALPHAMATE_ENV="production",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+            GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
+            GOOGLE_PLAY_BASIC_REVIEW_100_ID="alphamate.basic.100",
+            GOOGLE_PLAY_ADVANCED_REVIEW_5_ID="alphamate.advanced.5",
+            GOOGLE_PLAY_ADVANCED_REVIEW_10_ID="alphamate.advanced.10",
+            GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
+            GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
+            GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-token-with-at-least-32-characters",
+            GOOGLE_PLAY_RTDN_OIDC_AUDIENCE="https://your-api.example.com/api/journal/google-play-rtdn",
+            GOOGLE_PLAY_RTDN_OIDC_EMAIL="pubsub-push@your-project.iam.gserviceaccount.com",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            catalog = access_control.get_product_catalog()
+
+            self.assertFalse(catalog["google_play"]["ready"])
+            self.assertIn(
+                "GOOGLE_PLAY_RTDN_OIDC_AUDIENCE_PLACEHOLDER",
+                catalog["google_play"]["missing_server_settings"],
+            )
+            self.assertIn(
+                "GOOGLE_PLAY_RTDN_OIDC_EMAIL_PLACEHOLDER",
                 catalog["google_play"]["missing_server_settings"],
             )
 

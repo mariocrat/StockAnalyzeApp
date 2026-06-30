@@ -13,6 +13,7 @@ NAVER_TOKEN_URL = "https://nid.naver.com/oauth2.0/token"
 NAVER_PROFILE_URL = "https://openapi.naver.com/v1/nid/me"
 OAUTH_TIMEOUT_DEFAULT_SECONDS = 8
 OAUTH_TIMEOUT_MAX_SECONDS = 20
+PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
 
 
 def _env_int(name: str, default: int, minimum: int = 1, maximum: int | None = None) -> int:
@@ -28,6 +29,11 @@ def _env_int(name: str, default: int, minimum: int = 1, maximum: int | None = No
 
 def _oauth_timeout_seconds() -> int:
     return _env_int("ALPHAMATE_OAUTH_TIMEOUT_SECONDS", OAUTH_TIMEOUT_DEFAULT_SECONDS, 2, OAUTH_TIMEOUT_MAX_SECONDS)
+
+
+def _is_placeholder_url(value: str) -> bool:
+    text = str(value or "").strip().lower()
+    return bool(text) and any(part in text for part in PLACEHOLDER_URL_PARTS)
 
 
 def _exchange_json(url: str, payload: dict, headers: dict | None = None) -> dict:
@@ -129,8 +135,11 @@ def get_oauth_config_status() -> dict:
     kakao_required = ["KAKAO_CLIENT_ID"]
     naver_required = ["NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"]
 
-    def provider_status(required: list[str], optional: list[str]) -> dict:
+    def provider_status(required: list[str], optional: list[str], placeholder_checks: dict[str, str]) -> dict:
         missing = [name for name in required if not _env_value(name)]
+        for setting_name, placeholder_key in placeholder_checks.items():
+            if _is_placeholder_url(_env_value(setting_name)):
+                missing.append(placeholder_key)
         return {
             "server_ready": not missing,
             "missing_server_settings": missing,
@@ -140,8 +149,16 @@ def get_oauth_config_status() -> dict:
 
     return {
         "providers": {
-            "kakao": provider_status(kakao_required, ["KAKAO_CLIENT_SECRET", "KAKAO_REDIRECT_URI"]),
-            "naver": provider_status(naver_required, ["NAVER_REDIRECT_URI"]),
+            "kakao": provider_status(
+                kakao_required,
+                ["KAKAO_CLIENT_SECRET", "KAKAO_REDIRECT_URI"],
+                {"KAKAO_REDIRECT_URI": "KAKAO_REDIRECT_URI_PLACEHOLDER"},
+            ),
+            "naver": provider_status(
+                naver_required,
+                ["NAVER_REDIRECT_URI"],
+                {"NAVER_REDIRECT_URI": "NAVER_REDIRECT_URI_PLACEHOLDER"},
+            ),
         }
     }
 

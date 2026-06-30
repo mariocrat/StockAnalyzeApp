@@ -189,7 +189,11 @@ class BackendReleaseCheckTest(unittest.TestCase):
                     },
                     "google_play": {
                         "ready": False,
-                        "missing_server_settings": ["GOOGLE_PLAY_RTDN_SHARED_TOKEN"],
+                        "missing_server_settings": [
+                            "GOOGLE_PLAY_RTDN_SHARED_TOKEN",
+                            "GOOGLE_PLAY_RTDN_OIDC_AUDIENCE_PLACEHOLDER",
+                            "GOOGLE_PLAY_RTDN_OIDC_EMAIL_PLACEHOLDER",
+                        ],
                         "required_server_settings": ["GOOGLE_PLAY_RTDN_SHARED_TOKEN"],
                     },
                     "admob": {
@@ -212,6 +216,8 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("공개 개인정보처리방침 HTTPS 주소로 바꾸기", report)
         self.assertIn("AdMob 운영 보상형 광고 단위 ID로 바꾸기", report)
         self.assertIn("generate_release_secrets.bat를 실행해서 Google Play 결제 알림용 공유 토큰 빈 값을 채우기", report)
+        self.assertIn("Google Play RTDN OIDC audience를 운영 웹훅 주소로 바꾸기", report)
+        self.assertIn("Google Play RTDN OIDC email을 실제 Pub/Sub push 서비스 계정으로 바꾸기", report)
         self.assertIn("다음에 할 일", report)
         self.assertIn("내가 나중에 받아야 하는 정보/파일", report)
         self.assertIn("OpenAI API Key 값", report)
@@ -266,8 +272,10 @@ class BackendReleaseCheckTest(unittest.TestCase):
             OPENAI_API_KEY="sk-test-secret",
             KAKAO_CLIENT_ID="kakao-client",
             KAKAO_CLIENT_SECRET="kakao-secret",
+            KAKAO_REDIRECT_URI=None,
             NAVER_CLIENT_ID="naver-client",
             NAVER_CLIENT_SECRET="naver-secret",
+            NAVER_REDIRECT_URI=None,
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
@@ -277,6 +285,8 @@ class BackendReleaseCheckTest(unittest.TestCase):
             GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-token-with-at-least-32-characters",
+            GOOGLE_PLAY_RTDN_OIDC_AUDIENCE=None,
+            GOOGLE_PLAY_RTDN_OIDC_EMAIL=None,
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
             ALPHAMATE_PRIVACY_POLICY_URL="https://alphamate.example/privacy",
             ALPHAMATE_ACCOUNT_DB_PATH="D:/secure/alphamate/accounts.sqlite3",
@@ -335,8 +345,10 @@ class BackendReleaseCheckTest(unittest.TestCase):
                 ALPHAMATE_OPENAI_API_KEY=None,
                 KAKAO_CLIENT_ID=None,
                 KAKAO_CLIENT_SECRET=None,
+                KAKAO_REDIRECT_URI=None,
                 NAVER_CLIENT_ID=None,
                 NAVER_CLIENT_SECRET=None,
+                NAVER_REDIRECT_URI=None,
                 GOOGLE_PLAY_PACKAGE_NAME=None,
                 GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=None,
                 GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
@@ -346,6 +358,8 @@ class BackendReleaseCheckTest(unittest.TestCase):
                 GOOGLE_PLAY_ADVANCED_REVIEW_10_ID=None,
                 GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID=None,
                 GOOGLE_PLAY_PRO_MONTHLY_ID=None,
+                GOOGLE_PLAY_RTDN_OIDC_AUDIENCE=None,
+                GOOGLE_PLAY_RTDN_OIDC_EMAIL=None,
                 ADMOB_REWARDED_AD_UNIT_ID=None,
                 ALPHAMATE_PRIVACY_POLICY_URL=None,
                 ALPHAMATE_ACCOUNT_DB_PATH=None,

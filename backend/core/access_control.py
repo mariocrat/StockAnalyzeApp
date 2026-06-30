@@ -54,6 +54,8 @@ ADMOB_SSV_FIELD_MAX_CHARS = 120
 ADMOB_SSV_CUSTOM_DATA_MAX_CHARS = 500
 ADMOB_PLACEHOLDER_AD_UNIT = "ca-app-pub-0000000000000000/0000000000"
 GOOGLE_PLAY_FIELD_MAX_CHARS = 120
+PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
+PLACEHOLDER_EMAIL_PARTS = ("your-project", "example.com")
 
 
 @dataclass
@@ -98,6 +100,16 @@ DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 def _env_value(name: str) -> str:
     return env_value(name)
+
+
+def _is_placeholder_url(value: str) -> bool:
+    text = str(value or "").strip().lower()
+    return bool(text) and any(part in text for part in PLACEHOLDER_URL_PARTS)
+
+
+def _is_placeholder_email(value: str) -> bool:
+    text = str(value or "").strip().lower()
+    return bool(text) and any(part in text for part in PLACEHOLDER_EMAIL_PARTS)
 
 
 def _short_text(value, *, limit: int) -> str:
@@ -394,14 +406,22 @@ def _google_play_product_id_status() -> dict:
 
 def _google_play_rtdn_status() -> dict:
     token = _env_value("GOOGLE_PLAY_RTDN_SHARED_TOKEN")
+    oidc_audience = _env_value("GOOGLE_PLAY_RTDN_OIDC_AUDIENCE")
+    oidc_email = _env_value("GOOGLE_PLAY_RTDN_OIDC_EMAIL")
     missing = []
     if _is_production():
         if not token:
             missing.append("GOOGLE_PLAY_RTDN_SHARED_TOKEN")
         elif len(token) < RTDN_SHARED_TOKEN_MIN_LENGTH:
             missing.append(f"GOOGLE_PLAY_RTDN_SHARED_TOKEN_MIN_LENGTH_{RTDN_SHARED_TOKEN_MIN_LENGTH}")
+        if _is_placeholder_url(oidc_audience):
+            missing.append("GOOGLE_PLAY_RTDN_OIDC_AUDIENCE_PLACEHOLDER")
+        if _is_placeholder_email(oidc_email):
+            missing.append("GOOGLE_PLAY_RTDN_OIDC_EMAIL_PLACEHOLDER")
     return {
         "shared_token_configured": bool(token),
+        "oidc_audience_configured": bool(oidc_audience) and not _is_placeholder_url(oidc_audience),
+        "oidc_email_configured": bool(oidc_email) and not _is_placeholder_email(oidc_email),
         "missing_server_settings": missing,
     }
 
