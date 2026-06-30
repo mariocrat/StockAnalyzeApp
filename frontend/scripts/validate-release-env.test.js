@@ -69,6 +69,23 @@ test('requires Android signing settings for release builds', () => {
   assert.match(result.errors.join('\n'), /ALPHAMATE_ANDROID_KEY_PASSWORD/);
 });
 
+test('owner frontend release report points local signing setup to the helper batch', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    ALPHAMATE_ANDROID_KEYSTORE_FILE: '',
+    ALPHAMATE_ANDROID_KEYSTORE_PASSWORD: '',
+    ALPHAMATE_ANDROID_KEY_ALIAS: '',
+    ALPHAMATE_ANDROID_KEY_PASSWORD: '',
+  }));
+
+  const report = formatOwnerFrontendReleaseReport(result, {
+    VITE_APP_NAME: 'AlphaMate',
+    VITE_GOOGLE_PLAY_PACKAGE_NAME: 'com.mariocrat.stockanalyze',
+  });
+
+  assert.match(report, /generate_android_upload_key\.bat를 실행해서 Android 서명 키와 비밀번호 빈 값을 채우기/);
+  assert.doesNotMatch(report, /Android 서명 키 파일\n/);
+});
+
 test('requires valid Android version settings for release builds', () => {
   const result = validateReleaseEnv(validReleaseEnv({
     ALPHAMATE_ANDROID_VERSION_CODE: '0',

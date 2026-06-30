@@ -147,6 +147,12 @@ prepare_release_env_files.bat
 generate_release_secrets.bat
 ```
 
+Android 업로드 서명 키와 비밀번호 빈 값 채우기:
+
+```bat
+generate_android_upload_key.bat
+```
+
 앱 실행:
 
 ```bat

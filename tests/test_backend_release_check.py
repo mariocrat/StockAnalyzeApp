@@ -145,6 +145,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             ".env.release.local",
             ".env.production",
             ".env.production.local",
+            "release-private/",
         ]
 
         for name in ignored_names:

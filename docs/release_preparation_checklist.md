@@ -257,6 +257,12 @@ cd frontend
 npm run mobile:release:check
 ```
 
+Android 업로드 서명 키를 처음 만들거나 `frontend/.env.release`의 빈 서명 비밀번호를 채우려면 아래 파일을 실행합니다. 이미 값이나 키 파일이 있으면 덮어쓰지 않습니다.
+
+```bat
+generate_android_upload_key.bat
+```
+
 ## 8. 운영 로그와 고객 문의 대응
 
 - [ ] `ALPHAMATE_ADMIN_TOKEN`을 32자 이상의 긴 랜덤 값으로 설정한다.
@@ -344,10 +350,11 @@ verify_android_debug.bat
 
 1. `prepare_release_env_files.bat`를 실행해서 템플릿을 실제 설정 파일로 복사한다.
 2. `generate_release_secrets.bat`를 실행해서 서버용 `.env.release`의 빈 랜덤 토큰 값을 채운다.
-3. 복사한 파일에만 OpenAI Key, 카카오/네이버 Secret, Google Play 서비스 계정, AdMob 광고 단위, Android 서명 정보를 채운다.
-4. 채운 파일은 GitHub에 올리지 않는다.
-5. `release_readiness_report.bat`를 실행해서 빠진 설정이 줄어드는지 확인한다.
-6. 루트의 `.env.release`와 `frontend/.env.release`가 있으면 보고서가 자동으로 그 파일을 우선 읽는다.
+3. `generate_android_upload_key.bat`를 실행해서 Android 업로드 서명 키와 `frontend/.env.release`의 빈 서명 값을 채운다.
+4. 복사한 파일에만 OpenAI Key, 카카오/네이버 Secret, Google Play 서비스 계정, AdMob 광고 단위처럼 외부에서 받아야 하는 값을 채운다.
+5. 채운 파일은 GitHub에 올리지 않는다.
+6. `release_readiness_report.bat`를 실행해서 빠진 설정이 줄어드는지 확인한다.
+7. 루트의 `.env.release`와 `frontend/.env.release`가 있으면 보고서가 자동으로 그 파일을 우선 읽는다.
 
 주의:
 

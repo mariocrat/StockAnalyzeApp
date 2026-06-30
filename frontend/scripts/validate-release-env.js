@@ -140,6 +140,12 @@ function lineForSetting(label, ready, detail = '') {
 }
 
 function ownerFrontendNextAction(error) {
+  if (error.includes('ALPHAMATE_ANDROID_KEYSTORE_FILE')
+    || error.includes('ALPHAMATE_ANDROID_KEYSTORE_PASSWORD')
+    || error.includes('ALPHAMATE_ANDROID_KEY_ALIAS')
+    || error.includes('ALPHAMATE_ANDROID_KEY_PASSWORD')) {
+    return 'generate_android_upload_key.bat를 실행해서 Android 서명 키와 비밀번호 빈 값을 채우기';
+  }
   const hints = [
     ['VITE_ALPHAMATE_ENV', '운영 모드로 바꾸기'],
     ['VITE_APP_NAME', '앱 이름을 최종 이름으로 설정하기'],
@@ -148,10 +154,6 @@ function ownerFrontendNextAction(error) {
     ['VITE_ADMOB_REWARDED_AD_UNIT_ID', 'AdMob 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
     ['VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID', '복기 보관함 전면 광고 단위를 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
     ['VITE_GOOGLE_PLAY_PACKAGE_NAME', 'Google Play 패키지명을 Android 앱 설정과 맞추기', 'https://play.google.com/console'],
-    ['ALPHAMATE_ANDROID_KEYSTORE_FILE', 'Android 서명 키 파일을 준비하고 경로를 연결하기'],
-    ['ALPHAMATE_ANDROID_KEYSTORE_PASSWORD', 'Android 서명 키 저장소 비밀번호를 설정하기'],
-    ['ALPHAMATE_ANDROID_KEY_ALIAS', 'Android 서명 키 별칭을 설정하기'],
-    ['ALPHAMATE_ANDROID_KEY_PASSWORD', 'Android 서명 키 비밀번호를 설정하기'],
     ['ALPHAMATE_ANDROID_VERSION_CODE', 'Android 버전 코드를 이전 업로드보다 크게 올리기'],
     ['ALPHAMATE_ANDROID_VERSION_NAME', 'Android 버전 이름을 설정하기'],
   ];
@@ -177,9 +179,6 @@ function ownerFrontendRequiredInputs(errors) {
   }
   if (errors.some((error) => error.includes('VITE_GOOGLE_PLAY_PACKAGE_NAME'))) {
     inputs.push('Google Play 패키지명');
-  }
-  if (errors.some((error) => error.includes('ALPHAMATE_ANDROID_KEYSTORE_FILE'))) {
-    inputs.push('Android 서명 키 파일');
   }
   return inputs;
 }

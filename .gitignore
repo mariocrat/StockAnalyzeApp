@@ -55,6 +55,7 @@ backend/.cache/
 # Android signing keys must never be committed
 *.jks
 *.keystore
+release-private/
 
 # Local toolchains downloaded for this workstation only
 .tools/
