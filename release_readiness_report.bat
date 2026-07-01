@@ -6,6 +6,7 @@ set npm_config_update_notifier=false
 set REPORT_EXIT=0
 set BACKEND_REPORT_EXIT=0
 set FRONTEND_REPORT_EXIT=0
+set ALIGNMENT_REPORT_EXIT=0
 
 if exist ".env.release" (
   set ALPHAMATE_ENV_FILE=%cd%\.env.release
@@ -23,13 +24,13 @@ if not exist ".venv\Scripts\python.exe" (
   exit /b 1
 )
 
-echo [1/2] Server release readiness
+echo [1/3] Server release readiness
 echo ----------------------------------------
 ".venv\Scripts\python.exe" backend\scripts\owner_release_report.py
 if errorlevel 1 set BACKEND_REPORT_EXIT=1
 
 echo.
-echo [2/2] Frontend and Android release readiness
+echo [2/3] Frontend and Android release readiness
 echo ----------------------------------------
 if not exist "frontend\package.json" (
   echo Frontend project was not found at %cd%\frontend
@@ -41,8 +42,15 @@ if not exist "frontend\package.json" (
   popd
 )
 
+echo.
+echo [3/3] Server/app release setting alignment
+echo ----------------------------------------
+".venv\Scripts\python.exe" backend\scripts\validate_release_alignment.py
+if errorlevel 1 set ALIGNMENT_REPORT_EXIT=1
+
 if "%BACKEND_REPORT_EXIT%"=="1" set REPORT_EXIT=1
 if "%FRONTEND_REPORT_EXIT%"=="1" set REPORT_EXIT=1
+if "%ALIGNMENT_REPORT_EXIT%"=="1" set REPORT_EXIT=1
 
 echo.
 if "%REPORT_EXIT%"=="0" (

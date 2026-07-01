@@ -578,3 +578,10 @@
 - 중복 상품 ID는 결제 검증과 구매 복구 흐름에서 어떤 상품을 지급해야 하는지 혼선을 만들 수 있어 배포 전에 차단한다.
 - 사장님용 출시 준비 보고서에는 Google Play Console 상품 ID가 서로 겹치지 않게 바꾸라는 안내와 필요한 정보 목록을 표시한다.
 - `tests/test_billing_readiness.py`, `tests/test_backend_release_check.py`에 중복 상품 ID 회귀 테스트를 추가했다.
+
+### 서버/앱 출시 설정 일치 검사
+
+- `release_readiness_report.bat`에 서버 env와 프론트/Android env를 비교하는 3번째 검사를 추가했다.
+- `GOOGLE_PLAY_PACKAGE_NAME`과 `VITE_GOOGLE_PLAY_PACKAGE_NAME`, 카카오/네이버 Redirect URI가 서로 다르면 출시 준비 실패로 표시한다.
+- 교차 검사 보고서는 실제 URL이나 패키지명 값을 출력하지 않고 어떤 설정 이름을 맞춰야 하는지만 보여준다.
+- `tests/test_release_alignment.py`, `tests/test_backend_release_check.py`에 회귀 테스트를 추가했다.
