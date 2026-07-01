@@ -275,6 +275,30 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertIn("product_id_mappings", catalog["google_play"])
             self.assertFalse(catalog["google_play"]["product_id_mappings"]["all_configured"])
 
+    def test_production_readiness_rejects_duplicate_google_play_product_ids(self):
+        with patched_env(
+            ALPHAMATE_ENV="production",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+            GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.duplicate",
+            GOOGLE_PLAY_BASIC_REVIEW_100_ID="alphamate.duplicate",
+            GOOGLE_PLAY_ADVANCED_REVIEW_5_ID="alphamate.advanced.5",
+            GOOGLE_PLAY_ADVANCED_REVIEW_10_ID="alphamate.advanced.10",
+            GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
+            GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
+            GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-token-with-at-least-32-characters",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            catalog = access_control.get_product_catalog()
+
+            self.assertFalse(catalog["google_play"]["ready"])
+            self.assertIn(
+                "GOOGLE_PLAY_PRODUCT_ID_DUPLICATE: alphamate.duplicate",
+                catalog["google_play"]["missing_server_settings"],
+            )
+
     def test_production_readiness_requires_strong_rtdn_shared_token(self):
         with patched_env(
             ALPHAMATE_ENV="production",

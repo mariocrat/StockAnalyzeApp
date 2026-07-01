@@ -571,3 +571,10 @@
 - `your-app.example.com` 같은 예시 주소, `*` 전체 허용, `http://localhost` 같은 로컬 HTTP origin이 남아 있으면 준비 실패로 표시한다.
 - 사장님용 출시 준비 보고서에 운영 웹/앱 API 허용 주소를 실제 배포 주소로 바꾸라는 안내를 추가했다.
 - `tests/test_billing_readiness.py`, `tests/test_backend_release_check.py`에 CORS readiness 회귀 테스트를 추가했다.
+
+### Google Play 상품 ID 중복 배포 검사
+
+- 운영 배포 설정에서 일반 복기권, 심층 복기권, Pro 구독 상품이 같은 Google Play 상품 ID를 공유하면 release readiness가 실패하도록 했다.
+- 중복 상품 ID는 결제 검증과 구매 복구 흐름에서 어떤 상품을 지급해야 하는지 혼선을 만들 수 있어 배포 전에 차단한다.
+- 사장님용 출시 준비 보고서에는 Google Play Console 상품 ID가 서로 겹치지 않게 바꾸라는 안내와 필요한 정보 목록을 표시한다.
+- `tests/test_billing_readiness.py`, `tests/test_backend_release_check.py`에 중복 상품 ID 회귀 테스트를 추가했다.

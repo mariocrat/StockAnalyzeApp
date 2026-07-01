@@ -76,6 +76,7 @@ OWNER_NEXT_ACTION_HINTS = {
     "ALPHAMATE_CORS_ORIGINS_WILDCARD": "운영 웹 CORS 주소에서 전체 허용(*)을 제거하고 필요한 주소만 넣기",
     "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file": "Google Play 서비스 계정 JSON 파일을 서버에 저장하고 경로 연결하기",
     "GOOGLE_PLAY_RTDN_SHARED_TOKEN": "generate_release_secrets.bat를 실행해서 Google Play 결제 알림용 공유 토큰 빈 값을 채우기",
+    "GOOGLE_PLAY_PRODUCT_ID_DUPLICATE": "Google Play Console 상품 ID가 서로 겹치지 않게 바꾸기",
     "GOOGLE_PLAY_RTDN_OIDC_AUDIENCE_PLACEHOLDER": "Google Play RTDN OIDC audience를 운영 웹훅 주소로 바꾸기",
     "GOOGLE_PLAY_RTDN_OIDC_EMAIL_PLACEHOLDER": "Google Play RTDN OIDC email을 실제 Pub/Sub push 서비스 계정으로 바꾸기",
     "ALPHAMATE_PRIVACY_POLICY_URL_PLACEHOLDER": "공개 개인정보처리방침 HTTPS 주소로 바꾸기",
@@ -113,6 +114,7 @@ OWNER_REQUIRED_INPUTS = {
     "ALPHAMATE_CORS_ORIGINS_LOCALHOST": "운영 웹/앱 API 허용 주소",
     "ALPHAMATE_CORS_ORIGINS_WILDCARD": "운영 웹/앱 API 허용 주소",
     "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file": "Google Play 서비스 계정 JSON 파일",
+    "GOOGLE_PLAY_PRODUCT_ID_DUPLICATE": "Google Play Console 상품 ID 목록",
     "GOOGLE_PLAY_RTDN_OIDC_AUDIENCE_PLACEHOLDER": "Google Play RTDN 운영 웹훅 주소",
     "GOOGLE_PLAY_RTDN_OIDC_EMAIL_PLACEHOLDER": "Google Play Pub/Sub push 서비스 계정 이메일",
     "ALPHAMATE_PRIVACY_POLICY_URL_PLACEHOLDER": "개인정보처리방침 공개 HTTPS 주소",
@@ -125,6 +127,8 @@ def _owner_next_action_text(item: str) -> str:
     setting = item
     if ": " in item:
         provider, setting = item.split(": ", 1)
+        if provider == "GOOGLE_PLAY_PRODUCT_ID_DUPLICATE":
+            setting = provider
 
     hint = OWNER_NEXT_ACTION_HINTS.get(setting)
     if not hint:
@@ -145,6 +149,8 @@ def _owner_required_inputs(items: list[str]) -> list[str]:
     inputs = []
     for item in items:
         setting = item.split(": ", 1)[1] if ": " in item else item
+        if item.startswith("GOOGLE_PLAY_PRODUCT_ID_DUPLICATE: "):
+            setting = "GOOGLE_PLAY_PRODUCT_ID_DUPLICATE"
         if setting in OWNER_REQUIRED_INPUTS:
             inputs.append(OWNER_REQUIRED_INPUTS[setting])
     return list(dict.fromkeys(inputs))

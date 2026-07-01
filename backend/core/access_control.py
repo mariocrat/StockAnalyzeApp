@@ -392,14 +392,31 @@ def _google_play_product_id_status() -> dict:
         product_id: bool(_env_value(env_key))
         for product_id, env_key in product_env_keys.items()
     }
+    google_product_ids = {
+        product_id: _env_value(env_key)
+        for product_id, env_key in product_env_keys.items()
+    }
     missing = [
         env_key
         for product_id, env_key in product_env_keys.items()
         if not configured[product_id]
     ]
+    seen = {}
+    duplicates = []
+    for google_product_id in google_product_ids.values():
+        value = str(google_product_id or "").strip()
+        if not value:
+            continue
+        if value in seen and value not in duplicates:
+            duplicates.append(value)
+        seen[value] = True
+    for duplicate in duplicates:
+        missing.append(f"GOOGLE_PLAY_PRODUCT_ID_DUPLICATE: {duplicate}")
     return {
         "all_configured": not missing,
         "configured": configured,
+        "google_product_ids": google_product_ids,
+        "duplicate_google_product_ids": duplicates,
         "missing_server_settings": missing,
     }
 

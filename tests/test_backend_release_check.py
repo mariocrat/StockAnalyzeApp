@@ -196,6 +196,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
                         "ready": False,
                         "missing_server_settings": [
                             "GOOGLE_PLAY_RTDN_SHARED_TOKEN",
+                            "GOOGLE_PLAY_PRODUCT_ID_DUPLICATE: alphamate.duplicate",
                             "GOOGLE_PLAY_RTDN_OIDC_AUDIENCE_PLACEHOLDER",
                             "GOOGLE_PLAY_RTDN_OIDC_EMAIL_PLACEHOLDER",
                         ],
@@ -222,6 +223,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("공개 개인정보처리방침 HTTPS 주소로 바꾸기", report)
         self.assertIn("AdMob 운영 보상형 광고 단위 ID로 바꾸기", report)
         self.assertIn("generate_release_secrets.bat를 실행해서 Google Play 결제 알림용 공유 토큰 빈 값을 채우기", report)
+        self.assertIn("Google Play Console 상품 ID가 서로 겹치지 않게 바꾸기", report)
         self.assertIn("Google Play RTDN OIDC audience를 운영 웹훅 주소로 바꾸기", report)
         self.assertIn("Google Play RTDN OIDC email을 실제 Pub/Sub push 서비스 계정으로 바꾸기", report)
         self.assertIn("다음에 할 일", report)
@@ -229,6 +231,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("OpenAI API Key 값", report)
         self.assertIn("운영 웹/앱 API 허용 주소", report)
         self.assertIn("개인정보처리방침 공개 HTTPS 주소", report)
+        self.assertIn("Google Play Console 상품 ID 목록", report)
         self.assertIn("AdMob 보상형 광고 단위 ID", report)
         self.assertNotIn("Google Play 결제 알림용 공유 토큰 값", report)
         self.assertNotIn("sk-", report)
