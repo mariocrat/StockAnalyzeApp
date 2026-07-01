@@ -592,3 +592,10 @@
 - 운영 모드에서 Redirect URI가 비어 있거나 예시 주소로 남아 있으면 로그인 처리를 503으로 차단한다.
 - 클라이언트가 서버 설정과 다른 Redirect URI를 보내면 400으로 거절해 배포 후 로그인 설정 꼬임과 임의 redirect URI 사용을 줄였다.
 - `tests/test_oauth_login.py`에 운영 Redirect URI 누락/불일치 회귀 테스트를 추가했다.
+
+### 운영 데이터 저장 경로 검사 강화
+
+- `ALPHAMATE_ENV=production`에서는 계정, 매매, 이용권, 복기 보관함, 운영 로그 DB 경로가 절대 경로인지 검사한다.
+- `backend/data/*.sqlite3` 같은 로컬 개발용 경로가 운영 설정에 남아 있으면 출시 준비 실패로 표시한다.
+- 사장님용 출시 준비 보고서에는 실제 DB 경로 값을 출력하지 않고, 백업 가능한 서버 절대 경로로 바꾸라는 안내만 보여준다.
+- `tests/test_billing_readiness.py`, `tests/test_backend_release_check.py`에 운영 DB 경로 회귀 테스트를 추가했다.

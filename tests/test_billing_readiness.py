@@ -137,6 +137,35 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertIn("KAKAO_CLIENT_ID", status["sections"]["login"]["providers"]["kakao"]["missing_server_settings"])
             self.assertIn("NAVER_CLIENT_SECRET", status["sections"]["login"]["providers"]["naver"]["missing_server_settings"])
 
+    def test_production_readiness_rejects_local_or_relative_data_paths(self):
+        with patched_env(
+            ALPHAMATE_ENV="production",
+            ALPHAMATE_ACCOUNT_DB_PATH="backend/data/accounts.sqlite3",
+            ALPHAMATE_JOURNAL_DB_PATH="trades.sqlite3",
+            ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
+            ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
+            ALPHAMATE_EVENT_LOG_DB_PATH="backend/data/event_log.sqlite3",
+        ):
+            from backend.core import readiness
+
+            readiness = importlib.reload(readiness)
+            status = readiness.get_app_readiness()
+
+            self.assertFalse(status["sections"]["data_storage"]["ready"])
+            self.assertIn(
+                "ALPHAMATE_ACCOUNT_DB_PATH_LOCAL_DEV_PATH",
+                status["sections"]["data_storage"]["missing_server_settings"],
+            )
+            self.assertIn(
+                "ALPHAMATE_JOURNAL_DB_PATH_ABSOLUTE_PATH",
+                status["sections"]["data_storage"]["missing_server_settings"],
+            )
+            self.assertIn(
+                "ALPHAMATE_EVENT_LOG_DB_PATH_LOCAL_DEV_PATH",
+                status["sections"]["data_storage"]["missing_server_settings"],
+            )
+            self.assertNotIn("backend/data/accounts.sqlite3", str(status))
+
     def test_app_readiness_rejects_placeholder_release_values(self):
         with patched_env(
             ADMOB_REWARDED_AD_UNIT_ID="ca-app-pub-0000000000000000/0000000000",

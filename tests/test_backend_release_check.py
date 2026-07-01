@@ -239,6 +239,31 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertNotIn("sk-", report)
         self.assertNotIn("google-secret-json", report)
 
+    def test_owner_release_report_explains_unsafe_data_storage_paths(self):
+        from backend.core.release_check import format_owner_release_readiness_report
+
+        report = format_owner_release_readiness_report({
+            "ok": False,
+            "errors": [],
+            "readiness": {
+                "overall_ready": False,
+                "sections": {
+                    "data_storage": {
+                        "ready": False,
+                        "missing_server_settings": [
+                            "ALPHAMATE_ACCOUNT_DB_PATH_LOCAL_DEV_PATH",
+                            "ALPHAMATE_JOURNAL_DB_PATH_ABSOLUTE_PATH",
+                        ],
+                        "required_server_settings": ["ALPHAMATE_ACCOUNT_DB_PATH", "ALPHAMATE_JOURNAL_DB_PATH"],
+                    },
+                },
+            },
+        })
+
+        self.assertIn("운영 데이터 DB 경로를 백업 가능한 서버 절대 경로로 바꾸기", report)
+        self.assertIn("운영 데이터 DB 절대 경로", report)
+        self.assertNotIn("backend/data/accounts.sqlite3", report)
+
     def test_rejects_missing_production_backend_settings_without_secret_values(self):
         with patched_env(
             ALPHAMATE_ENV="development",

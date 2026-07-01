@@ -1,3 +1,4 @@
+from pathlib import Path
 from urllib.parse import urlparse
 
 from .access_control import get_product_catalog
@@ -17,10 +18,15 @@ ADMIN_TOKEN_MIN_LENGTH = 32
 CORS_ORIGINS_SETTING = "ALPHAMATE_CORS_ORIGINS"
 PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
 LOCAL_HTTP_CORS_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+LOCAL_DATA_PATH_PARTS = ("backend/data", "backend\\data")
 
 
 def _env_value(name: str) -> str:
     return env_value(name)
+
+
+def _is_production() -> bool:
+    return _env_value("ALPHAMATE_ENV").lower() == "production"
 
 
 def _ai_status() -> dict:
@@ -49,6 +55,16 @@ def _login_status() -> dict:
 
 def _data_storage_status() -> dict:
     missing = [name for name in REQUIRED_DATA_STORAGE_SETTINGS if not _env_value(name)]
+    if _is_production():
+        for name in REQUIRED_DATA_STORAGE_SETTINGS:
+            value = _env_value(name).strip()
+            if not value:
+                continue
+            normalized = value.replace("\\", "/").lower()
+            if not Path(value).is_absolute():
+                missing.append(f"{name}_ABSOLUTE_PATH")
+            if any(part.replace("\\", "/") in normalized for part in LOCAL_DATA_PATH_PARTS):
+                missing.append(f"{name}_LOCAL_DEV_PATH")
     return {
         "ready": not missing,
         "missing_server_settings": missing,

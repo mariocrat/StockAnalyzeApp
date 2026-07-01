@@ -130,6 +130,9 @@ def _owner_next_action_text(item: str) -> str:
         if provider == "GOOGLE_PLAY_PRODUCT_ID_DUPLICATE":
             setting = provider
 
+    if setting.endswith("_LOCAL_DEV_PATH") or setting.endswith("_ABSOLUTE_PATH"):
+        return f"운영 데이터 DB 경로를 백업 가능한 서버 절대 경로로 바꾸기 ({item})"
+
     hint = OWNER_NEXT_ACTION_HINTS.get(setting)
     if not hint:
         return item
@@ -151,6 +154,9 @@ def _owner_required_inputs(items: list[str]) -> list[str]:
         setting = item.split(": ", 1)[1] if ": " in item else item
         if item.startswith("GOOGLE_PLAY_PRODUCT_ID_DUPLICATE: "):
             setting = "GOOGLE_PLAY_PRODUCT_ID_DUPLICATE"
+        if setting.endswith("_LOCAL_DEV_PATH") or setting.endswith("_ABSOLUTE_PATH"):
+            inputs.append("운영 데이터 DB 절대 경로")
+            continue
         if setting in OWNER_REQUIRED_INPUTS:
             inputs.append(OWNER_REQUIRED_INPUTS[setting])
     return list(dict.fromkeys(inputs))
