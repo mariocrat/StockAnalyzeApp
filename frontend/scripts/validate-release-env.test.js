@@ -20,6 +20,7 @@ function validReleaseEnv(overrides = {}) {
     VITE_KAKAO_REDIRECT_URI: 'https://api.alphamate.kr/api/auth/kakao/callback',
     VITE_NAVER_CLIENT_ID: 'naver-client-id',
     VITE_NAVER_REDIRECT_URI: 'https://api.alphamate.kr/api/auth/naver/callback',
+    VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-1234567890123456~1234567890',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-1234567890123456/9876543210',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-1234567890123456/1234567890',
     VITE_GOOGLE_PLAY_PACKAGE_NAME: 'com.mariocrat.stockanalyze',
@@ -38,6 +39,7 @@ test('rejects localhost API and enabled dev tools for release builds', () => {
     VITE_ALPHAMATE_ENV: 'production',
     VITE_ENABLE_DEV_TOOLS: 'true',
     VITE_API_BASE: 'http://127.0.0.1:8002',
+    VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-3940256099942544~3347511713',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-3940256099942544/5224354917',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-3940256099942544/1033173712',
     VITE_GOOGLE_PLAY_PACKAGE_NAME: '',
@@ -46,6 +48,7 @@ test('rejects localhost API and enabled dev tools for release builds', () => {
   assert.equal(result.ok, false);
   assert.match(result.errors.join('\n'), /VITE_ENABLE_DEV_TOOLS/);
   assert.match(result.errors.join('\n'), /VITE_API_BASE/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_ANDROID_APP_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REWARDED_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_GOOGLE_PLAY_PACKAGE_NAME/);
@@ -56,6 +59,7 @@ test('rejects placeholder release URLs and AdMob ad unit IDs', () => {
     VITE_API_BASE: 'https://your-api.example.com',
     VITE_KAKAO_REDIRECT_URI: 'https://your-api.example.com/api/auth/kakao/callback',
     VITE_NAVER_REDIRECT_URI: 'https://your-api.example.com/api/auth/naver/callback',
+    VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-0000000000000000~0000000000',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-0000000000000000/0000000000',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/1111111111',
   }));
@@ -64,6 +68,7 @@ test('rejects placeholder release URLs and AdMob ad unit IDs', () => {
   assert.match(result.errors.join('\n'), /VITE_API_BASE/);
   assert.match(result.errors.join('\n'), /VITE_KAKAO_REDIRECT_URI/);
   assert.match(result.errors.join('\n'), /VITE_NAVER_REDIRECT_URI/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_ANDROID_APP_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REWARDED_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /placeholder/);
@@ -151,6 +156,7 @@ test('frontend env example documents release check settings', () => {
     'VITE_APP_NAME',
     'VITE_ENABLE_DEV_TOOLS',
     'VITE_API_BASE',
+    'VITE_ADMOB_ANDROID_APP_ID',
     'VITE_ADMOB_REWARDED_AD_UNIT_ID',
     'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID',
     'VITE_GOOGLE_PLAY_PACKAGE_NAME',
@@ -178,6 +184,7 @@ test('frontend release env template is production focused', () => {
     'VITE_KAKAO_REDIRECT_URI',
     'VITE_NAVER_CLIENT_ID',
     'VITE_NAVER_REDIRECT_URI',
+    'VITE_ADMOB_ANDROID_APP_ID',
     'VITE_ADMOB_REWARDED_AD_UNIT_ID',
     'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID',
     'VITE_GOOGLE_PLAY_PACKAGE_NAME',
@@ -230,6 +237,7 @@ test('formats owner frontend release report without exposing secret values', () 
   const result = validateReleaseEnv(validReleaseEnv({
     VITE_ALPHAMATE_ENV: 'development',
     VITE_API_BASE: 'http://127.0.0.1:8002',
+    VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-3940256099942544~3347511713',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-3940256099942544/5224354917',
     ALPHAMATE_ANDROID_KEYSTORE_PASSWORD: 'never-print-this-keystore-password',
     ALPHAMATE_ANDROID_KEY_PASSWORD: 'never-print-this-key-password',

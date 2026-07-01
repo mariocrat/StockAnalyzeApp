@@ -606,3 +606,10 @@
 - 출시 준비 검사는 `.env.release`를 통과했는데 실제 AI 복기는 `OPENAI_API_KEY`를 못 읽는 불일치 위험을 줄였다.
 - 일반/심층 AI 복기에서 쓰는 OpenAI Key와 모델 설정이 서버 실행 방식과 출시 점검 방식에서 같은 경로로 해석된다.
 - `tests/test_ai_review_openai_client.py`에 명시 env 파일에서 OpenAI Key를 읽는 회귀 테스트를 추가했다.
+
+### Android AdMob App ID 출시 검사
+
+- Android Manifest의 AdMob App ID를 고정 문자열 리소스 대신 `VITE_ADMOB_ANDROID_APP_ID` manifest placeholder로 주입하도록 바꿨다.
+- `npm run release:check`가 Google 테스트 AdMob App ID, placeholder App ID, 잘못된 App ID 형식을 출시 전에 실패로 표시한다.
+- `frontend/.env.example`, `frontend/.env.release.example`에 `VITE_ADMOB_ANDROID_APP_ID`를 추가했다.
+- `frontend/scripts/validate-release-env.test.js`, `frontend/scripts/android-branding.test.js`에 회귀 테스트를 추가했다.

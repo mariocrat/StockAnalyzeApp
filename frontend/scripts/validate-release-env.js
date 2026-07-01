@@ -5,9 +5,11 @@ import { fileURLToPath } from 'node:url';
 
 const GOOGLE_ANDROID_TEST_REWARDED_AD_ID = 'ca-app-pub-3940256099942544/5224354917';
 const GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID = 'ca-app-pub-3940256099942544/1033173712';
+const GOOGLE_ANDROID_TEST_APP_ID = 'ca-app-pub-3940256099942544~3347511713';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
 const PLACEHOLDER_HOST_PARTS = ['example.com', 'your-api', 'your-app', 'your-domain', 'your-site'];
 const PLACEHOLDER_AD_UNIT_PATTERN = /^ca-app-pub-0+\/[01]+$/;
+const PLACEHOLDER_AD_APP_PATTERN = /^ca-app-pub-0+~[01]+$/;
 
 export function parseEnvFile(text) {
   return String(text || '')
@@ -86,6 +88,18 @@ function validateAdUnitId(value, key, googleTestId, errors) {
   }
 }
 
+function validateAdMobAppId(value, errors) {
+  if (!value) {
+    errors.push('VITE_ADMOB_ANDROID_APP_ID must be set for release builds.');
+  } else if (value === GOOGLE_ANDROID_TEST_APP_ID) {
+    errors.push('VITE_ADMOB_ANDROID_APP_ID must not use Google test app ID for release builds.');
+  } else if (PLACEHOLDER_AD_APP_PATTERN.test(value)) {
+    errors.push('VITE_ADMOB_ANDROID_APP_ID must not use a placeholder app ID for release builds.');
+  } else if (!/^ca-app-pub-\d{16}~\d{10}$/.test(value)) {
+    errors.push('VITE_ADMOB_ANDROID_APP_ID must be a valid AdMob Android app ID.');
+  }
+}
+
 function requireSetting(env, key, errors) {
   if (!envValue(env, key)) {
     errors.push(`${key} must be set for signed Android release builds.`);
@@ -123,6 +137,7 @@ export function validateReleaseEnv(env) {
   const appName = envValue(env, 'ALPHAMATE_ANDROID_APP_NAME') || envValue(env, 'VITE_APP_NAME');
   const devTools = envValue(env, 'VITE_ENABLE_DEV_TOOLS');
   const apiBase = envValue(env, 'VITE_API_BASE');
+  const androidAdMobAppId = envValue(env, 'VITE_ADMOB_ANDROID_APP_ID');
   const rewardedAdUnitId = envValue(env, 'VITE_ADMOB_REWARDED_AD_UNIT_ID');
   const reviewHistoryInterstitialAdUnitId = envValue(env, 'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID');
   const packageName = envValue(env, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
@@ -143,6 +158,7 @@ export function validateReleaseEnv(env) {
   requireReleaseSetting(env, 'VITE_NAVER_REDIRECT_URI', errors);
   validateUrlPlaceholder(env, 'VITE_KAKAO_REDIRECT_URI', errors);
   validateUrlPlaceholder(env, 'VITE_NAVER_REDIRECT_URI', errors);
+  validateAdMobAppId(androidAdMobAppId, errors);
   validateAdUnitId(rewardedAdUnitId, 'VITE_ADMOB_REWARDED_AD_UNIT_ID', GOOGLE_ANDROID_TEST_REWARDED_AD_ID, errors);
   validateAdUnitId(
     reviewHistoryInterstitialAdUnitId,
@@ -187,6 +203,9 @@ function ownerFrontendNextAction(error) {
     || error.includes('ALPHAMATE_ANDROID_KEY_PASSWORD')) {
     return 'generate_android_upload_key.bat를 실행해서 Android 서명 키와 비밀번호 빈 값을 채우기';
   }
+  if (error.includes('VITE_ADMOB_ANDROID_APP_ID')) {
+    return 'AdMob Android App ID를 운영 앱 ID로 바꾸기 (VITE_ADMOB_ANDROID_APP_ID) - https://apps.admob.com/';
+  }
   const hints = [
     ['VITE_ALPHAMATE_ENV', '운영 모드로 바꾸기'],
     ['VITE_APP_NAME', '앱 이름을 최종 이름으로 설정하기'],
@@ -215,6 +234,9 @@ function ownerFrontendRequiredInputs(errors) {
   const inputs = [];
   if (errors.some((error) => error.includes('VITE_API_BASE'))) {
     inputs.push('운영 API 서버 HTTPS 주소');
+  }
+  if (errors.some((error) => error.includes('VITE_ADMOB_ANDROID_APP_ID'))) {
+    inputs.push('AdMob Android App ID');
   }
   if (errors.some((error) => error.includes('VITE_ADMOB_REWARDED_AD_UNIT_ID'))) {
     inputs.push('AdMob 보상형 광고 단위 ID');
@@ -251,7 +273,8 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
     && !hasError(result, 'VITE_KAKAO_REDIRECT_URI')
     && !hasError(result, 'VITE_NAVER_CLIENT_ID')
     && !hasError(result, 'VITE_NAVER_REDIRECT_URI');
-  const admobReady = !hasError(result, 'VITE_ADMOB_REWARDED_AD_UNIT_ID')
+  const admobReady = !hasError(result, 'VITE_ADMOB_ANDROID_APP_ID')
+    && !hasError(result, 'VITE_ADMOB_REWARDED_AD_UNIT_ID')
     && !hasError(result, 'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID');
   const packageReady = !hasError(result, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
   const signingReady = !hasError(result, 'ALPHAMATE_ANDROID_KEYSTORE_FILE')

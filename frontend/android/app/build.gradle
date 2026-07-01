@@ -8,6 +8,7 @@ def releaseSigningReady = releaseKeystoreFile && releaseKeystorePassword && rele
 def androidVersionCode = (System.getenv("ALPHAMATE_ANDROID_VERSION_CODE") ?: "1") as Integer
 def androidVersionName = System.getenv("ALPHAMATE_ANDROID_VERSION_NAME") ?: "1.0.0"
 def androidAppName = System.getenv("ALPHAMATE_ANDROID_APP_NAME") ?: System.getenv("VITE_APP_NAME") ?: "AlphaMate"
+def admobAndroidAppId = System.getenv("VITE_ADMOB_ANDROID_APP_ID") ?: "ca-app-pub-3940256099942544~3347511713"
 
 android {
     namespace = "com.mariocrat.stockanalyze"
@@ -18,6 +19,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode androidVersionCode
         versionName androidVersionName
+        manifestPlaceholders = [admobAppId: admobAndroidAppId]
         resValue "string", "app_name", androidAppName
         resValue "string", "title_activity_main", androidAppName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
