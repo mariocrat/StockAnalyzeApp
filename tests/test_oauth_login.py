@@ -218,6 +218,49 @@ class OAuthLoginTest(unittest.TestCase):
 
             self.assertEqual(503, raised.exception.status_code)
 
+    def test_production_oauth_code_requires_server_redirect_uri(self):
+        keys = ("ALPHAMATE_ENV", "KAKAO_CLIENT_ID", "KAKAO_REDIRECT_URI")
+        previous = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ["ALPHAMATE_ENV"] = "production"
+            os.environ["KAKAO_CLIENT_ID"] = "kakao-client-id"
+            os.environ.pop("KAKAO_REDIRECT_URI", None)
+
+            from backend.core import oauth_login
+
+            oauth_login = importlib.reload(oauth_login)
+            with self.assertRaises(HTTPException) as raised:
+                oauth_login._configured_redirect_uri("kakao", "https://app.alphamate.kr/auth/kakao")
+
+            self.assertEqual(503, raised.exception.status_code)
+        finally:
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+    def test_production_oauth_code_rejects_redirect_uri_mismatch(self):
+        keys = ("ALPHAMATE_ENV", "KAKAO_REDIRECT_URI")
+        previous = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ["ALPHAMATE_ENV"] = "production"
+            os.environ["KAKAO_REDIRECT_URI"] = "https://api.alphamate.kr/api/auth/kakao/callback"
+
+            from backend.core import oauth_login
+
+            oauth_login = importlib.reload(oauth_login)
+            with self.assertRaises(HTTPException) as raised:
+                oauth_login._configured_redirect_uri("kakao", "https://app.alphamate.kr/auth/kakao")
+
+            self.assertEqual(400, raised.exception.status_code)
+        finally:
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
     def test_oauth_config_status_reports_missing_server_settings(self):
         for key in ("KAKAO_CLIENT_ID", "KAKAO_REDIRECT_URI", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "NAVER_REDIRECT_URI"):
             os.environ.pop(key, None)

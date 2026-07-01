@@ -36,6 +36,10 @@ def _is_placeholder_url(value: str) -> bool:
     return bool(text) and any(part in text for part in PLACEHOLDER_URL_PARTS)
 
 
+def _is_production() -> bool:
+    return _env_value("ALPHAMATE_ENV").lower() == "production"
+
+
 def _exchange_json(url: str, payload: dict, headers: dict | None = None) -> dict:
     try:
         response = requests.post(
@@ -118,7 +122,16 @@ def login_oauth_provider(*, provider: str, access_token: str) -> dict:
 
 def _configured_redirect_uri(provider: str, redirect_uri: str) -> str:
     configured = _env_value(f"{provider.upper()}_REDIRECT_URI")
-    value = str(redirect_uri or configured or "").strip()
+    requested = str(redirect_uri or "").strip()
+    configured = str(configured or "").strip()
+    if _is_production():
+        if not configured or _is_placeholder_url(configured):
+            raise HTTPException(status_code=503, detail=f"{provider.upper()}_REDIRECT_URI is not configured.")
+        if requested and requested != configured:
+            raise HTTPException(status_code=400, detail="redirect_uri does not match the server configuration.")
+        return configured
+
+    value = str(requested or configured or "").strip()
     if not value:
         raise HTTPException(status_code=400, detail="redirect_uri is required.")
     return value
