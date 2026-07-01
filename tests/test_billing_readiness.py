@@ -63,6 +63,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
             ALPHAMATE_EVENT_LOG_DB_PATH="D:/secure/alphamate/events.sqlite3",
             ALPHAMATE_ADMIN_TOKEN="admin-token-with-at-least-32-characters",
+            ALPHAMATE_CORS_ORIGINS="https://app.alphamate.example,capacitor://localhost",
             GOOGLE_PLAY_RTDN_OIDC_AUDIENCE=None,
             GOOGLE_PLAY_RTDN_OIDC_EMAIL=None,
         ):
@@ -78,6 +79,7 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertTrue(status["sections"]["admob"]["ready"])
             self.assertTrue(status["sections"]["data_storage"]["ready"])
             self.assertTrue(status["sections"]["admin"]["ready"])
+            self.assertTrue(status["sections"]["cors"]["ready"])
             self.assertTrue(status["sections"]["privacy_policy"]["ready"])
             self.assertEqual("https://alphamate.example/privacy", status["sections"]["privacy_policy"]["url"])
             self.assertNotIn("sk-secret-openai", str(status))
@@ -114,6 +116,8 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_REVIEW_HISTORY_DB_PATH=None,
             ALPHAMATE_EVENT_LOG_DB_PATH=None,
             ALPHAMATE_ADMIN_TOKEN=None,
+            ALPHAMATE_ENV="production",
+            ALPHAMATE_CORS_ORIGINS=None,
         ):
             from backend.core import readiness
 
@@ -129,6 +133,7 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertIn("ALPHAMATE_REVIEW_HISTORY_DB_PATH", status["sections"]["data_storage"]["missing_server_settings"])
             self.assertIn("ALPHAMATE_EVENT_LOG_DB_PATH", status["sections"]["data_storage"]["missing_server_settings"])
             self.assertIn("ALPHAMATE_ADMIN_TOKEN", status["sections"]["admin"]["missing_server_settings"])
+            self.assertIn("ALPHAMATE_CORS_ORIGINS", status["sections"]["cors"]["missing_server_settings"])
             self.assertIn("KAKAO_CLIENT_ID", status["sections"]["login"]["providers"]["kakao"]["missing_server_settings"])
             self.assertIn("NAVER_CLIENT_SECRET", status["sections"]["login"]["providers"]["naver"]["missing_server_settings"])
 
@@ -136,6 +141,8 @@ class BillingReadinessTest(unittest.TestCase):
         with patched_env(
             ADMOB_REWARDED_AD_UNIT_ID="ca-app-pub-0000000000000000/0000000000",
             ALPHAMATE_PRIVACY_POLICY_URL="https://your-domain.example/privacy",
+            ALPHAMATE_ENV="production",
+            ALPHAMATE_CORS_ORIGINS="https://your-app.example.com,capacitor://localhost",
         ):
             from backend.core import access_control, readiness
 
@@ -147,6 +154,21 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertIn("ADMOB_REWARDED_AD_UNIT_ID_PLACEHOLDER", status["sections"]["admob"]["missing_server_settings"])
             self.assertFalse(status["sections"]["privacy_policy"]["ready"])
             self.assertIn("ALPHAMATE_PRIVACY_POLICY_URL_PLACEHOLDER", status["sections"]["privacy_policy"]["missing_server_settings"])
+            self.assertFalse(status["sections"]["cors"]["ready"])
+            self.assertIn("ALPHAMATE_CORS_ORIGINS_PLACEHOLDER", status["sections"]["cors"]["missing_server_settings"])
+
+    def test_app_readiness_rejects_unsafe_release_cors_origins(self):
+        with patched_env(
+            ALPHAMATE_CORS_ORIGINS="*,http://localhost:5174,capacitor://localhost",
+        ):
+            from backend.core import readiness
+
+            readiness = importlib.reload(readiness)
+            status = readiness.get_app_readiness()
+
+            self.assertFalse(status["sections"]["cors"]["ready"])
+            self.assertIn("ALPHAMATE_CORS_ORIGINS_WILDCARD", status["sections"]["cors"]["missing_server_settings"])
+            self.assertIn("ALPHAMATE_CORS_ORIGINS_LOCALHOST", status["sections"]["cors"]["missing_server_settings"])
 
     def test_product_catalog_exposes_public_ids_and_readiness_only(self):
         with patched_env(

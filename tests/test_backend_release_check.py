@@ -182,6 +182,11 @@ class BackendReleaseCheckTest(unittest.TestCase):
                         "missing_server_settings": ["ALPHAMATE_ADMIN_TOKEN_MIN_LENGTH_32"],
                         "required_server_settings": ["ALPHAMATE_ADMIN_TOKEN"],
                     },
+                    "cors": {
+                        "ready": False,
+                        "missing_server_settings": ["ALPHAMATE_CORS_ORIGINS_PLACEHOLDER"],
+                        "required_server_settings": ["ALPHAMATE_CORS_ORIGINS"],
+                    },
                     "privacy_policy": {
                         "ready": False,
                         "missing_server_settings": ["ALPHAMATE_PRIVACY_POLICY_URL_PLACEHOLDER"],
@@ -208,11 +213,12 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("AlphaMate 출시 준비 보고서", report)
         self.assertIn("[필요] AI 복기", report)
         self.assertIn("[필요] 개인정보처리방침", report)
-        self.assertIn("준비율: 0/5 (0%)", report)
+        self.assertIn("준비율: 0/6 (0%)", report)
         self.assertIn("OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY", report)
         self.assertIn("OpenAI API Key를 발급해서 서버 설정에 넣기", report)
         self.assertIn("https://platform.openai.com/api-keys", report)
         self.assertIn("generate_release_secrets.bat를 실행해서 운영 로그 관리자 토큰 빈 값을 채우기", report)
+        self.assertIn("운영 웹/앱 API 허용 주소를 실제 배포 주소로 바꾸기", report)
         self.assertIn("공개 개인정보처리방침 HTTPS 주소로 바꾸기", report)
         self.assertIn("AdMob 운영 보상형 광고 단위 ID로 바꾸기", report)
         self.assertIn("generate_release_secrets.bat를 실행해서 Google Play 결제 알림용 공유 토큰 빈 값을 채우기", report)
@@ -221,6 +227,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("다음에 할 일", report)
         self.assertIn("내가 나중에 받아야 하는 정보/파일", report)
         self.assertIn("OpenAI API Key 값", report)
+        self.assertIn("운영 웹/앱 API 허용 주소", report)
         self.assertIn("개인정보처리방침 공개 HTTPS 주소", report)
         self.assertIn("AdMob 보상형 광고 단위 ID", report)
         self.assertNotIn("Google Play 결제 알림용 공유 토큰 값", report)
@@ -247,6 +254,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             ALPHAMATE_REVIEW_HISTORY_DB_PATH=None,
             ALPHAMATE_EVENT_LOG_DB_PATH=None,
             ALPHAMATE_ADMIN_TOKEN=None,
+            ALPHAMATE_CORS_ORIGINS=None,
         ):
             from backend.core.release_check import format_backend_release_check, validate_backend_release_env
 
@@ -263,6 +271,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             self.assertIn("ALPHAMATE_REVIEW_HISTORY_DB_PATH", "\n".join(result["errors"]))
             self.assertIn("ALPHAMATE_EVENT_LOG_DB_PATH", "\n".join(result["errors"]))
             self.assertIn("ALPHAMATE_ADMIN_TOKEN", "\n".join(result["errors"]))
+            self.assertIn("ALPHAMATE_CORS_ORIGINS", "\n".join(result["errors"]))
             self.assertNotIn("sk-", formatted)
             self.assertNotIn("google-secret-json", formatted)
 
@@ -295,6 +304,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
             ALPHAMATE_EVENT_LOG_DB_PATH="D:/secure/alphamate/events.sqlite3",
             ALPHAMATE_ADMIN_TOKEN="admin-token-with-at-least-32-characters",
+            ALPHAMATE_CORS_ORIGINS="https://app.alphamate.example,capacitor://localhost",
         ):
             from backend.core.release_check import format_backend_release_check, validate_backend_release_env
 
@@ -332,6 +342,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "ALPHAMATE_REVIEW_HISTORY_DB_PATH=D:/secure/alphamate/review-history.sqlite3",
             "ALPHAMATE_EVENT_LOG_DB_PATH=D:/secure/alphamate/events.sqlite3",
             "ALPHAMATE_ADMIN_TOKEN=admin-token-with-at-least-32-characters",
+            "ALPHAMATE_CORS_ORIGINS=https://app.alphamate.example,capacitor://localhost",
         ])
         with tempfile.NamedTemporaryFile("w", encoding="utf-8-sig", delete=False) as env_file:
             env_file.write(env_text)
@@ -367,6 +378,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
                 ALPHAMATE_ACCESS_DB_PATH=None,
                 ALPHAMATE_REVIEW_HISTORY_DB_PATH=None,
                 ALPHAMATE_EVENT_LOG_DB_PATH=None,
+                ALPHAMATE_CORS_ORIGINS=None,
             ):
                 from backend.core.release_check import format_backend_release_check, validate_backend_release_env
 

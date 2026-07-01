@@ -564,3 +564,10 @@
 - Google Play RTDN OIDC audience/email도 배포 환경에서 예시 웹훅 주소나 예시 Pub/Sub 서비스 계정 이메일이면 Google Play 결제 readiness를 실패로 표시한다.
 - 사장님용 출시 준비 보고서에 해당 예시값을 실제 운영 주소와 실제 Pub/Sub push 서비스 계정으로 바꾸라는 안내를 추가했다.
 - `tests/test_oauth_login.py`, `tests/test_billing_readiness.py`, `tests/test_backend_release_check.py`에 회귀 테스트를 추가했다.
+
+### CORS 배포 준비 검사 추가
+
+- `ALPHAMATE_CORS_ORIGINS`를 release readiness의 별도 항목으로 추가해 운영 앱/웹이 API를 호출할 수 있는 허용 주소를 배포 전 확인하도록 했다.
+- `your-app.example.com` 같은 예시 주소, `*` 전체 허용, `http://localhost` 같은 로컬 HTTP origin이 남아 있으면 준비 실패로 표시한다.
+- 사장님용 출시 준비 보고서에 운영 웹/앱 API 허용 주소를 실제 배포 주소로 바꾸라는 안내를 추가했다.
+- `tests/test_billing_readiness.py`, `tests/test_backend_release_check.py`에 CORS readiness 회귀 테스트를 추가했다.

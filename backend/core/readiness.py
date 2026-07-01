@@ -1,3 +1,5 @@
+from urllib.parse import urlparse
+
 from .access_control import get_product_catalog
 from .env import env_value
 from .oauth_login import get_oauth_config_status
@@ -12,7 +14,9 @@ REQUIRED_DATA_STORAGE_SETTINGS = [
 PRIVACY_POLICY_URL_SETTING = "ALPHAMATE_PRIVACY_POLICY_URL"
 ADMIN_TOKEN_SETTING = "ALPHAMATE_ADMIN_TOKEN"
 ADMIN_TOKEN_MIN_LENGTH = 32
+CORS_ORIGINS_SETTING = "ALPHAMATE_CORS_ORIGINS"
 PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
+LOCAL_HTTP_CORS_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 
 
 def _env_value(name: str) -> str:
@@ -88,6 +92,42 @@ def _admin_status() -> dict:
     }
 
 
+def _cors_status() -> dict:
+    configured = _env_value(CORS_ORIGINS_SETTING).strip()
+    origins = [
+        item.strip().rstrip("/")
+        for item in configured.split(",")
+        if item.strip()
+    ]
+    missing = []
+    if not origins:
+        missing.append(CORS_ORIGINS_SETTING)
+
+    has_placeholder = any(
+        any(part in origin.lower() for part in PLACEHOLDER_URL_PARTS)
+        for origin in origins
+    )
+    has_wildcard = "*" in origins
+    has_local_http_origin = any(
+        (urlparse(origin).scheme in {"http", "https"} and urlparse(origin).hostname in LOCAL_HTTP_CORS_HOSTS)
+        for origin in origins
+    )
+    if has_placeholder:
+        missing.append(f"{CORS_ORIGINS_SETTING}_PLACEHOLDER")
+    if has_local_http_origin:
+        missing.append(f"{CORS_ORIGINS_SETTING}_LOCALHOST")
+    if has_wildcard:
+        missing.append(f"{CORS_ORIGINS_SETTING}_WILDCARD")
+
+    return {
+        "ready": not missing,
+        "origins": origins if not missing else [],
+        "missing_server_settings": missing,
+        "required_server_settings": [CORS_ORIGINS_SETTING],
+        "note": "Use deployed HTTPS web origins and mobile app origins only. Do not use wildcard or local HTTP origins for release.",
+    }
+
+
 def get_app_readiness() -> dict:
     catalog = get_product_catalog()
     sections = {
@@ -95,6 +135,7 @@ def get_app_readiness() -> dict:
         "login": _login_status(),
         "data_storage": _data_storage_status(),
         "admin": _admin_status(),
+        "cors": _cors_status(),
         "privacy_policy": _privacy_policy_status(),
         "google_play": catalog["google_play"],
         "admob": catalog["admob"],
