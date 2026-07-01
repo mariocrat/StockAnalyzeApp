@@ -599,3 +599,10 @@
 - `backend/data/*.sqlite3` 같은 로컬 개발용 경로가 운영 설정에 남아 있으면 출시 준비 실패로 표시한다.
 - 사장님용 출시 준비 보고서에는 실제 DB 경로 값을 출력하지 않고, 백업 가능한 서버 절대 경로로 바꾸라는 안내만 보여준다.
 - `tests/test_billing_readiness.py`, `tests/test_backend_release_check.py`에 운영 DB 경로 회귀 테스트를 추가했다.
+
+### AI 복기 env 파일 로딩 일치
+
+- AI 복기 실행 코드가 공통 env 로더를 사용하도록 바꿔 `ALPHAMATE_ENV_FILE`로 지정한 출시 env 파일을 읽게 했다.
+- 출시 준비 검사는 `.env.release`를 통과했는데 실제 AI 복기는 `OPENAI_API_KEY`를 못 읽는 불일치 위험을 줄였다.
+- 일반/심층 AI 복기에서 쓰는 OpenAI Key와 모델 설정이 서버 실행 방식과 출시 점검 방식에서 같은 경로로 해석된다.
+- `tests/test_ai_review_openai_client.py`에 명시 env 파일에서 OpenAI Key를 읽는 회귀 테스트를 추가했다.

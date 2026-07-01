@@ -2,6 +2,7 @@ import importlib
 import io
 import json
 import os
+import tempfile
 import unittest
 import urllib.error
 
@@ -13,6 +14,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         "ALPHAMATE_OPENAI_TIMEOUT_SECONDS",
         "ALPHAMATE_OPENAI_MAX_RETRIES",
         "ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS",
+        "ALPHAMATE_ENV_FILE",
     ]
 
     def setUp(self):
@@ -123,6 +125,34 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.assertEqual(4, calls["count"])
         self.assertEqual([90, 90, 90, 90], captured["timeouts"])
         self.assertEqual([5.0, 5.0, 5.0], captured["sleeps"])
+
+    def test_openai_review_reads_api_key_from_explicit_env_file(self):
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as env_file:
+            env_file.write("OPENAI_API_KEY=sk-env-file\n")
+            env_path = env_file.name
+
+        try:
+            os.environ.pop("OPENAI_API_KEY", None)
+            os.environ.pop("ALPHAMATE_OPENAI_API_KEY", None)
+            os.environ["ALPHAMATE_ENV_FILE"] = env_path
+            captured = {}
+
+            def fake_urlopen(req, timeout):
+                captured["authorization"] = req.headers.get("Authorization")
+                return self._success_response("env-file-ok")
+
+            self.ai_review_v2.urllib.request.urlopen = fake_urlopen
+
+            result = self.ai_review_v2._call_openai_review(
+                {"trade": "sample"},
+                model="gpt-test",
+                instructions="test",
+            )
+
+            self.assertEqual("env-file-ok", result)
+            self.assertEqual("Bearer sk-env-file", captured["authorization"])
+        finally:
+            os.unlink(env_path)
 
 
 if __name__ == "__main__":

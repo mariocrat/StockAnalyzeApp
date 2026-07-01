@@ -1,13 +1,16 @@
 import datetime
 import json
-import os
 import urllib.error
 import urllib.request
-from pathlib import Path
 
 import pandas as pd
 
 from core.data_fetcher import get_stock_ohlcv
+
+try:
+    from core.env import env_value
+except ModuleNotFoundError:
+    from backend.core.env import env_value
 
 
 def _parse_date(value: str) -> datetime.date | None:
@@ -31,28 +34,7 @@ def _fmt8(day: datetime.date) -> str:
 
 
 def _env_value(name: str) -> str:
-    value = os.environ.get(name)
-    if value:
-        return value.strip()
-
-    roots = [
-        Path(__file__).resolve().parents[2] / ".env",
-        Path(__file__).resolve().parents[1] / ".env",
-    ]
-    for path in roots:
-        try:
-            if not path.exists():
-                continue
-            for line in path.read_text(encoding="utf-8").splitlines():
-                raw = line.strip()
-                if not raw or raw.startswith("#") or "=" not in raw:
-                    continue
-                key, val = raw.split("=", 1)
-                if key.strip() == name:
-                    return val.strip().strip("\"'")
-        except Exception:
-            continue
-    return ""
+    return env_value(name)
 
 
 def _prepare_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
