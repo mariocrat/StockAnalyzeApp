@@ -16,6 +16,7 @@ class PrivateReleaseSetupTest(unittest.TestCase):
             "scripts\\generate_android_upload_key.py --create-key",
             "backend\\scripts\\owner_release_report.py",
             "npm.cmd run --silent release:report",
+            "backend\\scripts\\validate_release_alignment.py",
         ]
         cursor = -1
         for item in expected_order:
@@ -34,6 +35,14 @@ class PrivateReleaseSetupTest(unittest.TestCase):
         self.assertIn("exit /b %SETUP_EXIT%", batch)
         self.assertNotIn("OPENAI_API_KEY=", batch)
         self.assertNotIn("ALPHAMATE_ANDROID_KEYSTORE_PASSWORD=", batch)
+
+    def test_private_release_setup_reports_server_app_alignment_without_failing_setup(self):
+        batch = BATCH.read_text(encoding="utf-8")
+
+        self.assertIn("Server/app release setting alignment", batch)
+        self.assertIn("ALIGNMENT_REPORT_EXIT", batch)
+        self.assertIn("backend\\scripts\\validate_release_alignment.py", batch)
+        self.assertNotIn('if "%ALIGNMENT_REPORT_EXIT%"=="1" set SETUP_EXIT=1', batch)
 
 
 if __name__ == "__main__":

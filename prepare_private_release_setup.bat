@@ -14,6 +14,7 @@ echo.
 set SETUP_EXIT=0
 set BACKEND_REPORT_EXIT=0
 set FRONTEND_REPORT_EXIT=0
+set ALIGNMENT_REPORT_EXIT=0
 
 if not exist ".venv\Scripts\python.exe" (
   echo Python venv was not found at %cd%\.venv\Scripts\python.exe
@@ -69,7 +70,13 @@ if not exist "frontend\package.json" (
 )
 
 echo.
-if "%BACKEND_REPORT_EXIT%%FRONTEND_REPORT_EXIT%"=="00" (
+echo Server/app release setting alignment
+echo ----------------------------------------
+".venv\Scripts\python.exe" backend\scripts\validate_release_alignment.py
+if errorlevel 1 set ALIGNMENT_REPORT_EXIT=1
+
+echo.
+if "%BACKEND_REPORT_EXIT%%FRONTEND_REPORT_EXIT%%ALIGNMENT_REPORT_EXIT%"=="000" (
   echo Private release setup is ready.
 ) else (
   echo Private release setup finished.
