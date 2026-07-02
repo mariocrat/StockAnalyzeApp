@@ -1,6 +1,17 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Test-RequiredPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$MissingMessage
+    )
+
+    if (-not (Test-Path $Path)) {
+        throw "$MissingMessage at $Path. See docs\manual_test_guide.md for the local Android build tool setup."
+    }
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = Resolve-Path (Join-Path $scriptDir "..")
 $frontend = Join-Path $root "frontend"
@@ -17,13 +28,8 @@ if (-not (Test-Path $android)) {
     throw "Android project was not found at $android"
 }
 
-if (-not (Test-Path $javaHome)) {
-    throw "Local JDK was not found at $javaHome"
-}
-
-if (-not (Test-Path $androidHome)) {
-    throw "Local Android SDK was not found at $androidHome"
-}
+Test-RequiredPath -Path $javaHome -MissingMessage "Local JDK folder was not found"
+Test-RequiredPath -Path $androidHome -MissingMessage "Local Android SDK folder was not found"
 
 $oldJavaHome = $env:JAVA_HOME
 $oldAndroidHome = $env:ANDROID_HOME

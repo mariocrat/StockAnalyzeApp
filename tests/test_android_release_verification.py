@@ -26,6 +26,16 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("ANDROID_HOME", script)
         self.assertNotIn("ALPHAMATE_ANDROID_KEYSTORE_PASSWORD)", script)
 
+    def test_android_verification_scripts_explain_missing_local_tools(self):
+        for script_name in ("verify_android_debug.ps1", "verify_android_release.ps1"):
+            with self.subTest(script=script_name):
+                script = (ROOT / "scripts" / script_name).read_text(encoding="utf-8")
+
+                self.assertIn("Test-RequiredPath", script)
+                self.assertIn("docs\\manual_test_guide.md", script)
+                self.assertIn("Local JDK folder was not found", script)
+                self.assertIn("Local Android SDK folder was not found", script)
+
 
 if __name__ == "__main__":
     unittest.main()
