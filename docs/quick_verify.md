@@ -13,14 +13,18 @@ Command Prompt without having to remember the long command.
 
 The script checks:
 
-- backend unittest suite
-- backend Python compile check
-- tracked secret pattern scan
-- frontend release environment tests
-- Android branding tests
-- mobile AdMob policy tests
-- frontend lint
-- frontend production build
+- Backend tests
+- Backend compile
+- Tracked secret scan
+- Frontend release-env tests
+- Frontend Android branding tests
+- Frontend mobile billing tests
+- Frontend mobile AdMob tests
+- Frontend client event tests
+- Frontend API error request ID tests
+- Frontend AI idempotency tests
+- Frontend lint
+- Frontend production build
 
 To also confirm the Android wrapper and debug APK build, run this from the
 project root:
