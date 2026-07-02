@@ -1,5 +1,2 @@
 <?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="package_name">com.mariocrat.stockanalyze</string>
-    <string name="custom_url_scheme">com.mariocrat.stockanalyze</string>
-</resources>
+<resources></resources>

@@ -374,3 +374,9 @@ verify_android_release.bat
 - OpenAI API Key는 서버 설정에만 넣고 frontend 설정에는 넣지 않는다.
 - Android 키스토어 파일과 비밀번호는 GitHub에 올리지 않는다.
 - 운영 서버 주소와 Google Play 패키지명은 서버용 설정과 프론트/Android 설정이 서로 맞아야 한다.
+
+## Android 패키지명 배포 기준
+
+- `VITE_GOOGLE_PLAY_PACKAGE_NAME`은 Google Play Console의 실제 패키지명과 같아야 한다.
+- Android 빌드의 `applicationId`, 앱 내부 결제 요청 패키지명, 서버의 `GOOGLE_PLAY_PACKAGE_NAME`은 같은 값을 사용해야 한다.
+- 패키지명을 바꿀 때는 `.env.release`와 서버 env를 함께 바꾸고 `npm run release:check`, `release_readiness_report.bat`를 실행한다.
