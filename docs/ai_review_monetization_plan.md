@@ -48,8 +48,8 @@ The rewarded-ad policy is configurable on the server. The default remains one re
 - Launch event price: KRW 3,900 monthly.
 - Regular price: KRW 4,900 monthly.
 - Monthly included usage: 150 Standard Reviews and 5 Deep Reviews.
-- AI review result screens remove ads for Pro users.
-- Theme/ranking information screens can keep banner ads through a separate option.
+- Pro users do not see non-rewarded ads anywhere in the app.
+- Rewarded ads remain a free-user path for earning extra review access.
 
 ## One-Time Purchase Packs
 
@@ -94,7 +94,8 @@ Trade history storage should be opt-in. The default privacy-friendly mode can ke
 ## Production Replacement Points
 
 - Replace `dev-token` with Kakao/Naver/OIDC token verification.
-- Replace `dev-ad-reward` with AdMob rewarded ad server-side verification. Backend SSV storage and consumption are implemented; mobile AdMob SDK integration and production ad unit setup are still required.
+- Replace `dev-ad-reward` with AdMob rewarded ad server-side verification. Backend SSV storage and consumption are implemented.
+- Mobile AdMob SDK integration is implemented for rewarded, interstitial, and banner ads. Production release still requires real AdMob app/ad unit IDs and SSV callback setup in the AdMob console.
 - Replace `dev-pro-entitlement` and dev purchase endpoints with Google Play Billing server-side purchase verification.
 - Replace in-memory wallets with a database or Redis-backed quota store.
 - Keep the OpenAI API key only on the server or in a cloud secret manager.

@@ -2,6 +2,7 @@
 
 ## 2026-07-03 mobile ad failure logging
 
+- Updated the AI review monetization policy document so it matches the implemented Pro ad-free policy and current AdMob SDK integration status.
 - Added non-blocking client-event logging for mobile ad display failures in resume interstitials, chart-detail interstitials, bottom banner ads, and review-history entry ads.
 - Kept ad failures from blocking the original user action while preserving placement, plan, native runtime, and sanitized error metadata for troubleshooting.
 
