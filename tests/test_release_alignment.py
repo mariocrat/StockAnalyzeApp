@@ -37,11 +37,13 @@ class ReleaseAlignmentTest(unittest.TestCase):
             "GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
             "KAKAO_REDIRECT_URI=https://api.alphamate.kr/api/auth/kakao/callback",
             "NAVER_REDIRECT_URI=https://api.alphamate.kr/api/auth/naver/callback",
+            "ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-1234567890123456/9876543210",
         ]))
         frontend_env = write_env_file("\n".join([
             "VITE_GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
             "VITE_KAKAO_REDIRECT_URI=https://api.alphamate.kr/api/auth/kakao/callback",
             "VITE_NAVER_REDIRECT_URI=https://api.alphamate.kr/api/auth/naver/callback",
+            "VITE_ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-1234567890123456/9876543210",
         ]))
         try:
             with patched_env(
@@ -50,9 +52,11 @@ class ReleaseAlignmentTest(unittest.TestCase):
                 GOOGLE_PLAY_PACKAGE_NAME=None,
                 KAKAO_REDIRECT_URI=None,
                 NAVER_REDIRECT_URI=None,
+                ADMOB_REWARDED_AD_UNIT_ID=None,
                 VITE_GOOGLE_PLAY_PACKAGE_NAME=None,
                 VITE_KAKAO_REDIRECT_URI=None,
                 VITE_NAVER_REDIRECT_URI=None,
+                VITE_ADMOB_REWARDED_AD_UNIT_ID=None,
             ):
                 from backend.scripts.validate_release_alignment import validate_release_alignment
 
@@ -69,11 +73,13 @@ class ReleaseAlignmentTest(unittest.TestCase):
             "GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
             "KAKAO_REDIRECT_URI=https://api.alphamate.kr/api/auth/kakao/callback",
             "NAVER_REDIRECT_URI=https://api.alphamate.kr/api/auth/naver/callback",
+            "ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-1234567890123456/9876543210",
         ]))
         frontend_env = write_env_file("\n".join([
             "VITE_GOOGLE_PLAY_PACKAGE_NAME=com.other.app",
             "VITE_KAKAO_REDIRECT_URI=https://app.alphamate.kr/oauth/kakao",
             "VITE_NAVER_REDIRECT_URI=https://app.alphamate.kr/oauth/naver",
+            "VITE_ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-1234567890123456/0000000000",
         ]))
         try:
             with patched_env(
@@ -82,9 +88,11 @@ class ReleaseAlignmentTest(unittest.TestCase):
                 GOOGLE_PLAY_PACKAGE_NAME=None,
                 KAKAO_REDIRECT_URI=None,
                 NAVER_REDIRECT_URI=None,
+                ADMOB_REWARDED_AD_UNIT_ID=None,
                 VITE_GOOGLE_PLAY_PACKAGE_NAME=None,
                 VITE_KAKAO_REDIRECT_URI=None,
                 VITE_NAVER_REDIRECT_URI=None,
+                VITE_ADMOB_REWARDED_AD_UNIT_ID=None,
             ):
                 from backend.scripts.validate_release_alignment import (
                     format_release_alignment_report,
@@ -105,6 +113,10 @@ class ReleaseAlignmentTest(unittest.TestCase):
             )
             self.assertIn(
                 "NAVER_REDIRECT_URI must match VITE_NAVER_REDIRECT_URI",
+                result["errors"],
+            )
+            self.assertIn(
+                "ADMOB_REWARDED_AD_UNIT_ID must match VITE_ADMOB_REWARDED_AD_UNIT_ID",
                 result["errors"],
             )
             self.assertIn("서버 설정과 앱 설정을 같은 값으로 맞추기", report)
