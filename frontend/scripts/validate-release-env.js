@@ -101,6 +101,20 @@ function validateAdMobAppId(value, errors) {
   }
 }
 
+function validateDistinctAdUnitIds(entries, errors) {
+  const seen = new Map();
+  entries
+    .filter(([, value]) => Boolean(value))
+    .forEach(([key, value]) => {
+      const previousKey = seen.get(value);
+      if (previousKey) {
+        errors.push(`AdMob ad unit IDs must be unique across placements: ${previousKey} and ${key}.`);
+        return;
+      }
+      seen.set(value, key);
+    });
+}
+
 function requireSetting(env, key, errors) {
   if (!envValue(env, key)) {
     errors.push(`${key} must be set for signed Android release builds.`);
@@ -169,6 +183,11 @@ export function validateReleaseEnv(env) {
     errors,
   );
   validateAdUnitId(bannerAdUnitId, 'VITE_ADMOB_BANNER_AD_UNIT_ID', GOOGLE_ANDROID_TEST_BANNER_AD_ID, errors);
+  validateDistinctAdUnitIds([
+    ['VITE_ADMOB_REWARDED_AD_UNIT_ID', rewardedAdUnitId],
+    ['VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID', reviewHistoryInterstitialAdUnitId],
+    ['VITE_ADMOB_BANNER_AD_UNIT_ID', bannerAdUnitId],
+  ], errors);
   if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$/.test(packageName)) {
     errors.push('VITE_GOOGLE_PLAY_PACKAGE_NAME must be a valid Android package name.');
   }

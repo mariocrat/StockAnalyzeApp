@@ -2,6 +2,7 @@
 
 ## 2026-07-03 mobile ad failure logging
 
+- Added a frontend release check that rejects duplicate AdMob ad unit IDs across rewarded, interstitial, and banner placements.
 - Added rewarded AdMob ad unit ID comparison to the server/app release alignment check so watched ads cannot silently fail reward validation because backend and mobile ad unit IDs differ.
 - Fixed the frontend owner release report so missing banner AdMob unit IDs are counted in the AdMob readiness summary instead of showing a misleading 100% readiness.
 - Updated the AI review monetization policy document so it matches the implemented Pro ad-free policy and current AdMob SDK integration status.

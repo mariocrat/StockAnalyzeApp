@@ -79,6 +79,18 @@ test('rejects placeholder release URLs and AdMob ad unit IDs', () => {
   assert.match(result.errors.join('\n'), /placeholder/);
 });
 
+test('rejects duplicate production AdMob ad unit IDs across placements', () => {
+  const duplicateAdUnitId = 'ca-app-pub-1234567890123456/9876543210';
+  const result = validateReleaseEnv(validReleaseEnv({
+    VITE_ADMOB_REWARDED_AD_UNIT_ID: duplicateAdUnitId,
+    VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: duplicateAdUnitId,
+    VITE_ADMOB_BANNER_AD_UNIT_ID: duplicateAdUnitId,
+  }));
+
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join('\n'), /AdMob ad unit IDs must be unique across placements/);
+});
+
 test('requires public OAuth settings for release builds', () => {
   const result = validateReleaseEnv(validReleaseEnv({
     VITE_KAKAO_REST_API_KEY: '',
