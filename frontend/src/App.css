@@ -8,6 +8,53 @@ body {
 }
 
 /* ── Layout ───────────────────────────────────────────────────────────── */
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #030612;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+
+.app-splash-exit {
+  opacity: 0;
+}
+
+.app-splash-logo {
+  width: clamp(104px, 26vw, 152px);
+  height: clamp(104px, 26vw, 152px);
+  object-fit: contain;
+  animation: app-splash-pulse 1.05s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes app-splash-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-splash {
+    transition: none;
+  }
+
+  .app-splash-logo {
+    animation: none;
+  }
+}
+
 .app-container {
   display: flex;
   height: 100vh;

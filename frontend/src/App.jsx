@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import './App.css';
+import appIcon from './assets/app-icon.png';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
@@ -35,8 +36,18 @@ const CANDLE_PERIODS = [
 ];
 const THEME_PERIODS = ['1D', '1W', '1M', '1Y'];
 
+function AppSplash({ exiting }) {
+  return (
+    <div className={exiting ? "app-splash app-splash-exit" : "app-splash"} aria-hidden="true">
+      <img className="app-splash-logo" src={appIcon} alt="" />
+    </div>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashExiting, setSplashExiting] = useState(false);
   const [activeView, setActiveView] = useState(() => {
     try {
       return new URLSearchParams(window.location.search).get('view') === 'journal' ? 'journal' : 'themes';
@@ -47,6 +58,20 @@ export default function App() {
 
   useEffect(() => {
     document.title = APP_NAME;
+  }, []);
+
+  useEffect(() => {
+    const exitTimer = window.setTimeout(() => {
+      setSplashExiting(true);
+    }, 1150);
+    const hideTimer = window.setTimeout(() => {
+      setShowSplash(false);
+    }, 1450);
+
+    return () => {
+      window.clearTimeout(exitTimer);
+      window.clearTimeout(hideTimer);
+    };
   }, []);
 
   // ── Theme state ──────────────────────────────────────────────────────
@@ -313,6 +338,8 @@ export default function App() {
   };
 
   return (
+    <>
+    {showSplash && <AppSplash exiting={splashExiting} />}
     <div className="app-container">
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <div className="sidebar">
@@ -644,5 +671,6 @@ export default function App() {
         )}
       </div>
     </div>
+    </>
   );
 }
