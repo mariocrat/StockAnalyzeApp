@@ -2,6 +2,7 @@
 
 ## 2026-07-03 mobile ad failure logging
 
+- Added owner-facing next actions and required input labels for missing production database paths in the launch readiness report.
 - Added owner-facing next actions and required input labels for missing or unsafe Kakao/Naver OAuth redirect URI settings in the launch readiness report.
 - Added top-level backend release errors such as `ALPHAMATE_ENV must be production` to the owner-facing launch readiness report so non-developers can see the first setup action.
 - Required Kakao/Naver OAuth redirect URIs in production backend release readiness so owner checks match runtime login requirements.

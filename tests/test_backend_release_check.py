@@ -313,6 +313,42 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("운영 데이터 DB 절대 경로", report)
         self.assertNotIn("backend/data/accounts.sqlite3", report)
 
+    def test_owner_release_report_explains_missing_data_storage_path_inputs(self):
+        from backend.core.release_check import format_owner_release_readiness_report
+
+        report = format_owner_release_readiness_report({
+            "ok": False,
+            "errors": [],
+            "readiness": {
+                "overall_ready": False,
+                "sections": {
+                    "data_storage": {
+                        "ready": False,
+                        "missing_server_settings": [
+                            "ALPHAMATE_ACCOUNT_DB_PATH",
+                            "ALPHAMATE_JOURNAL_DB_PATH",
+                            "ALPHAMATE_ACCESS_DB_PATH",
+                            "ALPHAMATE_REVIEW_HISTORY_DB_PATH",
+                            "ALPHAMATE_EVENT_LOG_DB_PATH",
+                        ],
+                        "required_server_settings": [
+                            "ALPHAMATE_ACCOUNT_DB_PATH",
+                            "ALPHAMATE_JOURNAL_DB_PATH",
+                            "ALPHAMATE_ACCESS_DB_PATH",
+                            "ALPHAMATE_REVIEW_HISTORY_DB_PATH",
+                            "ALPHAMATE_EVENT_LOG_DB_PATH",
+                        ],
+                    },
+                },
+            },
+        })
+
+        self.assertIn("계정 DB", report)
+        self.assertIn("매매 기록 DB", report)
+        self.assertIn("복기 보관함 DB", report)
+        self.assertIn("운영 로그 DB", report)
+        self.assertIn("ALPHAMATE_ACCOUNT_DB_PATH", report)
+
     def test_rejects_missing_production_backend_settings_without_secret_values(self):
         with patched_env(
             ALPHAMATE_ENV="development",

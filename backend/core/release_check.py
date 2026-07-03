@@ -71,6 +71,11 @@ OWNER_NEXT_ACTION_HINTS = {
     "OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY": "OpenAI API Key를 발급해서 서버 설정에 넣기",
     "ALPHAMATE_ADMIN_TOKEN": "generate_release_secrets.bat를 실행해서 운영 로그 관리자 토큰 빈 값을 채우기",
     "ALPHAMATE_ADMIN_TOKEN_MIN_LENGTH_32": "generate_release_secrets.bat를 실행해서 운영 로그 관리자 토큰 빈 값을 채우기",
+    "ALPHAMATE_ACCOUNT_DB_PATH": "계정 DB를 저장할 백업 가능한 서버 경로 정하기",
+    "ALPHAMATE_JOURNAL_DB_PATH": "매매 기록 DB를 저장할 백업 가능한 서버 경로 정하기",
+    "ALPHAMATE_ACCESS_DB_PATH": "이용권/구독 DB를 저장할 백업 가능한 서버 경로 정하기",
+    "ALPHAMATE_REVIEW_HISTORY_DB_PATH": "복기 보관함 DB를 저장할 백업 가능한 서버 경로 정하기",
+    "ALPHAMATE_EVENT_LOG_DB_PATH": "운영 로그 DB를 저장할 백업 가능한 서버 경로 정하기",
     "ALPHAMATE_CORS_ORIGINS": "운영 웹/앱 API 허용 주소를 설정하기",
     "ALPHAMATE_CORS_ORIGINS_PLACEHOLDER": "운영 웹/앱 API 허용 주소를 실제 배포 주소로 바꾸기",
     "ALPHAMATE_CORS_ORIGINS_LOCALHOST": "운영 웹 CORS 주소에서 localhost/로컬 IP를 제거하기",
@@ -122,6 +127,11 @@ OWNER_NEXT_ACTION_LINKS = {
 
 OWNER_REQUIRED_INPUTS = {
     "OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY": "OpenAI API Key 값",
+    "ALPHAMATE_ACCOUNT_DB_PATH": "계정 DB 저장 경로",
+    "ALPHAMATE_JOURNAL_DB_PATH": "매매 기록 DB 저장 경로",
+    "ALPHAMATE_ACCESS_DB_PATH": "이용권/구독 DB 저장 경로",
+    "ALPHAMATE_REVIEW_HISTORY_DB_PATH": "복기 보관함 DB 저장 경로",
+    "ALPHAMATE_EVENT_LOG_DB_PATH": "운영 로그 DB 저장 경로",
     "KAKAO_CLIENT_ID": "카카오 REST API Key 값",
     "KAKAO_CLIENT_SECRET": "카카오 Client Secret 값 또는 미사용 결정",
     "KAKAO_REDIRECT_URI": "카카오 Redirect URI 운영 주소",
