@@ -106,6 +106,18 @@ test('requires public OAuth settings for release builds', () => {
   assert.match(result.errors.join('\n'), /VITE_NAVER_REDIRECT_URI/);
 });
 
+test('rejects invalid or local OAuth redirect URLs for release builds', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    VITE_KAKAO_REDIRECT_URI: 'not-a-url',
+    VITE_NAVER_REDIRECT_URI: 'http://localhost:5174/oauth/naver',
+  }));
+
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join('\n'), /VITE_KAKAO_REDIRECT_URI must be a valid URL/);
+  assert.match(result.errors.join('\n'), /VITE_NAVER_REDIRECT_URI must use https:\/\/ for release builds/);
+  assert.match(result.errors.join('\n'), /VITE_NAVER_REDIRECT_URI must not point to localhost or a local IP/);
+});
+
 test('accepts production release settings without exposing secret requirements', () => {
   const result = validateReleaseEnv(validReleaseEnv());
 

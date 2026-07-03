@@ -72,9 +72,25 @@ function isPlaceholderUrl(value) {
   }
 }
 
-function validateUrlPlaceholder(env, key, errors) {
+function validatePublicHttpsUrl(env, key, errors) {
   const value = envValue(env, key);
-  if (value && isPlaceholderUrl(value)) {
+  if (!value) return;
+
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    errors.push(`${key} must be a valid URL.`);
+    return;
+  }
+
+  if (url.protocol !== 'https:') {
+    errors.push(`${key} must use https:// for release builds.`);
+  }
+  if (LOCAL_HOSTS.has(url.hostname) || url.hostname.startsWith('127.')) {
+    errors.push(`${key} must not point to localhost or a local IP for release builds.`);
+  }
+  if (isPlaceholderUrl(value)) {
     errors.push(`${key} must not use a placeholder URL for release builds.`);
   }
 }
@@ -172,8 +188,8 @@ export function validateReleaseEnv(env) {
   requireReleaseSetting(env, 'VITE_KAKAO_REDIRECT_URI', errors);
   requireReleaseSetting(env, 'VITE_NAVER_CLIENT_ID', errors);
   requireReleaseSetting(env, 'VITE_NAVER_REDIRECT_URI', errors);
-  validateUrlPlaceholder(env, 'VITE_KAKAO_REDIRECT_URI', errors);
-  validateUrlPlaceholder(env, 'VITE_NAVER_REDIRECT_URI', errors);
+  validatePublicHttpsUrl(env, 'VITE_KAKAO_REDIRECT_URI', errors);
+  validatePublicHttpsUrl(env, 'VITE_NAVER_REDIRECT_URI', errors);
   validateAdMobAppId(androidAdMobAppId, errors);
   validateAdUnitId(rewardedAdUnitId, 'VITE_ADMOB_REWARDED_AD_UNIT_ID', GOOGLE_ANDROID_TEST_REWARDED_AD_ID, errors);
   validateAdUnitId(
