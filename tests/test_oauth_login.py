@@ -333,6 +333,44 @@ class OAuthLoginTest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+    def test_oauth_config_status_rejects_invalid_or_local_redirect_uris(self):
+        keys = (
+            "KAKAO_CLIENT_ID",
+            "KAKAO_REDIRECT_URI",
+            "NAVER_CLIENT_ID",
+            "NAVER_CLIENT_SECRET",
+            "NAVER_REDIRECT_URI",
+        )
+        previous = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ["KAKAO_CLIENT_ID"] = "kakao-client-id"
+            os.environ["KAKAO_REDIRECT_URI"] = "not-a-url"
+            os.environ["NAVER_CLIENT_ID"] = "naver-client-id"
+            os.environ["NAVER_CLIENT_SECRET"] = "naver-client-secret"
+            os.environ["NAVER_REDIRECT_URI"] = "http://localhost:5174/oauth/naver"
+
+            from backend.core import oauth_login
+
+            oauth_login = importlib.reload(oauth_login)
+            status = oauth_login.get_oauth_config_status()
+
+            self.assertFalse(status["providers"]["kakao"]["server_ready"])
+            self.assertIn(
+                "KAKAO_REDIRECT_URI_INVALID",
+                status["providers"]["kakao"]["missing_server_settings"],
+            )
+            self.assertFalse(status["providers"]["naver"]["server_ready"])
+            self.assertIn(
+                "NAVER_REDIRECT_URI_LOCALHOST",
+                status["providers"]["naver"]["missing_server_settings"],
+            )
+        finally:
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
 
 if __name__ == "__main__":
     unittest.main()

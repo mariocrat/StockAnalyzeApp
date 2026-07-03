@@ -2,6 +2,7 @@
 
 ## 2026-07-03 mobile ad failure logging
 
+- Hardened backend OAuth readiness so Kakao/Naver redirect URIs with malformed values, localhost hosts, or non-HTTPS schemes are reported before release.
 - Hardened frontend release checks so Kakao/Naver redirect URIs must be valid public HTTPS URLs, not malformed strings or localhost HTTP URLs.
 - Added a frontend release check that rejects duplicate AdMob ad unit IDs across rewarded, interstitial, and banner placements.
 - Added rewarded AdMob ad unit ID comparison to the server/app release alignment check so watched ads cannot silently fail reward validation because backend and mobile ad unit IDs differ.

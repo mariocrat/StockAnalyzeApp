@@ -1,5 +1,6 @@
 import requests
 from fastapi import HTTPException
+from urllib.parse import urlparse
 
 try:
     from core.account_store import _env_value, login_provider_identity
@@ -14,6 +15,7 @@ NAVER_PROFILE_URL = "https://openapi.naver.com/v1/nid/me"
 OAUTH_TIMEOUT_DEFAULT_SECONDS = 8
 OAUTH_TIMEOUT_MAX_SECONDS = 20
 PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
+LOCAL_REDIRECT_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 
 
 def _env_int(name: str, default: int, minimum: int = 1, maximum: int | None = None) -> int:
@@ -34,6 +36,26 @@ def _oauth_timeout_seconds() -> int:
 def _is_placeholder_url(value: str) -> bool:
     text = str(value or "").strip().lower()
     return bool(text) and any(part in text for part in PLACEHOLDER_URL_PARTS)
+
+
+def _redirect_uri_problem(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    try:
+        parsed = urlparse(text)
+    except Exception:
+        return "INVALID"
+    if not parsed.scheme or not parsed.netloc:
+        return "INVALID"
+    host = (parsed.hostname or "").lower()
+    if host in LOCAL_REDIRECT_HOSTS or host.startswith("127."):
+        return "LOCALHOST"
+    if parsed.scheme != "https":
+        return "NOT_HTTPS"
+    if _is_placeholder_url(text):
+        return "PLACEHOLDER"
+    return ""
 
 
 def _is_production() -> bool:
@@ -151,8 +173,11 @@ def get_oauth_config_status() -> dict:
     def provider_status(required: list[str], optional: list[str], placeholder_checks: dict[str, str]) -> dict:
         missing = [name for name in required if not _env_value(name)]
         for setting_name, placeholder_key in placeholder_checks.items():
-            if _is_placeholder_url(_env_value(setting_name)):
+            problem = _redirect_uri_problem(_env_value(setting_name))
+            if problem == "PLACEHOLDER":
                 missing.append(placeholder_key)
+            elif problem:
+                missing.append(f"{setting_name}_{problem}")
         return {
             "server_ready": not missing,
             "missing_server_settings": missing,
