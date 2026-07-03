@@ -1,5 +1,10 @@
 # AlphaMate Development History
 
+## 2026-07-03 mobile ad failure logging
+
+- Added non-blocking client-event logging for mobile ad display failures in resume interstitials, chart-detail interstitials, bottom banner ads, and review-history entry ads.
+- Kept ad failures from blocking the original user action while preserving placement, plan, native runtime, and sanitized error metadata for troubleshooting.
+
 ## 2026-06-25 operational log hardening
 
 - Added Android native bottom banner ads for free users, blocked all non-rewarded ads for Pro users, and added `VITE_ADMOB_BANNER_AD_UNIT_ID` to frontend release checks.

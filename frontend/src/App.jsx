@@ -4,6 +4,7 @@ import './App.css';
 import appIcon from './assets/app-icon.png';
 import { getAdMobRuntimeStatus, removeAppBanner, showAppBanner, showChartDetailInterstitial, showResumeInterstitial } from './mobile/admob';
 import { shouldShowBannerAd, shouldShowChartDetailInterstitial, shouldShowResumeInterstitial } from './mobile/admobPolicy';
+import { reportClientEvent } from './utils/clientEventLog';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
@@ -84,6 +85,22 @@ export default function App() {
     document.title = APP_NAME;
   }, []);
 
+  const reportAdClientEvent = useCallback((eventType, error, details = {}) => {
+    const session = loadStoredAuthSession();
+    reportClientEvent({
+      apiBase: API_BASE,
+      sessionToken: session?.session_token || '',
+      eventType,
+      level: 'warning',
+      message: error?.message || `${eventType} failed.`,
+      path: '/ads',
+      details: {
+        ...details,
+        errorName: error?.name || error?.constructor?.name || 'Error',
+      },
+    });
+  }, []);
+
   const refreshAdPlan = useCallback(async () => {
     if (DEV_ACCESS_PLAN === 'pro') {
       setAdPlan('pro');
@@ -157,7 +174,12 @@ export default function App() {
         resumeInterstitialInFlightRef.current = true;
         lastResumeInterstitialAtRef.current = nowMs;
         showResumeInterstitial()
-          .catch(() => {})
+          .catch((err) => {
+            reportAdClientEvent('ad_resume_interstitial_failed', err, {
+              placement: 'resume',
+              plan: adPlan,
+            });
+          })
           .finally(() => {
             resumeInterstitialInFlightRef.current = false;
           });
@@ -168,14 +190,21 @@ export default function App() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [adPlan]);
+  }, [adPlan, reportAdClientEvent]);
 
   useEffect(() => {
     const status = getAdMobRuntimeStatus();
     const shouldShow = !showSplash && shouldShowBannerAd({ plan: adPlan, native: status.native });
     if (!shouldShow) {
       setBannerReserved(false);
-      removeAppBanner().catch(() => {});
+      removeAppBanner().catch((err) => {
+        reportAdClientEvent('ad_banner_remove_failed', err, {
+          placement: 'bottom_banner',
+          plan: adPlan,
+          native: status.native,
+          reason: 'suppressed',
+        });
+      });
       return;
     }
 
@@ -183,15 +212,28 @@ export default function App() {
       .then((result) => {
         setBannerReserved(Boolean(result?.shown));
       })
-      .catch(() => {
+      .catch((err) => {
+        reportAdClientEvent('ad_banner_show_failed', err, {
+          placement: 'bottom_banner',
+          plan: adPlan,
+          native: status.native,
+          platform: status.platform,
+        });
         setBannerReserved(false);
       });
 
     return () => {
       setBannerReserved(false);
-      removeAppBanner().catch(() => {});
+      removeAppBanner().catch((err) => {
+        reportAdClientEvent('ad_banner_remove_failed', err, {
+          placement: 'bottom_banner',
+          plan: adPlan,
+          native: status.native,
+          reason: 'cleanup',
+        });
+      });
     };
-  }, [adPlan, showSplash]);
+  }, [adPlan, showSplash, reportAdClientEvent]);
 
   // ── Theme state ──────────────────────────────────────────────────────
   const [themes,          setThemes]         = useState([]);
@@ -446,10 +488,15 @@ export default function App() {
     if (!shouldShowChartDetailInterstitial({ plan: adPlan, detailOpenCount })) return;
     try {
       await showChartDetailInterstitial();
-    } catch {
+    } catch (err) {
+      reportAdClientEvent('ad_chart_detail_interstitial_failed', err, {
+        placement: 'chart_detail',
+        detailOpenCount,
+        plan: adPlan,
+      });
       // Ad failures should not block chart detail access.
     }
-  }, [adPlan]);
+  }, [adPlan, reportAdClientEvent]);
 
   // ── Render current theme's ticker list ───────────────────────────────
   const activeThemeObj = themes.find(t => t.Theme === activeTheme);

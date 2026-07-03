@@ -327,7 +327,17 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
       reviewHistoryAdShownRef.current = true;
       try {
         await showReviewHistoryInterstitial();
-      } catch {
+      } catch (err) {
+        reportJournalClientEvent({
+          eventType: 'review_history_interstitial_failed',
+          level: 'warning',
+          message: err?.message || 'Review history interstitial failed.',
+          details: {
+            native: getAdMobRuntimeStatus().native,
+            plan: entitlements?.plan || 'free',
+            userId: authSession?.user?.id,
+          },
+        });
         // Ad failures should not block access to saved user data.
       }
     }

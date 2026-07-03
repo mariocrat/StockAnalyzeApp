@@ -29,6 +29,18 @@ class AppAdDisplayWiringTest(unittest.TestCase):
         self.assertIn("onEntitlementsChange={handleEntitlementsChange}", app)
         self.assertIn("onEntitlementsChange", journal)
 
+    def test_non_blocking_ad_failures_are_reported_to_client_events(self):
+        app = (ROOT / "frontend" / "src" / "App.jsx").read_text(encoding="utf-8")
+        journal = (ROOT / "frontend" / "src" / "components" / "TradingJournal.jsx").read_text(encoding="utf-8")
+
+        self.assertIn("reportClientEvent", app)
+        self.assertIn("reportAdClientEvent", app)
+        self.assertIn("ad_resume_interstitial_failed", app)
+        self.assertIn("ad_banner_show_failed", app)
+        self.assertIn("ad_banner_remove_failed", app)
+        self.assertIn("ad_chart_detail_interstitial_failed", app)
+        self.assertIn("review_history_interstitial_failed", journal)
+
 
 if __name__ == "__main__":
     unittest.main()
