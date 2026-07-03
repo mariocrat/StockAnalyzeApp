@@ -171,7 +171,16 @@ def get_oauth_config_status() -> dict:
     naver_required = ["NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"]
 
     def provider_status(required: list[str], optional: list[str], placeholder_checks: dict[str, str]) -> dict:
-        missing = [name for name in required if not _env_value(name)]
+        effective_required = list(required)
+        effective_optional = list(optional)
+        if _is_production():
+            for setting_name in placeholder_checks:
+                if setting_name not in effective_required:
+                    effective_required.append(setting_name)
+                if setting_name in effective_optional:
+                    effective_optional.remove(setting_name)
+
+        missing = [name for name in effective_required if not _env_value(name)]
         for setting_name, placeholder_key in placeholder_checks.items():
             problem = _redirect_uri_problem(_env_value(setting_name))
             if problem == "PLACEHOLDER":
@@ -181,8 +190,8 @@ def get_oauth_config_status() -> dict:
         return {
             "server_ready": not missing,
             "missing_server_settings": missing,
-            "required_server_settings": required,
-            "optional_server_settings": optional,
+            "required_server_settings": effective_required,
+            "optional_server_settings": effective_optional,
         }
 
     return {

@@ -2,6 +2,7 @@
 
 ## 2026-07-03 mobile ad failure logging
 
+- Required Kakao/Naver OAuth redirect URIs in production backend release readiness so owner checks match runtime login requirements.
 - Hardened production OAuth code-login runtime validation so malformed, localhost, or non-HTTPS configured redirect URIs are blocked before provider token exchange.
 - Hardened backend OAuth readiness so Kakao/Naver redirect URIs with malformed values, localhost hosts, or non-HTTPS schemes are reported before release.
 - Hardened frontend release checks so Kakao/Naver redirect URIs must be valid public HTTPS URLs, not malformed strings or localhost HTTP URLs.

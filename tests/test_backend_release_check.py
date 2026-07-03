@@ -305,7 +305,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             self.assertNotIn("sk-", formatted)
             self.assertNotIn("google-secret-json", formatted)
 
-    def test_accepts_complete_production_backend_settings(self):
+    def test_rejects_missing_production_oauth_redirect_uris(self):
         with patched_env(
             ALPHAMATE_ENV="production",
             OPENAI_API_KEY="sk-test-secret",
@@ -315,6 +315,46 @@ class BackendReleaseCheckTest(unittest.TestCase):
             NAVER_CLIENT_ID="naver-client",
             NAVER_CLIENT_SECRET="naver-secret",
             NAVER_REDIRECT_URI=None,
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+            GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
+            GOOGLE_PLAY_BASIC_REVIEW_100_ID="alphamate.basic.100",
+            GOOGLE_PLAY_ADVANCED_REVIEW_5_ID="alphamate.advanced.5",
+            GOOGLE_PLAY_ADVANCED_REVIEW_10_ID="alphamate.advanced.10",
+            GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
+            GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
+            GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-token-with-at-least-32-characters",
+            GOOGLE_PLAY_RTDN_OIDC_AUDIENCE=None,
+            GOOGLE_PLAY_RTDN_OIDC_EMAIL=None,
+            ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+            ALPHAMATE_PRIVACY_POLICY_URL="https://alphamate.example/privacy",
+            ALPHAMATE_ACCOUNT_DB_PATH="D:/secure/alphamate/accounts.sqlite3",
+            ALPHAMATE_JOURNAL_DB_PATH="D:/secure/alphamate/trades.sqlite3",
+            ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
+            ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
+            ALPHAMATE_EVENT_LOG_DB_PATH="D:/secure/alphamate/events.sqlite3",
+            ALPHAMATE_ADMIN_TOKEN="admin-token-with-at-least-32-characters",
+            ALPHAMATE_CORS_ORIGINS="https://app.alphamate.example,capacitor://localhost",
+        ):
+            from backend.core.release_check import validate_backend_release_env
+
+            result = validate_backend_release_env()
+            joined_errors = "\n".join(result["errors"])
+
+            self.assertFalse(result["ok"])
+            self.assertIn("login.kakao: KAKAO_REDIRECT_URI", joined_errors)
+            self.assertIn("login.naver: NAVER_REDIRECT_URI", joined_errors)
+
+    def test_accepts_complete_production_backend_settings(self):
+        with patched_env(
+            ALPHAMATE_ENV="production",
+            OPENAI_API_KEY="sk-test-secret",
+            KAKAO_CLIENT_ID="kakao-client",
+            KAKAO_CLIENT_SECRET="kakao-secret",
+            KAKAO_REDIRECT_URI="https://api.alphamate.example/api/auth/kakao/callback",
+            NAVER_CLIENT_ID="naver-client",
+            NAVER_CLIENT_SECRET="naver-secret",
+            NAVER_REDIRECT_URI="https://api.alphamate.example/api/auth/naver/callback",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
@@ -353,8 +393,10 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "OPENAI_API_KEY=sk-env-file-secret",
             "KAKAO_CLIENT_ID=kakao-client",
             "KAKAO_CLIENT_SECRET=kakao-secret",
+            "KAKAO_REDIRECT_URI=https://api.alphamate.example/api/auth/kakao/callback",
             "NAVER_CLIENT_ID=naver-client",
             "NAVER_CLIENT_SECRET=naver-secret",
+            "NAVER_REDIRECT_URI=https://api.alphamate.example/api/auth/naver/callback",
             "GOOGLE_PLAY_PACKAGE_NAME=com.alphamate.app",
             f"GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={fake_service_account_json()}",
             "GOOGLE_PLAY_BASIC_REVIEW_30_ID=alphamate.basic.30",
