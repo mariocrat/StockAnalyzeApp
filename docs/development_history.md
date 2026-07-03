@@ -2,6 +2,7 @@
 
 ## 2026-06-25 operational log hardening
 
+- Added Android native bottom banner ads for free users, blocked all non-rewarded ads for Pro users, and added `VITE_ADMOB_BANNER_AD_UNIT_ID` to frontend release checks.
 - Hardened release readiness checks so template placeholder URLs and placeholder AdMob ad unit IDs are not treated as production-ready settings.
 - Added `prepare_private_release_setup.bat` as a non-developer friendly one-click flow for local release env creation, random release token filling, Android upload key preparation, and readiness reporting.
 - Added `verify_android_release.bat` and `scripts/verify_android_release.ps1` so a signed Play Store AAB can be built from `frontend/.env.release` after release signing is prepared.

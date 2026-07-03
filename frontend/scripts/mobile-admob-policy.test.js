@@ -3,10 +3,13 @@ import assert from 'node:assert/strict';
 
 import {
   DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID,
+  DEFAULT_ANDROID_TEST_BANNER_AD_ID,
   DEFAULT_ANDROID_TEST_REWARDED_AD_ID,
+  assertBannerAdCanRun,
   assertInterstitialAdCanRun,
   assertRewardedAdCanRun,
   createAdMobRuntimeStatus,
+  shouldShowBannerAd,
   shouldShowChartDetailInterstitial,
   shouldShowResumeInterstitial,
 } from '../src/mobile/admobPolicy.js';
@@ -16,6 +19,7 @@ test('blocks the Google rewarded test ad unit in production', () => {
     appEnv: 'production',
     rewardedAdId: DEFAULT_ANDROID_TEST_REWARDED_AD_ID,
     interstitialAdId: DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID,
+    bannerAdId: DEFAULT_ANDROID_TEST_BANNER_AD_ID,
     native: true,
     platform: 'android',
   });
@@ -26,6 +30,9 @@ test('blocks the Google rewarded test ad unit in production', () => {
   assert.equal(status.usingTestInterstitialAdUnit, true);
   assert.equal(status.interstitialProductionMisconfigured, true);
   assert.equal(status.interstitialAvailable, false);
+  assert.equal(status.usingTestBannerAdUnit, true);
+  assert.equal(status.bannerProductionMisconfigured, true);
+  assert.equal(status.bannerAvailable, false);
   assert.throws(
     () => assertRewardedAdCanRun({
       appEnv: 'production',
@@ -41,6 +48,13 @@ test('blocks the Google rewarded test ad unit in production', () => {
     }),
     /Production AdMob interstitial ad unit is not configured/,
   );
+  assert.throws(
+    () => assertBannerAdCanRun({
+      appEnv: 'production',
+      bannerAdId: DEFAULT_ANDROID_TEST_BANNER_AD_ID,
+    }),
+    /Production AdMob banner ad unit is not configured/,
+  );
 });
 
 test('allows a real rewarded ad unit in production for a logged-in user', () => {
@@ -48,6 +62,7 @@ test('allows a real rewarded ad unit in production for a logged-in user', () => 
     appEnv: 'production',
     rewardedAdId: 'ca-app-pub-1234567890123456/9876543210',
     interstitialAdId: 'ca-app-pub-1234567890123456/1234567890',
+    bannerAdId: 'ca-app-pub-1234567890123456/2222222222',
     native: true,
     platform: 'android',
   });
@@ -58,6 +73,9 @@ test('allows a real rewarded ad unit in production for a logged-in user', () => 
   assert.equal(status.usingTestInterstitialAdUnit, false);
   assert.equal(status.interstitialProductionMisconfigured, false);
   assert.equal(status.interstitialAvailable, true);
+  assert.equal(status.usingTestBannerAdUnit, false);
+  assert.equal(status.bannerProductionMisconfigured, false);
+  assert.equal(status.bannerAvailable, true);
   assert.doesNotThrow(() => assertRewardedAdCanRun({
     appEnv: 'production',
     rewardedAdId: 'ca-app-pub-1234567890123456/9876543210',
@@ -67,6 +85,10 @@ test('allows a real rewarded ad unit in production for a logged-in user', () => 
     appEnv: 'production',
     interstitialAdId: 'ca-app-pub-1234567890123456/1234567890',
   }));
+  assert.doesNotThrow(() => assertBannerAdCanRun({
+    appEnv: 'production',
+    bannerAdId: 'ca-app-pub-1234567890123456/2222222222',
+  }));
 });
 
 test('keeps the rewarded test ad unit available in development', () => {
@@ -74,6 +96,7 @@ test('keeps the rewarded test ad unit available in development', () => {
     appEnv: 'development',
     rewardedAdId: DEFAULT_ANDROID_TEST_REWARDED_AD_ID,
     interstitialAdId: DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID,
+    bannerAdId: DEFAULT_ANDROID_TEST_BANNER_AD_ID,
     native: true,
     platform: 'android',
   });
@@ -84,9 +107,13 @@ test('keeps the rewarded test ad unit available in development', () => {
   assert.equal(status.usingTestInterstitialAdUnit, true);
   assert.equal(status.interstitialProductionMisconfigured, false);
   assert.equal(status.interstitialAvailable, true);
+  assert.equal(status.usingTestBannerAdUnit, true);
+  assert.equal(status.bannerProductionMisconfigured, false);
+  assert.equal(status.bannerAvailable, true);
 });
 
 test('suppresses every non-rewarded ad for Pro users', () => {
+  assert.equal(shouldShowBannerAd({ plan: 'pro', native: true }), false);
   assert.equal(shouldShowResumeInterstitial({
     plan: 'pro',
     backgroundedAtMs: 1_000,
@@ -97,6 +124,11 @@ test('suppresses every non-rewarded ad for Pro users', () => {
     plan: 'pro',
     detailOpenCount: 3,
   }), false);
+});
+
+test('shows bottom banner only for free users in the native app', () => {
+  assert.equal(shouldShowBannerAd({ plan: 'free', native: true }), true);
+  assert.equal(shouldShowBannerAd({ plan: 'free', native: false }), false);
 });
 
 test('shows app resume interstitial only after a meaningful break and cooldown', () => {

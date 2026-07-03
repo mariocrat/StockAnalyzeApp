@@ -16,6 +16,10 @@ class AppAdDisplayWiringTest(unittest.TestCase):
         self.assertIn("shouldShowChartDetailInterstitial", app)
         self.assertIn("onOpenDetailAd={handleChartDetailAd}", app)
         self.assertIn("onOpenDetailAd", stock_chart)
+        self.assertIn("showAppBanner", app)
+        self.assertIn("removeAppBanner", app)
+        self.assertIn("shouldShowBannerAd", app)
+        self.assertIn("app-container-mobile-banner", app)
 
     def test_pro_plan_changes_are_lifted_for_global_ad_suppression(self):
         app = (ROOT / "frontend" / "src" / "App.jsx").read_text(encoding="utf-8")

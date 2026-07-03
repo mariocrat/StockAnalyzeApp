@@ -2,8 +2,8 @@ import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios';
 import './App.css';
 import appIcon from './assets/app-icon.png';
-import { showChartDetailInterstitial, showResumeInterstitial } from './mobile/admob';
-import { shouldShowChartDetailInterstitial, shouldShowResumeInterstitial } from './mobile/admobPolicy';
+import { getAdMobRuntimeStatus, removeAppBanner, showAppBanner, showChartDetailInterstitial, showResumeInterstitial } from './mobile/admob';
+import { shouldShowBannerAd, shouldShowChartDetailInterstitial, shouldShowResumeInterstitial } from './mobile/admobPolicy';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
@@ -67,6 +67,7 @@ export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [splashExiting, setSplashExiting] = useState(false);
   const [adPlan, setAdPlan] = useState(DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free');
+  const [bannerReserved, setBannerReserved] = useState(false);
   const backgroundedAtRef = useRef(0);
   const lastResumeInterstitialAtRef = useRef(0);
   const resumeInterstitialInFlightRef = useRef(false);
@@ -168,6 +169,29 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [adPlan]);
+
+  useEffect(() => {
+    const status = getAdMobRuntimeStatus();
+    const shouldShow = !showSplash && shouldShowBannerAd({ plan: adPlan, native: status.native });
+    if (!shouldShow) {
+      setBannerReserved(false);
+      removeAppBanner().catch(() => {});
+      return;
+    }
+
+    showAppBanner()
+      .then((result) => {
+        setBannerReserved(Boolean(result?.shown));
+      })
+      .catch(() => {
+        setBannerReserved(false);
+      });
+
+    return () => {
+      setBannerReserved(false);
+      removeAppBanner().catch(() => {});
+    };
+  }, [adPlan, showSplash]);
 
   // ── Theme state ──────────────────────────────────────────────────────
   const [themes,          setThemes]         = useState([]);
@@ -446,7 +470,7 @@ export default function App() {
   return (
     <>
     {showSplash && <AppSplash exiting={splashExiting} />}
-    <div className="app-container">
+    <div className={bannerReserved ? "app-container app-container-mobile-banner" : "app-container"}>
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <div className="sidebar">
         <h2 className="sidebar-title">{APP_NAME}</h2>

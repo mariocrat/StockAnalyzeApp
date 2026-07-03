@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const GOOGLE_ANDROID_TEST_REWARDED_AD_ID = 'ca-app-pub-3940256099942544/5224354917';
 const GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID = 'ca-app-pub-3940256099942544/1033173712';
+const GOOGLE_ANDROID_TEST_BANNER_AD_ID = 'ca-app-pub-3940256099942544/6300978111';
 const GOOGLE_ANDROID_TEST_APP_ID = 'ca-app-pub-3940256099942544~3347511713';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
 const PLACEHOLDER_HOST_PARTS = ['example.com', 'your-api', 'your-app', 'your-domain', 'your-site'];
@@ -140,6 +141,7 @@ export function validateReleaseEnv(env) {
   const androidAdMobAppId = envValue(env, 'VITE_ADMOB_ANDROID_APP_ID');
   const rewardedAdUnitId = envValue(env, 'VITE_ADMOB_REWARDED_AD_UNIT_ID');
   const reviewHistoryInterstitialAdUnitId = envValue(env, 'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID');
+  const bannerAdUnitId = envValue(env, 'VITE_ADMOB_BANNER_AD_UNIT_ID');
   const packageName = envValue(env, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
 
   if (appEnv !== 'production') {
@@ -166,6 +168,7 @@ export function validateReleaseEnv(env) {
     GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID,
     errors,
   );
+  validateAdUnitId(bannerAdUnitId, 'VITE_ADMOB_BANNER_AD_UNIT_ID', GOOGLE_ANDROID_TEST_BANNER_AD_ID, errors);
   if (!/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){2,}$/.test(packageName)) {
     errors.push('VITE_GOOGLE_PLAY_PACKAGE_NAME must be a valid Android package name.');
   }
@@ -206,6 +209,9 @@ function ownerFrontendNextAction(error) {
   if (error.includes('VITE_ADMOB_ANDROID_APP_ID')) {
     return 'AdMob Android App ID를 운영 앱 ID로 바꾸기 (VITE_ADMOB_ANDROID_APP_ID) - https://apps.admob.com/';
   }
+  if (error.includes('VITE_ADMOB_BANNER_AD_UNIT_ID')) {
+    return 'AdMob 배너 광고 단위를 운영 광고 단위로 바꾸기 (VITE_ADMOB_BANNER_AD_UNIT_ID) - https://apps.admob.com/';
+  }
   const hints = [
     ['VITE_ALPHAMATE_ENV', '운영 모드로 바꾸기'],
     ['VITE_APP_NAME', '앱 이름을 최종 이름으로 설정하기'],
@@ -243,6 +249,9 @@ function ownerFrontendRequiredInputs(errors) {
   }
   if (errors.some((error) => error.includes('VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID'))) {
     inputs.push('AdMob 복기 보관함 전면 광고 단위 ID');
+  }
+  if (errors.some((error) => error.includes('VITE_ADMOB_BANNER_AD_UNIT_ID'))) {
+    inputs.push('AdMob 배너 광고 단위 ID');
   }
   if (errors.some((error) => error.includes('VITE_KAKAO_REST_API_KEY'))) {
     inputs.push('카카오 REST API Key 값');

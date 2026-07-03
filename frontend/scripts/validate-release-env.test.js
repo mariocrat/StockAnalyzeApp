@@ -23,6 +23,7 @@ function validReleaseEnv(overrides = {}) {
     VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-1234567890123456~1234567890',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-1234567890123456/9876543210',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-1234567890123456/1234567890',
+    VITE_ADMOB_BANNER_AD_UNIT_ID: 'ca-app-pub-1234567890123456/2222222222',
     VITE_GOOGLE_PLAY_PACKAGE_NAME: 'com.mariocrat.stockanalyze',
     ALPHAMATE_ANDROID_KEYSTORE_FILE: keystoreFile,
     ALPHAMATE_ANDROID_KEYSTORE_PASSWORD: 'keystore-password',
@@ -42,6 +43,7 @@ test('rejects localhost API and enabled dev tools for release builds', () => {
     VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-3940256099942544~3347511713',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-3940256099942544/5224354917',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-3940256099942544/1033173712',
+    VITE_ADMOB_BANNER_AD_UNIT_ID: 'ca-app-pub-3940256099942544/6300978111',
     VITE_GOOGLE_PLAY_PACKAGE_NAME: '',
   });
 
@@ -51,6 +53,7 @@ test('rejects localhost API and enabled dev tools for release builds', () => {
   assert.match(result.errors.join('\n'), /VITE_ADMOB_ANDROID_APP_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REWARDED_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_BANNER_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_GOOGLE_PLAY_PACKAGE_NAME/);
 });
 
@@ -62,6 +65,7 @@ test('rejects placeholder release URLs and AdMob ad unit IDs', () => {
     VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-0000000000000000~0000000000',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-0000000000000000/0000000000',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/1111111111',
+    VITE_ADMOB_BANNER_AD_UNIT_ID: 'ca-app-pub-0000000000000000/1111111111',
   }));
 
   assert.equal(result.ok, false);
@@ -71,6 +75,7 @@ test('rejects placeholder release URLs and AdMob ad unit IDs', () => {
   assert.match(result.errors.join('\n'), /VITE_ADMOB_ANDROID_APP_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REWARDED_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_BANNER_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /placeholder/);
 });
 
@@ -159,6 +164,7 @@ test('frontend env example documents release check settings', () => {
     'VITE_ADMOB_ANDROID_APP_ID',
     'VITE_ADMOB_REWARDED_AD_UNIT_ID',
     'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID',
+    'VITE_ADMOB_BANNER_AD_UNIT_ID',
     'VITE_GOOGLE_PLAY_PACKAGE_NAME',
     'ALPHAMATE_ANDROID_KEYSTORE_FILE',
     'ALPHAMATE_ANDROID_KEYSTORE_PASSWORD',
@@ -187,6 +193,7 @@ test('frontend release env template is production focused', () => {
     'VITE_ADMOB_ANDROID_APP_ID',
     'VITE_ADMOB_REWARDED_AD_UNIT_ID',
     'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID',
+    'VITE_ADMOB_BANNER_AD_UNIT_ID',
     'VITE_GOOGLE_PLAY_PACKAGE_NAME',
     'ALPHAMATE_ANDROID_VERSION_CODE',
     'ALPHAMATE_ANDROID_VERSION_NAME',
