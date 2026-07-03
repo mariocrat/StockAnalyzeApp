@@ -1,5 +1,10 @@
 # AlphaMate Development History
 
+## 2026-07-04 release readiness owner report
+
+- Added owner-facing next actions and required input labels for missing Google Play package, Google Play service account, privacy policy, and AdMob rewarded ad settings.
+- Updated the owner-facing launch readiness report to list every next action instead of hiding later setup tasks behind a truncated "remaining items" summary.
+
 ## 2026-07-03 mobile ad failure logging
 
 - Added owner-facing next actions and required input labels for missing production database paths in the launch readiness report.

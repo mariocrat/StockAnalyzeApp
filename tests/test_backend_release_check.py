@@ -349,6 +349,63 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("운영 로그 DB", report)
         self.assertIn("ALPHAMATE_ACCOUNT_DB_PATH", report)
 
+    def test_owner_release_report_explains_missing_billing_ad_and_legal_inputs(self):
+        from backend.core.release_check import format_owner_release_readiness_report
+
+        report = format_owner_release_readiness_report({
+            "ok": False,
+            "errors": [],
+            "readiness": {
+                "overall_ready": False,
+                "sections": {
+                    "google_play": {
+                        "ready": False,
+                        "missing_server_settings": [
+                            "GOOGLE_PLAY_PACKAGE_NAME",
+                            "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_FILE",
+                        ],
+                    },
+                    "privacy_policy": {
+                        "ready": False,
+                        "missing_server_settings": ["ALPHAMATE_PRIVACY_POLICY_URL"],
+                    },
+                    "admob": {
+                        "ready": False,
+                        "missing_server_settings": ["ADMOB_REWARDED_AD_UNIT_ID"],
+                    },
+                },
+            },
+        })
+
+        self.assertIn("Google Play 패키지명", report)
+        self.assertIn("Google Play 서비스 계정 JSON", report)
+        self.assertIn("개인정보처리방침", report)
+        self.assertIn("AdMob 보상형 광고 단위 ID", report)
+        self.assertIn("GOOGLE_PLAY_PACKAGE_NAME", report)
+        self.assertIn("ADMOB_REWARDED_AD_UNIT_ID", report)
+
+    def test_owner_release_report_lists_all_next_actions(self):
+        from backend.core.release_check import format_owner_release_readiness_report
+
+        missing = [f"SETTING_{index}" for index in range(12)]
+        report = format_owner_release_readiness_report({
+            "ok": False,
+            "errors": [],
+            "readiness": {
+                "overall_ready": False,
+                "sections": {
+                    "sample": {
+                        "ready": False,
+                        "missing_server_settings": missing,
+                    },
+                },
+            },
+        })
+
+        self.assertIn("SETTING_0", report)
+        self.assertIn("SETTING_11", report)
+        self.assertNotIn("그 외 누락 항목", report)
+
     def test_rejects_missing_production_backend_settings_without_secret_values(self):
         with patched_env(
             ALPHAMATE_ENV="development",

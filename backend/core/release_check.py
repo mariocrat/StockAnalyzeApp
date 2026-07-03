@@ -80,12 +80,16 @@ OWNER_NEXT_ACTION_HINTS = {
     "ALPHAMATE_CORS_ORIGINS_PLACEHOLDER": "운영 웹/앱 API 허용 주소를 실제 배포 주소로 바꾸기",
     "ALPHAMATE_CORS_ORIGINS_LOCALHOST": "운영 웹 CORS 주소에서 localhost/로컬 IP를 제거하기",
     "ALPHAMATE_CORS_ORIGINS_WILDCARD": "운영 웹 CORS 주소에서 전체 허용(*)을 제거하고 필요한 주소만 넣기",
+    "GOOGLE_PLAY_PACKAGE_NAME": "Google Play 패키지명을 Android 앱 설정과 맞추기",
+    "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_FILE": "Google Play 서비스 계정 JSON 파일을 서버에 저장하고 경로 연결하기",
     "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file": "Google Play 서비스 계정 JSON 파일을 서버에 저장하고 경로 연결하기",
     "GOOGLE_PLAY_RTDN_SHARED_TOKEN": "generate_release_secrets.bat를 실행해서 Google Play 결제 알림용 공유 토큰 빈 값을 채우기",
     "GOOGLE_PLAY_PRODUCT_ID_DUPLICATE": "Google Play Console 상품 ID가 서로 겹치지 않게 바꾸기",
     "GOOGLE_PLAY_RTDN_OIDC_AUDIENCE_PLACEHOLDER": "Google Play RTDN OIDC audience를 운영 웹훅 주소로 바꾸기",
     "GOOGLE_PLAY_RTDN_OIDC_EMAIL_PLACEHOLDER": "Google Play RTDN OIDC email을 실제 Pub/Sub push 서비스 계정으로 바꾸기",
+    "ALPHAMATE_PRIVACY_POLICY_URL": "공개 개인정보처리방침 HTTPS 주소 넣기",
     "ALPHAMATE_PRIVACY_POLICY_URL_PLACEHOLDER": "공개 개인정보처리방침 HTTPS 주소로 바꾸기",
+    "ADMOB_REWARDED_AD_UNIT_ID": "AdMob 보상형 광고 단위 ID 넣기",
     "ADMOB_REWARDED_AD_UNIT_ID_PLACEHOLDER": "AdMob 운영 보상형 광고 단위 ID로 바꾸기",
     "KAKAO_CLIENT_ID": "카카오 개발자 콘솔에서 REST API Key를 확인해 서버 설정에 넣기",
     "KAKAO_CLIENT_SECRET": "카카오 Client Secret 사용 여부를 정하고 서버 설정에 넣기",
@@ -119,9 +123,14 @@ OWNER_NEXT_ACTION_LINKS = {
     "NAVER_REDIRECT_URI_INVALID": "https://developers.naver.com/apps/",
     "NAVER_REDIRECT_URI_LOCALHOST": "https://developers.naver.com/apps/",
     "NAVER_REDIRECT_URI_NOT_HTTPS": "https://developers.naver.com/apps/",
+    "GOOGLE_PLAY_PACKAGE_NAME": "https://play.google.com/console",
+    "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_FILE": "https://console.cloud.google.com/iam-admin/serviceaccounts",
     "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE existing JSON file": "https://console.cloud.google.com/iam-admin/serviceaccounts",
     "GOOGLE_PLAY_RTDN_OIDC_AUDIENCE_PLACEHOLDER": "https://console.cloud.google.com/cloudpubsub/subscription/list",
     "GOOGLE_PLAY_RTDN_OIDC_EMAIL_PLACEHOLDER": "https://console.cloud.google.com/cloudpubsub/subscription/list",
+    "ALPHAMATE_PRIVACY_POLICY_URL": "https://play.google.com/console",
+    "ALPHAMATE_PRIVACY_POLICY_URL_PLACEHOLDER": "https://play.google.com/console",
+    "ADMOB_REWARDED_AD_UNIT_ID": "https://apps.admob.com/",
     "ADMOB_REWARDED_AD_UNIT_ID_PLACEHOLDER": "https://apps.admob.com/",
 }
 
@@ -132,6 +141,8 @@ OWNER_REQUIRED_INPUTS = {
     "ALPHAMATE_ACCESS_DB_PATH": "이용권/구독 DB 저장 경로",
     "ALPHAMATE_REVIEW_HISTORY_DB_PATH": "복기 보관함 DB 저장 경로",
     "ALPHAMATE_EVENT_LOG_DB_PATH": "운영 로그 DB 저장 경로",
+    "GOOGLE_PLAY_PACKAGE_NAME": "Google Play 패키지명",
+    "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON or GOOGLE_PLAY_SERVICE_ACCOUNT_FILE": "Google Play 서비스 계정 JSON 파일",
     "KAKAO_CLIENT_ID": "카카오 REST API Key 값",
     "KAKAO_CLIENT_SECRET": "카카오 Client Secret 값 또는 미사용 결정",
     "KAKAO_REDIRECT_URI": "카카오 Redirect URI 운영 주소",
@@ -154,7 +165,9 @@ OWNER_REQUIRED_INPUTS = {
     "GOOGLE_PLAY_PRODUCT_ID_DUPLICATE": "Google Play Console 상품 ID 목록",
     "GOOGLE_PLAY_RTDN_OIDC_AUDIENCE_PLACEHOLDER": "Google Play RTDN 운영 웹훅 주소",
     "GOOGLE_PLAY_RTDN_OIDC_EMAIL_PLACEHOLDER": "Google Play Pub/Sub push 서비스 계정 이메일",
+    "ALPHAMATE_PRIVACY_POLICY_URL": "개인정보처리방침 공개 HTTPS 주소",
     "ALPHAMATE_PRIVACY_POLICY_URL_PLACEHOLDER": "개인정보처리방침 공개 HTTPS 주소",
+    "ADMOB_REWARDED_AD_UNIT_ID": "AdMob 보상형 광고 단위 ID",
     "ADMOB_REWARDED_AD_UNIT_ID_PLACEHOLDER": "AdMob 보상형 광고 단위 ID",
 }
 
@@ -233,10 +246,8 @@ def format_owner_release_readiness_report(result: dict) -> str:
 
     lines.extend(["", "다음에 할 일:"])
     if next_actions:
-        for index, item in enumerate(next_actions[:10], start=1):
+        for index, item in enumerate(next_actions, start=1):
             lines.append(f"{index}. {_owner_next_action_text(item)}")
-        if len(next_actions) > 10:
-            lines.append(f"- 그 외 누락 항목 {len(next_actions) - 10}개")
     else:
         lines.append("1. 출시 전 실제 기기 로그인, 결제, 광고, AI 복기를 수동으로 확인하세요.")
 
