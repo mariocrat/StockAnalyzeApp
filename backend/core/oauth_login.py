@@ -147,7 +147,7 @@ def _configured_redirect_uri(provider: str, redirect_uri: str) -> str:
     requested = str(redirect_uri or "").strip()
     configured = str(configured or "").strip()
     if _is_production():
-        if not configured or _is_placeholder_url(configured):
+        if not configured or _redirect_uri_problem(configured):
             raise HTTPException(status_code=503, detail=f"{provider.upper()}_REDIRECT_URI is not configured.")
         if requested and requested != configured:
             raise HTTPException(status_code=400, detail="redirect_uri does not match the server configuration.")

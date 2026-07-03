@@ -240,6 +240,31 @@ class OAuthLoginTest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+    def test_production_oauth_code_rejects_invalid_server_redirect_uri(self):
+        keys = ("ALPHAMATE_ENV", "KAKAO_REDIRECT_URI", "NAVER_REDIRECT_URI")
+        previous = {key: os.environ.get(key) for key in keys}
+        try:
+            os.environ["ALPHAMATE_ENV"] = "production"
+            os.environ["KAKAO_REDIRECT_URI"] = "not-a-url"
+            os.environ["NAVER_REDIRECT_URI"] = "http://localhost:5174/oauth/naver"
+
+            from backend.core import oauth_login
+
+            oauth_login = importlib.reload(oauth_login)
+            with self.assertRaises(HTTPException) as kakao_raised:
+                oauth_login._configured_redirect_uri("kakao", "")
+            with self.assertRaises(HTTPException) as naver_raised:
+                oauth_login._configured_redirect_uri("naver", "")
+
+            self.assertEqual(503, kakao_raised.exception.status_code)
+            self.assertEqual(503, naver_raised.exception.status_code)
+        finally:
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
     def test_production_oauth_code_rejects_redirect_uri_mismatch(self):
         keys = ("ALPHAMATE_ENV", "KAKAO_REDIRECT_URI")
         previous = {key: os.environ.get(key) for key in keys}
