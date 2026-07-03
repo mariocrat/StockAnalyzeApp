@@ -61,6 +61,14 @@ class ReleaseEnvFileSetupTest(unittest.TestCase):
         self.assertIn(".venv\\Scripts\\python.exe", batch)
         self.assertIn("pause", batch.lower())
 
+    def test_release_env_setup_script_uses_korean_owner_messages(self):
+        script = SCRIPT.read_text(encoding="utf-8")
+
+        self.assertIn("다음: 만들어진 .env.release 파일", script)
+        self.assertIn("GitHub에 올리지 마세요", script)
+        self.assertNotIn("Next: open", script)
+        self.assertNotIn("Do not commit", script)
+
 
 if __name__ == "__main__":
     unittest.main()

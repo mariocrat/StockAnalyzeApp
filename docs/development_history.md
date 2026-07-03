@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Translated private release setup helper messages to Korean so double-click setup is easier to follow for a non-developer owner.
 - Added frontend/Android owner report required input labels for final app name and Android version values.
 - Hardened the server/app release alignment report so it fails with an owner-facing setup action when no comparable release settings are available.
 - Updated the owner-facing frontend/Android release report to list every next action instead of hiding later setup tasks behind a truncated "remaining items" summary.

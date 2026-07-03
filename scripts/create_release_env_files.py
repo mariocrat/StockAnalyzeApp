@@ -42,19 +42,19 @@ def main() -> int:
     result = create_release_env_files(root)
 
     for item in result["created_files"]:
-        print(f"Created: {item}")
+        print(f"생성됨: {item}")
     for item in result["skipped_files"]:
-        print(f"Skipped existing file: {item}")
+        print(f"이미 있어서 유지함: {item}")
     for item in result["missing_template_files"]:
-        print(f"Missing template: {item}")
+        print(f"템플릿 파일 없음: {item}")
 
     if result["created"]:
         print("")
-        print("Next: open the created .env.release files and fill the real private values.")
-        print("Do not commit the filled files to GitHub.")
+        print("다음: 만들어진 .env.release 파일을 열고 실제 운영용 값을 채우세요.")
+        print("채운 .env.release 파일은 GitHub에 올리지 마세요.")
     elif result["skipped"] and not result["missing_templates"]:
         print("")
-        print("Release env files already exist. No file was overwritten.")
+        print("출시용 .env.release 파일이 이미 있습니다. 기존 파일은 덮어쓰지 않았습니다.")
 
     return 1 if result["missing_templates"] else 0
 

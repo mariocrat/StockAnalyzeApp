@@ -39,10 +39,18 @@ class PrivateReleaseSetupTest(unittest.TestCase):
     def test_private_release_setup_reports_server_app_alignment_without_failing_setup(self):
         batch = BATCH.read_text(encoding="utf-8")
 
-        self.assertIn("Server/app release setting alignment", batch)
+        self.assertIn("서버/앱 출시 설정 일치 검사", batch)
         self.assertIn("ALIGNMENT_REPORT_EXIT", batch)
         self.assertIn("backend\\scripts\\validate_release_alignment.py", batch)
         self.assertNotIn('if "%ALIGNMENT_REPORT_EXIT%"=="1" set SETUP_EXIT=1', batch)
+
+    def test_private_release_setup_batch_uses_korean_owner_messages(self):
+        batch = BATCH.read_text(encoding="utf-8")
+
+        self.assertIn("출시 준비용 개인 설정 파일을 준비합니다", batch)
+        self.assertIn("외부에서 받아야 하는 값", batch)
+        self.assertNotIn("Preparing private release setup files", batch)
+        self.assertNotIn("Some release readiness items still need external values from you", batch)
 
 
 if __name__ == "__main__":
