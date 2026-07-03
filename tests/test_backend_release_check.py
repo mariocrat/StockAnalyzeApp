@@ -254,6 +254,40 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("ALPHAMATE_ENV must be production", report)
         self.assertIn("운영 모드", report)
 
+    def test_owner_release_report_explains_missing_oauth_redirect_uri_inputs(self):
+        from backend.core.release_check import format_owner_release_readiness_report
+
+        report = format_owner_release_readiness_report({
+            "ok": False,
+            "errors": [
+                "login.kakao: KAKAO_REDIRECT_URI",
+                "login.naver: NAVER_REDIRECT_URI",
+            ],
+            "readiness": {
+                "overall_ready": False,
+                "sections": {
+                    "login": {
+                        "ready": False,
+                        "providers": {
+                            "kakao": {
+                                "server_ready": False,
+                                "missing_server_settings": ["KAKAO_REDIRECT_URI"],
+                            },
+                            "naver": {
+                                "server_ready": False,
+                                "missing_server_settings": ["NAVER_REDIRECT_URI"],
+                            },
+                        },
+                    },
+                },
+            },
+        })
+
+        self.assertIn("카카오 Redirect URI", report)
+        self.assertIn("네이버 Redirect URI", report)
+        self.assertIn("KAKAO_REDIRECT_URI", report)
+        self.assertIn("NAVER_REDIRECT_URI", report)
+
     def test_owner_release_report_explains_unsafe_data_storage_paths(self):
         from backend.core.release_check import format_owner_release_readiness_report
 
