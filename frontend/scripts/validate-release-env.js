@@ -273,6 +273,15 @@ function ownerFrontendNextActions(errors) {
 
 function ownerFrontendRequiredInputs(errors) {
   const inputs = [];
+  if (errors.some((error) => error.includes('VITE_APP_NAME') || error.includes('ALPHAMATE_ANDROID_APP_NAME'))) {
+    inputs.push('최종 앱 이름');
+  }
+  if (errors.some((error) => error.includes('ALPHAMATE_ANDROID_VERSION_CODE'))) {
+    inputs.push('Android 버전 코드');
+  }
+  if (errors.some((error) => error.includes('ALPHAMATE_ANDROID_VERSION_NAME'))) {
+    inputs.push('Android 버전 이름');
+  }
   if (errors.some((error) => error.includes('VITE_API_BASE'))) {
     inputs.push('운영 API 서버 HTTPS 주소');
   }

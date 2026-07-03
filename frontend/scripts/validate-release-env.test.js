@@ -340,6 +340,22 @@ test('owner frontend release report lists all next actions', () => {
   assert.doesNotMatch(report, /그 외 누락 항목/);
 });
 
+test('owner frontend release report includes app name and version inputs', () => {
+  const env = validReleaseEnv({
+    VITE_APP_NAME: '',
+    ALPHAMATE_ANDROID_APP_NAME: '',
+    ALPHAMATE_ANDROID_VERSION_CODE: '',
+    ALPHAMATE_ANDROID_VERSION_NAME: '',
+  });
+  const result = validateReleaseEnv(env);
+  const report = formatOwnerFrontendReleaseReport(result, env);
+
+  assert.equal(result.ok, false);
+  assert.match(report, /최종 앱 이름/);
+  assert.match(report, /Android 버전 코드/);
+  assert.match(report, /Android 버전 이름/);
+});
+
 test('owner frontend release report CLI prints report and hides secret values', () => {
   const script = path.resolve(process.cwd(), 'scripts/owner-release-report.js');
   const env = validReleaseEnv({
