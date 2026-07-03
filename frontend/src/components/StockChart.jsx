@@ -151,7 +151,7 @@ const StockChart = forwardRef(({
   activeInds, bbPeriod, bbMultiplier,
   visibleCandleCount, setVisibleCandleCount,
   candleCountApplySeq, onApplyCandleCount,
-  onTimeRangeChange, onCandlePeriodChange, onChartPeriodChange, onRemove
+  onTimeRangeChange, onCandlePeriodChange, onChartPeriodChange, onOpenDetailAd, onRemove
 }, ref) => {
   const containerRef    = useRef(null);
   const tooltipRef      = useRef(null);
@@ -716,8 +716,16 @@ const StockChart = forwardRef(({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button 
-            onClick={() => {
-              setIsFullscreen(!isFullscreen);
+            onClick={async () => {
+              const nextFullscreen = !isFullscreen;
+              if (nextFullscreen && onOpenDetailAd) {
+                try {
+                  await onOpenDetailAd({ ticker, name });
+                } catch {
+                  // Ad failures should not block chart detail access.
+                }
+              }
+              setIsFullscreen(nextFullscreen);
               // Trigger a resize on next tick to ensure fitContent works well
               setTimeout(() => {
                 if (stateRef.current.chart) {

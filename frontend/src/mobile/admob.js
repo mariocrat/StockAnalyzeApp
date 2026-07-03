@@ -61,7 +61,7 @@ export async function showRewardedReviewAd({ userId }) {
   return AdMob.showRewardVideoAd();
 }
 
-export async function showReviewHistoryInterstitial() {
+async function showInterstitialAd() {
   if (!Capacitor.isNativePlatform()) {
     return { skipped: true, reason: 'web' };
   }
@@ -76,4 +76,16 @@ export async function showReviewHistoryInterstitial() {
   });
   await AdMob.showInterstitial();
   return { shown: true };
+}
+
+export async function showReviewHistoryInterstitial() {
+  return showInterstitialAd();
+}
+
+export async function showResumeInterstitial() {
+  return showInterstitialAd();
+}
+
+export async function showChartDetailInterstitial() {
+  return showInterstitialAd();
 }

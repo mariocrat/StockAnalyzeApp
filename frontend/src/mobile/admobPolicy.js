@@ -1,5 +1,8 @@
 export const DEFAULT_ANDROID_TEST_REWARDED_AD_ID = 'ca-app-pub-3940256099942544/5224354917';
 export const DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID = 'ca-app-pub-3940256099942544/1033173712';
+export const RESUME_INTERSTITIAL_MIN_BACKGROUND_MS = 90_000;
+export const RESUME_INTERSTITIAL_COOLDOWN_MS = 600_000;
+export const CHART_DETAIL_INTERSTITIAL_FREQUENCY = 3;
 
 export function isProductionAdMobMisconfigured({ appEnv, rewardedAdId }) {
   return appEnv === 'production' && rewardedAdId === DEFAULT_ANDROID_TEST_REWARDED_AD_ID;
@@ -46,4 +49,33 @@ export function assertInterstitialAdCanRun({ appEnv, interstitialAdId }) {
   if (isProductionInterstitialMisconfigured({ appEnv, interstitialAdId })) {
     throw new Error('Production AdMob interstitial ad unit is not configured.');
   }
+}
+
+export function isAdFreePlan(plan) {
+  return plan === 'pro';
+}
+
+export function shouldShowResumeInterstitial({
+  plan,
+  backgroundedAtMs,
+  nowMs,
+  lastShownAtMs = 0,
+  minBackgroundMs = RESUME_INTERSTITIAL_MIN_BACKGROUND_MS,
+  cooldownMs = RESUME_INTERSTITIAL_COOLDOWN_MS,
+}) {
+  if (isAdFreePlan(plan)) return false;
+  if (!backgroundedAtMs || !nowMs) return false;
+  if (nowMs - backgroundedAtMs < minBackgroundMs) return false;
+  if (lastShownAtMs && nowMs - lastShownAtMs < cooldownMs) return false;
+  return true;
+}
+
+export function shouldShowChartDetailInterstitial({
+  plan,
+  detailOpenCount,
+  frequency = CHART_DETAIL_INTERSTITIAL_FREQUENCY,
+}) {
+  if (isAdFreePlan(plan)) return false;
+  if (!Number.isFinite(detailOpenCount) || detailOpenCount < 1) return false;
+  return detailOpenCount % frequency === 0;
 }

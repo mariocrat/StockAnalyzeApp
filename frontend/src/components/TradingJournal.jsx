@@ -117,7 +117,7 @@ function reviewAccessText(access) {
   return `${plan} · ${type} · ${source} · 오늘 무료 ${basic.free_daily_max_remaining || 0}회 · 구매 ${basic.purchased_remaining || 0}회`;
 }
 
-export default function TradingJournal({ apiBase }) {
+export default function TradingJournal({ apiBase, onEntitlementsChange }) {
   const oneTimeMode = import.meta.env.VITE_JOURNAL_STORAGE_MODE !== 'persisted';
   const [trades, setTrades] = useState([]);
   const [review, setReview] = useState(null);
@@ -167,6 +167,10 @@ export default function TradingJournal({ apiBase }) {
     path: '/journal',
     ...event,
   });
+
+  useEffect(() => {
+    if (onEntitlementsChange) onEntitlementsChange(entitlements);
+  }, [entitlements, onEntitlementsChange]);
 
   const oauthRedirectUri = (provider) => {
     if (provider === 'kakao' && KAKAO_REDIRECT_URI) return KAKAO_REDIRECT_URI;
@@ -476,6 +480,7 @@ export default function TradingJournal({ apiBase }) {
       setReviewHistory([]);
       setActiveReviewHistory(null);
       setJournalSubView('review');
+      if (onEntitlementsChange) onEntitlementsChange({ plan: DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free' });
       await loadEntitlements(DEV_AUTH_TOKEN);
       setMessage('로그아웃했습니다.');
       setAuthLoading(false);
@@ -597,6 +602,7 @@ export default function TradingJournal({ apiBase }) {
       setActiveReviewHistory(null);
       setJournalSubView('review');
       setDataSummary(null);
+      if (onEntitlementsChange) onEntitlementsChange({ plan: DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free' });
       await loadEntitlements(DEV_AUTH_TOKEN);
       setMessage(`계정 데이터 삭제가 완료됐습니다. 저장 기록 ${res.data?.deleted_trades || 0}건도 함께 삭제했습니다.`);
     } catch (err) {

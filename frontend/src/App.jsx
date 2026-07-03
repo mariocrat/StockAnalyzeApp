@@ -2,14 +2,32 @@ import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios';
 import './App.css';
 import appIcon from './assets/app-icon.png';
+import { showChartDetailInterstitial, showResumeInterstitial } from './mobile/admob';
+import { shouldShowChartDetailInterstitial, shouldShowResumeInterstitial } from './mobile/admobPolicy';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
+const APP_ENV = import.meta.env.VITE_ALPHAMATE_ENV || (import.meta.env.PROD ? 'production' : 'development');
+const DEV_TOOLS_ENABLED = APP_ENV !== 'production' && import.meta.env.VITE_ENABLE_DEV_TOOLS !== 'false';
+const DEV_ACCESS_PLAN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_ACCESS_PLAN || 'free' : 'free';
+const DEV_AUTH_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_AUTH_TOKEN || 'dev-token' : '';
+const DEV_PRO_ENTITLEMENT_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_PRO_ENTITLEMENT_TOKEN || 'dev-pro-entitlement' : '';
+const DEV_ENTITLEMENT_TOKEN = DEV_ACCESS_PLAN === 'pro' ? DEV_PRO_ENTITLEMENT_TOKEN : '';
+const AUTH_STORAGE_KEY = 'alphamate.devAuth.v1';
 const StockChart = lazy(() => import('./components/StockChart'));
 const TradingJournal = lazy(() => import('./components/TradingJournal'));
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const fmt8 = (d) => d.toISOString().split('T')[0].replace(/-/g, '');
+
+function loadStoredAuthSession() {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
 
 
@@ -48,6 +66,11 @@ function AppSplash({ exiting }) {
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [splashExiting, setSplashExiting] = useState(false);
+  const [adPlan, setAdPlan] = useState(DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free');
+  const backgroundedAtRef = useRef(0);
+  const lastResumeInterstitialAtRef = useRef(0);
+  const resumeInterstitialInFlightRef = useRef(false);
+  const chartDetailOpenCountRef = useRef(0);
   const [activeView, setActiveView] = useState(() => {
     try {
       return new URLSearchParams(window.location.search).get('view') === 'journal' ? 'journal' : 'themes';
@@ -58,6 +81,37 @@ export default function App() {
 
   useEffect(() => {
     document.title = APP_NAME;
+  }, []);
+
+  const refreshAdPlan = useCallback(async () => {
+    if (DEV_ACCESS_PLAN === 'pro') {
+      setAdPlan('pro');
+      return;
+    }
+    const session = loadStoredAuthSession();
+    const token = session?.session_token || DEV_AUTH_TOKEN;
+    if (!token) {
+      setAdPlan('free');
+      return;
+    }
+    try {
+      const res = await axios.get(`${API_BASE}/api/journal/entitlements`, {
+        params: { entitlement_token: DEV_ENTITLEMENT_TOKEN },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAdPlan(res.data?.plan === 'pro' ? 'pro' : 'free');
+    } catch {
+      setAdPlan('free');
+    }
+  }, []);
+
+  const handleEntitlementsChange = useCallback((wallet) => {
+    if (!wallet && DEV_ACCESS_PLAN === 'pro') {
+      setAdPlan('pro');
+      return;
+    }
+    if (!wallet) return;
+    setAdPlan(wallet?.plan === 'pro' ? 'pro' : 'free');
   }, []);
 
   useEffect(() => {
@@ -73,6 +127,47 @@ export default function App() {
       window.clearTimeout(hideTimer);
     };
   }, []);
+
+  useEffect(() => {
+    refreshAdPlan();
+    window.addEventListener('storage', refreshAdPlan);
+    return () => {
+      window.removeEventListener('storage', refreshAdPlan);
+    };
+  }, [refreshAdPlan]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const nowMs = Date.now();
+      if (document.visibilityState === 'hidden') {
+        backgroundedAtRef.current = nowMs;
+        return;
+      }
+      if (
+        document.visibilityState === 'visible'
+        && !resumeInterstitialInFlightRef.current
+        && shouldShowResumeInterstitial({
+          plan: adPlan,
+          backgroundedAtMs: backgroundedAtRef.current,
+          nowMs,
+          lastShownAtMs: lastResumeInterstitialAtRef.current,
+        })
+      ) {
+        resumeInterstitialInFlightRef.current = true;
+        lastResumeInterstitialAtRef.current = nowMs;
+        showResumeInterstitial()
+          .catch(() => {})
+          .finally(() => {
+            resumeInterstitialInFlightRef.current = false;
+          });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [adPlan]);
 
   // ── Theme state ──────────────────────────────────────────────────────
   const [themes,          setThemes]         = useState([]);
@@ -321,6 +416,17 @@ export default function App() {
     });
   }, []);
 
+  const handleChartDetailAd = useCallback(async () => {
+    const detailOpenCount = chartDetailOpenCountRef.current + 1;
+    chartDetailOpenCountRef.current = detailOpenCount;
+    if (!shouldShowChartDetailInterstitial({ plan: adPlan, detailOpenCount })) return;
+    try {
+      await showChartDetailInterstitial();
+    } catch {
+      // Ad failures should not block chart detail access.
+    }
+  }, [adPlan]);
+
   // ── Render current theme's ticker list ───────────────────────────────
   const activeThemeObj = themes.find(t => t.Theme === activeTheme);
   const themeTickers = (activeThemeObj?.Tickers || [])
@@ -451,7 +557,7 @@ export default function App() {
       <div className="main-content">
         {activeView === 'journal' ? (
           <Suspense fallback={<div className="themes-loading">매매복기 화면을 불러오는 중입니다.</div>}>
-            <TradingJournal apiBase={API_BASE} />
+            <TradingJournal apiBase={API_BASE} onEntitlementsChange={handleEntitlementsChange} />
           </Suspense>
         ) : (
           <>
@@ -650,6 +756,7 @@ export default function App() {
                   onTimeRangeChange={handleTimeRangeChange}
                   onCandlePeriodChange={handleCandlePeriodChange}
                   onChartPeriodChange={handleChartPeriodChange}
+                  onOpenDetailAd={handleChartDetailAd}
                   onRemove={() => setSelectedStocks(prev => prev.filter(st => st.ticker !== s.ticker))}
                 />
               </Suspense>

@@ -7,6 +7,8 @@ import {
   assertInterstitialAdCanRun,
   assertRewardedAdCanRun,
   createAdMobRuntimeStatus,
+  shouldShowChartDetailInterstitial,
+  shouldShowResumeInterstitial,
 } from '../src/mobile/admobPolicy.js';
 
 test('blocks the Google rewarded test ad unit in production', () => {
@@ -82,4 +84,45 @@ test('keeps the rewarded test ad unit available in development', () => {
   assert.equal(status.usingTestInterstitialAdUnit, true);
   assert.equal(status.interstitialProductionMisconfigured, false);
   assert.equal(status.interstitialAvailable, true);
+});
+
+test('suppresses every non-rewarded ad for Pro users', () => {
+  assert.equal(shouldShowResumeInterstitial({
+    plan: 'pro',
+    backgroundedAtMs: 1_000,
+    nowMs: 100_000,
+    lastShownAtMs: 0,
+  }), false);
+  assert.equal(shouldShowChartDetailInterstitial({
+    plan: 'pro',
+    detailOpenCount: 3,
+  }), false);
+});
+
+test('shows app resume interstitial only after a meaningful break and cooldown', () => {
+  assert.equal(shouldShowResumeInterstitial({
+    plan: 'free',
+    backgroundedAtMs: 1_000,
+    nowMs: 91_000,
+    lastShownAtMs: 0,
+  }), true);
+  assert.equal(shouldShowResumeInterstitial({
+    plan: 'free',
+    backgroundedAtMs: 1_000,
+    nowMs: 89_999,
+    lastShownAtMs: 0,
+  }), false);
+  assert.equal(shouldShowResumeInterstitial({
+    plan: 'free',
+    backgroundedAtMs: 1_000,
+    nowMs: 121_000,
+    lastShownAtMs: 30_000,
+  }), false);
+});
+
+test('shows chart detail interstitial every third entry for free users', () => {
+  assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 1 }), false);
+  assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 2 }), false);
+  assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 3 }), true);
+  assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 6 }), true);
 });
