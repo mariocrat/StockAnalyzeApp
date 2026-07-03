@@ -101,6 +101,20 @@ test('accepts production release settings without exposing secret requirements',
   assert.deepEqual(result.errors, []);
 });
 
+test('owner frontend release report counts banner ad unit as part of AdMob readiness', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    VITE_ADMOB_BANNER_AD_UNIT_ID: '',
+  }));
+  const report = formatOwnerFrontendReleaseReport(result, validReleaseEnv({
+    VITE_ADMOB_BANNER_AD_UNIT_ID: '',
+  }));
+
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_BANNER_AD_UNIT_ID/);
+  assert.doesNotMatch(report, /9\/9 \(100%\)/);
+  assert.match(report, /VITE_ADMOB_BANNER_AD_UNIT_ID/);
+});
+
 test('requires Android signing settings for release builds', () => {
   const result = validateReleaseEnv(validReleaseEnv({
     ALPHAMATE_ANDROID_KEYSTORE_FILE: '',

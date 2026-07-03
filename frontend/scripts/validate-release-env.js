@@ -284,7 +284,8 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
     && !hasError(result, 'VITE_NAVER_REDIRECT_URI');
   const admobReady = !hasError(result, 'VITE_ADMOB_ANDROID_APP_ID')
     && !hasError(result, 'VITE_ADMOB_REWARDED_AD_UNIT_ID')
-    && !hasError(result, 'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID');
+    && !hasError(result, 'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID')
+    && !hasError(result, 'VITE_ADMOB_BANNER_AD_UNIT_ID');
   const packageReady = !hasError(result, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
   const signingReady = !hasError(result, 'ALPHAMATE_ANDROID_KEYSTORE_FILE')
     && !hasError(result, 'ALPHAMATE_ANDROID_KEYSTORE_PASSWORD')
