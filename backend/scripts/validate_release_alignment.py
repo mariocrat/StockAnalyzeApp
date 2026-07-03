@@ -56,6 +56,8 @@ def validate_release_alignment() -> dict:
         checked.append({"backend": backend_key, "frontend": frontend_key})
         if backend_value != frontend_value:
             errors.append(f"{backend_key} must match {frontend_key}")
+    if not checked:
+        errors.append("No comparable server/app release settings were found")
     return {
         "ok": not errors,
         "errors": errors,
@@ -75,7 +77,8 @@ def format_release_alignment_report(result: dict) -> str:
         lines.extend([
             "",
             "다음에 할 일:",
-            "1. 서버 설정과 앱 설정을 같은 값으로 맞추기",
+            "1. 서버와 앱 출시 설정 파일을 먼저 채우기 (.env.release, frontend/.env.release)",
+            "2. 서버 설정과 앱 설정을 같은 값으로 맞추기",
             "",
             "확인할 항목:",
         ])

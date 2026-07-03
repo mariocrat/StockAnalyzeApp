@@ -32,6 +32,37 @@ def write_env_file(text: str) -> str:
 
 
 class ReleaseAlignmentTest(unittest.TestCase):
+    def test_rejects_when_no_release_settings_can_be_compared(self):
+        backend_env = write_env_file("")
+        frontend_env = write_env_file("")
+        try:
+            with patched_env(
+                ALPHAMATE_ENV_FILE=backend_env,
+                ALPHAMATE_FRONTEND_ENV_FILE=frontend_env,
+                GOOGLE_PLAY_PACKAGE_NAME=None,
+                KAKAO_REDIRECT_URI=None,
+                NAVER_REDIRECT_URI=None,
+                ADMOB_REWARDED_AD_UNIT_ID=None,
+                VITE_GOOGLE_PLAY_PACKAGE_NAME=None,
+                VITE_KAKAO_REDIRECT_URI=None,
+                VITE_NAVER_REDIRECT_URI=None,
+                VITE_ADMOB_REWARDED_AD_UNIT_ID=None,
+            ):
+                from backend.scripts.validate_release_alignment import (
+                    format_release_alignment_report,
+                    validate_release_alignment,
+                )
+
+                result = validate_release_alignment()
+                report = format_release_alignment_report(result)
+
+            self.assertFalse(result["ok"])
+            self.assertIn("No comparable server/app release settings were found", result["errors"])
+            self.assertIn("서버와 앱 출시 설정 파일을 먼저 채우기", report)
+        finally:
+            os.unlink(backend_env)
+            os.unlink(frontend_env)
+
     def test_accepts_matching_backend_and_frontend_release_settings(self):
         backend_env = write_env_file("\n".join([
             "GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
