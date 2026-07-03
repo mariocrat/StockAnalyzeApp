@@ -239,6 +239,21 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertNotIn("sk-", report)
         self.assertNotIn("google-secret-json", report)
 
+    def test_owner_release_report_shows_top_level_release_errors(self):
+        from backend.core.release_check import format_owner_release_readiness_report
+
+        report = format_owner_release_readiness_report({
+            "ok": False,
+            "errors": ["ALPHAMATE_ENV must be production"],
+            "readiness": {
+                "overall_ready": False,
+                "sections": {},
+            },
+        })
+
+        self.assertIn("ALPHAMATE_ENV must be production", report)
+        self.assertIn("운영 모드", report)
+
     def test_owner_release_report_explains_unsafe_data_storage_paths(self):
         from backend.core.release_check import format_owner_release_readiness_report
 

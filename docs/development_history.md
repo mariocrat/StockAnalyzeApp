@@ -2,6 +2,7 @@
 
 ## 2026-07-03 mobile ad failure logging
 
+- Added top-level backend release errors such as `ALPHAMATE_ENV must be production` to the owner-facing launch readiness report so non-developers can see the first setup action.
 - Required Kakao/Naver OAuth redirect URIs in production backend release readiness so owner checks match runtime login requirements.
 - Hardened production OAuth code-login runtime validation so malformed, localhost, or non-HTTPS configured redirect URIs are blocked before provider token exchange.
 - Hardened backend OAuth readiness so Kakao/Naver redirect URIs with malformed values, localhost hosts, or non-HTTPS schemes are reported before release.

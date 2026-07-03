@@ -67,6 +67,7 @@ def _section_missing_items(section: dict) -> list[str]:
 
 
 OWNER_NEXT_ACTION_HINTS = {
+    "ALPHAMATE_ENV must be production": "운영 모드로 설정하기",
     "OPENAI_API_KEY or ALPHAMATE_OPENAI_API_KEY": "OpenAI API Key를 발급해서 서버 설정에 넣기",
     "ALPHAMATE_ADMIN_TOKEN": "generate_release_secrets.bat를 실행해서 운영 로그 관리자 토큰 빈 값을 채우기",
     "ALPHAMATE_ADMIN_TOKEN_MIN_LENGTH_32": "generate_release_secrets.bat를 실행해서 운영 로그 관리자 토큰 빈 값을 채우기",
@@ -177,7 +178,11 @@ def format_owner_release_readiness_report(result: dict) -> str:
         "항목별 상태:",
     ]
 
-    next_actions = []
+    next_actions = [
+        str(error)
+        for error in result.get("errors", [])
+        if ": " not in str(error)
+    ]
     for section_name, section in sections.items():
         label = OWNER_SECTION_LABELS.get(section_name, section_name)
         ready = bool(section.get("ready"))
