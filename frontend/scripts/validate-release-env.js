@@ -369,12 +369,9 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
     lines.push('1. 실제 기기에서 로그인, 결제, 광고, AI 복기를 수동으로 확인하세요.');
   } else {
     const nextActions = ownerFrontendNextActions(result.errors);
-    nextActions.slice(0, 10).forEach((action, index) => {
+    nextActions.forEach((action, index) => {
       lines.push(`${index + 1}. ${action}`);
     });
-    if (nextActions.length > 10) {
-      lines.push(`- 그 외 누락 항목 ${nextActions.length - 10}개`);
-    }
   }
 
   const requiredInputs = ownerFrontendRequiredInputs(result.errors);

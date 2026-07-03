@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Updated the owner-facing frontend/Android release report to list every next action instead of hiding later setup tasks behind a truncated "remaining items" summary.
 - Added owner-facing next actions and required input labels for missing Google Play package, Google Play service account, privacy policy, and AdMob rewarded ad settings.
 - Updated the owner-facing launch readiness report to list every next action instead of hiding later setup tasks behind a truncated "remaining items" summary.
 

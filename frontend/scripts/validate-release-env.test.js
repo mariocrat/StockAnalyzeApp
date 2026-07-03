@@ -325,6 +325,21 @@ test('owner frontend release report explains placeholder OAuth redirect URLs', (
   assert.match(report, /네이버 Redirect URI를 실제 운영 주소로 바꾸기/);
 });
 
+test('owner frontend release report lists all next actions', () => {
+  const result = {
+    ok: false,
+    errors: Array.from({ length: 12 }, (_, index) => `SETTING_${index} must be set for release builds.`),
+  };
+  const report = formatOwnerFrontendReleaseReport(result, {
+    VITE_APP_NAME: 'AlphaMate',
+    VITE_GOOGLE_PLAY_PACKAGE_NAME: 'com.mariocrat.stockanalyze',
+  });
+
+  assert.match(report, /SETTING_0/);
+  assert.match(report, /SETTING_11/);
+  assert.doesNotMatch(report, /그 외 누락 항목/);
+});
+
 test('owner frontend release report CLI prints report and hides secret values', () => {
   const script = path.resolve(process.cwd(), 'scripts/owner-release-report.js');
   const env = validReleaseEnv({
