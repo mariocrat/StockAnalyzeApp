@@ -200,7 +200,7 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/app/readiness
 서버를 운영 모드로 배포하기 전에는 아래 명령으로 AI Key, 로그인, Google Play, AdMob 설정 누락을 한 번에 확인합니다.
 
 ```powershell
-cd D:\작업\windsurf\StockAnalyze
+cd D:\Project\Vibe\StockAnalyze
 .\.venv\Scripts\python.exe backend\scripts\validate_release_env.py
 ```
 
@@ -298,11 +298,11 @@ Invoke-RestMethod -Method Delete -Uri 'https://your-api.example.com/api/admin/op
 5. APK 빌드는 아래처럼 로컬 JDK/SDK 환경변수를 잡은 뒤 `frontend/android`에서 실행합니다.
 
 ```powershell
-$env:JAVA_HOME='D:\작업\windsurf\StockAnalyze\.tools\jdk\jdk-21.0.11+10'
-$env:ANDROID_HOME='D:\작업\windsurf\StockAnalyze\.tools\android-sdk'
+$env:JAVA_HOME='D:\Project\Vibe\StockAnalyze\.tools\jdk\jdk-21.0.11+10'
+$env:ANDROID_HOME='D:\Project\Vibe\StockAnalyze\.tools\android-sdk'
 $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME
 $env:Path="$env:JAVA_HOME\bin;$env:ANDROID_HOME\cmdline-tools\latest\bin;$env:ANDROID_HOME\platform-tools;$env:Path"
-cd D:\작업\windsurf\StockAnalyze\frontend\android
+cd D:\Project\Vibe\StockAnalyze\frontend\android
 .\gradlew.bat assembleDebug
 ```
 
