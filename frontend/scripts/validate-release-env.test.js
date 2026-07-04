@@ -379,3 +379,9 @@ test('package script exposes owner release report command', () => {
 
   assert.equal(pkg.scripts['release:report'], 'node scripts/owner-release-report.js');
 });
+
+test('mobile release check uses owner-facing release report before building', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'));
+
+  assert.equal(pkg.scripts['mobile:release:check'], 'npm run release:report && npm run mobile:build');
+});

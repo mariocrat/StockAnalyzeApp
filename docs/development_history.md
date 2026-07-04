@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Changed the Android mobile release precheck to show the owner-facing frontend/Android release report before building.
 - Translated the double-click release readiness report wrapper and clarified the server/app alignment success message.
 - Aligned the release preparation checklist final verification labels and safety-cap notes with the Korean verification output.
 - Translated quick verification and Android build verification messages to Korean and aligned the quick verification guide with the script step names.
