@@ -5,6 +5,8 @@
 - Translated tracked-secret scan success and failure output to Korean for the quick verification flow.
 - Changed the Android mobile release precheck to show the owner-facing frontend/Android release report before building.
 - Translated the double-click release readiness report wrapper and clarified the server/app alignment success message.
+- Stabilized Windows double-click batch wrappers by keeping the `.bat` files ASCII-safe and leaving Korean detail output to PowerShell/Python scripts.
+- Fixed Android upload key generation so the template `D:/secure/...` keystore path is replaced with the project's ignored `release-private` path before creating the local key.
 - Aligned the release preparation checklist final verification labels and safety-cap notes with the Korean verification output.
 - Translated quick verification and Android build verification messages to Korean and aligned the quick verification guide with the script step names.
 - Translated release secret and Android signing helper output to Korean while preserving warnings not to upload private files to GitHub.
