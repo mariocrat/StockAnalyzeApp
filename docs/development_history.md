@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Updated manual test paths for the new ASCII workspace and hardened Android upload key setup to recover stale moved-workspace release-private keystore paths.
 - Translated tracked-secret scan success and failure output to Korean for the quick verification flow.
 - Changed the Android mobile release precheck to show the owner-facing frontend/Android release report before building.
 - Translated the double-click release readiness report wrapper and clarified the server/app alignment success message.

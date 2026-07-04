@@ -83,6 +83,32 @@ class AndroidUploadKeyGenerationTest(unittest.TestCase):
             self.assertEqual(defaults["ALPHAMATE_ANDROID_KEYSTORE_FILE"], values["ALPHAMATE_ANDROID_KEYSTORE_FILE"])
             self.assertIn("/release-private/android/alphamate-upload.jks", values["ALPHAMATE_ANDROID_KEYSTORE_FILE"])
 
+    def test_replaces_stale_project_private_keystore_path_after_workspace_move(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            frontend = root / "frontend"
+            frontend.mkdir()
+            (frontend / ".env.release").write_text(
+                "\n".join([
+                    "ALPHAMATE_ANDROID_KEYSTORE_FILE=D:/old/StockAnalyze/release-private/android/alphamate-upload.jks",
+                    "ALPHAMATE_ANDROID_KEYSTORE_PASSWORD=keep-store-password",
+                    "ALPHAMATE_ANDROID_KEY_ALIAS=alphamate-upload",
+                    "ALPHAMATE_ANDROID_KEY_PASSWORD=keep-key-password",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+
+            defaults = module.default_android_signing_values(root)
+            result = module.fill_empty_android_signing_values(root, defaults)
+            values = module.load_android_signing_values(root)
+
+            self.assertIn("ALPHAMATE_ANDROID_KEYSTORE_FILE", result["filled"])
+            self.assertEqual(defaults["ALPHAMATE_ANDROID_KEYSTORE_FILE"], values["ALPHAMATE_ANDROID_KEYSTORE_FILE"])
+            self.assertEqual("keep-store-password", values["ALPHAMATE_ANDROID_KEYSTORE_PASSWORD"])
+            self.assertEqual("keep-key-password", values["ALPHAMATE_ANDROID_KEY_PASSWORD"])
+
     def test_builds_keytool_upload_key_command_without_printing_passwords(self):
         module = load_module()
         command = module.build_keytool_command(

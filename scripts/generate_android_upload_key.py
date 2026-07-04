@@ -37,9 +37,24 @@ def default_android_signing_values(root: Path | str) -> dict[str, str]:
     }
 
 
+def _normalize_env_path(value: str) -> str:
+    return value.strip().strip("'\"")
+
+
 def _is_template_keystore_path(value: str) -> bool:
-    normalized = value.strip().strip("'\"")
+    normalized = _normalize_env_path(value)
     return normalized in TEMPLATE_KEYSTORE_PATHS
+
+
+def _is_stale_project_keystore_path(current: str, default_value: str) -> bool:
+    normalized = _normalize_env_path(current)
+    default_normalized = _normalize_env_path(default_value)
+    if not normalized or normalized == default_normalized:
+        return False
+    normalized_slash = normalized.replace("\\", "/")
+    if not normalized_slash.lower().endswith("/release-private/android/alphamate-upload.jks"):
+        return False
+    return not Path(normalized).exists()
 
 
 def _replace_release_signing_value(line: str, name: str, value: str) -> tuple[str, bool, bool]:
@@ -48,7 +63,12 @@ def _replace_release_signing_value(line: str, name: str, value: str) -> tuple[st
         return line, False, False
 
     current = line[len(prefix):].strip()
-    if not current or (name == "ALPHAMATE_ANDROID_KEYSTORE_FILE" and _is_template_keystore_path(current)):
+    if not current:
+        return f"{prefix}{value}", True, True
+    if name == "ALPHAMATE_ANDROID_KEYSTORE_FILE" and (
+        _is_template_keystore_path(current)
+        or _is_stale_project_keystore_path(current, value)
+    ):
         return f"{prefix}{value}", True, True
 
     return line, True, False
