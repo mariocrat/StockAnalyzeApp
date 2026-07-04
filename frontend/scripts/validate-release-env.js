@@ -417,11 +417,11 @@ export function releaseEnvFromProcess() {
 if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const result = validateReleaseEnv(releaseEnvFromProcess());
   if (!result.ok) {
-    console.error('Release environment check failed:');
+    console.error('프론트 출시 환경 검사 실패:');
     for (const error of result.errors) {
       console.error(`- ${error}`);
     }
     process.exit(1);
   }
-  console.log('Release environment check passed.');
+  console.log('프론트 출시 환경 검사를 통과했습니다.');
 }

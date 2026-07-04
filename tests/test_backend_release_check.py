@@ -527,7 +527,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
 
             self.assertTrue(result["ok"])
             self.assertEqual([], result["errors"])
-            self.assertIn("Backend release environment check passed.", formatted)
+            self.assertIn("백엔드 출시 환경 검사를 통과했습니다.", formatted)
             self.assertNotIn("sk-test-secret", formatted)
             self.assertNotIn("PRIVATE KEY", formatted)
 

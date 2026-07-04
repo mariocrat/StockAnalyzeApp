@@ -37,9 +37,9 @@ def validate_backend_release_env() -> dict:
 
 def format_backend_release_check(result: dict) -> str:
     if result.get("ok"):
-        return "Backend release environment check passed."
+        return "백엔드 출시 환경 검사를 통과했습니다."
 
-    lines = ["Backend release environment check failed:"]
+    lines = ["백엔드 출시 환경 검사 실패:"]
     for error in result.get("errors", []):
         lines.append(f"- {error}")
     return "\n".join(lines)

@@ -645,3 +645,8 @@
 - `npm run release:check`가 Google 테스트 AdMob App ID, placeholder App ID, 잘못된 App ID 형식을 출시 전에 실패로 표시한다.
 - `frontend/.env.example`, `frontend/.env.release.example`에 `VITE_ADMOB_ANDROID_APP_ID`를 추가했다.
 - `frontend/scripts/validate-release-env.test.js`, `frontend/scripts/android-branding.test.js`에 회귀 테스트를 추가했다.
+
+### 출시 환경 검사 CLI 한글화
+- 백엔드 출시 환경 검사와 프론트 출시 환경 검사 CLI의 최종 성공/실패 제목을 한국어로 바꿨다.
+- 상세 오류에는 `VITE_API_BASE`, `ALPHAMATE_ENV` 같은 환경변수 키를 그대로 남겨 실제 설정 파일에서 찾기 쉽게 했다.
+- `docs/manual_test_guide.md`의 백엔드 출시 환경 검사 정상 출력 예시도 실제 CLI 출력과 맞췄다.

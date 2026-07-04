@@ -207,7 +207,7 @@ cd D:\작업\windsurf\StockAnalyze
 정상일 때:
 
 ```text
-Backend release environment check passed.
+백엔드 출시 환경 검사를 통과했습니다.
 ```
 
 설정이 빠져 있거나 Google Play 서비스 계정 JSON/private key 형식이 잘못되면 `ALPHAMATE_ENV`, `OPENAI_API_KEY`, `KAKAO_CLIENT_ID`, `GOOGLE_PLAY_*`, `ADMOB_REWARDED_AD_UNIT_ID`, `ALPHAMATE_PRIVACY_POLICY_URL`처럼 필요한 환경변수 이름만 표시합니다. API Key나 Google 서비스 계정 JSON 원문은 출력하면 안 됩니다.

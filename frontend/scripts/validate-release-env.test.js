@@ -374,6 +374,28 @@ test('owner frontend release report CLI prints report and hides secret values', 
   assert.doesNotMatch(result.stdout, /never-print-cli/);
 });
 
+test('raw frontend release env CLI prints Korean pass and fail headings', () => {
+  const script = path.resolve(process.cwd(), 'scripts/validate-release-env.js');
+  const passed = spawnSync(process.execPath, [script], {
+    cwd: process.cwd(),
+    env: { ...process.env, ...validReleaseEnv() },
+    encoding: 'utf8',
+  });
+
+  assert.equal(passed.status, 0, passed.stderr);
+  assert.match(passed.stdout, /프론트 출시 환경 검사를 통과했습니다\./);
+
+  const failed = spawnSync(process.execPath, [script], {
+    cwd: process.cwd(),
+    env: { ...process.env, ...validReleaseEnv({ VITE_API_BASE: 'http://127.0.0.1:8002' }) },
+    encoding: 'utf8',
+  });
+
+  assert.equal(failed.status, 1);
+  assert.match(failed.stderr, /프론트 출시 환경 검사 실패:/);
+  assert.match(failed.stderr, /VITE_API_BASE/);
+});
+
 test('package script exposes owner release report command', () => {
   const pkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'));
 
