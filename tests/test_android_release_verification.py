@@ -12,8 +12,8 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("chcp 65001 >nul", batch)
         self.assertIn("scripts\\verify_android_release.ps1", batch)
         self.assertIn("ExecutionPolicy Bypass", batch)
-        self.assertIn("Android 출시 빌드 검증을 통과했습니다.", batch)
-        self.assertNotIn("Android release verification passed", batch)
+        self.assertTrue(batch.isascii())
+        self.assertIn("Android release build verification passed.", batch)
         self.assertIn("pause", batch.lower())
 
     def test_double_click_batch_runs_android_debug_verification_script(self):
@@ -22,8 +22,8 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("chcp 65001 >nul", batch)
         self.assertIn("scripts\\verify_android_debug.ps1", batch)
         self.assertIn("ExecutionPolicy Bypass", batch)
-        self.assertIn("Android 디버그 빌드 검증을 통과했습니다.", batch)
-        self.assertNotIn("Android debug verification passed", batch)
+        self.assertTrue(batch.isascii())
+        self.assertIn("Android debug build verification passed.", batch)
         self.assertIn("pause", batch.lower())
 
     def test_release_verification_script_loads_frontend_release_env_and_builds_aab(self):

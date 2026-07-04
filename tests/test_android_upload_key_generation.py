@@ -58,6 +58,31 @@ class AndroidUploadKeyGenerationTest(unittest.TestCase):
             self.assertIn("ALPHAMATE_ANDROID_KEY_PASSWORD=new-key-password", env_text)
             self.assertNotIn("new-store-password", env_text)
 
+    def test_replaces_template_secure_keystore_path_with_private_project_path(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            frontend = root / "frontend"
+            frontend.mkdir()
+            (frontend / ".env.release").write_text(
+                "\n".join([
+                    "ALPHAMATE_ANDROID_KEYSTORE_FILE=D:/secure/alphamate/alphamate-upload.jks",
+                    "ALPHAMATE_ANDROID_KEYSTORE_PASSWORD=",
+                    "ALPHAMATE_ANDROID_KEY_ALIAS=alphamate-upload",
+                    "ALPHAMATE_ANDROID_KEY_PASSWORD=",
+                    "",
+                ]),
+                encoding="utf-8",
+            )
+
+            defaults = module.default_android_signing_values(root)
+            result = module.fill_empty_android_signing_values(root, defaults)
+            values = module.load_android_signing_values(root)
+
+            self.assertIn("ALPHAMATE_ANDROID_KEYSTORE_FILE", result["filled"])
+            self.assertEqual(defaults["ALPHAMATE_ANDROID_KEYSTORE_FILE"], values["ALPHAMATE_ANDROID_KEYSTORE_FILE"])
+            self.assertIn("/release-private/android/alphamate-upload.jks", values["ALPHAMATE_ANDROID_KEYSTORE_FILE"])
+
     def test_builds_keytool_upload_key_command_without_printing_passwords(self):
         module = load_module()
         command = module.build_keytool_command(
@@ -98,8 +123,8 @@ class AndroidUploadKeyGenerationTest(unittest.TestCase):
         self.assertIn("ALPHAMATE_ANDROID_KEYSTORE_PASSWORD", output)
         self.assertIn("ALPHAMATE_ANDROID_KEY_PASSWORD", output)
         self.assertIn("Android 서명 설정", output)
-        self.assertIn("Android 업로드 키스토어 파일을 만들었습니다", output)
-        self.assertIn("GitHub에 올리지 마세요", output)
+        self.assertIn("Android 업로드 키스토어 파일을 만들었습니다.", output)
+        self.assertIn("GitHub에 올리지 마세요.", output)
         self.assertNotIn("store-password", output)
         self.assertNotIn("key-password", output)
         self.assertNotIn("Updated private Android", output)
@@ -138,12 +163,16 @@ class AndroidUploadKeyGenerationTest(unittest.TestCase):
             self.assertEqual("custom-upload", values["ALPHAMATE_ANDROID_KEY_ALIAS"])
             self.assertEqual("new-key-password", values["ALPHAMATE_ANDROID_KEY_PASSWORD"])
 
-    def test_double_click_batch_runs_android_upload_key_script(self):
+    def test_double_click_batch_runs_android_upload_key_script_as_ascii_safe_wrapper(self):
         batch = BATCH.read_text(encoding="utf-8")
 
+        self.assertIn("chcp 65001 >nul", batch)
         self.assertIn("scripts\\generate_android_upload_key.py", batch)
         self.assertIn("--create-key", batch)
         self.assertIn(".venv\\Scripts\\python.exe", batch)
+        self.assertTrue(batch.isascii())
+        self.assertIn("Preparing private Android upload signing key", batch)
+        self.assertIn("Python virtual environment was not found", batch)
         self.assertIn("pause", batch.lower())
 
     def test_android_upload_key_result_uses_korean_owner_messages(self):
@@ -154,7 +183,7 @@ class AndroidUploadKeyGenerationTest(unittest.TestCase):
                 "skipped_existing": ["ALPHAMATE_ANDROID_KEYSTORE_FILE"],
                 "missing_file": "D:/app/frontend/.env.release",
             },
-            {"created": False, "skipped_existing": False, "error": "keytool failed to create the upload key."},
+            {"created": False, "skipped_existing": False, "error": "keytool 실행에 실패해 Android 업로드 키를 만들지 못했습니다."},
         )
 
         self.assertIn("Android 서명 설정", output)

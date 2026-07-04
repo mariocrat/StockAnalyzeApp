@@ -12,6 +12,11 @@ SIGNING_NAMES = [
     "ALPHAMATE_ANDROID_KEY_PASSWORD",
 ]
 
+TEMPLATE_KEYSTORE_PATHS = {
+    "D:/secure/alphamate/alphamate-upload.jks",
+    "D:\\secure\\alphamate\\alphamate-upload.jks",
+}
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -32,14 +37,21 @@ def default_android_signing_values(root: Path | str) -> dict[str, str]:
     }
 
 
-def _replace_empty_env_value(line: str, name: str, value: str) -> tuple[str, bool, bool]:
+def _is_template_keystore_path(value: str) -> bool:
+    normalized = value.strip().strip("'\"")
+    return normalized in TEMPLATE_KEYSTORE_PATHS
+
+
+def _replace_release_signing_value(line: str, name: str, value: str) -> tuple[str, bool, bool]:
     prefix = f"{name}="
     if not line.startswith(prefix):
         return line, False, False
+
     current = line[len(prefix):].strip()
-    if current:
-        return line, True, False
-    return f"{prefix}{value}", True, True
+    if not current or (name == "ALPHAMATE_ANDROID_KEYSTORE_FILE" and _is_template_keystore_path(current)):
+        return f"{prefix}{value}", True, True
+
+    return line, True, False
 
 
 def _parse_env_file(path: Path) -> dict[str, str]:
@@ -79,7 +91,7 @@ def fill_empty_android_signing_values(root: Path | str, values: dict[str, str]) 
     for line in lines:
         updated = line
         for name in SIGNING_NAMES:
-            updated, matched, changed = _replace_empty_env_value(updated, name, values[name])
+            updated, matched, changed = _replace_release_signing_value(updated, name, values[name])
             if matched:
                 found.add(name)
                 if changed and name not in filled:
@@ -143,7 +155,11 @@ def create_upload_key(*, root: Path | str, values: dict[str, str]) -> dict:
     if keystore_path.exists():
         return {"created": False, "skipped_existing": True, "error": ""}
 
-    keystore_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        keystore_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return {"created": False, "skipped_existing": False, "error": f"키스토어 폴더를 만들 수 없습니다. 경로: {keystore_path.parent}"}
+
     command = build_keytool_command(keytool_path=keytool, values=values)
     try:
         subprocess.run(command, check=True, capture_output=True, text=True)
@@ -152,16 +168,8 @@ def create_upload_key(*, root: Path | str, values: dict[str, str]) -> dict:
     return {"created": True, "skipped_existing": False, "error": ""}
 
 
-def owner_facing_keytool_error(error: str) -> str:
-    if error == "keytool failed to create the upload key.":
-        return "keytool 실행에 실패해 Android 업로드 키를 만들지 못했습니다."
-    if error == "keytool was not found.":
-        return "keytool을 찾을 수 없습니다. Android Studio 또는 JDK 설치가 필요합니다."
-    return error
-
-
 def format_result(fill_result: dict, key_result: dict | None) -> str:
-    lines = ["Android 서명 설정 빈칸을 확인했습니다."]
+    lines = ["Android 서명 설정 빈 값을 확인했습니다."]
     for item in fill_result.get("filled", []):
         lines.append(f"채움: {item}")
     for item in fill_result.get("skipped_existing", []):
@@ -175,7 +183,7 @@ def format_result(fill_result: dict, key_result: dict | None) -> str:
         elif key_result.get("skipped_existing"):
             lines.append("기존 Android 업로드 키스토어 파일을 유지했습니다.")
         elif key_result.get("error"):
-            lines.append(owner_facing_keytool_error(key_result["error"]))
+            lines.append(key_result["error"])
     lines.extend([
         "",
         "frontend/.env.release와 Android 키스토어 파일은 GitHub에 올리지 마세요.",

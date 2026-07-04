@@ -7,14 +7,14 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class QuickVerifyDocsTest(unittest.TestCase):
-    def test_double_click_verify_batch_uses_korean_owner_messages(self):
+    def test_double_click_verify_batch_is_ascii_safe_wrapper(self):
         batch = (ROOT / "verify_project.bat").read_text(encoding="utf-8")
 
         self.assertIn("chcp 65001 >nul", batch)
-        self.assertIn("프로젝트 전체 검증을 통과했습니다.", batch)
-        self.assertIn("프로젝트 전체 검증에 실패했습니다.", batch)
-        self.assertNotIn("Project verification passed", batch)
-        self.assertNotIn("Project verification failed", batch)
+        self.assertIn("scripts\\verify_project.ps1", batch)
+        self.assertTrue(batch.isascii())
+        self.assertIn("Project verification passed.", batch)
+        self.assertIn("Project verification failed.", batch)
 
     def test_verify_project_script_forces_utf8_console_output(self):
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8-sig")

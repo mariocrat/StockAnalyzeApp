@@ -159,9 +159,10 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("ALPHAMATE_ENV_FILE", script)
         self.assertIn("ALPHAMATE_FRONTEND_ENV_FILE", script)
         self.assertIn("frontend\\.env.release", script)
-        self.assertIn("서버/앱 출시 설정 일치 검사", script)
-        self.assertIn("서버 출시 준비 상태", script)
-        self.assertIn("프론트/Android 출시 준비 상태", script)
+        self.assertTrue(script.isascii())
+        self.assertIn("Server/app release setting alignment", script)
+        self.assertIn("Backend release readiness", script)
+        self.assertIn("Frontend/Android release readiness", script)
         self.assertIn("validate_release_alignment.py", script)
 
     def test_format_owner_release_readiness_report_hides_secret_values(self):
