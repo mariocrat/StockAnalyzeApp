@@ -15,17 +15,17 @@ def generate_release_secrets() -> dict[str, str]:
 
 def format_release_secrets(values: dict[str, str]) -> str:
     lines = [
-        "Generated release secret candidates.",
+        "서버용 개인 토큰 후보를 만들었습니다.",
         "",
-        "Copy these lines into your private server .env.release file only:",
+        "아래 줄은 서버용 .env.release 파일에만 넣으세요:",
     ]
     for name in SECRET_NAMES:
         lines.append(f"{name}={values[name]}")
     lines.extend([
         "",
-        "Do not commit these values to GitHub.",
-        "Do not paste them into frontend/.env.release or any VITE_* setting.",
-        "Run this again if any value may have been exposed.",
+        "이 값은 GitHub에 올리지 마세요.",
+        "frontend/.env.release 또는 VITE_* 설정에는 붙여넣지 마세요.",
+        "값이 노출됐을 수 있으면 이 파일을 다시 실행해 새 값으로 바꾸세요.",
     ])
     return "\n".join(lines)
 
@@ -81,17 +81,17 @@ def fill_empty_release_secret_values(root: Path | str, values: dict[str, str]) -
 
 
 def format_fill_result(result: dict) -> str:
-    lines = ["Updated private server .env.release secret placeholders."]
+    lines = ["서버용 개인 토큰 빈칸을 확인했습니다."]
     for item in result.get("filled", []):
-        lines.append(f"Filled: {item}")
+        lines.append(f"채움: {item}")
     for item in result.get("skipped_existing", []):
-        lines.append(f"Skipped existing value: {item}")
+        lines.append(f"이미 값이 있어서 유지함: {item}")
     if result.get("missing_file"):
-        lines.append(f"Missing file: {result['missing_file']}")
-        lines.append("Run prepare_release_env_files.bat first.")
+        lines.append(f"파일 없음: {result['missing_file']}")
+        lines.append("prepare_release_env_files.bat를 먼저 실행하세요.")
     lines.extend([
         "",
-        "Do not commit .env.release to GitHub.",
+        ".env.release 파일은 GitHub에 올리지 마세요.",
     ])
     return "\n".join(lines)
 

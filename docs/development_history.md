@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Translated release secret and Android signing helper output to Korean while preserving warnings not to upload private files to GitHub.
 - Translated private release setup helper messages to Korean so double-click setup is easier to follow for a non-developer owner.
 - Added frontend/Android owner report required input labels for final app name and Android version values.
 - Hardened the server/app release alignment report so it fails with an owner-facing setup action when no comparable release settings are available.

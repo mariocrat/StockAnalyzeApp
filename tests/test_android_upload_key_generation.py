@@ -97,8 +97,13 @@ class AndroidUploadKeyGenerationTest(unittest.TestCase):
 
         self.assertIn("ALPHAMATE_ANDROID_KEYSTORE_PASSWORD", output)
         self.assertIn("ALPHAMATE_ANDROID_KEY_PASSWORD", output)
+        self.assertIn("Android 서명 설정", output)
+        self.assertIn("Android 업로드 키스토어 파일을 만들었습니다", output)
+        self.assertIn("GitHub에 올리지 마세요", output)
         self.assertNotIn("store-password", output)
         self.assertNotIn("key-password", output)
+        self.assertNotIn("Updated private Android", output)
+        self.assertNotIn("Do not commit", output)
 
     def test_reads_existing_frontend_release_signing_values_after_fill(self):
         module = load_module()
@@ -140,6 +145,25 @@ class AndroidUploadKeyGenerationTest(unittest.TestCase):
         self.assertIn("--create-key", batch)
         self.assertIn(".venv\\Scripts\\python.exe", batch)
         self.assertIn("pause", batch.lower())
+
+    def test_android_upload_key_result_uses_korean_owner_messages(self):
+        module = load_module()
+        output = module.format_result(
+            {
+                "filled": ["ALPHAMATE_ANDROID_KEY_ALIAS"],
+                "skipped_existing": ["ALPHAMATE_ANDROID_KEYSTORE_FILE"],
+                "missing_file": "D:/app/frontend/.env.release",
+            },
+            {"created": False, "skipped_existing": False, "error": "keytool failed to create the upload key."},
+        )
+
+        self.assertIn("Android 서명 설정", output)
+        self.assertIn("채움: ALPHAMATE_ANDROID_KEY_ALIAS", output)
+        self.assertIn("이미 값이 있어서 유지함: ALPHAMATE_ANDROID_KEYSTORE_FILE", output)
+        self.assertIn("prepare_release_env_files.bat를 먼저 실행", output)
+        self.assertIn("keytool 실행에 실패", output)
+        self.assertNotIn("Skipped existing value", output)
+        self.assertNotIn("Run prepare_release_env_files.bat first", output)
 
 
 if __name__ == "__main__":

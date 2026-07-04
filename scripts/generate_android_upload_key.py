@@ -137,7 +137,7 @@ def build_keytool_command(*, keytool_path: Path, values: dict[str, str]) -> list
 def create_upload_key(*, root: Path | str, values: dict[str, str]) -> dict:
     keytool = find_keytool(root)
     if keytool is None:
-        return {"created": False, "skipped_existing": False, "error": "keytool was not found."}
+        return {"created": False, "skipped_existing": False, "error": "keytool을 찾을 수 없습니다. Android Studio 또는 JDK 설치가 필요합니다."}
 
     keystore_path = Path(values["ALPHAMATE_ANDROID_KEYSTORE_FILE"])
     if keystore_path.exists():
@@ -148,29 +148,37 @@ def create_upload_key(*, root: Path | str, values: dict[str, str]) -> dict:
     try:
         subprocess.run(command, check=True, capture_output=True, text=True)
     except subprocess.CalledProcessError:
-        return {"created": False, "skipped_existing": False, "error": "keytool failed to create the upload key."}
+        return {"created": False, "skipped_existing": False, "error": "keytool 실행에 실패해 Android 업로드 키를 만들지 못했습니다."}
     return {"created": True, "skipped_existing": False, "error": ""}
 
 
+def owner_facing_keytool_error(error: str) -> str:
+    if error == "keytool failed to create the upload key.":
+        return "keytool 실행에 실패해 Android 업로드 키를 만들지 못했습니다."
+    if error == "keytool was not found.":
+        return "keytool을 찾을 수 없습니다. Android Studio 또는 JDK 설치가 필요합니다."
+    return error
+
+
 def format_result(fill_result: dict, key_result: dict | None) -> str:
-    lines = ["Updated private Android signing placeholders."]
+    lines = ["Android 서명 설정 빈칸을 확인했습니다."]
     for item in fill_result.get("filled", []):
-        lines.append(f"Filled: {item}")
+        lines.append(f"채움: {item}")
     for item in fill_result.get("skipped_existing", []):
-        lines.append(f"Skipped existing value: {item}")
+        lines.append(f"이미 값이 있어서 유지함: {item}")
     if fill_result.get("missing_file"):
-        lines.append(f"Missing file: {fill_result['missing_file']}")
-        lines.append("Run prepare_release_env_files.bat first.")
+        lines.append(f"파일 없음: {fill_result['missing_file']}")
+        lines.append("prepare_release_env_files.bat를 먼저 실행하세요.")
     if key_result:
         if key_result.get("created"):
-            lines.append("Created Android upload keystore file.")
+            lines.append("Android 업로드 키스토어 파일을 만들었습니다.")
         elif key_result.get("skipped_existing"):
-            lines.append("Skipped existing Android upload keystore file.")
+            lines.append("기존 Android 업로드 키스토어 파일을 유지했습니다.")
         elif key_result.get("error"):
-            lines.append(key_result["error"])
+            lines.append(owner_facing_keytool_error(key_result["error"]))
     lines.extend([
         "",
-        "Do not commit frontend/.env.release or Android keystore files to GitHub.",
+        "frontend/.env.release와 Android 키스토어 파일은 GitHub에 올리지 마세요.",
     ])
     return "\n".join(lines)
 
