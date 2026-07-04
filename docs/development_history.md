@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Added IP-based rate limiting for Kakao/Naver/dev login endpoints so public auth entry points cannot trigger unlimited provider or session requests.
 - Added IP-based rate limiting for public AdMob SSV and Google Play RTDN callback endpoints to reduce callback abuse risk.
 - Required authenticated sessions for persistent journal storage routes in production while leaving one-time review and chart APIs available for non-persistent analysis.
 - Removed the old direct OpenAI review builder from the legacy helper module so AI calls stay on the metered v2 review path.

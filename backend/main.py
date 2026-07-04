@@ -57,6 +57,7 @@ _theme_refresh_lock = threading.Lock()
 _theme_refresh_jobs = set()
 _client_event_rate_limiter = InMemoryRateLimiter()
 _admin_rate_limiter = InMemoryRateLimiter()
+_auth_rate_limiter = InMemoryRateLimiter()
 _callback_rate_limiter = InMemoryRateLimiter()
 _ai_review_rate_limiter = InMemoryRateLimiter()
 _ai_review_idempotency_lock = threading.Lock()
@@ -65,6 +66,7 @@ REQUEST_ID_HEADER = "X-Request-ID"
 ADMIN_TOKEN_MIN_LENGTH = 32
 ADMIN_RATE_LIMIT_MAX_PER_MINUTE = 300
 CLIENT_EVENT_RATE_LIMIT_MAX_PER_MINUTE = 600
+AUTH_RATE_LIMIT_MAX_PER_MINUTE = 120
 AI_REVIEW_RATE_LIMIT_MAX_PER_MINUTE = 60
 CALLBACK_RATE_LIMIT_MAX_PER_MINUTE = 300
 AI_REVIEW_MAX_CONCURRENT_LIMIT = 20
@@ -425,6 +427,15 @@ def _admin_rate_limit() -> int:
     return _env_int("ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE", 30, 1, ADMIN_RATE_LIMIT_MAX_PER_MINUTE)
 
 
+def _auth_rate_limit() -> int:
+    return _env_int(
+        "ALPHAMATE_AUTH_RATE_LIMIT_PER_MINUTE",
+        30,
+        1,
+        AUTH_RATE_LIMIT_MAX_PER_MINUTE,
+    )
+
+
 def _callback_rate_limit() -> int:
     return _env_int(
         "ALPHAMATE_CALLBACK_RATE_LIMIT_PER_MINUTE",
@@ -598,6 +609,21 @@ def _enforce_admin_rate_limit(client_key: str) -> bool:
         raise HTTPException(
             status_code=429,
             detail=f"Too many admin requests. Retry after {rate_limit['retry_after_seconds']} seconds.",
+            headers={"Retry-After": str(rate_limit["retry_after_seconds"])},
+        )
+    return True
+
+
+def _enforce_auth_rate_limit(client_key: str) -> bool:
+    rate_limit = _auth_rate_limiter.check(
+        client_key or "unknown",
+        limit=_auth_rate_limit(),
+        window_seconds=60,
+    )
+    if not rate_limit["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many login requests. Retry after {rate_limit['retry_after_seconds']} seconds.",
             headers={"Retry-After": str(rate_limit["retry_after_seconds"])},
         )
     return True
@@ -949,7 +975,8 @@ def search_stocks(q: str):
 
 
 @app.post("/api/auth/dev-login")
-def post_auth_dev_login(login: AuthDevLoginIn):
+def post_auth_dev_login(login: AuthDevLoginIn, request: Request):
+    _enforce_auth_rate_limit(_request_client_key(request))
     return login_dev_provider(
         provider=login.provider,
         provider_user_id=login.provider_user_id,
@@ -958,17 +985,20 @@ def post_auth_dev_login(login: AuthDevLoginIn):
 
 
 @app.post("/api/auth/login/kakao")
-def post_auth_login_kakao(login: AuthProviderTokenIn):
+def post_auth_login_kakao(login: AuthProviderTokenIn, request: Request):
+    _enforce_auth_rate_limit(_request_client_key(request))
     return login_oauth_provider(provider="kakao", access_token=login.access_token)
 
 
 @app.post("/api/auth/login/naver")
-def post_auth_login_naver(login: AuthProviderTokenIn):
+def post_auth_login_naver(login: AuthProviderTokenIn, request: Request):
+    _enforce_auth_rate_limit(_request_client_key(request))
     return login_oauth_provider(provider="naver", access_token=login.access_token)
 
 
 @app.post("/api/auth/login/kakao/code")
-def post_auth_login_kakao_code(login: AuthProviderCodeIn):
+def post_auth_login_kakao_code(login: AuthProviderCodeIn, request: Request):
+    _enforce_auth_rate_limit(_request_client_key(request))
     return login_oauth_code(
         provider="kakao",
         code=login.code,
@@ -978,7 +1008,8 @@ def post_auth_login_kakao_code(login: AuthProviderCodeIn):
 
 
 @app.post("/api/auth/login/naver/code")
-def post_auth_login_naver_code(login: AuthProviderCodeIn):
+def post_auth_login_naver_code(login: AuthProviderCodeIn, request: Request):
+    _enforce_auth_rate_limit(_request_client_key(request))
     return login_oauth_code(
         provider="naver",
         code=login.code,

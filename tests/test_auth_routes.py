@@ -1,6 +1,27 @@
 import os
 import sys
 import unittest
+from contextlib import contextmanager
+
+from fastapi import HTTPException
+
+
+@contextmanager
+def patched_env(**values):
+    previous = {key: os.environ.get(key) for key in values}
+    try:
+        for key, value in values.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        yield
+    finally:
+        for key, value in previous.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 class AuthRoutesTest(unittest.TestCase):
@@ -38,6 +59,33 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("/api/admin/operational-events/summary", paths)
         self.assertIn("/api/admin/operational-events/retention", paths)
 
+    def test_auth_rate_limit_rejects_excessive_login_requests(self):
+        backend_dir = os.path.join(os.getcwd(), "backend")
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+
+        with patched_env(ALPHAMATE_AUTH_RATE_LIMIT_PER_MINUTE="2"):
+            import main
+            from core.rate_limit import InMemoryRateLimiter
+
+            main._auth_rate_limiter = InMemoryRateLimiter()
+
+            self.assertTrue(main._enforce_auth_rate_limit("client-a"))
+            self.assertTrue(main._enforce_auth_rate_limit("client-a"))
+            with self.assertRaises(HTTPException) as blocked:
+                main._enforce_auth_rate_limit("client-a")
+
+            self.assertEqual(429, blocked.exception.status_code)
+            self.assertIn("Retry-After", blocked.exception.headers)
+    def test_auth_rate_limit_has_upper_bound(self):
+        backend_dir = os.path.join(os.getcwd(), "backend")
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+
+        with patched_env(ALPHAMATE_AUTH_RATE_LIMIT_PER_MINUTE="999999"):
+            import main
+
+            self.assertEqual(120, main._auth_rate_limit())
     def test_health_payload_does_not_expose_settings(self):
         backend_dir = os.path.join(os.getcwd(), "backend")
         if backend_dir not in sys.path:
