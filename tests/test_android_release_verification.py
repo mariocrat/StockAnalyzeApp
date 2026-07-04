@@ -9,18 +9,20 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
     def test_double_click_batch_runs_android_release_verification_script(self):
         batch = (ROOT / "verify_android_release.bat").read_text(encoding="utf-8")
 
+        self.assertIn("chcp 65001 >nul", batch)
         self.assertIn("scripts\\verify_android_release.ps1", batch)
         self.assertIn("ExecutionPolicy Bypass", batch)
-        self.assertIn("Android 출시 빌드 검증을 통과했습니다", batch)
+        self.assertIn("Android 출시 빌드 검증을 통과했습니다.", batch)
         self.assertNotIn("Android release verification passed", batch)
         self.assertIn("pause", batch.lower())
 
     def test_double_click_batch_runs_android_debug_verification_script(self):
         batch = (ROOT / "verify_android_debug.bat").read_text(encoding="utf-8")
 
+        self.assertIn("chcp 65001 >nul", batch)
         self.assertIn("scripts\\verify_android_debug.ps1", batch)
         self.assertIn("ExecutionPolicy Bypass", batch)
-        self.assertIn("Android 디버그 빌드 검증을 통과했습니다", batch)
+        self.assertIn("Android 디버그 빌드 검증을 통과했습니다.", batch)
         self.assertNotIn("Android debug verification passed", batch)
         self.assertIn("pause", batch.lower())
 
@@ -51,8 +53,8 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
 
                 self.assertIn("Test-RequiredPath", script)
                 self.assertIn("docs\\manual_test_guide.md", script)
-                self.assertIn("로컬 JDK 폴더를 찾을 수 없습니다", script)
-                self.assertIn("로컬 Android SDK 폴더를 찾을 수 없습니다", script)
+                self.assertIn("로컬 JDK 폴더를 찾을 수 없습니다.", script)
+                self.assertIn("로컬 Android SDK 폴더를 찾을 수 없습니다.", script)
                 self.assertNotIn("Local JDK folder was not found", script)
                 self.assertNotIn("Local Android SDK folder was not found", script)
 

@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 setlocal
 cd /d "%~dp0"
 powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\verify_android_release.ps1"
