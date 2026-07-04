@@ -58,6 +58,7 @@ _theme_refresh_jobs = set()
 _client_event_rate_limiter = InMemoryRateLimiter()
 _admin_rate_limiter = InMemoryRateLimiter()
 _auth_rate_limiter = InMemoryRateLimiter()
+_billing_rate_limiter = InMemoryRateLimiter()
 _callback_rate_limiter = InMemoryRateLimiter()
 _ai_review_rate_limiter = InMemoryRateLimiter()
 _ai_review_idempotency_lock = threading.Lock()
@@ -67,6 +68,7 @@ ADMIN_TOKEN_MIN_LENGTH = 32
 ADMIN_RATE_LIMIT_MAX_PER_MINUTE = 300
 CLIENT_EVENT_RATE_LIMIT_MAX_PER_MINUTE = 600
 AUTH_RATE_LIMIT_MAX_PER_MINUTE = 120
+BILLING_RATE_LIMIT_MAX_PER_MINUTE = 120
 AI_REVIEW_RATE_LIMIT_MAX_PER_MINUTE = 60
 CALLBACK_RATE_LIMIT_MAX_PER_MINUTE = 300
 AI_REVIEW_MAX_CONCURRENT_LIMIT = 20
@@ -436,6 +438,15 @@ def _auth_rate_limit() -> int:
     )
 
 
+def _billing_rate_limit() -> int:
+    return _env_int(
+        "ALPHAMATE_BILLING_RATE_LIMIT_PER_MINUTE",
+        20,
+        1,
+        BILLING_RATE_LIMIT_MAX_PER_MINUTE,
+    )
+
+
 def _callback_rate_limit() -> int:
     return _env_int(
         "ALPHAMATE_CALLBACK_RATE_LIMIT_PER_MINUTE",
@@ -457,6 +468,12 @@ def _ai_review_idempotency_ttl_seconds() -> int:
         AI_REVIEW_IDEMPOTENCY_TTL_MAX_SECONDS,
     )
 
+
+def _billing_rate_key(authorization: str | None, client_key: str) -> str:
+    text = str(authorization or "").strip()
+    if text:
+        return "auth:" + uuid.uuid5(uuid.NAMESPACE_URL, text).hex
+    return "client:" + str(client_key or "unknown")
 
 def _ai_review_rate_key(authorization: str | None) -> str:
     text = str(authorization or "").strip()
@@ -624,6 +641,21 @@ def _enforce_auth_rate_limit(client_key: str) -> bool:
         raise HTTPException(
             status_code=429,
             detail=f"Too many login requests. Retry after {rate_limit['retry_after_seconds']} seconds.",
+            headers={"Retry-After": str(rate_limit["retry_after_seconds"])},
+        )
+    return True
+
+
+def _enforce_billing_rate_limit(authorization: str | None, client_key: str) -> bool:
+    rate_limit = _billing_rate_limiter.check(
+        _billing_rate_key(authorization, client_key),
+        limit=_billing_rate_limit(),
+        window_seconds=60,
+    )
+    if not rate_limit["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many billing requests. Retry after {rate_limit['retry_after_seconds']} seconds.",
             headers={"Retry-After": str(rate_limit["retry_after_seconds"])},
         )
     return True
@@ -1221,8 +1253,10 @@ def get_journal_products():
 @app.post("/api/journal/dev-purchase")
 def post_journal_dev_purchase(
     purchase: JournalDevPurchaseIn,
+    request: Request,
     authorization: Optional[str] = Header(default=None),
 ):
+    _enforce_billing_rate_limit(authorization, _request_client_key(request))
     return apply_dev_purchase(
         authorization=authorization,
         entitlement_token=purchase.entitlement_token,
@@ -1233,8 +1267,10 @@ def post_journal_dev_purchase(
 @app.post("/api/journal/google-play-purchase")
 def post_journal_google_play_purchase(
     purchase: JournalGooglePlayPurchaseIn,
+    request: Request,
     authorization: Optional[str] = Header(default=None),
 ):
+    _enforce_billing_rate_limit(authorization, _request_client_key(request))
     return apply_google_play_purchase(
         authorization=authorization,
         product_id=purchase.product_id,
