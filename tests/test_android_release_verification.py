@@ -36,6 +36,14 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("ANDROID_HOME", script)
         self.assertNotIn("ALPHAMATE_ANDROID_KEYSTORE_PASSWORD)", script)
 
+    def test_android_verification_scripts_force_utf8_console_output(self):
+        for script_name in ("verify_android_debug.ps1", "verify_android_release.ps1"):
+            with self.subTest(script=script_name):
+                script = (ROOT / "scripts" / script_name).read_text(encoding="utf-8-sig")
+
+                self.assertIn("[Console]::OutputEncoding", script)
+                self.assertIn("$OutputEncoding", script)
+
     def test_android_verification_scripts_explain_missing_local_tools(self):
         for script_name in ("verify_android_debug.ps1", "verify_android_release.ps1"):
             with self.subTest(script=script_name):

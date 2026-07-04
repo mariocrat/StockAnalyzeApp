@@ -1,5 +1,8 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8NoBom
+$OutputEncoding = $utf8NoBom
 
 function Load-EnvFile {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -77,7 +80,7 @@ try {
     }
     Pop-Location
 
-if (-not (Test-Path $aabPath)) {
+    if (-not (Test-Path $aabPath)) {
         throw "출시 AAB 파일이 만들어지지 않았습니다. 경로: $aabPath"
     }
 

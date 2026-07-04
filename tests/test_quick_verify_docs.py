@@ -15,6 +15,13 @@ class QuickVerifyDocsTest(unittest.TestCase):
         self.assertNotIn("Project verification passed", batch)
         self.assertNotIn("Project verification failed", batch)
 
+    def test_verify_project_script_forces_utf8_console_output(self):
+        script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8-sig")
+
+        self.assertIn("[Console]::OutputEncoding", script)
+        self.assertIn("$OutputEncoding", script)
+        self.assertIn("$env:PYTHONUTF8 = \"1\"", script)
+
     def test_quick_verify_docs_list_every_project_verification_step(self):
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8")
         docs = (ROOT / "docs" / "quick_verify.md").read_text(encoding="utf-8")

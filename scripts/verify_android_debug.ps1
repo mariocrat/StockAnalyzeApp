@@ -1,5 +1,8 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8NoBom
+$OutputEncoding = $utf8NoBom
 
 function Test-RequiredPath {
     param(
@@ -60,7 +63,7 @@ try {
     }
     Pop-Location
 
-if (-not (Test-Path $apkPath)) {
+    if (-not (Test-Path $apkPath)) {
         throw "디버그 APK 파일이 만들어지지 않았습니다. 경로: $apkPath"
     }
 

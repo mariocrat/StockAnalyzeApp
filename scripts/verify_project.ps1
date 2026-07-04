@@ -1,5 +1,8 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8NoBom
+$OutputEncoding = $utf8NoBom
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $root = Resolve-Path (Join-Path $scriptDir "..")
@@ -30,9 +33,11 @@ function Run-Step {
 
 $oldViteAppName = $env:VITE_APP_NAME
 $oldNpmUpdateNotifier = $env:npm_config_update_notifier
+$oldPythonUtf8 = $env:PYTHONUTF8
 
 try {
     $env:npm_config_update_notifier = "false"
+    $env:PYTHONUTF8 = "1"
 
     Push-Location $root
     Run-Step "백엔드 테스트" { & $python -m unittest discover -s tests }
@@ -64,4 +69,5 @@ finally {
     }
     $env:VITE_APP_NAME = $oldViteAppName
     $env:npm_config_update_notifier = $oldNpmUpdateNotifier
+    $env:PYTHONUTF8 = $oldPythonUtf8
 }

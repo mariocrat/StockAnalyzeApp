@@ -66,12 +66,12 @@ def main() -> int:
                 findings.append(f"{normalized}:{line}: {label}")
 
     if findings:
-        print("Potential tracked secrets found:")
+        print("Git 추적 파일에서 비밀값으로 보이는 패턴을 찾았습니다:")
         for finding in findings:
             print(f"- {finding}")
         return 1
 
-    print("No tracked secret patterns found.")
+    print("Git 추적 파일에서 비밀값 패턴을 찾지 못했습니다.")
     return 0
 
 
