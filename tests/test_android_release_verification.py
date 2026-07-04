@@ -46,6 +46,15 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
                 self.assertIn("[Console]::OutputEncoding", script)
                 self.assertIn("$OutputEncoding", script)
 
+    def test_android_verification_scripts_suppress_npm_update_notices(self):
+        for script_name in ("verify_android_debug.ps1", "verify_android_release.ps1"):
+            with self.subTest(script=script_name):
+                script = (ROOT / "scripts" / script_name).read_text(encoding="utf-8-sig")
+
+                self.assertIn("$oldNpmUpdateNotifier = $env:npm_config_update_notifier", script)
+                self.assertIn('$env:npm_config_update_notifier = "false"', script)
+                self.assertIn("$env:npm_config_update_notifier = $oldNpmUpdateNotifier", script)
+
     def test_android_verification_scripts_explain_missing_local_tools(self):
         for script_name in ("verify_android_debug.ps1", "verify_android_release.ps1"):
             with self.subTest(script=script_name):

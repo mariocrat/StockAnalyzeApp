@@ -59,6 +59,7 @@ Test-RequiredPath -Path $androidHome -MissingMessage "로컬 Android SDK 폴더�
 $oldJavaHome = $env:JAVA_HOME
 $oldAndroidHome = $env:ANDROID_HOME
 $oldAndroidSdkRoot = $env:ANDROID_SDK_ROOT
+$oldNpmUpdateNotifier = $env:npm_config_update_notifier
 $oldPath = $env:Path
 $oldFrontendEnvFile = $env:ALPHAMATE_FRONTEND_ENV_FILE
 
@@ -69,6 +70,7 @@ try {
     $env:JAVA_HOME = $javaHome
     $env:ANDROID_HOME = $androidHome
     $env:ANDROID_SDK_ROOT = $androidHome
+    $env:npm_config_update_notifier = "false"
     $env:Path = "$javaHome\bin;$androidHome\cmdline-tools\latest\bin;$androidHome\platform-tools;$oldPath"
 
     Push-Location $frontend
@@ -97,6 +99,7 @@ finally {
     $env:JAVA_HOME = $oldJavaHome
     $env:ANDROID_HOME = $oldAndroidHome
     $env:ANDROID_SDK_ROOT = $oldAndroidSdkRoot
+    $env:npm_config_update_notifier = $oldNpmUpdateNotifier
     $env:Path = $oldPath
     $env:ALPHAMATE_FRONTEND_ENV_FILE = $oldFrontendEnvFile
 }
