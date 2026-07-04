@@ -57,6 +57,7 @@ _theme_refresh_lock = threading.Lock()
 _theme_refresh_jobs = set()
 _client_event_rate_limiter = InMemoryRateLimiter()
 _admin_rate_limiter = InMemoryRateLimiter()
+_callback_rate_limiter = InMemoryRateLimiter()
 _ai_review_rate_limiter = InMemoryRateLimiter()
 _ai_review_idempotency_lock = threading.Lock()
 _ai_review_idempotency_cache = {}
@@ -65,6 +66,7 @@ ADMIN_TOKEN_MIN_LENGTH = 32
 ADMIN_RATE_LIMIT_MAX_PER_MINUTE = 300
 CLIENT_EVENT_RATE_LIMIT_MAX_PER_MINUTE = 600
 AI_REVIEW_RATE_LIMIT_MAX_PER_MINUTE = 60
+CALLBACK_RATE_LIMIT_MAX_PER_MINUTE = 300
 AI_REVIEW_MAX_CONCURRENT_LIMIT = 20
 AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE = 1000
 AI_REVIEW_IDEMPOTENCY_TTL_MAX_SECONDS = 3600
@@ -423,6 +425,15 @@ def _admin_rate_limit() -> int:
     return _env_int("ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE", 30, 1, ADMIN_RATE_LIMIT_MAX_PER_MINUTE)
 
 
+def _callback_rate_limit() -> int:
+    return _env_int(
+        "ALPHAMATE_CALLBACK_RATE_LIMIT_PER_MINUTE",
+        60,
+        1,
+        CALLBACK_RATE_LIMIT_MAX_PER_MINUTE,
+    )
+
+
 def _ai_review_rate_limit() -> int:
     return _env_int("ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE", 10, 1, AI_REVIEW_RATE_LIMIT_MAX_PER_MINUTE)
 
@@ -587,6 +598,21 @@ def _enforce_admin_rate_limit(client_key: str) -> bool:
         raise HTTPException(
             status_code=429,
             detail=f"Too many admin requests. Retry after {rate_limit['retry_after_seconds']} seconds.",
+            headers={"Retry-After": str(rate_limit["retry_after_seconds"])},
+        )
+    return True
+
+
+def _enforce_callback_rate_limit(callback_name: str, client_key: str) -> bool:
+    rate_limit = _callback_rate_limiter.check(
+        f"{callback_name}:{client_key or 'unknown'}",
+        limit=_callback_rate_limit(),
+        window_seconds=60,
+    )
+    if not rate_limit["allowed"]:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many callback requests. Retry after {rate_limit['retry_after_seconds']} seconds.",
             headers={"Retry-After": str(rate_limit["retry_after_seconds"])},
         )
     return True
@@ -1189,9 +1215,11 @@ def post_journal_google_play_purchase(
 @app.post("/api/journal/google-play-rtdn")
 def post_journal_google_play_rtdn(
     payload: GooglePlayRtdnIn,
+    request: Request,
     x_alphamate_rtdn_token: Optional[str] = Header(default=None, alias="X-AlphaMate-RTDN-Token"),
     authorization: Optional[str] = Header(default=None),
 ):
+    _enforce_callback_rate_limit("google-play-rtdn", _request_client_key(request))
     return handle_google_play_rtdn(
         pubsub_payload=payload.model_dump(),
         shared_token=x_alphamate_rtdn_token,
@@ -1201,6 +1229,7 @@ def post_journal_google_play_rtdn(
 
 @app.get("/api/journal/admob-ssv")
 def get_journal_admob_ssv(request: Request):
+    _enforce_callback_rate_limit("admob-ssv", _request_client_key(request))
     return record_admob_ssv_reward(str(request.url.query))
 
 

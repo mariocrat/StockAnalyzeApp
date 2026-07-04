@@ -104,11 +104,28 @@ class AdminEventRoutesTest(unittest.TestCase):
         with patched_env(
             ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE="999999",
             ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE="999999",
+            ALPHAMATE_CALLBACK_RATE_LIMIT_PER_MINUTE="999999",
         ):
             import main
 
             self.assertEqual(300, main._admin_rate_limit())
             self.assertEqual(600, main._client_event_rate_limit())
+            self.assertEqual(300, main._callback_rate_limit())
+
+    def test_external_callback_rate_limit_rejects_excessive_requests(self):
+        with patched_env(ALPHAMATE_CALLBACK_RATE_LIMIT_PER_MINUTE="2"):
+            import main
+            from core.rate_limit import InMemoryRateLimiter
+
+            main._callback_rate_limiter = InMemoryRateLimiter()
+
+            self.assertTrue(main._enforce_callback_rate_limit("admob-ssv", "client-a"))
+            self.assertTrue(main._enforce_callback_rate_limit("admob-ssv", "client-a"))
+            with self.assertRaises(HTTPException) as blocked:
+                main._enforce_callback_rate_limit("admob-ssv", "client-a")
+
+            self.assertEqual(429, blocked.exception.status_code)
+            self.assertIn("Retry-After", blocked.exception.headers)
 
     def test_admin_operational_events_reports_effective_limit(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
