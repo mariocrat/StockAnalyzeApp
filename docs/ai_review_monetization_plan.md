@@ -1,101 +1,101 @@
-# AI Review Monetization Plan
+# AI 복기 수익화 정책
 
-## Naming
+## 이름 기준
 
-Use simple user-facing names so subscription, analysis depth, and consumable credits do not blur together.
+구독, 분석 깊이, 소모성 이용권이 헷갈리지 않도록 사용자에게 보이는 이름을 분리한다.
 
-- Pro: monthly subscription plan.
-- Standard Review: short single-trade AI review. Internal key: `basic`.
-- Deep Review: richer review that compares the current trade with recent trades. Internal key: `advanced`.
-- Review Credits: one-time consumable purchase packs.
+- Pro: 월 구독 상품.
+- 일반 복기: 단건 매매를 짧게 분석하는 AI 복기. 내부 키는 `basic`.
+- 심층 복기: 이번 매매와 최근 매매를 비교하는 깊은 AI 복기. 내부 키는 `advanced`.
+- 복기권: 구독하지 않아도 필요한 만큼 구매해서 쓰는 소모성 이용권.
 
-Korean UI labels:
+UI 라벨은 아래처럼 사용한다.
 
-- 일반 복기: basic AI review.
-- 심층 복기: advanced AI review.
-- 일반 복기 이용권: consumable basic credits.
-- 심층 복기 이용권: consumable advanced credits.
+- 일반 복기
+- 심층 복기
+- 일반 복기권
+- 심층 복기권
 
-## AI Review Types
+## AI 복기 종류
 
-### Standard Review
+### 일반 복기
 
-- Model default: `gpt-5.4-mini`.
-- Scope: one selected or latest trade.
-- Output: one-line summary, one good point, one weak point, and three next-checklist items.
+- 기본 모델: `gpt-5.4-mini`.
+- 범위: 사용자가 선택한 단건 매매 1건.
+- 출력: 한 줄 총평, 잘한 점, 아쉬운 점, 다음 체크리스트 3개.
 
-### Deep Review
+### 심층 복기
 
-- Model default: `gpt-5.5`.
-- Configurable with `OPENAI_ADVANCED_REVIEW_MODEL` so the model can be changed later.
-- Scope: current trade plus recent 5 to 10 trade summaries and chart context.
-- Output focus: repeated mistakes, stop-loss criteria, entry hypothesis, response issues, and next trading rules.
+- 기본 모델: `gpt-5.5`.
+- `OPENAI_ADVANCED_REVIEW_MODEL` 설정으로 나중에 모델을 쉽게 바꿀 수 있게 둔다.
+- 범위: 이번 매매, 최근 매매 5~10건 요약, 차트 맥락.
+- 분석 초점: 반복 실수, 손절 기준, 진입 가설, 대응 문제, 다음 매매 규칙.
 
-## Free Policy
+## 무료 정책
 
-- Signup bonus: 5 Standard Reviews.
-- Daily free grant: 1 Standard Review.
-- Rewarded ads can add Standard Reviews.
-- Daily max Standard Reviews: 5.
-- Monthly max Standard Reviews: 50.
-- Watching 5 rewarded ads grants 1 weekly Deep Review ticket.
-- Weekly ad-reward Deep Review ticket max holding: 1.
+- 가입 보너스: 일반 복기 5회.
+- 하루 기본 제공: 일반 복기 1회.
+- 광고 시청으로 일반 복기를 추가 제공할 수 있다.
+- 하루 일반 복기 최대 사용량: 5회.
+- 월 일반 복기 최대 사용량: 50회.
+- 보상형 광고 5회 시청 시 주 1회 심층 복기권 1장을 지급한다.
+- 광고 보상 심층 복기권은 최대 1장까지만 보유한다.
 
-The rewarded-ad policy is configurable on the server. The default remains one rewarded ad for one Standard Review, and five rewarded ads for one weekly Deep Review ticket. `ALPHAMATE_ADS_PER_ADVANCED_TICKET` can change the weekly Deep Review threshold later without changing the mobile app. `ALPHAMATE_FORCE_REWARDED_AD_CHAIN` is available as a server-side policy flag, but the recommended default is `false` so the app does not force several short ads in a row.
+보상형 광고 정책은 서버 설정으로 조정한다. 기본값은 광고 1회당 일반 복기 1회, 광고 5회당 주간 심층 복기권 1장이다. `ALPHAMATE_ADS_PER_ADVANCED_TICKET`으로 심층 복기권 지급 기준을 바꿀 수 있다. `ALPHAMATE_FORCE_REWARDED_AD_CHAIN` 플래그도 두지만, 기본값은 `false`로 둔다. 여러 광고를 연속으로 강제 시청시키는 흐름은 사용자 피로도가 높기 때문이다.
 
-## Pro Policy
+## Pro 정책
 
-- Launch event price: KRW 3,900 monthly.
-- Regular price: KRW 4,900 monthly.
-- Monthly included usage: 150 Standard Reviews and 5 Deep Reviews.
-- Pro users do not see non-rewarded ads anywhere in the app.
-- Rewarded ads remain a free-user path for earning extra review access.
+- 출시 이벤트 가격: 월 3,900원.
+- 정상 가격: 월 4,900원.
+- 월 제공량: 일반 복기 150회, 심층 복기 5회.
+- Pro 사용자는 앱 전체에서 보상형이 아닌 광고를 보지 않는다.
+- 보상형 광고는 무료 사용자가 추가 복기 접근권을 얻는 경로로 유지한다.
 
-## One-Time Purchase Packs
+## 1회성 복기권 상품
 
-These are consumable products, not subscriptions.
+복기권은 구독이 아니라 소모성 1회성 구매 상품이다.
 
-| Product ID | User Label | Quantity | Price |
+| 상품 ID | 사용자 표시 이름 | 수량 | 가격 |
 | --- | --- | ---: | ---: |
-| `basic_review_30` | 일반 복기 이용권 30회 | 30 | KRW 2,900 |
-| `basic_review_100` | 일반 복기 이용권 100회 | 100 | KRW 6,900 |
-| `advanced_review_5` | 심층 복기 이용권 5회 | 5 | KRW 2,900 |
-| `advanced_review_10` | 심층 복기 이용권 10회 | 10 | KRW 4,900 |
+| `basic_review_30` | 일반 복기권 30회 | 30 | 2,900원 |
+| `basic_review_100` | 일반 복기권 100회 | 100 | 6,900원 |
+| `advanced_review_5` | 심층 복기권 5회 | 5 | 2,900원 |
+| `advanced_review_10` | 심층 복기권 10회 | 10 | 4,900원 |
 
-Product IDs are constants in the backend and should be mapped to Google Play Console product IDs before production release.
+상품 ID는 백엔드 상수로 분리하고, 실제 출시 전 Google Play Console 상품 ID에 맞춰 바꾼다.
 
-## Deduction Priority
+## 차감 우선순위
 
-Standard Review:
+일반 복기:
 
-1. Free signup/daily/monthly allowance.
-2. Pro monthly Standard Review allowance.
-3. Purchased Standard Review credits.
-4. Rewarded-ad extra allowance.
-5. Purchase prompt.
+1. 무료 가입/일간/월간 제공량.
+2. Pro 월 일반 복기 제공량.
+3. 구매한 일반 복기권.
+4. 광고 시청 후 추가 제공량.
+5. 구매 유도.
 
-Deep Review:
+심층 복기:
 
-1. Pro monthly Deep Review allowance.
-2. Weekly Deep Review ticket earned from rewarded ads.
-3. Purchased Deep Review credits.
-4. Purchase prompt.
+1. Pro 월 심층 복기 제공량.
+2. 광고 5회 시청 보상으로 받은 주간 심층 복기권.
+3. 구매한 심층 복기권.
+4. 구매 유도.
 
-Standard Review credits and Deep Review credits are managed separately. Allowing Deep Review credits to pay for Standard Reviews is controlled by `ALPHAMATE_ALLOW_ADVANCED_TICKET_FOR_BASIC`; the default is disabled.
+일반 복기권과 심층 복기권은 별도로 관리한다. 심층 복기권으로 일반 복기를 사용할 수 있게 할지는 `ALPHAMATE_ALLOW_ADVANCED_TICKET_FOR_BASIC` 설정으로 분리하되, 기본값은 불가능으로 둔다.
 
-## Kakao/Naver Login And Storage
+## 카카오/네이버 로그인과 저장
 
-Kakao and Naver easy login can identify the user, but neither provider manages AlphaMate review credits. The server should verify the provider login token, map `(provider, provider_user_id)` to one internal user ID, and store subscription state, review credit balances, ad rewards, and usage counters in AlphaMate's database.
+카카오와 네이버 간편 로그인은 사용자를 식별하는 수단이다. 두 서비스가 AlphaMate 복기권이나 구독 상태를 관리해 주지는 않는다. 서버는 로그인 제공자의 토큰을 검증하고 `(provider, provider_user_id)`를 내부 사용자 ID에 연결한 뒤, 구독 상태, 복기권 잔여 수량, 광고 보상, 사용량 카운터를 AlphaMate DB에 저장해야 한다.
 
-If the same person logs in with both Kakao and Naver later, account linking should require an explicit confirmation step. Do not automatically merge accounts only by email or phone number because providers can expose different verified fields.
+같은 사용자가 나중에 카카오와 네이버를 모두 연결하려면 앱에서 명시적으로 "계정 연결" 확인을 받아야 한다. 이메일이나 전화번호만 보고 자동 병합하면 제공자별 인증 정보가 달라 계정 혼동이 생길 수 있다.
 
-Trade history storage should be opt-in. The default privacy-friendly mode can keep one-time analysis ephemeral, while a later "save my journal" setting can store trades per user with clear consent, export/delete controls, and retention rules.
+매매 이력 저장은 사용자의 동의를 전제로 한다. 기본은 1회성 분석을 하고 지우는 개인정보 최소화 모드로 둘 수 있고, 나중에 "내 매매 복기 저장" 설정을 켜면 사용자별 매매와 AI 복기 이력을 저장한다. 이 경우 내보내기, 삭제, 보관 기간 안내가 함께 필요하다.
 
-## Production Replacement Points
+## 운영 전 교체 지점
 
-- Replace `dev-token` with Kakao/Naver/OIDC token verification.
-- Replace `dev-ad-reward` with AdMob rewarded ad server-side verification. Backend SSV storage and consumption are implemented.
-- Mobile AdMob SDK integration is implemented for rewarded, interstitial, and banner ads. Production release still requires real AdMob app/ad unit IDs and SSV callback setup in the AdMob console.
-- Replace `dev-pro-entitlement` and dev purchase endpoints with Google Play Billing server-side purchase verification.
-- Replace in-memory wallets with a database or Redis-backed quota store.
-- Keep the OpenAI API key only on the server or in a cloud secret manager.
+- `dev-token`은 카카오/네이버 또는 OIDC 토큰 검증으로 교체한다.
+- `dev-ad-reward`는 AdMob 보상형 광고 서버 검증으로 교체한다. 백엔드 SSV 저장과 차감 흐름은 구현되어 있다.
+- 모바일 AdMob SDK는 보상형, 전면, 배너 광고가 연결되어 있다. 운영 배포 전 실제 AdMob 앱 ID/광고 단위 ID와 SSV 콜백 설정이 필요하다.
+- `dev-pro-entitlement`와 개발용 구매 엔드포인트는 Google Play Billing 서버 검증으로 교체한다.
+- 메모리 기반 지갑은 운영 DB 또는 Redis 기반 사용량 저장소로 교체한다.
+- OpenAI API Key는 서버 환경변수 또는 클라우드 Secret Manager에만 둔다.

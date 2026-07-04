@@ -9,14 +9,23 @@ class PolicyDocumentationTest(unittest.TestCase):
     def test_ai_monetization_plan_matches_ad_free_pro_policy(self):
         plan = (ROOT / "docs" / "ai_review_monetization_plan.md").read_text(encoding="utf-8")
 
-        self.assertIn("Pro users do not see non-rewarded ads anywhere in the app.", plan)
-        self.assertNotIn("Theme/ranking information screens can keep banner ads", plan)
+        self.assertIn("Pro 사용자는 앱 전체에서 보상형이 아닌 광고를 보지 않는다.", plan)
+        self.assertNotIn("테마 상승률 등 정보 화면에는 배너 광고를 유지", plan)
 
     def test_ai_monetization_plan_mentions_current_admob_integration_status(self):
         plan = (ROOT / "docs" / "ai_review_monetization_plan.md").read_text(encoding="utf-8")
 
-        self.assertIn("Mobile AdMob SDK integration is implemented", plan)
+        self.assertIn("모바일 AdMob SDK는 보상형, 전면, 배너 광고가 연결되어 있다.", plan)
         self.assertNotIn("mobile AdMob SDK integration and production ad unit setup are still required", plan)
+
+    def test_ai_monetization_plan_uses_clean_korean_labels(self):
+        plan = (ROOT / "docs" / "ai_review_monetization_plan.md").read_text(encoding="utf-8")
+
+        self.assertIn("일반 복기권 30회", plan)
+        self.assertIn("심층 복기권 10회", plan)
+        for broken_text in (chr(0x3F) + "쇰컲", chr(0x3F) + "ъ링"):
+            self.assertNotIn(broken_text, plan)
+        self.assertFalse(any(0x4E00 <= ord(char) <= 0x9FFF for char in plan))
 
     def test_release_checklist_uses_korean_final_verification_labels(self):
         checklist = (ROOT / "docs" / "release_preparation_checklist.md").read_text(encoding="utf-8")
@@ -27,6 +36,21 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertNotIn("frontend release-env tests", checklist)
         self.assertNotIn("Android release AAB build", checklist)
         self.assertNotIn("In-memory rate limiter safety cap", checklist)
+
+    def test_recent_development_history_notes_do_not_contain_broken_korean(self):
+        paths = [
+            ROOT / "docs" / "development_history_ad_failure_logging.md",
+            ROOT / "docs" / "development_history_private_setup_alignment.md",
+        ]
+        for path in paths:
+            text = path.read_text(encoding="utf-8")
+            self.assertIn("#", text)
+            for broken_text in (chr(0x3F) + "댁", chr(0x3F) + "쒕", chr(0x3F) + "ㅼ"):
+                self.assertNotIn(broken_text, text, f"{path.name} has broken Korean text")
+            self.assertFalse(
+                any(0x4E00 <= ord(char) <= 0x9FFF for char in text),
+                f"{path.name} has CJK mojibake-like text",
+            )
 
 
 if __name__ == "__main__":

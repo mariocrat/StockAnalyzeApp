@@ -1,19 +1,19 @@
-# Mobile ad failure logging
+# 모바일 광고 실패 로그 기록
 
-Date: 2026-07-03
+일자: 2026-07-03
 
-## What changed
+## 변경 내용
 
-- Mobile ad failures are now reported through the existing `/api/client-events` operational log endpoint.
-- Logged placements include app-resume interstitial ads, chart-detail interstitial ads, bottom banner show/remove failures, and review-history entry interstitial ads.
-- The original user action remains non-blocking when an ad fails, so chart detail and review history access continue.
+- 모바일 광고 실패를 기존 `/api/client-events` 운영 로그 엔드포인트로 보고하도록 했다.
+- 기록 대상은 앱 복귀 전면 광고, 차트 자세히 보기 전면 광고, 하단 배너 표시/제거 실패, 복기 보관함 진입 전면 광고다.
+- 광고가 실패해도 원래 사용자가 하려던 동작은 막지 않는다. 차트 자세히 보기와 복기 보관함 접근은 계속 진행된다.
 
-## Why
+## 이유
 
-AdMob delivery can fail because of network state, invalid ad unit setup, platform availability, or SDK runtime issues. These failures should be visible for troubleshooting without making the app feel broken to users.
+AdMob 광고는 네트워크 상태, 광고 단위 설정 오류, 플랫폼 지원 여부, SDK 런타임 문제로 실패할 수 있다. 이런 실패는 사용자가 앱이 고장났다고 느끼지 않게 하면서도, 나중에 원인을 찾을 수 있어야 한다.
 
-## Safety
+## 안전 장치
 
-- The existing client event reporter redacts secret-like fields before sending details.
-- Logs include runtime context such as placement, plan, native availability, platform, and sanitized error name/message.
-- Pro users are still excluded from non-rewarded ad display by the ad policy layer.
+- 기존 클라이언트 이벤트 보고기가 비밀값처럼 보이는 필드를 전송 전에 가린다.
+- 로그에는 광고 위치, 요금제, 네이티브 런타임 사용 가능 여부, 플랫폼, 정리된 오류 이름/메시지 같은 문제 해결용 정보만 담는다.
+- Pro 사용자는 광고 정책 계층에서 보상형이 아닌 광고 표시 대상에서 제외된다.
