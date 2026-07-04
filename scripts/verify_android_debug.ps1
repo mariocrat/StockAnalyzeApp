@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 function Test-RequiredPath {
@@ -8,7 +8,7 @@ function Test-RequiredPath {
     )
 
     if (-not (Test-Path $Path)) {
-        throw "$MissingMessage at $Path. See docs\manual_test_guide.md for the local Android build tool setup."
+        throw "$MissingMessage 경로: $Path. 로컬 Android 빌드 도구 설정은 docs\manual_test_guide.md를 확인하세요."
     }
 }
 
@@ -21,15 +21,15 @@ $androidHome = Join-Path $root ".tools\android-sdk"
 $apkPath = Join-Path $android "app\build\outputs\apk\debug\app-debug.apk"
 
 if (-not (Test-Path $frontend)) {
-    throw "Frontend folder was not found at $frontend"
+    throw "frontend 폴더를 찾을 수 없습니다. 경로: $frontend"
 }
 
 if (-not (Test-Path $android)) {
-    throw "Android project was not found at $android"
+    throw "Android 프로젝트를 찾을 수 없습니다. 경로: $android"
 }
 
-Test-RequiredPath -Path $javaHome -MissingMessage "Local JDK folder was not found"
-Test-RequiredPath -Path $androidHome -MissingMessage "Local Android SDK folder was not found"
+Test-RequiredPath -Path $javaHome -MissingMessage "로컬 JDK 폴더를 찾을 수 없습니다."
+Test-RequiredPath -Path $androidHome -MissingMessage "로컬 Android SDK 폴더를 찾을 수 없습니다."
 
 $oldJavaHome = $env:JAVA_HOME
 $oldAndroidHome = $env:ANDROID_HOME
@@ -44,29 +44,29 @@ try {
 
     Push-Location $frontend
     Write-Host ""
-    Write-Host "==> Syncing web assets into Android" -ForegroundColor Cyan
+    Write-Host "==> 웹 앱 파일을 Android 프로젝트에 동기화합니다" -ForegroundColor Cyan
     & npm.cmd run mobile:build
     if ($LASTEXITCODE -ne 0) {
-        throw "npm run mobile:build failed with exit code $LASTEXITCODE"
+        throw "npm run mobile:build 실행에 실패했습니다. 오류 코드: $LASTEXITCODE"
     }
     Pop-Location
 
     Push-Location $android
     Write-Host ""
-    Write-Host "==> Building Android debug APK" -ForegroundColor Cyan
+    Write-Host "==> Android 디버그 APK를 빌드합니다" -ForegroundColor Cyan
     & .\gradlew.bat assembleDebug
     if ($LASTEXITCODE -ne 0) {
-        throw "gradlew assembleDebug failed with exit code $LASTEXITCODE"
+        throw "gradlew assembleDebug 실행에 실패했습니다. 오류 코드: $LASTEXITCODE"
     }
     Pop-Location
 
-    if (-not (Test-Path $apkPath)) {
-        throw "Debug APK was not created at $apkPath"
+if (-not (Test-Path $apkPath)) {
+        throw "디버그 APK 파일이 만들어지지 않았습니다. 경로: $apkPath"
     }
 
     $apk = Get-Item $apkPath
     Write-Host ""
-    Write-Host "Android debug APK build passed." -ForegroundColor Green
+    Write-Host "Android 디버그 APK 빌드를 통과했습니다." -ForegroundColor Green
     Write-Host "APK: $($apk.FullName)"
     Write-Host "Size: $($apk.Length) bytes"
 }

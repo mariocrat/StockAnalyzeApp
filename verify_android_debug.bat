@@ -5,10 +5,10 @@ powershell.exe -ExecutionPolicy Bypass -File "%~dp0scripts\verify_android_debug.
 set EXIT_CODE=%ERRORLEVEL%
 if not "%EXIT_CODE%"=="0" (
   echo.
-  echo Android debug verification failed with exit code %EXIT_CODE%.
+  echo Android 디버그 빌드 검증에 실패했습니다. 오류 코드: %EXIT_CODE%
   pause
   exit /b %EXIT_CODE%
 )
 echo.
-echo Android debug verification passed.
+echo Android 디버그 빌드 검증을 통과했습니다.
 pause

@@ -1,11 +1,11 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 function Load-EnvFile {
     param([Parameter(Mandatory = $true)][string]$Path)
 
     if (-not (Test-Path $Path)) {
-        throw "Release env file was not found at $Path. Run prepare_release_env_files.bat first."
+        throw "출시 설정 파일을 찾을 수 없습니다. 경로: $Path. prepare_release_env_files.bat를 먼저 실행하세요."
     }
 
     Get-Content -Encoding UTF8 $Path | ForEach-Object {
@@ -29,7 +29,7 @@ function Test-RequiredPath {
     )
 
     if (-not (Test-Path $Path)) {
-        throw "$MissingMessage at $Path. See docs\manual_test_guide.md for the local Android build tool setup."
+        throw "$MissingMessage 경로: $Path. 로컬 Android 빌드 도구 설정은 docs\manual_test_guide.md를 확인하세요."
     }
 }
 
@@ -43,15 +43,15 @@ $androidHome = Join-Path $root ".tools\android-sdk"
 $aabPath = Join-Path $android "app\build\outputs\bundle\release\app-release.aab"
 
 if (-not (Test-Path $frontend)) {
-    throw "Frontend folder was not found at $frontend"
+    throw "frontend 폴더를 찾을 수 없습니다. 경로: $frontend"
 }
 
 if (-not (Test-Path $android)) {
-    throw "Android project was not found at $android"
+    throw "Android 프로젝트를 찾을 수 없습니다. 경로: $android"
 }
 
-Test-RequiredPath -Path $javaHome -MissingMessage "Local JDK folder was not found"
-Test-RequiredPath -Path $androidHome -MissingMessage "Local Android SDK folder was not found"
+Test-RequiredPath -Path $javaHome -MissingMessage "로컬 JDK 폴더를 찾을 수 없습니다."
+Test-RequiredPath -Path $androidHome -MissingMessage "로컬 Android SDK 폴더를 찾을 수 없습니다."
 
 $oldJavaHome = $env:JAVA_HOME
 $oldAndroidHome = $env:ANDROID_HOME
@@ -70,20 +70,20 @@ try {
 
     Push-Location $frontend
     Write-Host ""
-    Write-Host "==> Building signed Android release AAB" -ForegroundColor Cyan
+    Write-Host "==> 서명된 Android 출시 AAB를 빌드합니다" -ForegroundColor Cyan
     & npm.cmd run mobile:release:aab
     if ($LASTEXITCODE -ne 0) {
-        throw "npm run mobile:release:aab failed with exit code $LASTEXITCODE"
+        throw "npm run mobile:release:aab 실행에 실패했습니다. 오류 코드: $LASTEXITCODE"
     }
     Pop-Location
 
-    if (-not (Test-Path $aabPath)) {
-        throw "Release AAB was not created at $aabPath"
+if (-not (Test-Path $aabPath)) {
+        throw "출시 AAB 파일이 만들어지지 않았습니다. 경로: $aabPath"
     }
 
     $aab = Get-Item $aabPath
     Write-Host ""
-    Write-Host "Android release AAB build passed." -ForegroundColor Green
+    Write-Host "Android 출시 AAB 빌드를 통과했습니다." -ForegroundColor Green
     Write-Host "AAB: $($aab.FullName)"
     Write-Host "Size: $($aab.Length) bytes"
 }

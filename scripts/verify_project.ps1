@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -7,11 +7,11 @@ $python = Join-Path $root ".venv\Scripts\python.exe"
 $frontend = Join-Path $root "frontend"
 
 if (-not (Test-Path $python)) {
-    throw "Python venv was not found at $python"
+    throw "Python venv를 찾을 수 없습니다. 경로: $python"
 }
 
 if (-not (Test-Path $frontend)) {
-    throw "Frontend folder was not found at $frontend"
+    throw "frontend 폴더를 찾을 수 없습니다. 경로: $frontend"
 }
 
 function Run-Step {
@@ -24,7 +24,7 @@ function Run-Step {
     Write-Host "==> $Name" -ForegroundColor Cyan
     & $Command
     if ($LASTEXITCODE -ne 0) {
-        throw "$Name failed with exit code $LASTEXITCODE"
+        throw "$Name 단계가 실패했습니다. 오류 코드: $LASTEXITCODE"
     }
 }
 
@@ -35,28 +35,28 @@ try {
     $env:npm_config_update_notifier = "false"
 
     Push-Location $root
-    Run-Step "Backend tests" { & $python -m unittest discover -s tests }
-    Run-Step "Backend compile" { & $python -m compileall backend }
-    Run-Step "Tracked secret scan" { & $python scripts\check_no_tracked_secrets.py }
+    Run-Step "백엔드 테스트" { & $python -m unittest discover -s tests }
+    Run-Step "백엔드 컴파일 확인" { & $python -m compileall backend }
+    Run-Step "Git 추적 파일 비밀값 검사" { & $python scripts\check_no_tracked_secrets.py }
     Pop-Location
 
     Push-Location $frontend
-    Run-Step "Frontend release-env tests" { & npm.cmd run test:release-env }
-    Run-Step "Frontend Android branding tests" { & npm.cmd run test:android-branding }
-    Run-Step "Frontend mobile billing tests" { & npm.cmd run test:mobile-billing }
-    Run-Step "Frontend mobile AdMob tests" { & npm.cmd run test:mobile-admob }
-    Run-Step "Frontend client event tests" { & npm.cmd run test:client-events }
-    Run-Step "Frontend API error request ID tests" { & npm.cmd run test:api-errors }
-    Run-Step "Frontend AI idempotency tests" { & npm.cmd run test:ai-idempotency }
-    Run-Step "Frontend lint" { & npm.cmd run lint }
+    Run-Step "프론트 출시 설정 테스트" { & npm.cmd run test:release-env }
+    Run-Step "프론트 Android 브랜딩 테스트" { & npm.cmd run test:android-branding }
+    Run-Step "프론트 모바일 결제 테스트" { & npm.cmd run test:mobile-billing }
+    Run-Step "프론트 모바일 AdMob 테스트" { & npm.cmd run test:mobile-admob }
+    Run-Step "프론트 사용자 오류 로그 테스트" { & npm.cmd run test:client-events }
+    Run-Step "프론트 API 오류 요청 ID 테스트" { & npm.cmd run test:api-errors }
+    Run-Step "프론트 AI 복기 중복 요청 방지 테스트" { & npm.cmd run test:ai-idempotency }
+    Run-Step "프론트 린트" { & npm.cmd run lint }
     if (-not $env:VITE_APP_NAME) {
         $env:VITE_APP_NAME = "AlphaMate"
     }
-    Run-Step "Frontend production build" { & npm.cmd run build }
+    Run-Step "프론트 운영 빌드" { & npm.cmd run build }
     Pop-Location
 
     Write-Host ""
-    Write-Host "All project checks passed." -ForegroundColor Green
+    Write-Host "프로젝트 전체 검증을 통과했습니다." -ForegroundColor Green
 }
 finally {
     while ((Get-Location).Path -ne $root.Path -and (Get-Location).Path.StartsWith($root.Path)) {
