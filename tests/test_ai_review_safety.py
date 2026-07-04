@@ -63,6 +63,22 @@ class AiReviewSafetyTest(unittest.TestCase):
             else:
                 os.environ[key] = value
 
+    def test_legacy_ai_review_get_endpoint_is_disabled(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            main, _, token = _load_main_with_temp_state(tmpdir)
+            calls = {"count": 0}
+
+            def forbidden_build_ai_review(trades):
+                calls["count"] += 1
+                return {"status": "ready", "summary": "bypassed"}
+
+            main.build_ai_review = forbidden_build_ai_review
+            with self.assertRaises(HTTPException) as blocked:
+                main.get_journal_ai_review(authorization=token)
+
+            self.assertEqual(410, blocked.exception.status_code)
+            self.assertEqual(0, calls["count"])
+
     def test_ai_review_rate_limit_rejects_repeated_user_requests(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             main, _, token = _load_main_with_temp_state(tmpdir)

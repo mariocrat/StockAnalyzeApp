@@ -25,6 +25,7 @@
 - `POST /api/journal/charts-once`
 
 위 API는 요청 본문으로 받은 매매 기록만 분석하고 SQLite에 저장하지 않는다.
+구형 GET /api/journal/ai-review 경로는 이용권/광고/요청 제한 우회를 막기 위해 410 Gone으로 닫아둔다.
 
 ## 아직 필요한 배포 보안 작업
 

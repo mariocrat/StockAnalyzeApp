@@ -19,7 +19,6 @@ from core.data_fetcher import (
 from core.metrics import calculate_theme_rankings, get_stocks_in_theme
 from core.utils import get_chosung
 from core.journal import add_trade, list_trades, count_trades, delete_trade, clear_trades, build_review, normalize_trade
-from core.ai_review import build_ai_review
 from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
 from core.journal_chart import build_journal_charts
 from core.review_history import add_review_history, list_review_history, get_review_history, delete_review_history
@@ -1099,10 +1098,10 @@ def get_journal_review_once(batch: JournalBatchIn):
 
 @app.get("/api/journal/ai-review")
 def get_journal_ai_review(authorization: Optional[str] = Header(default=None)):
-    user = _optional_session_user(authorization)
-    limit = _saved_journal_analysis_max_trades()
-    trades = list_trades(limit=limit, user_id=user["id"]) if user and user.get("journal_storage_enabled") else list_trades(limit=limit)
-    return build_ai_review(trades)
+    raise HTTPException(
+        status_code=410,
+        detail="이전 AI 복기 경로는 더 이상 사용하지 않습니다. /api/journal/ai-review-once를 사용하세요.",
+    )
 
 
 @app.get("/api/journal/review-history")
