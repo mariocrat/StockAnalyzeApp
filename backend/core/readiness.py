@@ -19,6 +19,7 @@ CORS_ORIGINS_SETTING = "ALPHAMATE_CORS_ORIGINS"
 PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
 LOCAL_HTTP_CORS_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 LOCAL_DATA_PATH_PARTS = ("backend/data", "backend\\data")
+TEMPLATE_DATA_PATH_PARTS = ("d:/secure/alphamate/", "d:\\secure\\alphamate\\")
 
 
 def _env_value(name: str) -> str:
@@ -65,6 +66,8 @@ def _data_storage_status() -> dict:
                 missing.append(f"{name}_ABSOLUTE_PATH")
             if any(part.replace("\\", "/") in normalized for part in LOCAL_DATA_PATH_PARTS):
                 missing.append(f"{name}_LOCAL_DEV_PATH")
+            if any(part.replace("\\", "/") in normalized for part in TEMPLATE_DATA_PATH_PARTS):
+                missing.append(f"{name}_PLACEHOLDER")
     return {
         "ready": not missing,
         "missing_server_settings": missing,

@@ -57,11 +57,11 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
             ALPHAMATE_PRIVACY_POLICY_URL="https://alphamate.example/privacy",
-            ALPHAMATE_ACCOUNT_DB_PATH="D:/secure/alphamate/accounts.sqlite3",
-            ALPHAMATE_JOURNAL_DB_PATH="D:/secure/alphamate/trades.sqlite3",
-            ALPHAMATE_ACCESS_DB_PATH="D:/secure/alphamate/access.sqlite3",
-            ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
-            ALPHAMATE_EVENT_LOG_DB_PATH="D:/secure/alphamate/events.sqlite3",
+            ALPHAMATE_ACCOUNT_DB_PATH="D:/prod/alphamate/accounts.sqlite3",
+            ALPHAMATE_JOURNAL_DB_PATH="D:/prod/alphamate/trades.sqlite3",
+            ALPHAMATE_ACCESS_DB_PATH="D:/prod/alphamate/access.sqlite3",
+            ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/prod/alphamate/review-history.sqlite3",
+            ALPHAMATE_EVENT_LOG_DB_PATH="D:/prod/alphamate/events.sqlite3",
             ALPHAMATE_ADMIN_TOKEN="admin-token-with-at-least-32-characters",
             ALPHAMATE_CORS_ORIGINS="https://app.alphamate.example,capacitor://localhost",
             GOOGLE_PLAY_RTDN_OIDC_AUDIENCE=None,
@@ -162,6 +162,14 @@ class BillingReadinessTest(unittest.TestCase):
             )
             self.assertIn(
                 "ALPHAMATE_EVENT_LOG_DB_PATH_LOCAL_DEV_PATH",
+                status["sections"]["data_storage"]["missing_server_settings"],
+            )
+            self.assertIn(
+                "ALPHAMATE_ACCESS_DB_PATH_PLACEHOLDER",
+                status["sections"]["data_storage"]["missing_server_settings"],
+            )
+            self.assertIn(
+                "ALPHAMATE_REVIEW_HISTORY_DB_PATH_PLACEHOLDER",
                 status["sections"]["data_storage"]["missing_server_settings"],
             )
             self.assertNotIn("backend/data/accounts.sqlite3", str(status))
