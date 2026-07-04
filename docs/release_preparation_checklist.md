@@ -31,19 +31,19 @@ ALPHAMATE_OPENAI_MAX_RETRIES=1
 ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS=0.5
 ```
 
-OpenAI runtime safety caps: timeout max 90 seconds, retries max 3, retry backoff max 5 seconds.
-AI review rate limit safety cap: max 60 requests per minute.
-AI review concurrent execution safety cap: max 20 jobs.
-AI review idempotency cache safety cap: max 1,000 in-memory entries per server process.
-In-memory rate limiter safety cap: max 10,000 tracked client/user keys per limiter.
-AI review idempotency TTL safety cap: max 3,600 seconds.
-Journal workload safety caps: one-time review max 1,000 trades, AI review max 200 trades, memo max 5,000 characters, query/analysis max 1,000 rows.
-Ad reward policy safety cap: max 20 rewarded ads per advanced review ticket.
-AdMob SSV storage safety caps: reward identifiers max 120 characters, custom data max 500 characters.
-Google Play storage safety caps: purchase and subscription product/order fields max 120 characters.
-Login storage safety caps: provider user IDs and display names max 120 characters.
-Privacy consent safety cap: stored and exposed consent version max 120 characters.
-OAuth login timeout safety cap: max 20 seconds.
+OpenAI 실행 안전 상한: timeout 최대 90초, 재시도 최대 3회, 재시도 대기 최대 5초.
+AI 복기 요청 제한 안전 상한: 분당 최대 60회.
+AI 복기 동시 실행 안전 상한: 최대 20개 작업.
+AI 복기 중복 요청 방지 캐시 안전 상한: 서버 프로세스당 메모리 최대 1,000개.
+메모리 기반 요청 제한기 안전 상한: 제한기당 추적 client/user key 최대 10,000개.
+AI 복기 중복 요청 TTL 안전 상한: 최대 3,600초.
+매매복기 작업량 안전 상한: 단건 복기 최대 1,000건, AI 복기 최대 200건, 메모 최대 5,000자, 조회/분석 최대 1,000행.
+광고 보상 정책 안전 상한: 심층 복기권 1장당 보상형 광고 최대 20회.
+AdMob SSV 저장 안전 상한: 보상 식별자 최대 120자, custom data 최대 500자.
+Google Play 저장 안전 상한: 구매/구독 상품 및 주문 필드 최대 120자.
+로그인 저장 안전 상한: provider 사용자 ID와 표시 이름 최대 120자.
+개인정보 동의 저장 안전 상한: 저장/노출되는 동의 버전 최대 120자.
+OAuth 로그인 timeout 안전 상한: 최대 20초.
 
 주의:
 
@@ -328,19 +328,20 @@ verify_android_release.bat
 
 출시 직전에는 다음이 모두 통과해야 합니다.
 
-- [ ] backend tests
-- [ ] backend compile
-- [ ] tracked secret scan
-- [ ] frontend release-env tests
-- [ ] frontend Android branding tests
-- [ ] frontend mobile billing tests
-- [ ] frontend mobile AdMob tests
-- [ ] frontend client event tests
-- [ ] frontend API error request ID tests
-- [ ] frontend lint
-- [ ] frontend production build
-- [ ] Android debug build
-- [ ] Android release AAB build
+- [ ] 백엔드 테스트
+- [ ] 백엔드 컴파일 확인
+- [ ] Git 추적 파일 비밀값 검사
+- [ ] 프론트 출시 설정 테스트
+- [ ] 프론트 Android 브랜딩 테스트
+- [ ] 프론트 모바일 결제 테스트
+- [ ] 프론트 모바일 AdMob 테스트
+- [ ] 프론트 사용자 오류 로그 테스트
+- [ ] 프론트 API 오류 요청 ID 테스트
+- [ ] 프론트 AI 복기 중복 요청 방지 테스트
+- [ ] 프론트 린트
+- [ ] 프론트 운영 빌드
+- [ ] Android 디버그 빌드
+- [ ] Android 출시 AAB 빌드
 - [ ] 실제 기기 로그인/결제/광고/AI 복기 수동 테스트
 
 ## 지금 당장 다음으로 할 일

@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Aligned the release preparation checklist final verification labels and safety-cap notes with the Korean verification output.
 - Translated quick verification and Android build verification messages to Korean and aligned the quick verification guide with the script step names.
 - Translated release secret and Android signing helper output to Korean while preserving warnings not to upload private files to GitHub.
 - Translated private release setup helper messages to Korean so double-click setup is easier to follow for a non-developer owner.
