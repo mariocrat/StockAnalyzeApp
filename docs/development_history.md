@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Removed the old direct OpenAI review builder from the legacy helper module so AI calls stay on the metered v2 review path.
 - Disabled the legacy GET AI review endpoint so AI calls must go through the metered POST flow with consent, entitlement, idempotency, rate limit, and concurrency checks.
 - Clarified the AdMob release checklist for the shared interstitial placement, banner ad unit, Pro ad suppression, and failure-tolerant ad checks.
 - Updated manual test paths for the new ASCII workspace and hardened Android upload key setup to recover stale moved-workspace release-private keystore paths.

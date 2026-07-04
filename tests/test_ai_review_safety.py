@@ -63,6 +63,17 @@ class AiReviewSafetyTest(unittest.TestCase):
             else:
                 os.environ[key] = value
 
+    def test_legacy_ai_review_module_does_not_keep_direct_openai_client(self):
+        backend_dir = os.path.join(os.getcwd(), "backend")
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+
+        ai_review = importlib.reload(importlib.import_module("core.ai_review"))
+
+        self.assertFalse(hasattr(ai_review, "build_ai_review"))
+        self.assertFalse(hasattr(ai_review, "_call_openai"))
+        self.assertFalse(hasattr(ai_review, "_rule_notes"))
+
     def test_legacy_ai_review_get_endpoint_is_disabled(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             main, _, token = _load_main_with_temp_state(tmpdir)
