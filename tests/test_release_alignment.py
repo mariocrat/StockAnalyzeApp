@@ -59,6 +59,7 @@ class ReleaseAlignmentTest(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertIn("No comparable server/app release settings were found", result["errors"])
             self.assertIn("서버와 앱 출시 설정 파일을 먼저 채우기", report)
+            self.assertIn("전체 상태: 준비 필요", report)
         finally:
             os.unlink(backend_env)
             os.unlink(frontend_env)
@@ -89,12 +90,18 @@ class ReleaseAlignmentTest(unittest.TestCase):
                 VITE_NAVER_REDIRECT_URI=None,
                 VITE_ADMOB_REWARDED_AD_UNIT_ID=None,
             ):
-                from backend.scripts.validate_release_alignment import validate_release_alignment
+                from backend.scripts.validate_release_alignment import (
+                    format_release_alignment_report,
+                    validate_release_alignment,
+                )
 
                 result = validate_release_alignment()
+                report = format_release_alignment_report(result)
 
             self.assertTrue(result["ok"])
             self.assertEqual([], result["errors"])
+            self.assertIn("전체 상태: 준비됨", report)
+            self.assertIn("서버와 앱의 출시 설정이 서로 맞습니다", report)
         finally:
             os.unlink(backend_env)
             os.unlink(frontend_env)
@@ -151,6 +158,7 @@ class ReleaseAlignmentTest(unittest.TestCase):
                 result["errors"],
             )
             self.assertIn("서버 설정과 앱 설정을 같은 값으로 맞추기", report)
+            self.assertIn("확인할 항목", report)
             self.assertNotIn("com.other.app", report)
             self.assertNotIn("https://app.alphamate.kr/oauth/kakao", report)
         finally:

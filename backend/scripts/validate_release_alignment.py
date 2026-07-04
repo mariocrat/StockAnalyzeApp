@@ -72,7 +72,8 @@ def format_release_alignment_report(result: dict) -> str:
         f"전체 상태: {'준비됨' if result.get('ok') else '준비 필요'}",
     ]
     if result.get("ok"):
-        lines.append("- 서버와 앱의 Google Play 패키지명, 카카오 Redirect URI, 네이버 Redirect URI가 서로 맞습니다.")
+        lines.append("- 서버와 앱의 출시 설정이 서로 맞습니다.")
+        lines.append("- Google Play 패키지명, 카카오 Redirect URI, 네이버 Redirect URI, AdMob 보상형 광고 단위가 서로 일치합니다.")
     else:
         lines.extend([
             "",
