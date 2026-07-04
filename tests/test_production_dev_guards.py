@@ -1,5 +1,6 @@
 import importlib
 import os
+import sys
 import tempfile
 import unittest
 from contextlib import contextmanager
@@ -26,6 +27,46 @@ def patched_env(**values):
 
 
 class ProductionDevGuardsTest(unittest.TestCase):
+    def test_persistent_journal_routes_require_auth_in_production(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="production",
+            ALPHAMATE_ACCOUNT_DB_PATH=os.path.join(tmpdir, "accounts.sqlite3"),
+            ALPHAMATE_JOURNAL_DB_PATH=os.path.join(tmpdir, "journal.sqlite3"),
+        ):
+            backend_dir = os.path.join(os.getcwd(), "backend")
+            if backend_dir not in sys.path:
+                sys.path.insert(0, backend_dir)
+            import main
+
+            main = importlib.reload(main)
+            trade = main.JournalTradeIn(
+                trade_date="2026-06-21T10:30",
+                ticker="005930",
+                name="Samsung",
+                side="buy",
+                price=70000,
+                quantity=1,
+            )
+
+            blocked_calls = [
+                lambda: main.get_journal_trades(),
+                lambda: main.create_journal_trade(trade),
+                lambda: main.remove_journal_trade(1),
+                lambda: main.remove_all_journal_trades(),
+                lambda: main.get_journal_review(),
+                lambda: main.get_journal_charts(),
+            ]
+            for call in blocked_calls:
+                with self.assertRaises(HTTPException) as blocked:
+                    call()
+                self.assertEqual(401, blocked.exception.status_code)
+
+            main.build_journal_charts = lambda trades: {"charts": [{"trade_count": len(trades)}]}
+            once_review = main.get_journal_review_once(main.JournalBatchIn(trades=[trade]))
+            once_charts = main.get_journal_charts_once(main.JournalBatchIn(trades=[trade]))
+            self.assertIn("summary", once_review)
+            self.assertEqual(1, once_charts["charts"][0]["trade_count"])
+
     def test_dev_login_is_disabled_in_production(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="production",

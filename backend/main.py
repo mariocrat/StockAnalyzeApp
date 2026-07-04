@@ -240,6 +240,12 @@ def _optional_session_user(authorization: Optional[str]):
         return None
 
 
+def _persistent_journal_user(authorization: Optional[str]):
+    if str(env_value("ALPHAMATE_ENV") or "").strip().lower() == "production":
+        return authenticate_session(authorization)
+    return _optional_session_user(authorization)
+
+
 def _journal_user_id_if_enabled(authorization: Optional[str]) -> str:
     user = authenticate_session(authorization)
     if not user.get("journal_storage_enabled"):
@@ -1035,7 +1041,7 @@ def get_journal_trades(
     authorization: Optional[str] = Header(default=None),
 ):
     safe_limit = _safe_journal_query_limit(limit, default=500)
-    user = _optional_session_user(authorization)
+    user = _persistent_journal_user(authorization)
     if user:
         if not user.get("journal_storage_enabled"):
             return []
@@ -1049,7 +1055,7 @@ def create_journal_trade(
     authorization: Optional[str] = Header(default=None),
 ):
     _enforce_trade_text_limits([trade])
-    user = _optional_session_user(authorization)
+    user = _persistent_journal_user(authorization)
     if user:
         if not user.get("journal_storage_enabled"):
             raise HTTPException(status_code=403, detail="매매 이력 저장을 먼저 켜야 합니다.")
@@ -1062,7 +1068,7 @@ def remove_journal_trade(
     trade_id: int,
     authorization: Optional[str] = Header(default=None),
 ):
-    user = _optional_session_user(authorization)
+    user = _persistent_journal_user(authorization)
     if user:
         deleted_count = delete_trade(trade_id, user_id=user["id"])
     else:
@@ -1072,7 +1078,7 @@ def remove_journal_trade(
 
 @app.delete("/api/journal/trades")
 def remove_all_journal_trades(authorization: Optional[str] = Header(default=None)):
-    user = _optional_session_user(authorization)
+    user = _persistent_journal_user(authorization)
     if user:
         deleted_count = clear_trades(user_id=user["id"])
     else:
@@ -1082,7 +1088,7 @@ def remove_all_journal_trades(authorization: Optional[str] = Header(default=None
 
 @app.get("/api/journal/review")
 def get_journal_review(authorization: Optional[str] = Header(default=None)):
-    user = _optional_session_user(authorization)
+    user = _persistent_journal_user(authorization)
     if user:
         if not user.get("journal_storage_enabled"):
             return build_review([])
@@ -1275,9 +1281,12 @@ def get_journal_ai_review_once(
 
 @app.get("/api/journal/charts")
 def get_journal_charts(authorization: Optional[str] = Header(default=None)):
-    user = _optional_session_user(authorization)
+    user = _persistent_journal_user(authorization)
     limit = _saved_journal_analysis_max_trades()
-    trades = list_trades(limit=limit, user_id=user["id"]) if user and user.get("journal_storage_enabled") else list_trades(limit=limit)
+    if user:
+        trades = list_trades(limit=limit, user_id=user["id"]) if user.get("journal_storage_enabled") else []
+    else:
+        trades = list_trades(limit=limit)
     return build_journal_charts(trades)
 
 

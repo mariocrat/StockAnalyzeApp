@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Required authenticated sessions for persistent journal storage routes in production while leaving one-time review and chart APIs available for non-persistent analysis.
 - Removed the old direct OpenAI review builder from the legacy helper module so AI calls stay on the metered v2 review path.
 - Disabled the legacy GET AI review endpoint so AI calls must go through the metered POST flow with consent, entitlement, idempotency, rate limit, and concurrency checks.
 - Clarified the AdMob release checklist for the shared interstitial placement, banner ad unit, Pro ad suppression, and failure-tolerant ad checks.

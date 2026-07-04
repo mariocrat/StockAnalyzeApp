@@ -18,14 +18,15 @@
 6. 서버가 OpenAI/Gemini API를 호출한다.
 7. 서버는 분석 결과만 앱에 반환하고 매매 원장은 저장하지 않는다.
 
-## 현재 코드에 추가한 배포형 1회성 API
+## Current deployment one-time APIs
 
 - `POST /api/journal/review-once`
 - `POST /api/journal/ai-review-once`
 - `POST /api/journal/charts-once`
 
-위 API는 요청 본문으로 받은 매매 기록만 분석하고 SQLite에 저장하지 않는다.
-구형 GET /api/journal/ai-review 경로는 이용권/광고/요청 제한 우회를 막기 위해 410 Gone으로 닫아둔다.
+These APIs analyze only request-body trade records and do not save them to SQLite.
+Legacy `GET /api/journal/ai-review` is closed with 410 Gone to prevent entitlement, ad reward, and rate-limit bypass.
+In production, persistent journal APIs that read or write server-side trade records require an authenticated session. Unauthenticated flows must use request-body one-time APIs such as `review-once`, `ai-review-once`, and `charts-once`.
 
 ## 아직 필요한 배포 보안 작업
 
@@ -63,7 +64,7 @@
 
 ## 2026-06-13 개발용 AI 접근 관문
 
-현재 코드는 배포 구조를 미리 맞추기 위해 `POST /api/journal/ai-review-once` 앞에 개발용 접근 관문과 개발용 이용권 지갑을 둔다.
+The current code keeps a development access gate and development entitlement wallet in front of `POST /api/journal/ai-review-once` to match the intended deployment structure.
 
 - 앱은 AI 분석 요청 전에 개인정보/매매 기록 전송 동의를 받아야 한다.
 - 앱은 `Authorization: Bearer <token>` 헤더를 보낸다.
