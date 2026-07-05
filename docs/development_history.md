@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Added IP-based rate limiting for public stock, theme, search, and macro market data APIs to reduce external data-call abuse risk.
 - Added authorization/IP-based rate limiting for dev and Google Play purchase endpoints to reduce purchase verification abuse risk.
 - Added IP-based rate limiting for Kakao/Naver/dev login endpoints so public auth entry points cannot trigger unlimited provider or session requests.
 - Added IP-based rate limiting for public AdMob SSV and Google Play RTDN callback endpoints to reduce callback abuse risk.

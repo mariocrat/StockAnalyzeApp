@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import Optional
 import uvicorn
@@ -56,6 +57,7 @@ logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 _theme_refresh_lock = threading.Lock()
 _theme_refresh_jobs = set()
 _client_event_rate_limiter = InMemoryRateLimiter()
+_market_rate_limiter = InMemoryRateLimiter()
 _admin_rate_limiter = InMemoryRateLimiter()
 _auth_rate_limiter = InMemoryRateLimiter()
 _billing_rate_limiter = InMemoryRateLimiter()
@@ -67,6 +69,7 @@ REQUEST_ID_HEADER = "X-Request-ID"
 ADMIN_TOKEN_MIN_LENGTH = 32
 ADMIN_RATE_LIMIT_MAX_PER_MINUTE = 300
 CLIENT_EVENT_RATE_LIMIT_MAX_PER_MINUTE = 600
+MARKET_RATE_LIMIT_MAX_PER_MINUTE = 600
 AUTH_RATE_LIMIT_MAX_PER_MINUTE = 120
 BILLING_RATE_LIMIT_MAX_PER_MINUTE = 120
 AI_REVIEW_RATE_LIMIT_MAX_PER_MINUTE = 60
@@ -76,6 +79,13 @@ AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE = 1000
 AI_REVIEW_IDEMPOTENCY_TTL_MAX_SECONDS = 3600
 JOURNAL_ONCE_MAX_TRADES_LIMIT = 1000
 AI_REVIEW_MAX_TRADES_LIMIT = 200
+PUBLIC_MARKET_RATE_LIMIT_PATHS = {
+    "/api/themes",
+    "/api/theme_stocks",
+    "/api/themes_historical",
+    "/api/search",
+    "/api/macro",
+}
 JOURNAL_MEMO_MAX_CHARS_LIMIT = 5000
 JOURNAL_QUERY_MAX_LIMIT = 1000
 SAVED_JOURNAL_ANALYSIS_MAX_TRADES_LIMIT = 1000
@@ -425,6 +435,14 @@ def _client_event_rate_limit() -> int:
     )
 
 
+def _market_rate_limit() -> int:
+    return _env_int(
+        "ALPHAMATE_MARKET_RATE_LIMIT_PER_MINUTE",
+        120,
+        1,
+        MARKET_RATE_LIMIT_MAX_PER_MINUTE,
+    )
+
 def _admin_rate_limit() -> int:
     return _env_int("ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE", 30, 1, ADMIN_RATE_LIMIT_MAX_PER_MINUTE)
 
@@ -676,6 +694,21 @@ def _enforce_callback_rate_limit(callback_name: str, client_key: str) -> bool:
     return True
 
 
+def _is_public_market_rate_limited_path(path: str) -> bool:
+    text = str(path or "")
+    return text in PUBLIC_MARKET_RATE_LIMIT_PATHS or text.startswith("/api/stock/")
+
+
+def _market_rate_limit_response(rate_limit: dict):
+    retry_after = str(rate_limit["retry_after_seconds"])
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": f"Too many market data requests. Retry after {retry_after} seconds."
+        },
+        headers={"Retry-After": retry_after},
+    )
+
 def _request_id_from_header(value: str | None) -> str:
     text = str(value or "").strip()
     safe = "".join(ch for ch in text if ch.isalnum() or ch in {"-", "_", "."})
@@ -683,6 +716,19 @@ def _request_id_from_header(value: str | None) -> str:
         return safe
     return uuid.uuid4().hex
 
+
+@app.middleware("http")
+async def limit_public_market_requests(request: Request, call_next):
+    path = request.url.path
+    if _is_public_market_rate_limited_path(path):
+        rate_limit = _market_rate_limiter.check(
+            _request_client_key(request),
+            limit=_market_rate_limit(),
+            window_seconds=60,
+        )
+        if not rate_limit["allowed"]:
+            return _market_rate_limit_response(rate_limit)
+    return await call_next(request)
 
 @app.middleware("http")
 async def log_failed_api_requests(request: Request, call_next):
