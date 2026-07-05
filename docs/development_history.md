@@ -663,3 +663,9 @@
 - 백엔드 출시 환경 검사와 프론트 출시 환경 검사 CLI의 최종 성공/실패 제목을 한국어로 바꿨다.
 - 상세 오류에는 `VITE_API_BASE`, `ALPHAMATE_ENV` 같은 환경변수 키를 그대로 남겨 실제 설정 파일에서 찾기 쉽게 했다.
 - `docs/manual_test_guide.md`의 백엔드 출시 환경 검사 정상 출력 예시도 실제 CLI 출력과 맞췄다.
+
+### 서버/앱 OAuth 공개 설정 일치 검사 강화
+
+- 서버 `KAKAO_CLIENT_ID`와 앱 `VITE_KAKAO_REST_API_KEY`, 서버 `NAVER_CLIENT_ID`와 앱 `VITE_NAVER_CLIENT_ID`가 서로 다른 값이면 출시 설정 일치 검사에서 실패하도록 했다.
+- Redirect URI만 맞고 공개 Client ID가 어긋나 실제 로그인에서 실패하는 상황을 배포 전에 잡기 위한 보강이다.
+- 정합성 보고서는 실제 Key 값을 출력하지 않고 맞춰야 하는 설정 이름만 보여준다.

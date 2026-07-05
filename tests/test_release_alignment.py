@@ -40,11 +40,15 @@ class ReleaseAlignmentTest(unittest.TestCase):
                 ALPHAMATE_ENV_FILE=backend_env,
                 ALPHAMATE_FRONTEND_ENV_FILE=frontend_env,
                 GOOGLE_PLAY_PACKAGE_NAME=None,
+                KAKAO_CLIENT_ID=None,
                 KAKAO_REDIRECT_URI=None,
+                NAVER_CLIENT_ID=None,
                 NAVER_REDIRECT_URI=None,
                 ADMOB_REWARDED_AD_UNIT_ID=None,
                 VITE_GOOGLE_PLAY_PACKAGE_NAME=None,
+                VITE_KAKAO_REST_API_KEY=None,
                 VITE_KAKAO_REDIRECT_URI=None,
+                VITE_NAVER_CLIENT_ID=None,
                 VITE_NAVER_REDIRECT_URI=None,
                 VITE_ADMOB_REWARDED_AD_UNIT_ID=None,
             ):
@@ -67,13 +71,17 @@ class ReleaseAlignmentTest(unittest.TestCase):
     def test_accepts_matching_backend_and_frontend_release_settings(self):
         backend_env = write_env_file("\n".join([
             "GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
+            "KAKAO_CLIENT_ID=kakao-client-id",
             "KAKAO_REDIRECT_URI=https://api.alphamate.kr/api/auth/kakao/callback",
+            "NAVER_CLIENT_ID=naver-client-id",
             "NAVER_REDIRECT_URI=https://api.alphamate.kr/api/auth/naver/callback",
             "ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-1234567890123456/9876543210",
         ]))
         frontend_env = write_env_file("\n".join([
             "VITE_GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
+            "VITE_KAKAO_REST_API_KEY=kakao-client-id",
             "VITE_KAKAO_REDIRECT_URI=https://api.alphamate.kr/api/auth/kakao/callback",
+            "VITE_NAVER_CLIENT_ID=naver-client-id",
             "VITE_NAVER_REDIRECT_URI=https://api.alphamate.kr/api/auth/naver/callback",
             "VITE_ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-1234567890123456/9876543210",
         ]))
@@ -82,11 +90,15 @@ class ReleaseAlignmentTest(unittest.TestCase):
                 ALPHAMATE_ENV_FILE=backend_env,
                 ALPHAMATE_FRONTEND_ENV_FILE=frontend_env,
                 GOOGLE_PLAY_PACKAGE_NAME=None,
+                KAKAO_CLIENT_ID=None,
                 KAKAO_REDIRECT_URI=None,
+                NAVER_CLIENT_ID=None,
                 NAVER_REDIRECT_URI=None,
                 ADMOB_REWARDED_AD_UNIT_ID=None,
                 VITE_GOOGLE_PLAY_PACKAGE_NAME=None,
+                VITE_KAKAO_REST_API_KEY=None,
                 VITE_KAKAO_REDIRECT_URI=None,
+                VITE_NAVER_CLIENT_ID=None,
                 VITE_NAVER_REDIRECT_URI=None,
                 VITE_ADMOB_REWARDED_AD_UNIT_ID=None,
             ):
@@ -102,6 +114,7 @@ class ReleaseAlignmentTest(unittest.TestCase):
             self.assertEqual([], result["errors"])
             self.assertIn("전체 상태: 준비됨", report)
             self.assertIn("서버와 앱의 출시 설정이 서로 맞습니다", report)
+            self.assertIn("Client ID", report)
         finally:
             os.unlink(backend_env)
             os.unlink(frontend_env)
@@ -109,13 +122,17 @@ class ReleaseAlignmentTest(unittest.TestCase):
     def test_rejects_mismatched_backend_and_frontend_release_settings(self):
         backend_env = write_env_file("\n".join([
             "GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
+            "KAKAO_CLIENT_ID=kakao-client-id",
             "KAKAO_REDIRECT_URI=https://api.alphamate.kr/api/auth/kakao/callback",
+            "NAVER_CLIENT_ID=naver-client-id",
             "NAVER_REDIRECT_URI=https://api.alphamate.kr/api/auth/naver/callback",
             "ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-1234567890123456/9876543210",
         ]))
         frontend_env = write_env_file("\n".join([
             "VITE_GOOGLE_PLAY_PACKAGE_NAME=com.other.app",
+            "VITE_KAKAO_REST_API_KEY=other-kakao-client-id",
             "VITE_KAKAO_REDIRECT_URI=https://app.alphamate.kr/oauth/kakao",
+            "VITE_NAVER_CLIENT_ID=other-naver-client-id",
             "VITE_NAVER_REDIRECT_URI=https://app.alphamate.kr/oauth/naver",
             "VITE_ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-1234567890123456/0000000000",
         ]))
@@ -124,11 +141,15 @@ class ReleaseAlignmentTest(unittest.TestCase):
                 ALPHAMATE_ENV_FILE=backend_env,
                 ALPHAMATE_FRONTEND_ENV_FILE=frontend_env,
                 GOOGLE_PLAY_PACKAGE_NAME=None,
+                KAKAO_CLIENT_ID=None,
                 KAKAO_REDIRECT_URI=None,
+                NAVER_CLIENT_ID=None,
                 NAVER_REDIRECT_URI=None,
                 ADMOB_REWARDED_AD_UNIT_ID=None,
                 VITE_GOOGLE_PLAY_PACKAGE_NAME=None,
+                VITE_KAKAO_REST_API_KEY=None,
                 VITE_KAKAO_REDIRECT_URI=None,
+                VITE_NAVER_CLIENT_ID=None,
                 VITE_NAVER_REDIRECT_URI=None,
                 VITE_ADMOB_REWARDED_AD_UNIT_ID=None,
             ):
@@ -150,7 +171,15 @@ class ReleaseAlignmentTest(unittest.TestCase):
                 result["errors"],
             )
             self.assertIn(
+                "KAKAO_CLIENT_ID must match VITE_KAKAO_REST_API_KEY",
+                result["errors"],
+            )
+            self.assertIn(
                 "NAVER_REDIRECT_URI must match VITE_NAVER_REDIRECT_URI",
+                result["errors"],
+            )
+            self.assertIn(
+                "NAVER_CLIENT_ID must match VITE_NAVER_CLIENT_ID",
                 result["errors"],
             )
             self.assertIn(

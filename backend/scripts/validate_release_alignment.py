@@ -12,7 +12,9 @@ from backend.core.env import env_value
 FRONTEND_ENV_DEFAULT = ROOT / "frontend" / ".env.release"
 ALIGNMENT_PAIRS = [
     ("GOOGLE_PLAY_PACKAGE_NAME", "VITE_GOOGLE_PLAY_PACKAGE_NAME"),
+    ("KAKAO_CLIENT_ID", "VITE_KAKAO_REST_API_KEY"),
     ("KAKAO_REDIRECT_URI", "VITE_KAKAO_REDIRECT_URI"),
+    ("NAVER_CLIENT_ID", "VITE_NAVER_CLIENT_ID"),
     ("NAVER_REDIRECT_URI", "VITE_NAVER_REDIRECT_URI"),
     ("ADMOB_REWARDED_AD_UNIT_ID", "VITE_ADMOB_REWARDED_AD_UNIT_ID"),
 ]
@@ -73,7 +75,7 @@ def format_release_alignment_report(result: dict) -> str:
     ]
     if result.get("ok"):
         lines.append("- 서버와 앱의 출시 설정이 서로 맞습니다.")
-        lines.append("- Google Play 패키지명, 카카오 Redirect URI, 네이버 Redirect URI, AdMob 보상형 광고 단위가 서로 일치합니다.")
+        lines.append("- Google Play 패키지명, 카카오/네이버 공개 Client ID와 Redirect URI, AdMob 보상형 광고 단위가 서로 일치합니다.")
     else:
         lines.extend([
             "",
