@@ -54,6 +54,9 @@ const CANDLE_PERIODS = [
   { label: '년봉', value: 'Y' },
 ];
 const THEME_PERIODS = ['1D', '1W', '1M', '1Y'];
+const SPLASH_MIN_MS = 1150;
+const SPLASH_MAX_MS = 3500;
+const SPLASH_FADE_MS = 280;
 
 function AppSplash({ exiting }) {
   return (
@@ -73,6 +76,7 @@ export default function App() {
   const lastResumeInterstitialAtRef = useRef(0);
   const resumeInterstitialInFlightRef = useRef(false);
   const chartDetailOpenCountRef = useRef(0);
+  const splashStartedAtRef = useRef(null);
   const [activeView, setActiveView] = useState(() => {
     try {
       return new URLSearchParams(window.location.search).get('view') === 'journal' ? 'journal' : 'themes';
@@ -145,20 +149,6 @@ export default function App() {
     }
     if (!wallet) return;
     setAdPlan(wallet?.plan === 'pro' ? 'pro' : 'free');
-  }, []);
-
-  useEffect(() => {
-    const exitTimer = window.setTimeout(() => {
-      setSplashExiting(true);
-    }, 1150);
-    const hideTimer = window.setTimeout(() => {
-      setShowSplash(false);
-    }, 1450);
-
-    return () => {
-      window.clearTimeout(exitTimer);
-      window.clearTimeout(hideTimer);
-    };
   }, []);
 
   useEffect(() => {
@@ -288,6 +278,33 @@ export default function App() {
   const searchRequestSeq = useRef(0);
   const searchCacheRef = useRef({});
   const suppressNextSearchRef = useRef(false);
+
+  useEffect(() => {
+    if (!showSplash) return undefined;
+
+    if (splashStartedAtRef.current === null) {
+      splashStartedAtRef.current = Date.now();
+    }
+
+    const elapsedMs = Date.now() - splashStartedAtRef.current;
+    const initialDataReady = !themesLoading || Boolean(themeError);
+    const waitMs = initialDataReady
+      ? Math.max(0, SPLASH_MIN_MS - elapsedMs)
+      : Math.max(0, SPLASH_MAX_MS - elapsedMs);
+    let hideTimer;
+
+    const exitTimer = window.setTimeout(() => {
+      setSplashExiting(true);
+      hideTimer = window.setTimeout(() => {
+        setShowSplash(false);
+      }, SPLASH_FADE_MS);
+    }, waitMs);
+
+    return () => {
+      window.clearTimeout(exitTimer);
+      if (hideTimer) window.clearTimeout(hideTimer);
+    };
+  }, [showSplash, themesLoading, themeError]);
 
   // ── Fetch themes ─────────────────────────────────────────────────────
   const fetchThemes = useCallback(async (period, cStart, cEnd) => {
