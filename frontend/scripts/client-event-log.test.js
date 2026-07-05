@@ -43,8 +43,8 @@ test('reportClientEvent posts with auth header and never throws when reporting f
     sessionToken: 'session-token',
     eventType: 'rewarded_ad_failed',
     message: 'Ad failed',
-    post: async (url, body, options) => {
-      calls.push({ url, body, options });
+    post: async (url, options) => {
+      calls.push({ url, options });
       throw new Error('network down');
     },
   });
@@ -52,6 +52,8 @@ test('reportClientEvent posts with auth header and never throws when reporting f
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, 'http://127.0.0.1:8002/api/client-events');
   assert.equal(calls[0].options.headers.Authorization, 'Bearer session-token');
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(JSON.parse(calls[0].options.body).event_type, 'rewarded_ad_failed');
 });
 
 test('installGlobalClientEventReporting reports unhandled window errors once', async () => {
@@ -68,8 +70,8 @@ test('installGlobalClientEventReporting reports unhandled window errors once', a
     apiBase: 'http://127.0.0.1:8002',
     getSessionToken: () => 'session-token',
     targetWindow: fakeWindow,
-    post: async (url, body) => {
-      calls.push({ url, payload: JSON.parse(body) });
+    post: async (url, options) => {
+      calls.push({ url, payload: JSON.parse(options.body) });
     },
   });
 
@@ -108,8 +110,8 @@ test('installGlobalClientEventReporting reports unhandled promise rejections', a
     apiBase: 'http://127.0.0.1:8002',
     getSessionToken: () => '',
     targetWindow: fakeWindow,
-    post: async (url, body) => {
-      calls.push({ url, payload: JSON.parse(body) });
+    post: async (url, options) => {
+      calls.push({ url, payload: JSON.parse(options.body) });
     },
   });
 

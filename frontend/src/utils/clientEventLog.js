@@ -76,15 +76,16 @@ export async function reportClientEvent({
   if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
 
   try {
-    await post(`${apiBase}/api/client-events`, JSON.stringify(buildClientEventPayload({
-      eventType,
-      level,
-      message,
-      path,
-      details,
-    })), {
+    await post(`${apiBase}/api/client-events`, {
       method: 'POST',
       headers,
+      body: JSON.stringify(buildClientEventPayload({
+        eventType,
+        level,
+        message,
+        path,
+        details,
+      })),
     });
   } catch {
     // Client-side logging must never block the user's original action.
