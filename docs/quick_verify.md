@@ -20,7 +20,7 @@ verify_project.bat
 - 프론트 사용자 오류 로그 테스트
 - 프론트 API 오류 요청 ID 테스트
 - 프론트 AI 복기 중복 요청 방지 테스트
-- Frontend splash loading policy test
+- 프론트 스플래시 로딩 정책 테스트
 - 프론트 린트
 - 프론트 운영 빌드
 
