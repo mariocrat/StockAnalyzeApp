@@ -85,6 +85,21 @@ export default function App() {
     document.title = APP_NAME;
   }, []);
 
+  const reportAppClientEvent = useCallback((eventType, error, details = {}) => {
+    const session = loadStoredAuthSession();
+    reportClientEvent({
+      apiBase: API_BASE,
+      sessionToken: session?.session_token || '',
+      eventType,
+      level: 'warning',
+      message: error?.message || `${eventType} failed.`,
+      path: '/themes',
+      details: {
+        ...details,
+        errorName: error?.name || error?.constructor?.name || 'Error',
+      },
+    });
+  }, []);
   const reportAdClientEvent = useCallback((eventType, error, details = {}) => {
     const session = loadStoredAuthSession();
     reportClientEvent({
@@ -303,12 +318,12 @@ export default function App() {
         }
       }
     } catch (err) {
-      console.error('[fetchThemes]', err);
+      reportAppClientEvent('theme_fetch_failed', err, { period });
       if (themeRequestSeq.current === requestId) setThemeError('테마 상승률을 계산하지 못했습니다. 잠시 후 다시 눌러주세요.');
     } finally {
       if (themeRequestSeq.current === requestId) setThemesLoading(false);
     }
-  }, []);
+  }, [reportAppClientEvent]);
 
   useEffect(() => {
     if (themePeriod !== 'custom') {
@@ -349,11 +364,11 @@ export default function App() {
       });
       setStockData(prev => ({ ...prev, [cacheKey]: res.data?.data || [] }));
     } catch (err) {
-      console.error(`[fetchStockData] ${ticker}`, err);
+      reportAppClientEvent('stock_data_fetch_failed', err, { ticker, interval });
     } finally {
       setLoadingStocks(prev => ({ ...prev, [ticker]: false }));
     }
-  }, [stockData, candlePeriod]);
+  }, [stockData, candlePeriod, reportAppClientEvent]);
 
   // When candlePeriod changes, fetch data for all selected stocks
   useEffect(() => {

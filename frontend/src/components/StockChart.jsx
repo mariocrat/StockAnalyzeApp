@@ -3,9 +3,29 @@ import {
   createChart, CrosshairMode, PriceScaleMode,
   CandlestickSeries, HistogramSeries, LineSeries,
 } from 'lightweight-charts';
+import { getStoredAuthSessionToken, reportClientEvent } from '../utils/clientEventLog';
 // API_BASE and axios no longer used in StockChart.jsx
 
 // ── Constants ─────────────────────────────────────────────────────────────
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
+const reportedChartErrors = new Set();
+
+function reportChartClientError(eventType, error, details = {}) {
+  if (reportedChartErrors.has(eventType)) return;
+  reportedChartErrors.add(eventType);
+  reportClientEvent({
+    apiBase: API_BASE,
+    sessionToken: getStoredAuthSessionToken(),
+    eventType,
+    level: 'warning',
+    message: error?.message || `${eventType} failed.`,
+    path: '/chart',
+    details: {
+      ...details,
+      errorName: error?.name || error?.constructor?.name || 'Error',
+    },
+  });
+}
 const PERIOD_DAYS = { '1M': 30, '3M': 90, '6M': 180, '1Y': 365 };
 const MA_CONFIG = [
   { key: 'MA_5',   color: '#e040fb', w: 5  },
@@ -141,7 +161,7 @@ function applyAllData(st, bbPer, bbMul, rawData) {
       if (ichiSA.length > 0 && series.ICHI_SA) series.ICHI_SA.setData(ichiSA);
       if (ichiSB.length > 0 && series.ICHI_SB) series.ICHI_SB.setData(ichiSB);
     }
-  } catch (e) { console.error('[applyAllData]', e); }
+  } catch (e) { reportChartClientError('chart_apply_data_failed', e); }
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
@@ -282,7 +302,7 @@ const StockChart = forwardRef(({
         handleScale: { mouseWheel: true, pinch: false, axisPressedMouseMove: false },
         localization: { dateFormat: 'yyyy-MM-dd' },
       });
-    } catch(err) { console.error('[StockChart] createChart failed', err); return; }
+    } catch(err) { reportChartClientError('chart_create_failed', err, { ticker }); return; }
 
     stateRef.current.chart = chart;
     stateRef.current.allCandles = candles;
@@ -774,7 +794,7 @@ const StockChart = forwardRef(({
                 setDrawMode('none'); // auto-reset after drawing horizontal line
               }
             } catch (err) {
-              console.error("추세선 mousedown 에러:", err);
+              reportChartClientError('chart_trend_mousedown_failed', err, { ticker });
             }
           }}
           onMouseMove={(e) => {
@@ -803,7 +823,7 @@ const StockChart = forwardRef(({
               tempLineSeries.setData(sorted);
               drawStateRef.current.endPoint = endPoint;
             } catch (err) {
-              console.error("추세선 mousemove 에러:", err);
+              reportChartClientError('chart_trend_mousemove_failed', err, { ticker });
             }
           }}
           onMouseUp={finishTrendLine}

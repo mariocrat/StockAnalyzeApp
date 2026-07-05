@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
 
 import {
   buildClientEventPayload,
@@ -130,4 +133,17 @@ test('getStoredAuthSessionToken reads only the saved session token', () => {
   assert.equal(getStoredAuthSessionToken(storage), 'session-token');
   assert.equal(getStoredAuthSessionToken({ getItem: () => 'not-json' }), '');
   assert.equal(getStoredAuthSessionToken(null), '');
+});
+
+test('frontend source avoids direct console error logging', () => {
+  const sourceRoot = path.resolve(process.cwd(), 'src');
+  const files = [
+    path.join(sourceRoot, 'App.jsx'),
+    path.join(sourceRoot, 'components', 'StockChart.jsx'),
+  ];
+
+  for (const file of files) {
+    const source = fs.readFileSync(file, 'utf8');
+    assert.doesNotMatch(source, /console\.error/);
+  }
 });
