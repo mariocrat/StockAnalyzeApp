@@ -168,7 +168,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - `GET /api/journal/admob-ssv`는 Google AdMob 공개키로 ECDSA 서명을 검증하고, `transaction_id` 중복을 막아 광고 보상이 반복 지급되지 않게 한다.
 - `ADMOB_REWARDED_AD_UNIT_ID`를 운영 서버에 설정해 의도한 보상형 광고 단위만 인정해야 한다.
 - AdMob SSV 공개키는 최대 24시간 캐시하고, 키 회전에 맞춰 다시 가져오도록 했다.
-- 운영 배포 전 모바일 앱에는 AdMob SDK, 보상형 광고 단위, SSV 콜백 URL, 로그인된 사용자 ID 전달이 연결되어야 한다.
+- 모바일 앱에는 AdMob SDK가 연결되어 있다. 운영 배포 전에는 실제 보상형 광고 단위, SSV 콜백 URL, 로그인된 사용자 ID 전달, 실기기 광고 보상 흐름을 확인해야 한다.
 ## 2026-06-20 복기 보관함 보안/배포 메모
 
 - 사용자가 `매매 이력 저장`을 켠 상태에서 AI 복기를 실행하면 매매 스냅샷, 당시 차트 데이터, AI 복기 결과가 계정별 복기 보관함에 저장된다.

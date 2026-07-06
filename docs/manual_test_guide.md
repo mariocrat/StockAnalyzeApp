@@ -169,7 +169,7 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/app/readiness
 
 ## AdMob 보상형 광고 확인
 
-현재 서버에는 AdMob SSV 콜백을 검증하고 보상을 1회 기록/차감하는 구조가 들어간 상태입니다. 실제 광고 테스트는 AdMob 광고 단위와 모바일 앱 SDK 연결이 필요합니다.
+현재 서버에는 AdMob SSV 콜백을 검증하고 보상을 1회 기록/차감하는 구조가 들어간 상태이고, 모바일 앱에는 AdMob SDK가 연결되어 있습니다. 실제 광고 테스트는 운영 AdMob 광고 단위, SSV 콜백 URL, 실제 Android 앱 빌드에서 확인해야 합니다.
 
 확인할 항목:
 

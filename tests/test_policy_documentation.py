@@ -19,6 +19,15 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertIn("모바일 AdMob SDK는 보상형, 전면, 배너 광고가 연결되어 있다.", plan)
         self.assertNotIn("mobile AdMob SDK integration and production ad unit setup are still required", plan)
 
+    def test_security_docs_match_current_admob_sdk_status(self):
+        manual = (ROOT / "docs" / "manual_test_guide.md").read_text(encoding="utf-8")
+        security = (ROOT / "docs" / "security_deployment_plan.md").read_text(encoding="utf-8")
+
+        self.assertIn("모바일 앱에는 AdMob SDK가 연결되어 있습니다", manual)
+        self.assertIn("모바일 앱에는 AdMob SDK가 연결되어 있다", security)
+        self.assertNotIn("모바일 앱 SDK 연결이 필요", manual)
+        self.assertNotIn("AdMob SDK, 보상형 광고 단위, SSV 콜백 URL", security)
+
     def test_ad_display_policy_explains_resume_interstitial_instead_of_app_open_format(self):
         policy = (ROOT / "docs" / "development_history_ad_display_policy.md").read_text(encoding="utf-8")
 
