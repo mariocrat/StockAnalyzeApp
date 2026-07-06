@@ -23,6 +23,14 @@ class QuickVerifyDocsTest(unittest.TestCase):
         self.assertIn("$OutputEncoding", script)
         self.assertIn("$env:PYTHONUTF8 = \"1\"", script)
 
+    def test_quick_verify_docs_show_powershell_batch_invocation(self):
+        docs = (ROOT / "docs" / "quick_verify.md").read_text(encoding="utf-8")
+
+        self.assertIn("```powershell", docs)
+        self.assertIn(".\\verify_project.bat", docs)
+        self.assertIn(".\\verify_android_debug.bat", docs)
+        self.assertIn("PowerShell에서는 앞에 `.\\`를 붙여야 합니다", docs)
+
     def test_quick_verify_docs_list_every_project_verification_step(self):
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8")
         docs = (ROOT / "docs" / "quick_verify.md").read_text(encoding="utf-8")

@@ -125,63 +125,63 @@ AlphaMate는 현재 테마 상승률/차트 기능과 매매복기 기능의 큰
 
 전체 프로젝트 검증:
 
-```bat
-verify_project.bat
+```powershell
+.\verify_project.bat
 ```
 
 출시 준비 상태 보고서:
 
-```bat
-release_readiness_report.bat
+```powershell
+.\release_readiness_report.bat
 ```
 
 출시용 개인 설정 파일, 랜덤 토큰, Android 서명 키를 한 번에 준비:
 
-```bat
-prepare_private_release_setup.bat
+```powershell
+.\prepare_private_release_setup.bat
 ```
 
 이 파일은 GitHub에 올리면 안 되는 로컬 설정만 만들고, 마지막에 출시 준비 보고서를 보여줍니다.
 
 출시용 설정 파일 처음 만들기:
 
-```bat
-prepare_release_env_files.bat
+```powershell
+.\prepare_release_env_files.bat
 ```
 
 출시용 관리자/결제 알림 랜덤 토큰 빈 값 채우기:
 
-```bat
-generate_release_secrets.bat
+```powershell
+.\generate_release_secrets.bat
 ```
 
 Android 업로드 서명 키와 비밀번호 빈 값 채우기:
 
-```bat
-generate_android_upload_key.bat
+```powershell
+.\generate_android_upload_key.bat
 ```
 
 앱 실행:
 
-```bat
-run_app.bat
+```powershell
+.\run_app.bat
 ```
 
 Android 디버그 빌드까지 확인:
 
-```bat
-verify_android_debug.bat
+```powershell
+.\verify_android_debug.bat
 ```
 
-`verify_android_debug.bat`는 일반 검증보다 시간이 오래 걸릴 수 있습니다.
+PowerShell에서는 `.\verify_android_debug.bat`로 실행합니다. `verify_android_debug.bat`는 일반 검증보다 시간이 오래 걸릴 수 있습니다.
 
 Android 출시용 AAB 빌드까지 확인:
 
-```bat
-verify_android_release.bat
+```powershell
+.\verify_android_release.bat
 ```
 
-`verify_android_release.bat`는 `frontend/.env.release`와 Android 서명 키가 준비된 뒤 실행합니다.
+PowerShell에서는 `.\verify_android_release.bat`로 실행합니다. `verify_android_release.bat`는 `frontend/.env.release`와 Android 서명 키가 준비된 뒤 실행합니다.
 
 ## 지금 이해하면 되는 핵심
 

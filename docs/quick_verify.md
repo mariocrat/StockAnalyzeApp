@@ -2,11 +2,12 @@
 
 커밋하거나 다른 PC/대화에서 이어가기 전에 프로젝트 루트에서 아래 파일을 실행합니다.
 
-```cmd
-verify_project.bat
+```powershell
+.\verify_project.bat
 ```
 
 프로젝트 폴더에서 `verify_project.bat`를 더블클릭해도 됩니다. 이 파일은 올바른 프로젝트 경로로 PowerShell 검증 스크립트를 실행하므로 긴 명령어를 외울 필요가 없습니다.
+명령 프롬프트에서는 `verify_project.bat`처럼 입력해도 되고, PowerShell에서는 앞에 `.\`를 붙여야 합니다.
 
 검증 항목:
 
@@ -26,8 +27,8 @@ verify_project.bat
 
 Android 래퍼와 디버그 APK 빌드까지 확인하려면 프로젝트 루트에서 아래 파일을 실행합니다.
 
-```cmd
-verify_android_debug.bat
+```powershell
+.\verify_android_debug.bat
 ```
 
 이 검증은 `npm run mobile:build`를 실행해 Capacitor 파일을 Android 프로젝트에 동기화하고 `frontend/android/app/build/outputs/apk/debug/app-debug.apk`를 빌드합니다.

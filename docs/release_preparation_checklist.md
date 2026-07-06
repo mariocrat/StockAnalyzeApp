@@ -252,8 +252,8 @@ ALPHAMATE_PRIVACY_CONSENT_VERSION=2026-06-24
 
 확인 명령:
 
-```bat
-verify_android_debug.bat
+```powershell
+.\verify_android_debug.bat
 ```
 
 출시 빌드 전 확인:
@@ -265,14 +265,14 @@ npm run mobile:release:check
 
 Android 업로드 서명 키를 처음 만들거나 `frontend/.env.release`의 빈 서명 비밀번호를 채우려면 아래 파일을 실행합니다. 이미 값이나 키 파일이 있으면 덮어쓰지 않습니다.
 
-```bat
-generate_android_upload_key.bat
+```powershell
+.\generate_android_upload_key.bat
 ```
 
 서명 키와 출시 설정이 준비된 뒤 Play Store 업로드용 AAB까지 만들려면 아래 파일을 실행합니다.
 
-```bat
-verify_android_release.bat
+```powershell
+.\verify_android_release.bat
 ```
 
 ## 8. 운영 로그와 고객 문의 대응
@@ -307,28 +307,28 @@ Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-event
 
 내 PC나 서버 설정이 출시 준비에 얼마나 가까운지 먼저 보고 싶으면 아래 파일을 실행합니다.
 
-```bat
-release_readiness_report.bat
+```powershell
+.\release_readiness_report.bat
 ```
 
 이 보고서는 필요한 설정 이름만 보여주고 API Key, 토큰, 서비스 계정 원문은 출력하지 않습니다.
 
 일반 전체 검증:
 
-```bat
-verify_project.bat
+```powershell
+.\verify_project.bat
 ```
 
 Android 디버그 검증:
 
-```bat
-verify_android_debug.bat
+```powershell
+.\verify_android_debug.bat
 ```
 
 Android 출시 AAB 검증:
 
-```bat
-verify_android_release.bat
+```powershell
+.\verify_android_release.bat
 ```
 
 출시 직전에는 다음이 모두 통과해야 합니다.
@@ -369,13 +369,13 @@ verify_android_release.bat
 
 사용 흐름:
 
-1. `prepare_private_release_setup.bat`를 실행해서 템플릿 복사, 서버용 랜덤 토큰 채우기, Android 업로드 서명 키 준비, 출시 준비 보고서 확인을 한 번에 진행한다.
+1. PowerShell에서는 `.\prepare_private_release_setup.bat`, 명령 프롬프트에서는 `prepare_private_release_setup.bat`를 실행해서 템플릿 복사, 서버용 랜덤 토큰 채우기, Android 업로드 서명 키 준비, 출시 준비 보고서 확인을 한 번에 진행한다.
 2. 복사한 파일에만 OpenAI Key, 카카오/네이버 Secret, Google Play 서비스 계정, AdMob 광고 단위처럼 외부에서 받아야 하는 값을 채운다.
 3. 채운 파일은 GitHub에 올리지 않는다.
-4. `release_readiness_report.bat`를 다시 실행해서 빠진 설정이 줄어드는지 확인한다.
+4. PowerShell에서는 `.\release_readiness_report.bat`, 명령 프롬프트에서는 `release_readiness_report.bat`를 다시 실행해서 빠진 설정이 줄어드는지 확인한다.
 5. 루트의 `.env.release`와 `frontend/.env.release`가 있으면 보고서가 자동으로 그 파일을 우선 읽는다.
 
-개별로 실행하고 싶다면 `prepare_release_env_files.bat`, `generate_release_secrets.bat`, `generate_android_upload_key.bat` 순서로 실행해도 됩니다.
+개별로 실행하고 싶다면 PowerShell 기준 `.\prepare_release_env_files.bat`, `.\generate_release_secrets.bat`, `.\generate_android_upload_key.bat` 순서로 실행해도 됩니다.
 
 주의:
 

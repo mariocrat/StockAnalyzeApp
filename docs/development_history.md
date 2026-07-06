@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Clarified owner-facing batch command examples so PowerShell users run wrappers with the required `.\` prefix while Command Prompt and double-click remain supported.
 - Fixed frontend client-event reporting to call browser fetch with the correct request options shape so operational logs are actually sent.
 - Replaced direct frontend console error logging with non-blocking client-event reporting for theme, stock, and chart failures.
 - Added IP-based rate limiting for public stock, theme, search, and macro market data APIs to reduce external data-call abuse risk.
