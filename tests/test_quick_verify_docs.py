@@ -31,6 +31,25 @@ class QuickVerifyDocsTest(unittest.TestCase):
         self.assertIn(".\\verify_android_debug.bat", docs)
         self.assertIn("PowerShell에서는 앞에 `.\\`를 붙여야 합니다", docs)
 
+    def test_owner_docs_avoid_stale_workspace_paths(self):
+        docs = [
+            ROOT / "docs" / "manual_test_guide.md",
+            ROOT / "docs" / "quick_verify.md",
+            ROOT / "docs" / "project_owner_dashboard.md",
+            ROOT / "docs" / "release_preparation_checklist.md",
+        ]
+        forbidden = ["D:\\작업", "D:/작업", "windsurf", "cd D:\\Project\\Vibe\\StockAnalyze"]
+
+        for path in docs:
+            text = path.read_text(encoding="utf-8")
+            for value in forbidden:
+                with self.subTest(path=path.name, value=value):
+                    self.assertNotIn(value, text)
+
+        manual = (ROOT / "docs" / "manual_test_guide.md").read_text(encoding="utf-8")
+        self.assertIn("$projectRoot='D:\\Project\\Vibe\\StockAnalyze'", manual)
+        self.assertIn("다른 PC에서는 `$projectRoot` 값", manual)
+
     def test_quick_verify_docs_list_every_project_verification_step(self):
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8")
         docs = (ROOT / "docs" / "quick_verify.md").read_text(encoding="utf-8")
