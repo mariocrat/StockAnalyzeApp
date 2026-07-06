@@ -15,5 +15,15 @@ class SecretScanOutputTest(unittest.TestCase):
         self.assertNotIn("Potential tracked secrets found:", script)
 
 
+    def test_secret_scan_covers_release_credential_patterns(self):
+        script = (ROOT / "scripts" / "check_no_tracked_secrets.py").read_text(encoding="utf-8")
+
+        self.assertIn("OpenAI API key", script)
+        self.assertIn("Google private key block", script)
+        self.assertIn("Google service account JSON", script)
+        self.assertIn("hard-coded password assignment", script)
+        self.assertIn("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", script)
+        self.assertIn("PRIVATE KEY", script)
+
 if __name__ == "__main__":
     unittest.main()
