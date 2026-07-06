@@ -75,11 +75,11 @@ def format_release_alignment_report(result: dict) -> str:
     ]
     if result.get("ok"):
         lines.append("- 서버와 앱의 출시 설정이 서로 맞습니다.")
-        lines.append("- Google Play 패키지명, 카카오/네이버 공개 Client ID와 Redirect URI, AdMob 보상형 광고 단위가 서로 일치합니다.")
+        lines.append("- Google Play 패키지명, 카카오/네이버 공개 Client ID와 Redirect URI, AdMob 보상형 광고 단위가 일치합니다.")
     else:
         lines.extend([
             "",
-            "다음에 할 일:",
+            "다음 작업:",
             "1. 서버와 앱 출시 설정 파일을 먼저 채우기 (.env.release, frontend/.env.release)",
             "2. 서버 설정과 앱 설정을 같은 값으로 맞추기",
             "",
@@ -92,7 +92,6 @@ def format_release_alignment_report(result: dict) -> str:
         "주의: 이 보고서는 설정 이름만 보여주고 실제 URL, 패키지명, Key 값은 출력하지 않습니다.",
     ])
     return "\n".join(lines)
-
 
 def main() -> int:
     result = validate_release_alignment()

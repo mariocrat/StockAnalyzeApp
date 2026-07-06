@@ -62,6 +62,7 @@ class ReleaseAlignmentTest(unittest.TestCase):
 
             self.assertFalse(result["ok"])
             self.assertIn("No comparable server/app release settings were found", result["errors"])
+            self.assertIn("다음 작업", report)
             self.assertIn("서버와 앱 출시 설정 파일을 먼저 채우기", report)
             self.assertIn("전체 상태: 준비 필요", report)
         finally:
