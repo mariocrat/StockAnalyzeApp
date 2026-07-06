@@ -19,6 +19,14 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertIn("모바일 AdMob SDK는 보상형, 전면, 배너 광고가 연결되어 있다.", plan)
         self.assertNotIn("mobile AdMob SDK integration and production ad unit setup are still required", plan)
 
+    def test_security_docs_describe_sqlite_backed_entitlement_wallet(self):
+        security = (ROOT / "docs" / "security_deployment_plan.md").read_text(encoding="utf-8")
+
+        self.assertIn("SQLite-backed entitlement wallet", security)
+        self.assertIn("ALPHAMATE_ACCESS_DB_PATH", security)
+        self.assertIn("백업 가능한 서버 볼륨", security)
+        self.assertNotIn("현재 개발용 지갑은 메모리 기반", security)
+        self.assertNotIn("현재 메모리 기반 이용권/사용량 관리", security)
     def test_security_docs_match_current_admob_sdk_status(self):
         manual = (ROOT / "docs" / "manual_test_guide.md").read_text(encoding="utf-8")
         security = (ROOT / "docs" / "security_deployment_plan.md").read_text(encoding="utf-8")

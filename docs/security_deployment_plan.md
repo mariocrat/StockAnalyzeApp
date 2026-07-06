@@ -64,14 +64,14 @@ In production, persistent journal APIs that read or write server-side trade reco
 
 ## 2026-06-13 개발용 AI 접근 관문
 
-The current code keeps a development access gate and development entitlement wallet in front of `POST /api/journal/ai-review-once` to match the intended deployment structure.
+The current code keeps a development access gate and SQLite-backed entitlement wallet in front of `POST /api/journal/ai-review-once` to match the intended deployment structure.
 
 - 앱은 AI 분석 요청 전에 개인정보/매매 기록 전송 동의를 받아야 한다.
 - 앱은 `Authorization: Bearer <token>` 헤더를 보낸다.
 - 앱은 요청 본문에 `ad_reward_token`과 `privacy_consent: true`를 함께 보낸다.
 - 서버는 인증 토큰, 광고 보상 토큰, 동의 여부, 이용권 잔여량을 확인한 뒤 OpenAI API를 호출한다.
 - 기본 개발값은 `dev-token`, `dev-ad-reward`이며, `ALPHAMATE_ENV=production`이면 개발 토큰은 비활성화된다.
-- 현재 개발용 지갑은 메모리 기반이라 서버 재시작 시 초기화된다. 운영 배포에서는 DB 또는 Redis로 교체해야 한다.
+- 이용권/Pro/사용량 지갑은 `ALPHAMATE_ACCESS_DB_PATH`가 가리키는 SQLite DB에 저장된다. 운영 배포에서는 이 경로를 백업 가능한 서버 볼륨이나 관리형 DB 마이그레이션 대상으로 분리해야 한다.
 
 개발 환경 변수:
 
@@ -100,7 +100,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - `dev-token` 인증은 카카오/네이버 로그인 또는 OIDC 토큰 검증으로 교체한다.
 - `dev-ad-reward` 검증은 AdMob 보상형 광고 서버 측 검증으로 교체한다.
 - `dev-pro-entitlement`와 개발용 구매 처리는 Google Play Billing 서버 검증으로 교체한다.
-- 현재 메모리 기반 이용권/사용량 관리는 DB 또는 Redis로 교체한다.
+- 개발 토큰은 운영에서 비활성화하고, 이용권/사용량 DB 경로는 운영 서버의 백업 가능한 저장소로 지정한다.
 - OpenAI API Key는 앱이나 프론트가 아니라 서버 환경변수/Secret Manager에만 둔다.
 - 서버 로그에는 매매 기록, 메모, Authorization 헤더, AI Key를 남기지 않는다.
 
