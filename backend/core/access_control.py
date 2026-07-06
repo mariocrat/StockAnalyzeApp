@@ -744,11 +744,7 @@ def _verify_google_play_purchase(
     package_name: str,
     google_product_id: str,
     purchase_token: str,
-    kind: str,
 ) -> dict:
-    if kind != "consumable":
-        raise HTTPException(status_code=501, detail="Google Play subscription verification is not implemented yet.")
-
     url = (
         "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"
         f"{package_name}/purchases/products/{google_product_id}/tokens/{purchase_token}"
@@ -1513,7 +1509,6 @@ def apply_google_play_purchase(
         package_name=normalized_package,
         google_product_id=google_product_id,
         purchase_token=purchase_token,
-        kind="consumable",
     )
     if str(verification.get("product_id") or "") != google_product_id:
         raise HTTPException(status_code=400, detail="Google Play product id does not match the requested product.")

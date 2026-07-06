@@ -5,10 +5,14 @@ import os
 import tempfile
 import unittest
 from contextlib import contextmanager
+from pathlib import Path
 
 from fastapi import HTTPException
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def fake_service_account_json() -> str:
@@ -429,6 +433,12 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual(1, second.quota["advanced"]["weekly_reward_remaining"])
             self.assertEqual(0, second.quota["advanced"]["weekly_ad_views_needed"])
 
+    def test_google_play_purchase_code_does_not_claim_subscription_verification_is_missing(self):
+        code = (ROOT / "backend" / "core" / "access_control.py").read_text(encoding="utf-8")
+
+        self.assertIn("def _verify_google_play_subscription", code)
+        self.assertNotIn("Google Play subscription verification is not implemented yet", code)
+
     def test_google_play_purchase_requires_server_configuration(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="development",
@@ -488,7 +498,7 @@ class BillingReadinessTest(unittest.TestCase):
 
             access_control = importlib.reload(access_control)
 
-            def fake_verify(*, package_name, google_product_id, purchase_token, kind):
+            def fake_verify(*, package_name, google_product_id, purchase_token):
                 return {
                     "package_name": package_name,
                     "product_id": google_product_id,
@@ -571,7 +581,7 @@ class BillingReadinessTest(unittest.TestCase):
 
             access_control = importlib.reload(access_control)
 
-            def fake_verify(*, package_name, google_product_id, purchase_token, kind):
+            def fake_verify(*, package_name, google_product_id, purchase_token):
                 return {
                     "package_name": package_name,
                     "product_id": google_product_id,
