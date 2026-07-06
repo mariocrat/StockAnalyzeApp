@@ -19,6 +19,13 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertIn("모바일 AdMob SDK는 보상형, 전면, 배너 광고가 연결되어 있다.", plan)
         self.assertNotIn("mobile AdMob SDK integration and production ad unit setup are still required", plan)
 
+    def test_ad_display_policy_explains_resume_interstitial_instead_of_app_open_format(self):
+        policy = (ROOT / "docs" / "development_history_ad_display_policy.md").read_text(encoding="utf-8")
+
+        self.assertIn("별도 App Open Ad 포맷이 아니라 앱 복귀 전면 광고로 운영한다", policy)
+        self.assertIn("90초 이상", policy)
+        self.assertIn("10분 쿨타임", policy)
+
     def test_ai_monetization_plan_uses_clean_korean_labels(self):
         plan = (ROOT / "docs" / "ai_review_monetization_plan.md").read_text(encoding="utf-8")
 
