@@ -119,7 +119,7 @@ VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 - `POST /api/auth/login/naver`는 네이버 access token을 받아 `https://openapi.naver.com/v1/nid/me`로 사용자 ID를 확인한다.
 - provider 사용자 ID가 확인되면 AlphaMate 내부 사용자와 연결하고 자체 세션 토큰을 발급한다.
 - 이메일은 계정 연결 보조 정보로만 쓰고 원문 대신 hash로 저장한다.
-- 아직 남은 작업은 모바일 앱 SDK 또는 웹 OAuth authorize/code 교환 흐름에서 access token을 받아 서버 API로 전달하는 부분이다.
+- 웹 OAuth authorize/code 교환 흐름과 backend code-login API가 연결되어 있다. 운영 전에는 카카오/네이버 콘솔의 실제 Client ID, Secret, Redirect URI, state 검증 흐름을 실계정으로 확인해야 한다.
 
 ## 2026-06-16 OAuth authorization code 교환 API
 
