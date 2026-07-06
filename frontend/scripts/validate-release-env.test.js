@@ -217,6 +217,33 @@ test('frontend env example documents release check settings', () => {
   }
 });
 
+test('frontend env templates do not document server-only secrets', () => {
+  const templates = [
+    fs.readFileSync(path.resolve(process.cwd(), '.env.example'), 'utf8'),
+    fs.readFileSync(path.resolve(process.cwd(), '.env.release.example'), 'utf8'),
+  ].join('\n');
+  const serverOnlyNames = [
+    'OPENAI_API_KEY',
+    'ALPHAMATE_OPENAI_API_KEY',
+    'KAKAO_CLIENT_SECRET',
+    'NAVER_CLIENT_SECRET',
+    'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',
+    'GOOGLE_PLAY_SERVICE_ACCOUNT_FILE',
+    'GOOGLE_PLAY_RTDN_SHARED_TOKEN',
+    'GOOGLE_PLAY_RTDN_OIDC_AUDIENCE',
+    'GOOGLE_PLAY_RTDN_OIDC_EMAIL',
+    'ALPHAMATE_ADMIN_TOKEN',
+    'ALPHAMATE_ACCOUNT_DB_PATH',
+    'ALPHAMATE_JOURNAL_DB_PATH',
+    'ALPHAMATE_ACCESS_DB_PATH',
+    'ALPHAMATE_REVIEW_HISTORY_DB_PATH',
+    'ALPHAMATE_EVENT_LOG_DB_PATH',
+  ];
+
+  for (const name of serverOnlyNames) {
+    assert.doesNotMatch(templates, new RegExp(`(^|\\n)#?\\s*${name}=`), `${name} must stay out of frontend env templates`);
+  }
+});
 test('frontend release env template is production focused', () => {
   const template = fs.readFileSync(path.resolve(process.cwd(), '.env.release.example'), 'utf8');
   const requiredKeys = [
