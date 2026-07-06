@@ -11,7 +11,8 @@ class PolicyDocumentationTest(unittest.TestCase):
     def test_ai_monetization_plan_matches_ad_free_pro_policy(self):
         plan = (ROOT / "docs" / "ai_review_monetization_plan.md").read_text(encoding="utf-8")
 
-        self.assertIn("Pro 사용자는 앱 전체에서 보상형이 아닌 광고를 보지 않는다.", plan)
+        self.assertIn("Pro 사용자는 앱 전체에서 보상형이 아닌 광고를 보지 않는다", plan)
+        self.assertIn("보상형 광고는 무료 사용자가 추가 복기 접근권을 얻는 경로", plan)
         self.assertNotIn("테마 상승률 등 정보 화면에는 배너 광고를 유지", plan)
 
     def test_ai_monetization_plan_mentions_current_admob_integration_status(self):
@@ -57,8 +58,9 @@ class PolicyDocumentationTest(unittest.TestCase):
 
         self.assertIn("일반 복기권 30회", plan)
         self.assertIn("심층 복기권 10회", plan)
-        for broken_text in (chr(0x3F) + "쇰컲", chr(0x3F) + "ъ링"):
-            self.assertNotIn(broken_text, plan)
+        self.assertIn("일반 복기", plan)
+        self.assertIn("심층 복기", plan)
+        self.assertNotIn("�", plan)
         self.assertFalse(any(0x4E00 <= ord(char) <= 0x9FFF for char in plan))
 
     def test_owner_dashboard_prioritizes_real_release_inputs(self):
