@@ -50,7 +50,7 @@ class PolicyDocumentationTest(unittest.TestCase):
 
         self.assertIn("별도 App Open Ad 포맷이 아니라 앱 복귀 전면 광고로 운영한다", policy)
         self.assertIn("90초 이상", policy)
-        self.assertIn("10분 쿨타임", policy)
+        self.assertIn("10분 쿨다운", policy)
 
     def test_ai_monetization_plan_uses_clean_korean_labels(self):
         plan = (ROOT / "docs" / "ai_review_monetization_plan.md").read_text(encoding="utf-8")
@@ -95,6 +95,7 @@ class PolicyDocumentationTest(unittest.TestCase):
         paths = [
             ROOT / "docs" / "development_history_ad_failure_logging.md",
             ROOT / "docs" / "development_history_private_setup_alignment.md",
+            ROOT / "docs" / "development_history_ad_display_policy.md",
         ]
         for path in paths:
             text = path.read_text(encoding="utf-8")
