@@ -55,6 +55,14 @@ backend/.cache/
 # Android signing keys must never be committed
 *.jks
 *.keystore
+*.pem
+*.p12
+*.key
+*service-account*.json
+google-play*.json
+*.apk
+*.aab
+*.apks
 release-private/
 
 # Local toolchains downloaded for this workstation only

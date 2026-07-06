@@ -153,7 +153,15 @@ class BackendReleaseCheckTest(unittest.TestCase):
             ".env.release.local",
             ".env.production",
             ".env.production.local",
+            "*.pem",
+            "*.p12",
+            "*.key",
+            "*service-account*.json",
+            "google-play*.json",
             "release-private/",
+            "*.apk",
+            "*.aab",
+            "*.apks",
         ]
 
         for name in ignored_names:
