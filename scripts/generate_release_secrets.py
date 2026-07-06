@@ -15,20 +15,16 @@ def generate_release_secrets() -> dict[str, str]:
 
 def format_release_secrets(values: dict[str, str]) -> str:
     lines = [
-        "서버용 개인 토큰 후보를 만들었습니다.",
+        "서버용 개인 토큰 후보를 만들었지만 터미널에는 실제 값을 표시하지 않습니다.",
         "",
-        "아래 줄은 서버용 .env.release 파일에만 넣으세요:",
+        "generate_release_secrets.bat 또는 --fill-empty 옵션을 사용하면 서버용 .env.release의 빈 값만 채웁니다.",
+        "이 값은 frontend/.env.release 또는 VITE_* 설정에 넣지 마세요.",
+        "",
+        "확인한 서버 전용 설정:",
     ]
     for name in SECRET_NAMES:
-        lines.append(f"{name}={values[name]}")
-    lines.extend([
-        "",
-        "이 값은 GitHub에 올리지 마세요.",
-        "frontend/.env.release 또는 VITE_* 설정에는 붙여넣지 마세요.",
-        "값이 노출됐을 수 있으면 이 파일을 다시 실행해 새 값으로 바꾸세요.",
-    ])
+        lines.append(f"{name}=<hidden>")
     return "\n".join(lines)
-
 
 def _replace_empty_env_value(line: str, name: str, value: str) -> tuple[str, bool, bool]:
     prefix = f"{name}="

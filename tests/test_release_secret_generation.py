@@ -37,11 +37,12 @@ class ReleaseSecretGenerationTest(unittest.TestCase):
             "GOOGLE_PLAY_RTDN_SHARED_TOKEN": "rtdn-token-value",
         })
 
-        self.assertIn("ALPHAMATE_ADMIN_TOKEN=admin-token-value", output)
-        self.assertIn("GOOGLE_PLAY_RTDN_SHARED_TOKEN=rtdn-token-value", output)
-        self.assertIn("GitHub에 올리지 마세요", output)
+        self.assertIn("ALPHAMATE_ADMIN_TOKEN=<hidden>", output)
+        self.assertIn("GOOGLE_PLAY_RTDN_SHARED_TOKEN=<hidden>", output)
+        self.assertNotIn("admin-token-value", output)
+        self.assertNotIn("rtdn-token-value", output)
+        self.assertIn("터미널에는 실제 값을 표시하지 않습니다", output)
         self.assertIn("frontend/.env.release", output)
-        self.assertNotIn("Do not commit", output)
         self.assertIn(".env.release", output)
 
     def test_fills_empty_backend_release_secret_values_without_overwriting_existing_values(self):
