@@ -69,7 +69,7 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertIn("실제 OpenAI Key를 서버 설정에 넣고", dashboard)
         self.assertIn("운영 서버 후보를 정하고 HTTPS API 주소", dashboard)
         self.assertIn("Google Play 테스트 결제와 AdMob 보상형 광고를 실기기", dashboard)
-        self.assertNotIn("운영/배포 준비 상태를 더 쉽게 확인하는 체크리스트 화면 또는 문서 정리", dashboard)
+        self.assertNotIn("운영/배포 준비 상태를 더 쉽게 확인하는 체크리스트", dashboard)
 
     def test_release_checklist_uses_korean_final_verification_labels(self):
         checklist = (ROOT / "docs" / "release_preparation_checklist.md").read_text(encoding="utf-8")
@@ -92,6 +92,20 @@ class PolicyDocumentationTest(unittest.TestCase):
         for step_name in step_names:
             with self.subTest(step=step_name):
                 self.assertIn(step_name, checklist)
+
+    def test_owner_facing_release_docs_do_not_contain_broken_korean(self):
+        paths = [
+            ROOT / "docs" / "project_owner_dashboard.md",
+            ROOT / "docs" / "release_preparation_checklist.md",
+            ROOT / "docs" / "ai_review_monetization_plan.md",
+        ]
+        for path in paths:
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("�", text, f"{path.name} has replacement characters")
+            self.assertFalse(
+                any(0x4E00 <= ord(char) <= 0x9FFF for char in text),
+                f"{path.name} has CJK mojibake-like text",
+            )
 
     def test_recent_development_history_notes_do_not_contain_broken_korean(self):
         paths = [
