@@ -2,78 +2,68 @@
 
 ## 권장 결론
 
-- 모바일 앱에는 OpenAI/Gemini API Key를 절대 넣지 않는다.
-- 앱은 광고 시청 완료와 매매복기 데이터를 서버에 보내고, 서버가 AI API를 호출한다.
-- 매매복기 원장은 기본적으로 서버 DB에 저장하지 않는다.
-- 사용자가 저장 기능을 명시적으로 켜기 전까지는 1회성 분석으로 처리한다.
-- 카카오/네이버 같은 간편 인증은 광고 보상 남용 방지, 사용량 제한, 사용자별 비용 통제를 위해 도입한다.
+- 모바일 앱에는 OpenAI/Gemini API Key를 넣지 않는다.
+- 앱은 로그인, 광고 시청 완료, 매매복기 데이터를 서버로 보내고 서버가 AI API를 호출한다.
+- OpenAI API Key는 서버 환경변수 또는 클라우드 Secret Manager에만 둔다.
+- 매매복기 저장은 기본 비활성으로 두고, 사용자가 명시적으로 저장을 켠 경우에만 계정별 DB에 저장한다.
+- 광고 보상, 결제 검증, 사용량 제한, 사용자별 비용 통제는 모두 서버에서 처리한다.
 
 ## 권장 흐름
 
-1. 앱에서 사용자가 매매 기록을 입력한다.
-2. 사용자가 AI 분석 버튼을 누른다.
-3. 앱에서 보상형 광고를 표시한다.
-4. 앱은 광고 완료 토큰, 사용자 로그인 토큰, 매매 기록을 서버로 보낸다.
-5. 서버는 사용자 인증, 광고 보상 검증, 이용권 잔여량, 요청 제한, 비용 한도를 확인한다.
-6. 서버가 OpenAI/Gemini API를 호출한다.
-7. 서버는 분석 결과만 앱에 반환하고 매매 원장은 저장하지 않는다.
+1. 사용자가 앱에서 매매 기록을 입력한다.
+2. 사용자가 일반 복기 또는 심층 복기를 실행한다.
+3. 무료 사용자는 필요 시 앱에서 보상형 광고를 본다.
+4. 앱은 로그인 세션, 광고 보상 토큰, 매매 기록, 개인정보/매매 기록 전송 동의 여부를 서버로 보낸다.
+5. 서버는 사용자 인증, 광고 보상 검증, 이용권 차감, 요청 제한, 비용 제한을 확인한다.
+6. 서버가 OpenAI API를 호출한다.
+7. 서버는 분석 결과만 앱에 반환한다.
+8. 사용자가 매매 이력 저장을 켠 경우에만 복기 결과와 차트 스냅샷을 계정별 DB에 저장한다.
 
-## Current deployment one-time APIs
+## 현재 배포용 API 구조
 
 - `POST /api/journal/review-once`
 - `POST /api/journal/ai-review-once`
 - `POST /api/journal/charts-once`
 
-These APIs analyze only request-body trade records and do not save them to SQLite.
-Legacy `GET /api/journal/ai-review` is closed with 410 Gone to prevent entitlement, ad reward, and rate-limit bypass.
-In production, persistent journal APIs that read or write server-side trade records require an authenticated session. Unauthenticated flows must use request-body one-time APIs such as `review-once`, `ai-review-once`, and `charts-once`.
+이 API들은 요청 본문으로 받은 매매 기록만 분석한다. 저장 기능이 꺼져 있으면 SQLite에 매매 기록을 저장하지 않는다.
 
-## 아직 필요한 배포 보안 작업
+Legacy `GET /api/journal/ai-review`는 이용권, 광고 보상, 요청 제한을 우회하지 못하도록 410 Gone으로 닫혀 있다.
 
-- 사용자 인증: 카카오 로그인, 네이버 로그인, 또는 OIDC 기반 간편 로그인
-- 계정 매핑: `(provider, provider_user_id)`를 내부 사용자 ID에 연결하고, 카카오/네이버 계정 연결은 사용자 확인 후 처리
-- 사용자별 권한 저장소: 이용권, Pro 상태, 광고 보상, 일/월 사용량을 서버 DB에 저장
-- 광고 보상 검증: AdMob 서버 측 검증 또는 서버 자체 보상 검증
-- 사용량 제한: 사용자별, 기기별, IP별 일/월 제한
-- 비용 제한: OpenAI/Gemini 월 예산과 사용자별 호출 수 제한
-- HTTPS 강제
-- 서버 비밀값 관리: `.env`가 아닌 Cloud Secret Manager류 사용 권장
-- 앱 정상성 검증: Play Integrity API 검토
-- 서버 로그 마스킹: 매매 기록, API Key, Authorization 헤더 로그 금지
-- 데이터 삭제 정책: 기본은 1회성 분석 후 원문 즉시 폐기, 매매 이력 저장은 사용자 동의 기반으로 분리
+운영 환경에서 서버 DB를 읽거나 쓰는 매매 기록 API는 로그인 세션이 필요하다. 로그인하지 않은 일회성 흐름은 `review-once`, `ai-review-once`, `charts-once`처럼 request-body 기반 API를 사용해야 한다.
+
+## 배포 전 보안 작업
+
+- 카카오/네이버 로그인 또는 OIDC 기반 간편 로그인을 운영 키로 연결한다.
+- `(provider, provider_user_id)`를 내부 사용자 ID에 연결하고, 계정 연결은 사용자 확인 후 처리한다.
+- 이용권, Pro 상태, 광고 보상, 일/월 사용량은 서버 DB에 저장한다.
+- AdMob SSV 콜백을 실제 광고 단위와 연결한다.
+- Google Play Billing 검증과 RTDN Pub/Sub push를 실제 Play Console 값과 연결한다.
+- AI 복기 요청은 사용자별, IP별, 서버 전체 동시 실행 제한을 둔다.
+- 운영 서버는 HTTPS만 사용한다.
+- 서버 로그에는 매매 기록 원문, 메모, Authorization 헤더, AI Key를 남기지 않는다.
+- 운영 DB 경로는 백업 가능한 서버 볼륨 또는 관리형 DB로 분리한다.
 
 ## 개인정보처리방침 초안 문구
 
 > AlphaMate는 사용자가 입력한 매매 기록, 종목명, 체결 가격, 수량, 메모를 매매복기 및 AI 분석 제공 목적으로 처리합니다.
 > AI 분석을 요청하는 경우 해당 입력 데이터와 차트 지표가 AI 분석 제공업체(OpenAI 또는 Google 등)에 전송될 수 있습니다.
-> 회사는 기본적으로 매매복기 원문을 서버에 저장하지 않으며, 분석 요청 처리 후 즉시 폐기합니다.
-> 사용자가 매매 이력 저장 기능을 켜는 경우, 해당 기록은 사용자 계정별로 저장되며 사용자는 앱에서 열람, 수정, 내보내기, 삭제할 수 있습니다.
-> 다만 서비스 안정성, 부정 이용 방지, 광고 보상 검증, 오류 분석을 위해 최소한의 접속 기록, 인증 식별자, 요청 시각, 처리 결과 상태를 일정 기간 보관할 수 있습니다.
-> 사용자는 AI 분석 요청 전 개인정보 및 민감한 투자 메모가 외부 AI 서비스로 전송될 수 있음을 확인하고 동의해야 합니다.
+> 회사는 기본적으로 매매복기 전문을 서버에 저장하지 않으며, 분석 요청 처리 후 즉시 폐기합니다.
+> 사용자가 매매 이력 저장 기능을 켜는 경우 해당 기록은 사용자 계정별로 저장되며, 사용자는 앱에서 열람, 내보내기, 삭제할 수 있습니다.
+> 서비스 안정성, 부정 이용 방지, 광고 보상 검증, 오류 분석을 위해 최소한의 접속 기록, 인증 식별자, 요청 시각, 처리 결과 상태를 일정 기간 보관할 수 있습니다.
+> 사용자는 AI 분석 요청 시 개인정보 및 민감한 투자자 메모가 외부 AI 서비스로 전송될 수 있음을 확인하고 동의해야 합니다.
+
+이 문구는 개발 초안이며 법률 자문이 아니다. 실제 Play Store 배포 전 개인정보보호법, 전자상거래, 광고 정책, Google Play 정책 기준으로 최종 법률 검토가 필요하다.
 
 ## Google Play Data safety 작성 방향
 
 - AI 분석 요청 시 매매 데이터가 기기 밖 서버로 전송되므로 데이터 수집/처리에 해당한다.
-- Google Play는 앱이 수집, 공유, 보호하는 사용자 데이터와 SDK가 처리하는 데이터까지 개발자가 정확히 신고해야 한다.
-- 일시 처리(ephemeral processing)라도 기기 밖으로 전송되면 Data safety form에서 검토 대상이다.
-- AdMob SDK 사용으로 광고 식별자 및 광고 관련 데이터 처리가 발생할 수 있으므로 AdMob/Google SDK 안내에 맞춰 신고해야 한다.
+- AdMob SDK 사용으로 광고 식별자 및 광고 관련 데이터 처리가 발생할 수 있다.
+- Google Play Data safety form에는 앱, 서버, SDK가 처리하는 데이터 범위를 함께 신고해야 한다.
+- 일회성 처리라도 기기 밖으로 전송되는 데이터는 사용자에게 명확히 안내해야 한다.
 
-## 주의
+## 개발/운영 환경 분리
 
-이 문서는 개발 설계용 초안이며 법률 자문이 아니다. 실제 Play Store 배포 전 개인정보보호법, 전자상거래/광고 정책, Google Play 정책 기준으로 최종 법률 검토가 필요하다.
-
-## 2026-06-13 개발용 AI 접근 관문
-
-The current code keeps a development access gate and SQLite-backed entitlement wallet in front of `POST /api/journal/ai-review-once` to match the intended deployment structure.
-
-- 앱은 AI 분석 요청 전에 개인정보/매매 기록 전송 동의를 받아야 한다.
-- 앱은 `Authorization: Bearer <token>` 헤더를 보낸다.
-- 앱은 요청 본문에 `ad_reward_token`과 `privacy_consent: true`를 함께 보낸다.
-- 서버는 인증 토큰, 광고 보상 토큰, 동의 여부, 이용권 잔여량을 확인한 뒤 OpenAI API를 호출한다.
-- 기본 개발값은 `dev-token`, `dev-ad-reward`이며, `ALPHAMATE_ENV=production`이면 개발 토큰은 비활성화된다.
-- 이용권/Pro/사용량 지갑은 `ALPHAMATE_ACCESS_DB_PATH`가 가리키는 SQLite DB에 저장된다. 운영 배포에서는 이 경로를 백업 가능한 서버 볼륨이나 관리형 DB 마이그레이션 대상으로 분리해야 한다.
-
-개발 환경 변수:
+개발 환경 예시:
 
 ```env
 OPENAI_API_KEY=실제_OpenAI_Key
@@ -86,7 +76,7 @@ ALPHAMATE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 ALPHAMATE_ALLOW_ADVANCED_TICKET_FOR_BASIC=false
 ```
 
-프론트 개발 환경 변수:
+프론트 개발 환경 예시:
 
 ```env
 VITE_DEV_AUTH_TOKEN=dev-token
@@ -95,123 +85,36 @@ VITE_DEV_ACCESS_PLAN=free
 VITE_DEV_PRO_ENTITLEMENT_TOKEN=dev-pro-entitlement
 ```
 
-운영 배포 때 교체해야 하는 부분:
+운영에서는 `ALPHAMATE_ENV=production`을 사용한다. production에서는 개발용 로그인, 개발용 구매, `dev-token`, `dev-ad-reward`, `dev-pro-entitlement`가 실제 권한으로 인정되지 않는다.
 
-- `dev-token` 인증은 카카오/네이버 로그인 또는 OIDC 토큰 검증으로 교체한다.
-- `dev-ad-reward` 검증은 AdMob 보상형 광고 서버 측 검증으로 교체한다.
-- `dev-pro-entitlement`와 개발용 구매 처리는 Google Play Billing 서버 검증으로 교체한다.
-- 개발 토큰은 운영에서 비활성화하고, 이용권/사용량 DB 경로는 운영 서버의 백업 가능한 저장소로 지정한다.
-- OpenAI API Key는 앱이나 프론트가 아니라 서버 환경변수/Secret Manager에만 둔다.
-- 서버 로그에는 매매 기록, 메모, Authorization 헤더, AI Key를 남기지 않는다.
+frontend에는 `VITE_*` 공개 설정만 들어가야 한다. OpenAI API Key, 카카오/네이버 Secret, Google Play 서비스 계정 JSON, 관리자 토큰은 frontend `.env`에 넣지 않는다.
 
-## 2026-06-15 운영/개발 환경 분리 안전장치
+## 로그인 보안 상태
 
-- `ALPHAMATE_ENV=production`이면 개발용 로그인 API가 거부된다.
-- `ALPHAMATE_ENV=production`이면 개발용 복기권 구매 API가 거부된다.
-- `ALPHAMATE_ENV=production`이면 `dev-token`, `dev-ad-reward`, `dev-pro-entitlement` 같은 개발용 토큰은 인증/광고/Pro 권한으로 인정되지 않는다.
-- frontend production build 또는 `VITE_ALPHAMATE_ENV=production`에서는 개발용 카카오/네이버 로그인 버튼과 개발용 복기권 구매 버튼을 숨긴다.
-- 실제 OpenAI API Key는 `.env.example`에 예시만 두고, 실제 값은 서버 `.env` 또는 배포 환경의 Secret Manager에만 둔다.
-- frontend에는 `VITE_*` 값만 들어가므로 OpenAI API Key, 카카오/네이버 Secret, Google Play 서비스 계정 키를 넣으면 안 된다.
+- 카카오/네이버 웹 OAuth authorize/code 교환 흐름과 backend code-login API가 연결되어 있다.
+- 운영 전 실제 Client ID, Secret, Redirect URI를 카카오/네이버 개발자 콘솔 값으로 채워야 한다.
+- frontend는 공개 client id/key와 redirect URI만 가진다.
+- provider client secret은 backend 환경변수에만 둔다.
+- OAuth 설정 진단 API는 secret 값을 반환하지 않고 준비 여부와 누락된 설정 이름만 반환한다.
 
-## 2026-06-16 카카오/네이버 로그인 서버 API 뼈대
+## 이용권/구독 보안 상태
 
-- `POST /api/auth/login/kakao`는 카카오 access token을 받아 `https://kapi.kakao.com/v2/user/me`로 사용자 ID를 확인한다.
-- `POST /api/auth/login/naver`는 네이버 access token을 받아 `https://openapi.naver.com/v1/nid/me`로 사용자 ID를 확인한다.
-- provider 사용자 ID가 확인되면 AlphaMate 내부 사용자와 연결하고 자체 세션 토큰을 발급한다.
-- 이메일은 계정 연결 보조 정보로만 쓰고 원문 대신 hash로 저장한다.
-- 웹 OAuth authorize/code 교환 흐름과 backend code-login API가 연결되어 있다. 운영 전에는 카카오/네이버 콘솔의 실제 Client ID, Secret, Redirect URI, state 검증 흐름을 실계정으로 확인해야 한다.
+- AI 복기 이용권은 SQLite-backed entitlement wallet으로 관리한다.
+- `ALPHAMATE_ACCESS_DB_PATH`는 운영에서 백업 가능한 서버 볼륨 또는 관리형 DB 경로로 분리해야 한다.
+- Google Play 소모성 상품은 purchase token을 서버에서 검증하고, token 원문은 저장하지 않고 SHA-256 hash만 저장한다.
+- Pro 구독은 `purchases.subscriptionsv2.get`으로 구독 token을 검증하고, 활성 상태와 만료 시간 기준으로만 Pro 권한을 부여한다.
+- RTDN Pub/Sub push는 공유 토큰과 선택적 OIDC 검증으로 보호한다.
 
-## 2026-06-16 OAuth authorization code 교환 API
+## AdMob 보안 상태
 
-- `POST /api/auth/login/kakao/code`는 카카오 authorization code를 `https://kauth.kakao.com/oauth/token`에서 access token으로 교환한 뒤 AlphaMate 세션을 발급한다.
-- `POST /api/auth/login/naver/code`는 네이버 authorization code를 `https://nid.naver.com/oauth2.0/token`에서 access token으로 교환한 뒤 AlphaMate 세션을 발급한다.
-- 카카오는 `KAKAO_CLIENT_ID`, 선택적으로 `KAKAO_CLIENT_SECRET`, 그리고 `KAKAO_REDIRECT_URI` 또는 요청 본문의 `redirect_uri`가 필요하다.
-- 네이버는 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET`, 그리고 `NAVER_REDIRECT_URI` 또는 요청 본문의 `redirect_uri`, `state`가 필요하다.
-- 실제 운영에서는 redirect URI와 state를 서버가 발급/검증하는 방식으로 더 강화해야 한다.
+- 모바일 앱에는 AdMob SDK가 연결되어 있다.
+- 운영 배포 전 실제 AdMob 앱 ID, 보상형/전면/배너 광고 단위 ID, SSV 콜백 URL을 연결해야 한다.
+- AdMob SSV는 Google 공개키로 서명을 검증하고, transaction id 중복 지급을 막는다.
+- 광고 로드 실패는 사용자 흐름을 막지 않고 운영 로그에 기록한다.
 
-## 2026-06-16 프론트 OAuth 연결부
+## 운영 로그 보안 상태
 
-- frontend production 화면에서 `VITE_KAKAO_REST_API_KEY` 또는 `VITE_NAVER_CLIENT_ID`가 있으면 provider 로그인 버튼이 활성화된다.
-- 로그인 시작 시 브라우저에서 state 값을 생성해 `localStorage`에 저장하고 provider authorization URL로 이동한다.
-- callback으로 돌아온 `code`와 `state`는 저장된 state와 비교한 뒤 backend code-login API로 전달한다.
-- frontend에 들어가는 값은 공개 client id/key와 redirect URI뿐이다.
-- provider client secret, OpenAI API Key, Google Play 서비스 계정 키는 frontend에 넣지 않는다.
-
-## 2026-06-16 OAuth 설정 진단
-
-- `GET /api/auth/oauth-config`는 카카오/네이버 로그인에 필요한 서버 환경변수가 설정됐는지 boolean과 누락 목록만 반환한다.
-- 이 endpoint는 실제 client secret 값을 절대 반환하지 않는다.
-- frontend는 이 상태를 읽어 실제 로그인 전 빠진 설정을 사용자에게 안내한다.
-- 운영에서는 이 진단 정보가 과도한 내부 정보를 노출하지 않도록 현재처럼 변수명 수준의 누락 안내까지만 유지한다.
-
-## 2026-06-16 Google Play 결제 검증 준비
-
-- `GET /api/journal/products`는 공개 가능한 상품 ID, 가격, 수량, Google Play 준비 상태만 반환한다.
-- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` 또는 `GOOGLE_PLAY_SERVICE_ACCOUNT_FILE` 값 자체는 응답에 포함하지 않는다.
-- `POST /api/journal/google-play-purchase`는 소모성 복기권에 대해 서버에서 purchase token을 Google Play에 검증한 뒤에만 지급한다.
-- purchase token 원문은 저장하지 않고 SHA-256 해시만 저장해 중복 지급을 막는다.
-- 소모성 상품은 먼저 `consume_pending` 상태로 지급 기록을 남긴 뒤 consume 요청을 수행한다. consume 실패 시에도 이용권을 중복 지급하지 않고, 같은 purchase token이 다시 제출되면 consume만 재시도한다.
-- Pro 구독은 `purchases.subscriptionsv2.get`으로 구독 토큰을 검증하고, 활성 상태와 만료 시간이 유효할 때만 Pro 플랜으로 저장한다.
-- Pro 구독이 미확인 상태면 Google Play subscription acknowledge가 성공한 뒤에만 Pro 권한을 활성화한다.
-- 저장 시 구독 토큰 원문은 남기지 않고 SHA-256 해시, 상품 ID, 상태, 만료 시간, 최신 주문 ID만 남긴다.
-- 만료/비활성 구독 검증 결과도 저장해 기존 Pro 상태가 남아 비용이 새는 일을 막는다.
-- 앱의 `Google Play 구매 복구`는 로컬 영수증에 남은 purchase token을 서버에 다시 제출하는 보조 흐름이다. 서버는 token hash로 중복 지급을 막아야 하며, 복구 요청도 최초 구매 요청과 같은 서버 검증을 반드시 통과해야 한다.
-- Google Play RTDN Pub/Sub push endpoint는 공유 토큰 헤더가 맞을 때만 처리하며, 알림 수신 후 Google Play API를 다시 조회해 구독 상태를 갱신한다.
-- 운영 배포에서는 `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE`와 `GOOGLE_PLAY_RTDN_OIDC_EMAIL`을 설정해 Pub/Sub push JWT의 audience, email, 서명을 검증한다.
-- `ALPHAMATE_ENV=production`에서는 Play Console에 등록한 상품 ID 환경변수 6개가 모두 설정되어야 Google Play readiness가 통과한다.
-- 서버 배포 전 `backend\scripts\validate_release_env.py`를 실행해 필요한 환경변수 이름만 확인하고 secret 원문이 출력되지 않는지 확인한다.
-- Google Play 서비스 계정은 JSON 파싱, 필수 필드, private key 형식까지 readiness에서 검사해 깨진 키로 배포되지 않게 한다.
-
-## 2026-06-18 AdMob 보상형 광고 SSV 검증 상태
-
-- 앱에서 광고를 봤다는 클라이언트 값을 그대로 믿지 않고, AdMob이 서버로 보내는 SSV 콜백을 기준으로 광고 보상을 인정한다.
-- `GET /api/journal/admob-ssv`는 Google AdMob 공개키로 ECDSA 서명을 검증하고, `transaction_id` 중복을 막아 광고 보상이 반복 지급되지 않게 한다.
-- `ADMOB_REWARDED_AD_UNIT_ID`를 운영 서버에 설정해 의도한 보상형 광고 단위만 인정해야 한다.
-- AdMob SSV 공개키는 최대 24시간 캐시하고, 키 회전에 맞춰 다시 가져오도록 했다.
-- 모바일 앱에는 AdMob SDK가 연결되어 있다. 운영 배포 전에는 실제 보상형 광고 단위, SSV 콜백 URL, 로그인된 사용자 ID 전달, 실기기 광고 보상 흐름을 확인해야 한다.
-## 2026-06-20 복기 보관함 보안/배포 메모
-
-- 사용자가 `매매 이력 저장`을 켠 상태에서 AI 복기를 실행하면 매매 스냅샷, 당시 차트 데이터, AI 복기 결과가 계정별 복기 보관함에 저장된다.
-- 저장된 복기 데이터는 계정 데이터 내보내기와 계정 데이터 삭제 범위에 포함된다.
-- AI Key는 계속 프론트엔드에 넣지 않고 서버 환경변수로만 관리해야 한다. 복기 보관함은 저장된 결과를 읽는 기능일 뿐, Key를 앱에 노출하지 않는다.
-- 복기 보관함 진입 전면 광고는 `VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID`로 분리했다. 운영 배포 전 Google 테스트 광고 단위가 남아 있으면 `npm run release:check`에서 실패해야 한다.
-- 광고 로딩 실패나 웹 환경에서는 사용자의 저장 데이터 접근을 막지 않는다. 광고 수익화보다 사용자가 보관한 데이터 접근권을 우선한다.
-## 2026-06-21 AI 복기 동의 기록
-
-- AI 복기 동의는 `ALPHAMATE_PRIVACY_CONSENT_VERSION` 값과 UTC 시각으로 계정에 저장된다.
-- 동의 이력은 최신 상태만 저장하며, 계정 데이터 내보내기와 계정 삭제 범위에 포함된다.
-- 개인정보처리방침 문구를 바꾸는 경우 `ALPHAMATE_PRIVACY_CONSENT_VERSION`도 함께 올려야 한다.
-- 매매복기 계정 관리 화면은 현재 동의 안내 버전과 AI/개인정보 이용 안내를 보여준다.
-- 안내 문구가 실제 개인정보처리방침과 달라지지 않도록, 배포 전 정책 문구와 앱 내 안내를 함께 검토해야 한다.
-
-## 2026-06-21 개인정보처리방침 URL 점검
-
-- 운영 배포 전 `ALPHAMATE_PRIVACY_POLICY_URL`에 공개 HTTPS 개인정보처리방침 주소를 설정해야 한다.
-- `/api/app/readiness`와 `backend/scripts/validate_release_env.py`는 이 값이 없거나 HTTPS 주소가 아니면 실패한다.
-- Play Store 등록 정보의 개인정보처리방침 URL, 앱 내 `개인정보/AI 이용 안내`, 서버의 `ALPHAMATE_PRIVACY_CONSENT_VERSION`은 같은 정책 문서를 기준으로 함께 관리해야 한다.
-
-## 2026-06-20 운영 데이터 저장소 설정
-
-- 운영 배포에서는 계정, 매매 기록, 이용권/광고 보상, 복기 보관함, 운영 이벤트 로그 DB 경로를 반드시 명시해야 한다.
-- 필요한 환경변수는 `ALPHAMATE_ACCOUNT_DB_PATH`, `ALPHAMATE_JOURNAL_DB_PATH`, `ALPHAMATE_ACCESS_DB_PATH`, `ALPHAMATE_REVIEW_HISTORY_DB_PATH`, `ALPHAMATE_EVENT_LOG_DB_PATH`, `ALPHAMATE_ADMIN_TOKEN`이다.
-- 실패한 `/api/...` 요청은 `operational_events` 테이블에 method, path, status code, 사용자 ID, 메시지, 안전한 부가정보로 저장된다. Authorization, token, secret, password, private key처럼 비밀값으로 보이는 필드는 저장 전에 `[redacted]`로 바뀐다.
-- 모바일 앱의 광고/결제 SDK 실패는 `POST /api/client-events`를 통해 같은 `operational_events` 테이블에 저장한다. 클라이언트 보고는 장애 분석용 보조 정보이며, 광고 보상이나 결제 지급의 신뢰 근거로 사용하면 안 된다.
-- 프론트 전역 JavaScript 오류와 처리되지 않은 Promise 오류도 `POST /api/client-events`로 보고한다. 같은 페이지 로딩 중 같은 종류의 전역 오류는 한 번만 보내서 오류 루프가 로그 DB를 채우지 않게 한다.
-- 운영 이벤트 details는 긴 문자열, 큰 배열, 큰 객체를 저장 전에 제한한다. 이는 로그 DB 폭증과 과도한 개인정보 보관을 줄이기 위한 보조 안전장치다.
-- 모든 응답에는 `X-Request-ID`를 붙이고, 실패 로그에는 같은 request id를 저장한다. 사용자가 오류를 제보할 때 request id로 추적하되, request id 자체에는 개인정보나 토큰을 넣지 않는다.
-- 프론트는 API 실패 응답의 `X-Request-ID`를 사용자 오류 메시지에 `문의용 ID`로 덧붙인다. 이는 사용자가 복잡한 개발자 도구를 열지 않아도 운영자가 같은 요청을 찾을 수 있게 하기 위한 표시다.
-- `GET /api/admin/operational-events`는 `Authorization: Bearer ...`에 담긴 `ALPHAMATE_ADMIN_TOKEN`이 맞을 때만 최근 운영 로그를 반환한다. 이 토큰은 서버 secret으로만 관리하고 앱, frontend 환경변수, GitHub에 넣지 않는다.
-- `GET /api/admin/operational-events?request_id=...`로 특정 실패 요청만 조회할 수 있다. 이 기능은 사용자 제보와 서버 로그를 연결하기 위한 관리자 전용 기능이다.
-- 같은 관리자 API는 `user_id`, `path`, `status_code` 필터도 지원한다. 사용자별 장애 조사나 특정 결제/광고/AI 복기 API 장애 범위 확인에만 사용하고, 일반 앱 화면에는 노출하지 않는다.
-- 같은 관리자 API는 `event_id`, `created_after`, `created_before` 필터도 지원한다. 시간대 필터는 장애 발생 시간대를 좁혀 확인하기 위한 기능이며, 관리자 토큰 없이 노출하면 안 된다.
-- 관리자 로그 조회와 요약 API는 `limit`과 `offset`을 지원한다. 운영자는 필요한 범위만 페이지 단위로 조회하고, 무리하게 큰 limit로 로그 DB를 훑지 않는다.
-- 배포 준비 점검은 `ALPHAMATE_ADMIN_TOKEN`이 32자 미만이면 실패시킨다. 토큰 값은 readiness, release check, 로그 어디에도 출력하지 않는다.
-- `GET /api/admin/operational-events/summary`도 같은 관리자 토큰으로 보호하며, 최근 운영 로그를 level, event type, path, status code, user 기준으로 집계해 장애 원인 분류에 사용한다. 상세 조회와 같은 필터를 지원하므로 특정 사용자, API, 요청 ID, 시간대만 요약할 수 있다.
-- `DELETE /api/admin/operational-events/retention`은 같은 관리자 토큰으로 보호하며, 지정한 보관기간보다 오래된 운영 로그만 삭제한다. 보관기간은 7일 미만으로 설정할 수 없고, 개인정보 최소 보관과 장애 분석 필요성 사이에서 운영 정책으로 정한다.
-- `ALPHAMATE_EVENT_LOG_RETENTION_DAYS`를 설정하면 서버 시작 시 같은 보관기간 정책을 자동 적용한다. 값이 없으면 자동 삭제하지 않고, 잘못된 값은 삭제 없이 건너뛴다.
-- `/api/client-events`는 IP별 분당 기본 60회 rate limit을 적용한다. `ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE`로 조정할 수 있으며, 이 API는 장애 분석 보조 정보만 받는 통로라서 과도한 호출은 429로 거부한다.
-- 관리자 운영 로그 API들은 IP별 분당 기본 30회 rate limit을 적용한다. `ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE`로 조정할 수 있으며, 토큰 무작위 대입과 실수성 과다 조회를 줄이기 위한 보조 방어다.
-- backend CORS 허용 Origin은 `ALPHAMATE_CORS_ORIGINS`로 명시할 수 있다. 기본값은 로컬 개발/프리뷰와 Capacitor WebView Origin을 포함하며, 운영 웹 도메인을 배포할 때는 해당 HTTPS 주소를 추가한다.
-- `/healthz`와 `/api/healthz`는 배포 플랫폼 또는 모니터링용 생존 확인만 담당한다. 상세 설정 상태는 `/api/app/readiness`에서 확인하고, health endpoint에는 secret 이름이나 누락 설정을 노출하지 않는다.
-- 기본 개발 경로인 `backend/data/*.sqlite3`는 로컬 개발용으로만 보고, 운영에서는 백업 가능한 서버 볼륨이나 관리형 DB 마이그레이션 대상으로 분리해야 한다.
-- 현재 코드는 SQLite 기반이므로 초기 운영은 명시 경로 + 백업 정책으로 시작할 수 있지만, 사용자 수가 늘면 PostgreSQL 같은 관리형 DB로 옮기는 것이 다음 큰 단계다.
+- 운영 로그 DB는 `ALPHAMATE_EVENT_LOG_DB_PATH`로 분리한다.
+- 관리자 로그 API는 `ALPHAMATE_ADMIN_TOKEN`으로 보호하고 production에서는 32자 이상의 긴 토큰을 요구한다.
+- 로그 details는 secret-like 값, 긴 문자열, 큰 객체를 저장 전에 줄이거나 가린다.
+- 사용자가 오류 화면의 문의용 ID를 알려주면 관리자 API에서 `request_id`로 해당 실패를 찾을 수 있다.

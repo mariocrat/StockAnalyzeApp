@@ -98,6 +98,7 @@ class PolicyDocumentationTest(unittest.TestCase):
             ROOT / "docs" / "project_owner_dashboard.md",
             ROOT / "docs" / "release_preparation_checklist.md",
             ROOT / "docs" / "ai_review_monetization_plan.md",
+            ROOT / "docs" / "security_deployment_plan.md",
         ]
         for path in paths:
             text = path.read_text(encoding="utf-8")
