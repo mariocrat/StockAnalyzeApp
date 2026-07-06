@@ -1,4 +1,4 @@
-﻿Set-StrictMode -Version Latest
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = $utf8NoBom
@@ -51,6 +51,10 @@ if (-not (Test-Path $frontend)) {
 
 if (-not (Test-Path $android)) {
     throw "Android 프로젝트를 찾을 수 없습니다. 경로: $android"
+}
+
+if (-not (Test-Path $frontendReleaseEnv)) {
+    throw "출시 설정 파일을 찾을 수 없습니다. 경로: $frontendReleaseEnv. prepare_release_env_files.bat를 먼저 실행하세요."
 }
 
 Test-RequiredPath -Path $javaHome -MissingMessage "로컬 JDK 폴더를 찾을 수 없습니다."

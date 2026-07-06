@@ -38,6 +38,16 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("ANDROID_HOME", script)
         self.assertNotIn("ALPHAMATE_ANDROID_KEYSTORE_PASSWORD)", script)
 
+    def test_release_verification_checks_release_env_before_local_tools(self):
+        script = (ROOT / "scripts" / "verify_android_release.ps1").read_text(encoding="utf-8")
+
+        release_env_check = script.find("Test-Path $frontendReleaseEnv")
+        local_tool_check = script.find("Test-RequiredPath -Path $javaHome")
+        self.assertGreaterEqual(release_env_check, 0)
+        self.assertGreater(local_tool_check, release_env_check)
+        self.assertIn("prepare_release_env_files.bat", script)
+
+
     def test_android_verification_scripts_force_utf8_console_output(self):
         for script_name in ("verify_android_debug.ps1", "verify_android_release.ps1"):
             with self.subTest(script=script_name):
