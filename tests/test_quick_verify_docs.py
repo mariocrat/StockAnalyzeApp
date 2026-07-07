@@ -30,6 +30,9 @@ class QuickVerifyDocsTest(unittest.TestCase):
         self.assertIn(".\\verify_project.bat", docs)
         self.assertIn(".\\verify_android_debug.bat", docs)
         self.assertIn("PowerShell에서는 앞에 `.\\`를 붙여야 합니다", docs)
+        self.assertIn("ALPHAMATE_NO_PAUSE", docs)
+        self.assertIn("release_readiness_report.bat", docs)
+        self.assertIn("verify_android_release.bat", docs)
 
     def test_owner_docs_avoid_stale_workspace_paths(self):
         docs = [

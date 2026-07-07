@@ -33,4 +33,14 @@ Android 래퍼와 디버그 APK 빌드까지 확인하려면 프로젝트 루트
 
 이 검증은 `npm run mobile:build`를 실행해 Capacitor 파일을 Android 프로젝트에 동기화하고 `frontend/android/app/build/outputs/apk/debug/app-debug.apk`를 빌드합니다.
 
+Codex나 자동화에서 배치 파일의 `Press any key` 대기를 건너뛰려면 실행 전에 아래 값을 켭니다.
+
+```powershell
+$env:ALPHAMATE_NO_PAUSE='1'
+.\verify_android_debug.bat
+Remove-Item Env:\ALPHAMATE_NO_PAUSE
+```
+
+같은 값은 `release_readiness_report.bat`, `verify_android_release.bat`에도 사용할 수 있습니다. 더블클릭으로 직접 실행할 때는 설정하지 않아도 됩니다.
+
 이 검증은 로컬 개발 품질 확인용입니다. 실제 서버 비밀값이 필요한 운영 출시 환경 검사는 `docs/manual_test_guide.md`의 백엔드/프론트 출시 검증 절차를 따릅니다.
