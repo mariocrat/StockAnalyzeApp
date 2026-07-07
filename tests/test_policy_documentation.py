@@ -69,6 +69,9 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertIn("실제 OpenAI Key를 서버 설정에 넣고", dashboard)
         self.assertIn("운영 서버 후보를 정하고 HTTPS API 주소", dashboard)
         self.assertIn("Google Play 테스트 결제와 AdMob 보상형 광고를 실기기", dashboard)
+        self.assertIn("내가 미리 준비하면 좋은 정보", dashboard)
+        self.assertIn("Google Play 서비스 계정 JSON", dashboard)
+        self.assertIn("실제 값이 준비되면 `.env.release`", dashboard)
         self.assertNotIn("운영/배포 준비 상태를 더 쉽게 확인하는 체크리스트", dashboard)
 
     def test_release_checklist_uses_korean_final_verification_labels(self):

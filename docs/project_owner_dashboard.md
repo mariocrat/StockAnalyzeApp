@@ -101,6 +101,22 @@ AlphaMate는 현재 테마 상승률/차트 기능과 매매복기 기능의 큰
 - AdMob 앱, 보상형 광고 단위, 전면 광고 단위, SSV 콜백 설정
 - Android 서명 키와 출시 빌드 설정
 
+### 내가 미리 준비하면 좋은 정보
+
+| 준비물 | 어디서 준비하는지 | 왜 필요한지 |
+| --- | --- | --- |
+| OpenAI API Key | OpenAI Platform | 일반/심층 AI 복기를 실제 모델로 실행하기 위해 필요 |
+| 운영 서버 HTTPS 주소 | 서버 호스팅 업체 또는 클라우드 | 앱이 AI 복기, 로그인, 결제 검증, 광고 보상 검증을 보낼 API 주소 |
+| 개인정보처리방침 공개 URL | 본인 웹사이트, Notion 공개 페이지, 호스팅 페이지 등 | Play Store 심사와 앱 내 개인정보/AI 이용 안내에 필요 |
+| 카카오 REST API Key와 Redirect URI | 카카오 개발자 콘솔 | 카카오 로그인 실제 연결에 필요 |
+| 네이버 Client ID/Secret과 Redirect URI | 네이버 개발자 센터 | 네이버 로그인 실제 연결에 필요 |
+| Google Play 패키지명과 상품 ID | Google Play Console | Pro 구독과 일반/심층 복기권 결제 검증에 필요 |
+| Google Play 서비스 계정 JSON | Google Cloud와 Play Console | 서버가 구매 토큰과 구독 상태를 검증하기 위해 필요 |
+| AdMob 앱 ID와 광고 단위 ID | AdMob | 보상형 광고, 전면 광고, 배너 광고를 실제 광고로 바꾸기 위해 필요 |
+| Android 업로드 서명 키 | 로컬 PC에서 생성 후 안전 보관 | Play Store에 AAB를 올리고 이후 업데이트를 계속하기 위해 필요 |
+
+이 값들은 대부분 GitHub에 올리면 안 됩니다. 실제 값이 준비되면 `.env.release` 같은 로컬/서버 비밀 설정에만 넣고, 문서에는 값 자체가 아니라 준비 여부만 남기는 방식이 안전합니다.
+
 ### 실제 기기에서 꼭 확인할 것
 
 - 카카오/네이버 실제 로그인
