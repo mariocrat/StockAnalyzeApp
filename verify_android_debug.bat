@@ -7,9 +7,11 @@ set EXIT_CODE=%ERRORLEVEL%
 if not "%EXIT_CODE%"=="0" (
   echo.
   echo Android debug build verification failed. Error code: %EXIT_CODE%
+  if "%ALPHAMATE_NO_PAUSE%"=="1" exit /b %EXIT_CODE%
   pause
   exit /b %EXIT_CODE%
 )
 echo.
 echo Android debug build verification passed.
-pause
+if not "%ALPHAMATE_NO_PAUSE%"=="1" pause
+exit /b 0

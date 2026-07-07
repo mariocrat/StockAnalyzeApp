@@ -14,6 +14,8 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("ExecutionPolicy Bypass", batch)
         self.assertTrue(batch.isascii())
         self.assertIn("Android release build verification passed.", batch)
+        self.assertIn("ALPHAMATE_NO_PAUSE", batch)
+        self.assertIn("if not \"%ALPHAMATE_NO_PAUSE%\"==\"1\" pause", batch)
         self.assertIn("pause", batch.lower())
 
     def test_double_click_batch_runs_android_debug_verification_script(self):
@@ -24,6 +26,8 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("ExecutionPolicy Bypass", batch)
         self.assertTrue(batch.isascii())
         self.assertIn("Android debug build verification passed.", batch)
+        self.assertIn("ALPHAMATE_NO_PAUSE", batch)
+        self.assertIn("if not \"%ALPHAMATE_NO_PAUSE%\"==\"1\" pause", batch)
         self.assertIn("pause", batch.lower())
 
     def test_release_verification_script_loads_frontend_release_env_and_builds_aab(self):
