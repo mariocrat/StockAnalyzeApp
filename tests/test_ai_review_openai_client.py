@@ -15,6 +15,9 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         "ALPHAMATE_OPENAI_MAX_RETRIES",
         "ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS",
         "ALPHAMATE_ENV_FILE",
+        "OPENAI_BASIC_REVIEW_MODEL",
+        "OPENAI_ADVANCED_REVIEW_MODEL",
+        "OPENAI_MODEL",
     ]
 
     def setUp(self):
@@ -154,6 +157,64 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         finally:
             os.unlink(env_path)
 
+    def test_ai_review_uses_expected_default_model_ids(self):
+        captured = []
+
+        def fake_call(payload, *, model, instructions):
+            captured.append((payload["review_type"], model))
+            return f"{payload['review_type']}-ok"
+
+        self.ai_review_v2._contexts_for_trades = lambda trades: []
+        self.ai_review_v2._call_openai_review = fake_call
+
+        basic = self.ai_review_v2.build_basic_ai_review([{
+            "id": 1,
+            "trade_date": "2026-06-19T10:30",
+            "ticker": "005930",
+            "name": "삼성전자",
+            "side": "buy",
+            "price": 70000,
+            "quantity": 1,
+        }])
+        advanced = self.ai_review_v2.build_advanced_ai_review([{
+            "id": 2,
+            "trade_date": "2026-06-20T10:30",
+            "ticker": "005930",
+            "name": "삼성전자",
+            "side": "sell",
+            "price": 72000,
+            "quantity": 1,
+        }])
+
+        self.assertEqual("gpt-5.4-mini", basic["model"])
+        self.assertEqual("gpt-5.5", advanced["model"])
+        self.assertEqual([("basic", "gpt-5.4-mini"), ("advanced", "gpt-5.5")], captured)
+
+    def test_ai_review_model_ids_are_configurable(self):
+        os.environ["OPENAI_BASIC_REVIEW_MODEL"] = "custom-basic-model"
+        os.environ["OPENAI_ADVANCED_REVIEW_MODEL"] = "custom-advanced-model"
+        captured = []
+
+        def fake_call(payload, *, model, instructions):
+            captured.append(model)
+            return "ok"
+
+        self.ai_review_v2._contexts_for_trades = lambda trades: []
+        self.ai_review_v2._call_openai_review = fake_call
+        trade = {
+            "id": 1,
+            "trade_date": "2026-06-19T10:30",
+            "ticker": "005930",
+            "name": "삼성전자",
+            "side": "buy",
+            "price": 70000,
+            "quantity": 1,
+        }
+
+        self.ai_review_v2.build_basic_ai_review([trade])
+        self.ai_review_v2.build_advanced_ai_review([trade])
+
+        self.assertEqual(["custom-basic-model", "custom-advanced-model"], captured)
 
 if __name__ == "__main__":
     unittest.main()
