@@ -180,6 +180,8 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("Backend release readiness", script)
         self.assertIn("Frontend/Android release readiness", script)
         self.assertIn("validate_release_alignment.py", script)
+        self.assertIn("ALPHAMATE_NO_PAUSE", script)
+        self.assertIn("if not \"%ALPHAMATE_NO_PAUSE%\"==\"1\" pause", script)
 
     def test_format_owner_release_readiness_report_hides_secret_values(self):
         from backend.core.release_check import format_owner_release_readiness_report

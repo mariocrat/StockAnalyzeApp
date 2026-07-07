@@ -20,6 +20,7 @@ if exist "frontend\.env.release" (
 
 if not exist ".venv\Scripts\python.exe" (
   echo Python virtual environment was not found: %cd%\.venv\Scripts\python.exe
+  if "%ALPHAMATE_NO_PAUSE%"=="1" exit /b 1
   pause
   exit /b 1
 )
@@ -59,5 +60,5 @@ if "%REPORT_EXIT%"=="0" (
   echo Some release readiness items still need setup.
 )
 echo.
-pause
+if not "%ALPHAMATE_NO_PAUSE%"=="1" pause
 exit /b %REPORT_EXIT%
