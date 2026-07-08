@@ -88,6 +88,16 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertNotIn("Android release AAB build", checklist)
         self.assertNotIn("In-memory rate limiter safety cap", checklist)
 
+    def test_release_checklist_documents_split_interstitial_ad_units(self):
+        checklist = (ROOT / "docs" / "release_preparation_checklist.md").read_text(encoding="utf-8")
+
+        self.assertIn("VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID", checklist)
+        self.assertIn("VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID", checklist)
+        self.assertIn("VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID", checklist)
+        self.assertIn("복기 보관함 진입용 전면 광고 단위", checklist)
+        self.assertIn("앱 복귀용 전면 광고 단위", checklist)
+        self.assertIn("차트 자세히 보기용 전면 광고 단위", checklist)
+        self.assertNotIn("전면 광고에 함께 쓰인다", checklist)
     def test_release_checklist_uses_fixed_android_package_name(self):
         checklist = (ROOT / "docs" / "release_preparation_checklist.md").read_text(encoding="utf-8")
 
