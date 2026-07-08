@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Added release alignment checks and env templates for `ALPHAMATE_OAUTH_APP_SCHEME` so backend OAuth app-return links keep matching the Android package/deep-link scheme.
 - Clarified that app-return ads currently use the installed AdMob interstitial flow, not a separate App Open Ad format.
 - Clarified owner-facing batch command examples so PowerShell users run wrappers with the required `.\` prefix while Command Prompt and double-click remain supported.
 - Fixed frontend client-event reporting to call browser fetch with the correct request options shape so operational logs are actually sent.

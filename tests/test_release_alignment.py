@@ -120,6 +120,36 @@ class ReleaseAlignmentTest(unittest.TestCase):
             os.unlink(backend_env)
             os.unlink(frontend_env)
 
+
+    def test_rejects_backend_oauth_app_scheme_that_differs_from_android_package_identity(self):
+        backend_env = write_env_file("\n".join([
+            "GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
+            "ALPHAMATE_OAUTH_APP_SCHEME=com.other.app",
+        ]))
+        frontend_env = write_env_file("\n".join([
+            "VITE_GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
+        ]))
+        try:
+            with patched_env(
+                ALPHAMATE_ENV_FILE=backend_env,
+                ALPHAMATE_FRONTEND_ENV_FILE=frontend_env,
+                GOOGLE_PLAY_PACKAGE_NAME=None,
+                ALPHAMATE_OAUTH_APP_SCHEME=None,
+                VITE_GOOGLE_PLAY_PACKAGE_NAME=None,
+            ):
+                from backend.scripts.validate_release_alignment import validate_release_alignment
+
+                result = validate_release_alignment()
+
+            self.assertFalse(result["ok"])
+            self.assertIn(
+                "ALPHAMATE_OAUTH_APP_SCHEME must match VITE_GOOGLE_PLAY_PACKAGE_NAME",
+                result["errors"],
+            )
+        finally:
+            os.unlink(backend_env)
+            os.unlink(frontend_env)
+
     def test_rejects_mismatched_backend_and_frontend_release_settings(self):
         backend_env = write_env_file("\n".join([
             "GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",

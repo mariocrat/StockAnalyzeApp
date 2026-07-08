@@ -107,10 +107,11 @@ ALPHAMATE_EVENT_LOG_DB_PATH=/secure-data/event_log.sqlite3
 
 ```env
 VITE_KAKAO_REST_API_KEY=카카오_REST_API_KEY
-VITE_KAKAO_REDIRECT_URI=https://your-app.example.com/oauth/kakao
+VITE_KAKAO_REDIRECT_URI=https://your-api.example.com/api/auth/kakao/callback
 KAKAO_CLIENT_ID=카카오_REST_API_KEY
-KAKAO_REDIRECT_URI=https://your-app.example.com/oauth/kakao
+KAKAO_REDIRECT_URI=https://your-api.example.com/api/auth/kakao/callback
 ALPHAMATE_OAUTH_TIMEOUT_SECONDS=8
+ALPHAMATE_OAUTH_APP_SCHEME=com.mariocrat.stockanalyze
 ```
 
 `KAKAO_CLIENT_SECRET`은 카카오 설정에서 필요한 경우에만 서버 Secret으로 따로 설정합니다. 실제 값은 문서나 GitHub에 적지 않습니다.
@@ -127,10 +128,11 @@ ALPHAMATE_OAUTH_TIMEOUT_SECONDS=8
 
 ```env
 VITE_NAVER_CLIENT_ID=네이버_Client_ID
-VITE_NAVER_REDIRECT_URI=https://your-app.example.com/oauth/naver
+VITE_NAVER_REDIRECT_URI=https://your-api.example.com/api/auth/naver/callback
 NAVER_CLIENT_ID=네이버_Client_ID
-NAVER_REDIRECT_URI=https://your-app.example.com/oauth/naver
+NAVER_REDIRECT_URI=https://your-api.example.com/api/auth/naver/callback
 ALPHAMATE_OAUTH_TIMEOUT_SECONDS=8
+ALPHAMATE_OAUTH_APP_SCHEME=com.mariocrat.stockanalyze
 ```
 
 `NAVER_CLIENT_SECRET`은 서버 Secret으로 따로 설정합니다. 실제 값은 문서나 GitHub에 적지 않습니다.
