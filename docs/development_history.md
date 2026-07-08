@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Added an owner-facing message encoding guard so release reports and verification scripts fail tests if Korean text is saved with mojibake or replacement characters.
 - Hardened release alignment checks so `ALPHAMATE_OAUTH_APP_SCHEME` must match backend `GOOGLE_PLAY_PACKAGE_NAME` even when the frontend release env is missing.
 - Added release alignment checks and env templates for `ALPHAMATE_OAUTH_APP_SCHEME` so backend OAuth app-return links keep matching the Android package/deep-link scheme.
 - Clarified that app-return ads currently use the installed AdMob interstitial flow, not a separate App Open Ad format.
