@@ -120,6 +120,16 @@ class ReleaseAlignmentTest(unittest.TestCase):
             os.unlink(backend_env)
             os.unlink(frontend_env)
 
+    def test_release_alignment_report_uses_readable_korean(self):
+        from backend.scripts.validate_release_alignment import format_release_alignment_report
+
+        report = format_release_alignment_report({"ok": False, "errors": ["SETTING must match APP_SETTING"]})
+
+        self.assertIn("AlphaMate 서버/앱 설정 일치 보고서", report)
+        self.assertIn("주의:", report)
+        self.assertNotIn("?쒕", report)
+        self.assertNotIn("以", report)
+        self.assertNotRegex(report, r"[\u4e00-\u9fff]")
 
     def test_rejects_backend_oauth_app_scheme_that_differs_from_android_package_identity(self):
         backend_env = write_env_file("\n".join([
@@ -150,6 +160,32 @@ class ReleaseAlignmentTest(unittest.TestCase):
             os.unlink(backend_env)
             os.unlink(frontend_env)
 
+    def test_rejects_backend_oauth_app_scheme_that_differs_from_backend_package_even_without_frontend_value(self):
+        backend_env = write_env_file("\n".join([
+            "GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
+            "ALPHAMATE_OAUTH_APP_SCHEME=com.other.app",
+        ]))
+        frontend_env = write_env_file("")
+        try:
+            with patched_env(
+                ALPHAMATE_ENV_FILE=backend_env,
+                ALPHAMATE_FRONTEND_ENV_FILE=frontend_env,
+                GOOGLE_PLAY_PACKAGE_NAME=None,
+                ALPHAMATE_OAUTH_APP_SCHEME=None,
+                VITE_GOOGLE_PLAY_PACKAGE_NAME=None,
+            ):
+                from backend.scripts.validate_release_alignment import validate_release_alignment
+
+                result = validate_release_alignment()
+
+            self.assertFalse(result["ok"])
+            self.assertIn(
+                "ALPHAMATE_OAUTH_APP_SCHEME must match GOOGLE_PLAY_PACKAGE_NAME",
+                result["errors"],
+            )
+        finally:
+            os.unlink(backend_env)
+            os.unlink(frontend_env)
     def test_rejects_mismatched_backend_and_frontend_release_settings(self):
         backend_env = write_env_file("\n".join([
             "GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
@@ -225,7 +261,6 @@ class ReleaseAlignmentTest(unittest.TestCase):
             os.unlink(backend_env)
             os.unlink(frontend_env)
 
-
     def test_rejects_frontend_package_name_that_differs_from_fixed_android_package_identity(self):
         backend_env = write_env_file("\n".join([
             "GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze",
@@ -252,5 +287,7 @@ class ReleaseAlignmentTest(unittest.TestCase):
         finally:
             os.unlink(backend_env)
             os.unlink(frontend_env)
+
+
 if __name__ == "__main__":
     unittest.main()

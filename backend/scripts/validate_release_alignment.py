@@ -62,7 +62,11 @@ def validate_release_alignment() -> dict:
         if backend_value != frontend_value:
             errors.append(f"{backend_key} must match {frontend_key}")
     backend_package = env_value("GOOGLE_PLAY_PACKAGE_NAME")
+    backend_oauth_app_scheme = env_value("ALPHAMATE_OAUTH_APP_SCHEME")
     frontend_package = str(frontend_env.get("VITE_GOOGLE_PLAY_PACKAGE_NAME") or "").strip()
+    if backend_package and backend_oauth_app_scheme and backend_package != backend_oauth_app_scheme:
+        checked.append({"backend": "ALPHAMATE_OAUTH_APP_SCHEME", "frontend": "GOOGLE_PLAY_PACKAGE_NAME"})
+        errors.append("ALPHAMATE_OAUTH_APP_SCHEME must match GOOGLE_PLAY_PACKAGE_NAME")
     if backend_package and backend_package != EXPECTED_RELEASE_PACKAGE_NAME:
         errors.append("GOOGLE_PLAY_PACKAGE_NAME must be com.mariocrat.stockanalyze")
     if frontend_package and frontend_package != EXPECTED_RELEASE_PACKAGE_NAME:

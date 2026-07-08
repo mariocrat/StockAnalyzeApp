@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Hardened release alignment checks so `ALPHAMATE_OAUTH_APP_SCHEME` must match backend `GOOGLE_PLAY_PACKAGE_NAME` even when the frontend release env is missing.
 - Added release alignment checks and env templates for `ALPHAMATE_OAUTH_APP_SCHEME` so backend OAuth app-return links keep matching the Android package/deep-link scheme.
 - Clarified that app-return ads currently use the installed AdMob interstitial flow, not a separate App Open Ad format.
 - Clarified owner-facing batch command examples so PowerShell users run wrappers with the required `.\` prefix while Command Prompt and double-click remain supported.
