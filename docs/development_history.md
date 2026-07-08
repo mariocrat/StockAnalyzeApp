@@ -683,3 +683,11 @@
 - 최종 검증 목록에 `프론트 스플래시 로딩 정책 테스트`를 추가해 실제 `verify_project.bat` 검증 단계와 맞췄다.
 - `tests/test_policy_documentation.py`가 `scripts/verify_project.ps1`의 `Run-Step` 이름을 읽어 출시 체크리스트에 모두 포함되는지 확인하도록 보강했다.
 - 앞으로 전체 검증 단계가 추가될 때 출시 체크리스트가 빠지는 일을 테스트에서 잡을 수 있다.
+
+## 2026-07-08 Release OAuth and AdMob Hardening
+
+- Fixed Android release identity validation so production builds reject package names other than `com.mariocrat.stockanalyze`.
+- Added backend OAuth app-return callbacks that exchange Kakao/Naver authorization codes on the server, issue a short-lived one-time app login ticket, and redirect to `com.mariocrat.stockanalyze://oauth/{provider}` without exposing session tokens in URLs.
+- Added Android OAuth deep links and frontend Capacitor app URL handling for the one-time ticket flow.
+- Split AdMob interstitial ad unit settings by placement: review history, app resume, and chart detail.
+- Added a Billing Library audit test that verifies the Play Billing client dependency used by `capacitor-plugin-cdv-purchase` is version 8 or newer.

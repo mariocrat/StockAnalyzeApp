@@ -24,3 +24,14 @@ test('Android app label is injected from release branding settings', () => {
   assert.match(indexHtml, /%APP_TITLE%/);
   assert.doesNotMatch(indexHtml, /%VITE_APP_NAME%/);
 });
+
+test('Android Manifest declares OAuth app return deep link for the package scheme', () => {
+  const manifest = fs.readFileSync('android/app/src/main/AndroidManifest.xml', 'utf8');
+
+  assert.match(manifest, /android:scheme="@string\/custom_url_scheme"/);
+  assert.match(manifest, /android:host="oauth"/);
+  assert.match(manifest, /android:pathPrefix="\/kakao"/);
+  assert.match(manifest, /android:pathPrefix="\/naver"/);
+  assert.match(manifest, /android.intent.action.VIEW/);
+  assert.match(manifest, /android.intent.category.BROWSABLE/);
+});

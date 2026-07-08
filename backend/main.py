@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from typing import Optional
 import uvicorn
@@ -34,7 +34,7 @@ from core.access_control import (
     verify_ai_review_access,
 )
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
-from core.oauth_login import get_oauth_config_status, login_oauth_code, login_oauth_provider
+from core.oauth_login import create_oauth_app_error_redirect, create_oauth_app_redirect, consume_oauth_app_ticket, get_oauth_config_status, login_oauth_code, login_oauth_provider
 from core.cors import allowed_cors_origins
 from core.readiness import get_app_readiness
 from core.rate_limit import InMemoryRateLimiter
@@ -190,6 +190,10 @@ class AuthProviderCodeIn(BaseModel):
     code: str
     redirect_uri: str = ""
     state: str = ""
+
+
+class AuthOAuthTicketIn(BaseModel):
+    ticket: str
 
 
 class JournalStorageSettingIn(BaseModel):
@@ -1094,6 +1098,29 @@ def post_auth_login_naver_code(login: AuthProviderCodeIn, request: Request):
         redirect_uri=login.redirect_uri,
         state=login.state,
     )
+
+
+
+@app.post("/api/auth/login/oauth-ticket")
+def post_auth_login_oauth_ticket(login: AuthOAuthTicketIn, request: Request):
+    _enforce_auth_rate_limit(_request_client_key(request))
+    return consume_oauth_app_ticket(login.ticket)
+
+
+@app.get("/api/auth/kakao/callback")
+def get_auth_kakao_callback(request: Request, code: str = "", state: str = "", error: str = ""):
+    _enforce_auth_rate_limit(_request_client_key(request))
+    if error:
+        return RedirectResponse(create_oauth_app_error_redirect(provider="kakao", state=state, error=error))
+    return RedirectResponse(create_oauth_app_redirect(provider="kakao", code=code, state=state))
+
+
+@app.get("/api/auth/naver/callback")
+def get_auth_naver_callback(request: Request, code: str = "", state: str = "", error: str = ""):
+    _enforce_auth_rate_limit(_request_client_key(request))
+    if error:
+        return RedirectResponse(create_oauth_app_error_redirect(provider="naver", state=state, error=error))
+    return RedirectResponse(create_oauth_app_redirect(provider="naver", code=code, state=state))
 
 
 @app.get("/api/auth/oauth-config")

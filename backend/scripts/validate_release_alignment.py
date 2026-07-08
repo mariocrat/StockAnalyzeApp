@@ -10,6 +10,8 @@ from backend.core.env import env_value
 
 
 FRONTEND_ENV_DEFAULT = ROOT / "frontend" / ".env.release"
+EXPECTED_RELEASE_PACKAGE_NAME = "com.mariocrat.stockanalyze"
+
 ALIGNMENT_PAIRS = [
     ("GOOGLE_PLAY_PACKAGE_NAME", "VITE_GOOGLE_PLAY_PACKAGE_NAME"),
     ("KAKAO_CLIENT_ID", "VITE_KAKAO_REST_API_KEY"),
@@ -58,6 +60,12 @@ def validate_release_alignment() -> dict:
         checked.append({"backend": backend_key, "frontend": frontend_key})
         if backend_value != frontend_value:
             errors.append(f"{backend_key} must match {frontend_key}")
+    backend_package = env_value("GOOGLE_PLAY_PACKAGE_NAME")
+    frontend_package = str(frontend_env.get("VITE_GOOGLE_PLAY_PACKAGE_NAME") or "").strip()
+    if backend_package and backend_package != EXPECTED_RELEASE_PACKAGE_NAME:
+        errors.append("GOOGLE_PLAY_PACKAGE_NAME must be com.mariocrat.stockanalyze")
+    if frontend_package and frontend_package != EXPECTED_RELEASE_PACKAGE_NAME:
+        errors.append("VITE_GOOGLE_PLAY_PACKAGE_NAME must be com.mariocrat.stockanalyze")
     if not checked:
         errors.append("No comparable server/app release settings were found")
     return {

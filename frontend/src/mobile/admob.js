@@ -12,10 +12,17 @@ import {
 
 const APP_ENV = import.meta.env.VITE_ALPHAMATE_ENV || (import.meta.env.PROD ? 'production' : 'development');
 const REWARDED_AD_ID = import.meta.env.VITE_ADMOB_REWARDED_AD_UNIT_ID || DEFAULT_ANDROID_TEST_REWARDED_AD_ID;
-const INTERSTITIAL_AD_ID = import.meta.env.VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID || DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
+const REVIEW_HISTORY_INTERSTITIAL_AD_ID = import.meta.env.VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID || DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
+const RESUME_INTERSTITIAL_AD_ID = import.meta.env.VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID || DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
+const CHART_DETAIL_INTERSTITIAL_AD_ID = import.meta.env.VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID || DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
 const BANNER_AD_ID = import.meta.env.VITE_ADMOB_BANNER_AD_UNIT_ID || DEFAULT_ANDROID_TEST_BANNER_AD_ID;
 const USING_TEST_AD_UNIT = REWARDED_AD_ID === DEFAULT_ANDROID_TEST_REWARDED_AD_ID;
-const USING_TEST_INTERSTITIAL_AD_UNIT = INTERSTITIAL_AD_ID === DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
+const USING_TEST_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT = REVIEW_HISTORY_INTERSTITIAL_AD_ID === DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
+const USING_TEST_RESUME_INTERSTITIAL_AD_UNIT = RESUME_INTERSTITIAL_AD_ID === DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
+const USING_TEST_CHART_DETAIL_INTERSTITIAL_AD_UNIT = CHART_DETAIL_INTERSTITIAL_AD_ID === DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
+const USING_TEST_INTERSTITIAL_AD_UNIT = USING_TEST_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT
+  || USING_TEST_RESUME_INTERSTITIAL_AD_UNIT
+  || USING_TEST_CHART_DETAIL_INTERSTITIAL_AD_UNIT;
 const USING_TEST_BANNER_AD_UNIT = BANNER_AD_ID === DEFAULT_ANDROID_TEST_BANNER_AD_ID;
 const USING_ANY_TEST_AD_UNIT = USING_TEST_AD_UNIT || USING_TEST_INTERSTITIAL_AD_UNIT || USING_TEST_BANNER_AD_UNIT;
 
@@ -25,7 +32,12 @@ export function getAdMobRuntimeStatus() {
   return createAdMobRuntimeStatus({
     appEnv: APP_ENV,
     rewardedAdId: REWARDED_AD_ID,
-    interstitialAdId: INTERSTITIAL_AD_ID,
+    interstitialAdId: REVIEW_HISTORY_INTERSTITIAL_AD_ID,
+    interstitialAdIds: [
+      REVIEW_HISTORY_INTERSTITIAL_AD_ID,
+      RESUME_INTERSTITIAL_AD_ID,
+      CHART_DETAIL_INTERSTITIAL_AD_ID,
+    ],
     bannerAdId: BANNER_AD_ID,
     native: Capacitor.isNativePlatform(),
     platform: Capacitor.getPlatform(),
@@ -67,17 +79,17 @@ export async function showRewardedReviewAd({ userId }) {
   return AdMob.showRewardVideoAd();
 }
 
-async function showInterstitialAd() {
+async function showInterstitialAd(adId) {
   if (!Capacitor.isNativePlatform()) {
     return { skipped: true, reason: 'web' };
   }
-  assertInterstitialAdCanRun({ appEnv: APP_ENV, interstitialAdId: INTERSTITIAL_AD_ID });
+  assertInterstitialAdCanRun({ appEnv: APP_ENV, interstitialAdId: adId });
 
   await initializeAdMob();
 
   await AdMob.prepareInterstitial({
-    adId: INTERSTITIAL_AD_ID,
-    isTesting: APP_ENV !== 'production' || USING_TEST_INTERSTITIAL_AD_UNIT,
+    adId,
+    isTesting: APP_ENV !== 'production' || adId === DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID,
     npa: true,
   });
   await AdMob.showInterstitial();
@@ -85,15 +97,15 @@ async function showInterstitialAd() {
 }
 
 export async function showReviewHistoryInterstitial() {
-  return showInterstitialAd();
+  return showInterstitialAd(REVIEW_HISTORY_INTERSTITIAL_AD_ID);
 }
 
 export async function showResumeInterstitial() {
-  return showInterstitialAd();
+  return showInterstitialAd(RESUME_INTERSTITIAL_AD_ID);
 }
 
 export async function showChartDetailInterstitial() {
-  return showInterstitialAd();
+  return showInterstitialAd(CHART_DETAIL_INTERSTITIAL_AD_ID);
 }
 
 export async function showAppBanner() {

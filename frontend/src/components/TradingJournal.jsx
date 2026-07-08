@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import axios from 'axios';
 import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
@@ -8,6 +9,7 @@ import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct, 
 import { shouldFinishGooglePlayTransaction } from '../mobile/billingPolicy';
 import { buildAiReviewIdempotencyKey } from '../utils/aiReviewIdempotency';
 import { reportClientEvent } from '../utils/clientEventLog';
+import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 
 const sideLabels = { buy: '매수', sell: '매도' };
 const DEFAULT_FEE_RATE = '0.015';
@@ -473,6 +475,62 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
     }
   };
 
+
+  const finishOAuthTicketLogin = async ({ provider, ticket, state }) => {
+    const stored = loadStoredOAuthState();
+    if (!stored?.provider || stored.provider !== provider || stored.state !== state) {
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      setMessage('로그인 확인값이 맞지 않습니다. 다시 로그인해 주세요.');
+      return;
+    }
+    if (Date.now() - Number(stored.created_at || 0) > 10 * 60 * 1000) {
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      setMessage('로그인 시간이 만료되었습니다. 다시 로그인해 주세요.');
+      return;
+    }
+    if (!ticket) {
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      setMessage('앱 로그인 티켓이 없습니다. 다시 로그인해 주세요.');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      const res = await axios.post(`${apiBase}/api/auth/login/oauth-ticket`, { ticket });
+      const session = res.data || null;
+      setAuthSession(session);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      await loadEntitlements(session?.session_token || '');
+      await loadDataSummary(session?.session_token || '');
+      if (session?.user?.journal_storage_enabled && session?.session_token) {
+        await loadPersistedJournal(session.session_token);
+      }
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.search = '';
+      cleanUrl.searchParams.set('view', 'journal');
+      window.history.replaceState({}, '', cleanUrl.toString());
+      setMessage(`${provider === 'kakao' ? '카카오' : '네이버'} 로그인했습니다.`);
+    } catch (err) {
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      setMessage(err.response?.data?.detail || '로그인을 완료하지 못했습니다.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleOAuthAppReturn = (rawUrl) => {
+    const parsed = parseOAuthAppReturnUrl(rawUrl);
+    if (!parsed) return false;
+    if (parsed.error) {
+      localStorage.removeItem(OAUTH_STATE_KEY);
+      setMessage('로그인이 취소되었거나 실패했습니다. 다시 시도해 주세요.');
+      return true;
+    }
+    finishOAuthTicketLogin(parsed);
+    return true;
+  };
+
   const handleLogout = async () => {
     setAuthLoading(true);
     try {
@@ -786,7 +844,23 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    let listener = null;
+    CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+      handleOAuthAppReturn(url);
+    }).then(handle => {
+      listener = handle;
+    }).catch(() => {});
+    return () => {
+      if (listener?.remove) listener.remove();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
     if (DEV_TOOLS_ENABLED || authSession?.session_token) return;
+    const appReturn = parseOAuthAppReturnUrl(window.location.href);
+    if (appReturn) {
+      handleOAuthAppReturn(window.location.href);
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');

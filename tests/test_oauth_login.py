@@ -286,6 +286,37 @@ class OAuthLoginTest(unittest.TestCase):
                 else:
                     os.environ[key] = value
 
+    def test_oauth_app_redirect_uses_one_time_app_ticket_without_session_token(self):
+        from urllib.parse import parse_qs, urlparse
+
+        from backend.core import oauth_login
+
+        oauth_login = importlib.reload(oauth_login)
+        oauth_login.login_oauth_code = lambda **kwargs: {
+            "session_token": "secret-session-token",
+            "token_type": "bearer",
+            "user": {"id": "user-1"},
+        }
+
+        redirect_url = oauth_login.create_oauth_app_redirect(
+            provider="kakao",
+            code="provider-code",
+            state="state-123",
+        )
+        parsed = urlparse(redirect_url)
+        query = parse_qs(parsed.query)
+
+        self.assertEqual("com.mariocrat.stockanalyze", parsed.scheme)
+        self.assertEqual("oauth", parsed.netloc)
+        self.assertEqual("/kakao", parsed.path)
+        self.assertEqual(["state-123"], query.get("state"))
+        self.assertNotIn("secret-session-token", redirect_url)
+
+        session = oauth_login.consume_oauth_app_ticket(query["ticket"][0])
+        self.assertEqual("secret-session-token", session["session_token"])
+        with self.assertRaises(HTTPException) as replay:
+            oauth_login.consume_oauth_app_ticket(query["ticket"][0])
+        self.assertEqual(401, replay.exception.status_code)
     def test_oauth_config_status_reports_missing_server_settings(self):
         for key in ("KAKAO_CLIENT_ID", "KAKAO_REDIRECT_URI", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "NAVER_REDIRECT_URI"):
             os.environ.pop(key, None)

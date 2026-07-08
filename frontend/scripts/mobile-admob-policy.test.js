@@ -158,3 +158,22 @@ test('shows chart detail interstitial every third entry for free users', () => {
   assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 3 }), true);
   assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 6 }), true);
 });
+
+test('checks every interstitial placement before reporting production readiness', () => {
+  const status = createAdMobRuntimeStatus({
+    appEnv: 'production',
+    rewardedAdId: 'ca-app-pub-1234567890123456/9876543210',
+    interstitialAdIds: [
+      'ca-app-pub-1234567890123456/1234567890',
+      DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID,
+      'ca-app-pub-1234567890123456/4444444444',
+    ],
+    bannerAdId: 'ca-app-pub-1234567890123456/2222222222',
+    native: true,
+    platform: 'android',
+  });
+
+  assert.equal(status.usingTestInterstitialAdUnit, true);
+  assert.equal(status.interstitialProductionMisconfigured, true);
+  assert.equal(status.interstitialAvailable, false);
+});

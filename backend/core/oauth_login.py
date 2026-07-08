@@ -1,6 +1,9 @@
 import requests
+import secrets
+import threading
+import time
 from fastapi import HTTPException
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 
 try:
     from core.account_store import _env_value, login_provider_identity
@@ -16,6 +19,10 @@ OAUTH_TIMEOUT_DEFAULT_SECONDS = 8
 OAUTH_TIMEOUT_MAX_SECONDS = 20
 PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
 LOCAL_REDIRECT_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+OAUTH_APP_TICKET_DEFAULT_SECONDS = 180
+OAUTH_APP_TICKET_MAX_SECONDS = 600
+OAUTH_APP_TICKETS = {}
+OAUTH_APP_TICKET_LOCK = threading.Lock()
 
 
 def _env_int(name: str, default: int, minimum: int = 1, maximum: int | None = None) -> int:
@@ -248,6 +255,84 @@ def _exchange_naver_code(*, code: str, redirect_uri: str, state: str) -> str:
         raise HTTPException(status_code=502, detail="Naver token response did not include access_token.")
     return access_token
 
+
+
+def _oauth_app_scheme() -> str:
+    return (_env_value("ALPHAMATE_OAUTH_APP_SCHEME") or "com.mariocrat.stockanalyze").strip()
+
+
+def _oauth_app_ticket_ttl_seconds() -> int:
+    return _env_int("ALPHAMATE_OAUTH_APP_TICKET_TTL_SECONDS", OAUTH_APP_TICKET_DEFAULT_SECONDS, 30, OAUTH_APP_TICKET_MAX_SECONDS)
+
+
+def _normalize_oauth_provider(provider: str) -> str:
+    normalized = str(provider or "").strip().lower()
+    if normalized not in {"kakao", "naver"}:
+        raise HTTPException(status_code=400, detail="Unsupported login provider.")
+    return normalized
+
+
+def _purge_expired_oauth_app_tickets(now: float) -> None:
+    expired = [ticket for ticket, payload in OAUTH_APP_TICKETS.items() if payload["expires_at"] <= now]
+    for ticket in expired:
+        OAUTH_APP_TICKETS.pop(ticket, None)
+
+
+def _issue_oauth_app_ticket(session: dict) -> tuple[str, int]:
+    ttl = _oauth_app_ticket_ttl_seconds()
+    now = time.time()
+    ticket = secrets.token_urlsafe(32)
+    with OAUTH_APP_TICKET_LOCK:
+        _purge_expired_oauth_app_tickets(now)
+        OAUTH_APP_TICKETS[ticket] = {
+            "session": session,
+            "expires_at": now + ttl,
+        }
+    return ticket, ttl
+
+
+def create_oauth_app_redirect(*, provider: str, code: str, state: str = "") -> str:
+    normalized_provider = _normalize_oauth_provider(provider)
+    auth_code = str(code or "").strip()
+    if not auth_code:
+        raise HTTPException(status_code=400, detail="code is required.")
+    session = login_oauth_code(
+        provider=normalized_provider,
+        code=auth_code,
+        redirect_uri="",
+        state=state,
+    )
+    ticket, ttl = _issue_oauth_app_ticket(session)
+    query = urlencode({
+        "ticket": ticket,
+        "state": str(state or "").strip(),
+        "expires_in": str(ttl),
+    })
+    return f"{_oauth_app_scheme()}://oauth/{normalized_provider}?{query}"
+
+
+def create_oauth_app_error_redirect(*, provider: str, state: str = "", error: str = "oauth_cancelled") -> str:
+    normalized_provider = _normalize_oauth_provider(provider)
+    query = urlencode({
+        "error": str(error or "oauth_cancelled").strip(),
+        "state": str(state or "").strip(),
+    })
+    return f"{_oauth_app_scheme()}://oauth/{normalized_provider}?{query}"
+
+
+def consume_oauth_app_ticket(ticket: str) -> dict:
+    token = str(ticket or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="ticket is required.")
+    now = time.time()
+    with OAUTH_APP_TICKET_LOCK:
+        _purge_expired_oauth_app_tickets(now)
+        payload = OAUTH_APP_TICKETS.pop(token, None)
+    if not payload:
+        raise HTTPException(status_code=401, detail="OAuth app login ticket is invalid or expired.")
+    if payload["expires_at"] <= now:
+        raise HTTPException(status_code=401, detail="OAuth app login ticket is invalid or expired.")
+    return payload["session"]
 
 def login_oauth_code(*, provider: str, code: str, redirect_uri: str = "", state: str = "") -> dict:
     normalized_provider = str(provider or "").strip().lower()

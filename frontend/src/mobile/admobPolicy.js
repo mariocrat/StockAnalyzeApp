@@ -21,14 +21,18 @@ export function createAdMobRuntimeStatus({
   appEnv,
   rewardedAdId,
   interstitialAdId = DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID,
+  interstitialAdIds = null,
   bannerAdId = DEFAULT_ANDROID_TEST_BANNER_AD_ID,
   native,
   platform,
 }) {
+  const checkedInterstitialAdIds = Array.isArray(interstitialAdIds) && interstitialAdIds.length
+    ? interstitialAdIds
+    : [interstitialAdId];
   const usingTestAdUnit = rewardedAdId === DEFAULT_ANDROID_TEST_REWARDED_AD_ID;
   const productionMisconfigured = isProductionAdMobMisconfigured({ appEnv, rewardedAdId });
-  const usingTestInterstitialAdUnit = interstitialAdId === DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
-  const interstitialProductionMisconfigured = isProductionInterstitialMisconfigured({ appEnv, interstitialAdId });
+  const usingTestInterstitialAdUnit = checkedInterstitialAdIds.some(id => id === DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID);
+  const interstitialProductionMisconfigured = appEnv === 'production' && usingTestInterstitialAdUnit;
   const usingTestBannerAdUnit = bannerAdId === DEFAULT_ANDROID_TEST_BANNER_AD_ID;
   const bannerProductionMisconfigured = isProductionBannerMisconfigured({ appEnv, bannerAdId });
 
