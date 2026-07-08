@@ -178,7 +178,7 @@ ALPHAMATE_OAUTH_APP_SCHEME=com.mariocrat.stockanalyze
 환경변수 예시:
 
 ```env
-GOOGLE_PLAY_PACKAGE_NAME=com.yourcompany.alphamate
+GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze
 GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=/secure-secrets/google-play-service-account.json
 GOOGLE_PLAY_RTDN_SHARED_TOKEN=긴_랜덤_토큰
 ```

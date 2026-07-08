@@ -88,6 +88,12 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertNotIn("Android release AAB build", checklist)
         self.assertNotIn("In-memory rate limiter safety cap", checklist)
 
+    def test_release_checklist_uses_fixed_android_package_name(self):
+        checklist = (ROOT / "docs" / "release_preparation_checklist.md").read_text(encoding="utf-8")
+
+        self.assertIn("GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze", checklist)
+        self.assertIn("VITE_GOOGLE_PLAY_PACKAGE_NAME", checklist)
+        self.assertNotIn("GOOGLE_PLAY_PACKAGE_NAME=com.yourcompany.alphamate", checklist)
     def test_release_checklist_lists_every_project_verification_step(self):
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8-sig")
         checklist = (ROOT / "docs" / "release_preparation_checklist.md").read_text(encoding="utf-8")

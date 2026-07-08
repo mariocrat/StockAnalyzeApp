@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Fixed the Google Play package name example in the release checklist so it matches the fixed Android applicationId `com.mariocrat.stockanalyze`.
 - Added an owner-facing message encoding guard so release reports and verification scripts fail tests if Korean text is saved with mojibake or replacement characters.
 - Hardened release alignment checks so `ALPHAMATE_OAUTH_APP_SCHEME` must match backend `GOOGLE_PLAY_PACKAGE_NAME` even when the frontend release env is missing.
 - Added release alignment checks and env templates for `ALPHAMATE_OAUTH_APP_SCHEME` so backend OAuth app-return links keep matching the Android package/deep-link scheme.
