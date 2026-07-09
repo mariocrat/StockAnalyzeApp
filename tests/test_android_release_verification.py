@@ -52,6 +52,12 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("prepare_release_env_files.bat", script)
 
 
+    def test_android_verification_powershell_scripts_keep_utf8_bom_for_windows_powershell(self):
+        for script_name in ("verify_android_debug.ps1", "verify_android_release.ps1"):
+            with self.subTest(script=script_name):
+                script = (ROOT / "scripts" / script_name).read_bytes()
+                self.assertTrue(script.startswith(b"\xef\xbb\xbf"))
+
     def test_android_verification_scripts_force_utf8_console_output(self):
         for script_name in ("verify_android_debug.ps1", "verify_android_release.ps1"):
             with self.subTest(script=script_name):
