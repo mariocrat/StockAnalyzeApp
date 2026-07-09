@@ -19,6 +19,8 @@ class SecretScanOutputTest(unittest.TestCase):
         script = (ROOT / "scripts" / "check_no_tracked_secrets.py").read_text(encoding="utf-8")
 
         self.assertIn("OpenAI API key", script)
+        self.assertIn("Google/Gemini API key", script)
+        self.assertIn("AIza", script)
         self.assertIn("Google private key block", script)
         self.assertIn("Google service account JSON", script)
         self.assertIn("hard-coded password assignment", script)

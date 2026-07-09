@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Expanded the tracked-secret scanner to catch Google/Gemini API key strings before commits.
 - Added BOM guards for owner-facing PowerShell verification scripts so Windows PowerShell keeps Korean messages executable.
 - Added Android Billing Library and OAuth app-return checks to the one-click project verification flow and owner docs.
 - Fixed the frontend release env validator CLI guard so the module can be imported from Node eval/tools without requiring `process.argv[1]`.

@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MAX_TEXT_BYTES = 2_000_000
 SECRET_PATTERNS = [
     ("OpenAI API key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
+    ("Google/Gemini API key", re.compile(r"\bAIza[0-9A-Za-z_-]{35}\b")),
     ("Google private key block", re.compile(r"-----BEGIN (?:RSA |EC |)PRIVATE KEY-----")),
     ("hard-coded password assignment", re.compile(r"(?m)^\s*[A-Z0-9_]*(?:PASSWORD|SECRET|PRIVATE_KEY)\s*=\s*[^#\s]+")),
     ("Google service account JSON", re.compile(r"(?im)^\s*GOOGLE_PLAY_SERVICE_ACCOUNT_JSON\s*=\s*\{")),
