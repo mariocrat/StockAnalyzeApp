@@ -12,7 +12,7 @@ const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
 const PLACEHOLDER_HOST_PARTS = ['example.com', 'your-api', 'your-app', 'your-domain', 'your-site'];
 const PLACEHOLDER_AD_UNIT_PATTERN = /^ca-app-pub-0+\/\d+$/;
 const ADMOB_AD_UNIT_PATTERN = /^ca-app-pub-\d{16}\/\d{10}$/;
-const PLACEHOLDER_AD_APP_PATTERN = /^ca-app-pub-0+~[01]+$/;
+const PLACEHOLDER_AD_APP_PATTERN = /^ca-app-pub-0+~\d+$/;
 
 export function parseEnvFile(text) {
   return String(text || '')

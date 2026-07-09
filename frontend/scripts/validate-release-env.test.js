@@ -85,6 +85,14 @@ test('rejects placeholder release URLs and AdMob ad unit IDs', () => {
   assert.match(result.errors.join('\n'), /placeholder/);
 });
 
+test('rejects all-zero AdMob publisher placeholder Android app IDs even when app digits differ', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-0000000000000000~2222222222',
+  }));
+
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_ANDROID_APP_ID must not use a placeholder app ID/);
+});
 test('rejects all-zero AdMob publisher placeholder ad unit IDs even when unit digits differ', () => {
   const result = validateReleaseEnv(validReleaseEnv({
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-0000000000000000/2222222222',
