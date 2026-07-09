@@ -53,6 +53,28 @@ class QuickVerifyDocsTest(unittest.TestCase):
         self.assertIn("$projectRoot='D:\\Project\\Vibe\\StockAnalyze'", manual)
         self.assertIn("다른 PC에서는 `$projectRoot` 값", manual)
 
+    def test_verify_project_powershell_script_keeps_utf8_bom_for_windows_powershell(self):
+        script = (ROOT / "scripts" / "verify_project.ps1").read_bytes()
+        self.assertTrue(script.startswith(b"\xef\xbb\xbf"))
+
+    def test_verify_project_runs_every_frontend_safety_test_script(self):
+        script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8-sig")
+
+        for npm_script in (
+            "test:release-env",
+            "test:android-branding",
+            "test:android-billing",
+            "test:mobile-billing",
+            "test:mobile-admob",
+            "test:client-events",
+            "test:api-errors",
+            "test:oauth-app-return",
+            "test:ai-idempotency",
+            "test:splash-loading",
+        ):
+            with self.subTest(npm_script=npm_script):
+                self.assertIn(f"npm.cmd run {npm_script}", script)
+
     def test_quick_verify_docs_list_every_project_verification_step(self):
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8")
         docs = (ROOT / "docs" / "quick_verify.md").read_text(encoding="utf-8")

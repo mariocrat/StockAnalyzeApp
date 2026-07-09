@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Added Android Billing Library and OAuth app-return checks to the one-click project verification flow and owner docs.
 - Fixed the frontend release env validator CLI guard so the module can be imported from Node eval/tools without requiring `process.argv[1]`.
 - Hardened frontend release checks so malformed AdMob ad unit IDs plus all-zero publisher placeholder app/ad unit IDs fail before Android release builds.
 - Updated the AdMob release checklist to describe separate interstitial ad units for review history, app resume, and chart detail placements.
