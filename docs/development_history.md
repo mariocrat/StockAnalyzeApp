@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Hardened frontend release checks so malformed AdMob ad unit IDs and all-zero publisher placeholder units fail before Android release builds.
 - Updated the AdMob release checklist to describe separate interstitial ad units for review history, app resume, and chart detail placements.
 - Fixed the Google Play package name example in the release checklist so it matches the fixed Android applicationId `com.mariocrat.stockanalyze`.
 - Added an owner-facing message encoding guard so release reports and verification scripts fail tests if Korean text is saved with mojibake or replacement characters.

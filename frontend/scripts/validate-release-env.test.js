@@ -85,6 +85,32 @@ test('rejects placeholder release URLs and AdMob ad unit IDs', () => {
   assert.match(result.errors.join('\n'), /placeholder/);
 });
 
+test('rejects all-zero AdMob publisher placeholder ad unit IDs even when unit digits differ', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-0000000000000000/2222222222',
+    VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/3333333333',
+    VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/4444444444',
+    VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/5555555555',
+    VITE_ADMOB_BANNER_AD_UNIT_ID: 'ca-app-pub-0000000000000000/6666666666',
+  }));
+
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_REWARDED_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_BANNER_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /placeholder/);
+});
+
+test('rejects malformed production AdMob ad unit IDs', () => {
+  const result = validateReleaseEnv(validReleaseEnv({
+    VITE_ADMOB_REWARDED_AD_UNIT_ID: 'not-an-ad-unit-id',
+  }));
+
+  assert.equal(result.ok, false);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_REWARDED_AD_UNIT_ID must be a valid AdMob ad unit ID/);
+});
 test('rejects duplicate production AdMob ad unit IDs across placements', () => {
   const duplicateAdUnitId = 'ca-app-pub-1234567890123456/9876543210';
   const result = validateReleaseEnv(validReleaseEnv({
@@ -144,7 +170,9 @@ test('requires separate production interstitial ad unit IDs for each placement',
   assert.equal(result.ok, false);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID/);
-});test('accepts production release settings without exposing secret requirements', () => {
+});
+
+test('accepts production release settings without exposing secret requirements', () => {
   const result = validateReleaseEnv(validReleaseEnv());
 
   assert.equal(result.ok, true);

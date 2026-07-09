@@ -10,7 +10,8 @@ const GOOGLE_ANDROID_TEST_APP_ID = 'ca-app-pub-3940256099942544~3347511713';
 const EXPECTED_RELEASE_PACKAGE_NAME = 'com.mariocrat.stockanalyze';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1']);
 const PLACEHOLDER_HOST_PARTS = ['example.com', 'your-api', 'your-app', 'your-domain', 'your-site'];
-const PLACEHOLDER_AD_UNIT_PATTERN = /^ca-app-pub-0+\/[01]+$/;
+const PLACEHOLDER_AD_UNIT_PATTERN = /^ca-app-pub-0+\/\d+$/;
+const ADMOB_AD_UNIT_PATTERN = /^ca-app-pub-\d{16}\/\d{10}$/;
 const PLACEHOLDER_AD_APP_PATTERN = /^ca-app-pub-0+~[01]+$/;
 
 export function parseEnvFile(text) {
@@ -103,6 +104,8 @@ function validateAdUnitId(value, key, googleTestId, errors) {
     errors.push(`${key} must not use Google test ad unit for release builds.`);
   } else if (PLACEHOLDER_AD_UNIT_PATTERN.test(value)) {
     errors.push(`${key} must not use a placeholder ad unit ID for release builds.`);
+  } else if (!ADMOB_AD_UNIT_PATTERN.test(value)) {
+    errors.push(`${key} must be a valid AdMob ad unit ID.`);
   }
 }
 
