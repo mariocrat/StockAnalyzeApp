@@ -89,6 +89,7 @@ def format_release_alignment_report(result: dict) -> str:
     if result.get("ok"):
         lines.append("- 서버와 앱의 출시 설정이 서로 맞습니다.")
         lines.append("- Google Play 패키지명, 카카오/네이버 공개 Client ID와 Redirect URI, AdMob 보상형 광고 단위가 일치합니다.")
+        lines.append("- 이 보고서는 서버와 앱 설정이 서로 같은지만 확인합니다. 운영 값 준비 여부는 위의 Backend/Frontend 출시 준비 보고서를 기준으로 보세요.")
     else:
         lines.extend([
             "",

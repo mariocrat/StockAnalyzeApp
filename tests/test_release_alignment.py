@@ -116,6 +116,7 @@ class ReleaseAlignmentTest(unittest.TestCase):
             self.assertIn("전체 상태: 준비됨", report)
             self.assertIn("서버와 앱의 출시 설정이 서로 맞습니다", report)
             self.assertIn("Client ID", report)
+            self.assertIn("서로 같은지만 확인", report)
         finally:
             os.unlink(backend_env)
             os.unlink(frontend_env)

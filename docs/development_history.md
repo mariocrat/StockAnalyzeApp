@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Clarified the server/app release alignment report so matching placeholder settings are not mistaken for full production readiness.
 - Expanded the tracked-secret scanner to catch Google/Gemini API key strings before commits.
 - Added BOM guards for owner-facing PowerShell verification scripts so Windows PowerShell keeps Korean messages executable.
 - Added Android Billing Library and OAuth app-return checks to the one-click project verification flow and owner docs.
