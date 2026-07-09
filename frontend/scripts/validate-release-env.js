@@ -436,7 +436,8 @@ export function releaseEnvFromProcess() {
   };
 }
 
-if (fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+const invokedScriptPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
+if (invokedScriptPath && fileURLToPath(import.meta.url) === invokedScriptPath) {
   const result = validateReleaseEnv(releaseEnvFromProcess());
   if (!result.ok) {
     console.error('프론트 출시 환경 검사 실패:');

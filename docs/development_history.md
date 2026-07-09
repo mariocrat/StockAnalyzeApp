@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Fixed the frontend release env validator CLI guard so the module can be imported from Node eval/tools without requiring `process.argv[1]`.
 - Hardened frontend release checks so malformed AdMob ad unit IDs and all-zero publisher placeholder units fail before Android release builds.
 - Updated the AdMob release checklist to describe separate interstitial ad units for review history, app resume, and chart detail placements.
 - Fixed the Google Play package name example in the release checklist so it matches the fixed Android applicationId `com.mariocrat.stockanalyze`.

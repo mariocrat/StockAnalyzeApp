@@ -439,6 +439,18 @@ test('owner frontend release report includes app name and version inputs', () =>
   assert.match(report, /Android 버전 이름/);
 });
 
+test('release env module can be imported from node eval without running the CLI guard', () => {
+  const result = spawnSync(process.execPath, [
+    '-e',
+    "import('./scripts/validate-release-env.js').then(({ validateReleaseEnv }) => { const result = validateReleaseEnv({}); console.log(result.ok); })",
+  ], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /false/);
+});
 test('owner frontend release report CLI prints report and hides secret values', () => {
   const script = path.resolve(process.cwd(), 'scripts/owner-release-report.js');
   const env = validReleaseEnv({
