@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Added a Render Blueprint for `alphamate-api` with a Starter web service, 1GB persistent SQLite disk, secret-safe env vars, and a non-developer deployment guide.
 - Clarified the server/app release alignment report so matching placeholder settings are not mistaken for full production readiness.
 - Expanded the tracked-secret scanner to catch Google/Gemini API key strings before commits.
 - Added BOM guards for owner-facing PowerShell verification scripts so Windows PowerShell keeps Korean messages executable.

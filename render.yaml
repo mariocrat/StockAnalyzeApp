@@ -1,0 +1,118 @@
+services:
+  - type: web
+    name: alphamate-api
+    runtime: python
+    region: singapore
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
+    disk:
+      name: alphamate-data
+      mountPath: /var/data/alphamate
+      sizeGB: 1
+    envVars:
+      - key: ALPHAMATE_ENV
+        value: production
+      - key: ALPHAMATE_ALLOW_DEV_ACCESS
+        value: false
+      - key: ALPHAMATE_CORS_ORIGINS
+        value: https://alphamate.co.kr,capacitor://localhost
+      - key: ALPHAMATE_PRIVACY_POLICY_URL
+        value: https://alphamate.co.kr/privacy
+      - key: ALPHAMATE_ACCOUNT_DB_PATH
+        value: /var/data/alphamate/accounts.sqlite3
+      - key: ALPHAMATE_ACCESS_DB_PATH
+        value: /var/data/alphamate/access.sqlite3
+      - key: ALPHAMATE_JOURNAL_DB_PATH
+        value: /var/data/alphamate/trades.sqlite3
+      - key: ALPHAMATE_REVIEW_HISTORY_DB_PATH
+        value: /var/data/alphamate/review_history.sqlite3
+      - key: ALPHAMATE_EVENT_LOG_DB_PATH
+        value: /var/data/alphamate/event_log.sqlite3
+      - key: ALPHAMATE_EVENT_LOG_RETENTION_DAYS
+        value: 90
+      - key: ALPHAMATE_ADMIN_TOKEN
+        generateValue: true
+      - key: ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE
+        value: 30
+      - key: ALPHAMATE_CLIENT_EVENT_RATE_LIMIT_PER_MINUTE
+        value: 60
+      - key: ALPHAMATE_MARKET_RATE_LIMIT_PER_MINUTE
+        value: 120
+      - key: ALPHAMATE_AUTH_RATE_LIMIT_PER_MINUTE
+        value: 30
+      - key: ALPHAMATE_BILLING_RATE_LIMIT_PER_MINUTE
+        value: 20
+      - key: ALPHAMATE_CALLBACK_RATE_LIMIT_PER_MINUTE
+        value: 60
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASIC_REVIEW_MODEL
+        value: gpt-5.4-mini
+      - key: OPENAI_ADVANCED_REVIEW_MODEL
+        value: gpt-5.5
+      - key: ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE
+        value: 10
+      - key: ALPHAMATE_AI_REVIEW_MAX_CONCURRENT
+        value: 3
+      - key: ALPHAMATE_AI_REVIEW_IDEMPOTENCY_TTL_SECONDS
+        value: 300
+      - key: ALPHAMATE_JOURNAL_ONCE_MAX_TRADES
+        value: 500
+      - key: ALPHAMATE_AI_REVIEW_MAX_TRADES
+        value: 100
+      - key: ALPHAMATE_JOURNAL_MEMO_MAX_CHARS
+        value: 2000
+      - key: ALPHAMATE_JOURNAL_QUERY_MAX_LIMIT
+        value: 500
+      - key: ALPHAMATE_SAVED_JOURNAL_ANALYSIS_MAX_TRADES
+        value: 500
+      - key: ALPHAMATE_OPENAI_TIMEOUT_SECONDS
+        value: 45
+      - key: ALPHAMATE_OPENAI_MAX_RETRIES
+        value: 1
+      - key: ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS
+        value: 0.5
+      - key: KAKAO_CLIENT_ID
+        sync: false
+      - key: KAKAO_CLIENT_SECRET
+        sync: false
+      - key: KAKAO_REDIRECT_URI
+        value: https://api.alphamate.co.kr/api/auth/kakao/callback
+      - key: NAVER_CLIENT_ID
+        sync: false
+      - key: NAVER_CLIENT_SECRET
+        sync: false
+      - key: NAVER_REDIRECT_URI
+        value: https://api.alphamate.co.kr/api/auth/naver/callback
+      - key: ALPHAMATE_OAUTH_TIMEOUT_SECONDS
+        value: 8
+      - key: ALPHAMATE_OAUTH_APP_SCHEME
+        value: com.mariocrat.stockanalyze
+      - key: GOOGLE_PLAY_PACKAGE_NAME
+        value: com.mariocrat.stockanalyze
+      - key: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: GOOGLE_PLAY_BASIC_REVIEW_30_ID
+        value: basic_review_30
+      - key: GOOGLE_PLAY_BASIC_REVIEW_100_ID
+        value: basic_review_100
+      - key: GOOGLE_PLAY_ADVANCED_REVIEW_5_ID
+        value: advanced_review_5
+      - key: GOOGLE_PLAY_ADVANCED_REVIEW_10_ID
+        value: advanced_review_10
+      - key: GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID
+        value: pro_monthly_launch
+      - key: GOOGLE_PLAY_PRO_MONTHLY_ID
+        value: pro_monthly
+      - key: GOOGLE_PLAY_RTDN_SHARED_TOKEN
+        generateValue: true
+      - key: GOOGLE_PLAY_RTDN_OIDC_AUDIENCE
+        value: https://api.alphamate.co.kr/api/journal/google-play-rtdn
+      - key: GOOGLE_PLAY_RTDN_OIDC_EMAIL
+        sync: false
+      - key: ADMOB_REWARDED_AD_UNIT_ID
+        sync: false
+      - key: ADMOB_SSV_KEY_URL
+        value: https://www.gstatic.com/admob/reward/verifier-keys.json
