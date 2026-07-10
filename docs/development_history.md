@@ -2,6 +2,7 @@
 
 ## 2026-07-04 release readiness owner report
 
+- Disabled startup theme cache warm-up by default for Render so strict `/healthz` checks do not recycle the API while market data prewarming runs.
 - Added a Render Blueprint for `alphamate-api` with a Starter web service, 1GB persistent SQLite disk, secret-safe env vars, and a non-developer deployment guide.
 - Clarified the server/app release alignment report so matching placeholder settings are not mistaken for full production readiness.
 - Expanded the tracked-secret scanner to catch Google/Gemini API key strings before commits.

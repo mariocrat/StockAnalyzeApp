@@ -373,6 +373,17 @@ def _schedule_theme_cache_refresh(start_date: str, end_date: str):
 
     threading.Thread(target=_worker, daemon=True).start()
 
+def _env_bool_flag(name: str, default: bool = False) -> bool:
+    raw = env_value(name).strip().lower()
+    if not raw:
+        return default
+    return raw not in {"0", "false", "no", "off"}
+
+
+def _warm_cache_on_startup() -> bool:
+    # Render health checks are strict; expensive market-data warmup should be opt-in there.
+    return _env_bool_flag("ALPHAMATE_WARM_CACHE_ON_STARTUP", False)
+
 def _warm_cache():
     """Pre-warm theme caches in the background."""
     try:
@@ -398,7 +409,10 @@ def _warm_cache():
 
 @asynccontextmanager
 async def lifespan(app):
-    threading.Thread(target=_warm_cache, daemon=True).start()
+    if _warm_cache_on_startup():
+        threading.Thread(target=_warm_cache, daemon=True).start()
+    else:
+        print("[startup] Theme cache warm-up skipped. Set ALPHAMATE_WARM_CACHE_ON_STARTUP=true to enable it.")
     yield
 
 app = FastAPI(title="Stock Analysis API", lifespan=lifespan)

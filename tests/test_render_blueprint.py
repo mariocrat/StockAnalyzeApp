@@ -19,6 +19,7 @@ class RenderBlueprintTest(unittest.TestCase):
         self.assertIn("buildCommand: pip install -r requirements.txt", text)
         self.assertIn("startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT", text)
         self.assertIn("healthCheckPath: /healthz", text)
+        self.assertRegex(text, r"key: ALPHAMATE_WARM_CACHE_ON_STARTUP\n\s+value: false")
 
     def test_render_blueprint_mounts_one_persistent_disk_for_sqlite(self):
         text = RENDER.read_text(encoding="utf-8")
@@ -78,6 +79,7 @@ class RenderBlueprintTest(unittest.TestCase):
 
         self.assertIn("Render Blueprint", text)
         self.assertIn("/var/data/alphamate/accounts.sqlite3", text)
+        self.assertIn("ALPHAMATE_WARM_CACHE_ON_STARTUP=false", text)
         self.assertIn("https://api.alphamate.co.kr", text)
         self.assertNotIn("actual_openai_key", text)
 

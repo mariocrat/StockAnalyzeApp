@@ -16,6 +16,8 @@ services:
         value: production
       - key: ALPHAMATE_ALLOW_DEV_ACCESS
         value: false
+      - key: ALPHAMATE_WARM_CACHE_ON_STARTUP
+        value: false
       - key: ALPHAMATE_CORS_ORIGINS
         value: https://alphamate.co.kr,capacitor://localhost
       - key: ALPHAMATE_PRIVACY_POLICY_URL

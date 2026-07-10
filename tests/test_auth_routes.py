@@ -1,3 +1,4 @@
+import asyncio
 import os
 import sys
 import unittest
@@ -99,6 +100,67 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertEqual({"ok": True, "service": "alphamate-api"}, payload)
         self.assertNotIn("OPENAI", payload_text)
         self.assertNotIn("TOKEN", payload_text)
+    def test_lifespan_skips_theme_warmup_when_disabled_for_render(self):
+        backend_dir = os.path.join(os.getcwd(), "backend")
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+
+        import main
+
+        started = []
+
+        class FakeThread:
+            def __init__(self, target, daemon):
+                started.append({"target": target, "daemon": daemon})
+
+            def start(self):
+                started.append("started")
+
+        original_thread = main.threading.Thread
+        try:
+            main.threading.Thread = FakeThread
+            with patched_env(ALPHAMATE_WARM_CACHE_ON_STARTUP="false"):
+                async def run_lifespan():
+                    async with main.lifespan(main.app):
+                        pass
+
+                asyncio.run(run_lifespan())
+        finally:
+            main.threading.Thread = original_thread
+
+        self.assertEqual([], started)
+
+    def test_lifespan_can_enable_theme_warmup_for_manual_prewarming(self):
+        backend_dir = os.path.join(os.getcwd(), "backend")
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+
+        import main
+
+        started = []
+
+        class FakeThread:
+            def __init__(self, target, daemon):
+                started.append({"target": target, "daemon": daemon})
+
+            def start(self):
+                started.append("started")
+
+        original_thread = main.threading.Thread
+        try:
+            main.threading.Thread = FakeThread
+            with patched_env(ALPHAMATE_WARM_CACHE_ON_STARTUP="true"):
+                async def run_lifespan():
+                    async with main.lifespan(main.app):
+                        pass
+
+                asyncio.run(run_lifespan())
+        finally:
+            main.threading.Thread = original_thread
+
+        self.assertEqual(main._warm_cache, started[0]["target"])
+        self.assertTrue(started[0]["daemon"])
+        self.assertEqual("started", started[1])
 
 
 if __name__ == "__main__":

@@ -71,3 +71,5 @@ https://api.alphamate.co.kr/healthz
 ```
 
 정상이라면 JSON 응답이 나오고, Render의 Health Check도 통과해야 합니다.
+
+Render의 Health Check는 5초 timeout으로 민감합니다. 그래서 `render.yaml`은 `ALPHAMATE_WARM_CACHE_ON_STARTUP=false`로 시작 직후 무거운 테마 캐시 워밍을 끕니다. 앱이 안정화된 뒤 필요하면 Render Environment에서 이 값을 `true`로 바꾸고 재배포할 수 있습니다.
