@@ -712,3 +712,14 @@
 - Google test AdMob App ID is forced for this APK, so production advertising settings are not required for login testing.
 - Fixed Android verification batch files so a failed PowerShell build returns a non-zero exit code instead of being reported as successful.
 - Verified the generated APK package, app label, and Kakao/Naver deep-link routes, and added `docs/android_oauth_test_guide.md` for phone testing.
+
+## 2026-07-13 Mobile UI, OAuth Return, and Theme Cache Recovery
+
+- Replaced the desktop-only two-column mobile layout with a stacked layout through 720px, removed horizontal overflow, and kept desktop screens full-width.
+- Simplified the production trading journal by hiding deployment diagnostics and redundant logged-out account controls while preserving user privacy guidance.
+- Fixed Kakao/Naver SVG rendering and verified both provider icons at 24x24 pixels in the mobile browser.
+- Added Capacitor cold-launch URL handling and duplicate-return protection so OAuth completion is processed whether the app resumes or is relaunched.
+- Stopped theme requests and retries when leaving the theme screen, and avoided an unnecessary empty-journal API request before login.
+- Moved theme caches to Render Persistent Disk, bounded market-data concurrency to 8, added a daily 00:01 KST refresh, and returned a retryable preparation response instead of blocking requests on an empty cache.
+- Added token-protected theme cache refresh/status endpoints and non-sensitive OAuth stage logs for production troubleshooting.
+- Verified current market-close rankings locally: the initial 1Y fetch completed once, then 1M/1W/1D reused the covering close cache in under one second each.

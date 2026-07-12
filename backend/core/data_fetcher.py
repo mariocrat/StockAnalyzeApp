@@ -3,17 +3,32 @@ import yfinance as yf
 from cachetools.func import ttl_cache
 import datetime
 import json
+import os
 import re
 import time
 from pathlib import Path
 
 
-CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache"
-CACHE_DIR.mkdir(exist_ok=True)
+DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache"
+
+
+def _cache_dir() -> Path:
+    configured = os.environ.get("ALPHAMATE_CACHE_DIR", "").strip()
+    path = Path(configured) if configured else DEFAULT_CACHE_DIR
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _theme_fetch_workers(ticker_count: int) -> int:
+    try:
+        configured = int(os.environ.get("ALPHAMATE_THEME_FETCH_WORKERS", "8"))
+    except ValueError:
+        configured = 8
+    return min(max(2, configured), 16, max(2, ticker_count))
 
 
 def _read_json_cache(name: str, ttl_seconds: int):
-    path = CACHE_DIR / name
+    path = _cache_dir() / name
     try:
         if not path.exists():
             return None
@@ -29,7 +44,7 @@ def _read_json_cache(name: str, ttl_seconds: int):
 
 
 def _write_json_cache(name: str, payload):
-    path = CACHE_DIR / name
+    path = _cache_dir() / name
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     try:
         with tmp_path.open("w", encoding="utf-8") as f:
@@ -55,7 +70,7 @@ def get_latest_cached_theme_returns(
     max_span_days: int | None = None,
 ):
     candidates = []
-    for path in CACHE_DIR.glob("theme_returns_v3_*.json"):
+    for path in _cache_dir().glob("theme_returns_v3_*.json"):
         stem = path.stem.replace("theme_returns_v3_", "")
         try:
             start_text, end_text = stem.split("_", 1)
@@ -87,7 +102,7 @@ def get_cached_naver_themes():
 
 def _read_covering_close_cache(start_date: str, end_date: str):
     candidates = []
-    for path in CACHE_DIR.glob(f"naver_closes_*_{end_date}.json"):
+    for path in _cache_dir().glob(f"naver_closes_*_{end_date}.json"):
         stem = path.stem.replace("naver_closes_", "")
         try:
             cache_start, cache_end = stem.split("_", 1)
@@ -424,7 +439,7 @@ def get_theme_returns_historical(start_date: str, end_date: str):
                 return ticker, []
 
         close_rows_by_ticker = {}
-        max_workers = min(48, max(8, len(unique_tickers) // 40))
+        max_workers = _theme_fetch_workers(len(unique_tickers))
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             for ticker, rows_for_ticker in executor.map(_fetch_closes, unique_tickers):
                 if len(rows_for_ticker) >= 2:

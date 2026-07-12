@@ -43,6 +43,8 @@ class AdminEventRoutesTest(unittest.TestCase):
         self.assertIn("/api/admin/operational-events", paths)
         self.assertIn("/api/admin/operational-events/summary", paths)
         self.assertIn("/api/admin/operational-events/retention", paths)
+        self.assertIn("/api/admin/theme-cache/status", paths)
+        self.assertIn("/api/admin/theme-cache/refresh", paths)
         self.assertIn("request_id", parameter_names)
         self.assertIn("user_id", parameter_names)
         self.assertIn("path", parameter_names)
@@ -148,6 +150,27 @@ class AdminEventRoutesTest(unittest.TestCase):
             self.assertEqual(1000, response["limit"])
             self.assertEqual(0, response["offset"])
             self.assertEqual(1, response["count"])
+
+    def test_admin_theme_cache_status_is_token_protected(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ADMIN_TOKEN="admin-secret",
+            ALPHAMATE_CACHE_DIR=tmpdir,
+        ):
+            import main
+            from core.rate_limit import InMemoryRateLimiter
+
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            request = SimpleNamespace(headers={}, client=SimpleNamespace(host="127.0.0.1"))
+
+            with self.assertRaises(HTTPException) as missing:
+                main.get_admin_theme_cache_status(request, authorization=None)
+            self.assertEqual(401, missing.exception.status_code)
+
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            response = main.get_admin_theme_cache_status(request, authorization="Bearer admin-secret")
+            self.assertFalse(response["refreshing"])
+            self.assertEqual({"1D", "1W", "1M", "1Y"}, set(response["periods"]))
+            self.assertTrue(all(not row["ready"] for row in response["periods"].values()))
 
 
 if __name__ == "__main__":

@@ -56,6 +56,7 @@ logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 
 _theme_refresh_lock = threading.Lock()
 _theme_refresh_jobs = set()
+_theme_warm_lock = threading.Lock()
 _client_event_rate_limiter = InMemoryRateLimiter()
 _market_rate_limiter = InMemoryRateLimiter()
 _admin_rate_limiter = InMemoryRateLimiter()
@@ -356,6 +357,8 @@ def _fallback_span(period: str):
 
 
 def _schedule_theme_cache_refresh(start_date: str, end_date: str):
+    if _theme_warm_lock.locked():
+        return
     key = (start_date, end_date)
     with _theme_refresh_lock:
         if key in _theme_refresh_jobs:
@@ -386,12 +389,13 @@ def _warm_cache_on_startup() -> bool:
 
 def _warm_cache():
     """Pre-warm theme caches in the background."""
+    if not _theme_warm_lock.acquire(blocking=False):
+        return
     try:
         cleanup_result = purge_configured_retention()
         if not cleanup_result.get("skipped"):
             print(f"[startup] Operational event log cleanup: {cleanup_result}")
 
-        base_date = _last_completed_market_date()
         print("[startup] Warming theme caches...")
 
         try:
@@ -399,21 +403,42 @@ def _warm_cache():
         except Exception as e:
             print(f"[startup] Search index warm-up failed (non-fatal): {e}")
 
-        for days in (365, 30, 7, 1):
-            start = (base_date - datetime.timedelta(days=days)).strftime('%Y%m%d')
-            end = base_date.strftime('%Y%m%d')
+        for period in ("1Y", "1M", "1W", "1D"):
+            start, end = _period_date_range(period)
             get_theme_returns_historical(start, end)
         print("[startup] Theme cache ready.")
     except Exception as e:
         print(f"[startup] Cache warm-up failed (non-fatal): {e}")
+    finally:
+        _theme_warm_lock.release()
+
+
+def _seconds_until_next_theme_refresh(now: Optional[datetime.datetime] = None) -> float:
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    current = now.astimezone(kst) if now and now.tzinfo else (now or datetime.datetime.now(kst)).replace(tzinfo=kst)
+    target = current.replace(hour=0, minute=1, second=0, microsecond=0)
+    if target <= current:
+        target += datetime.timedelta(days=1)
+    return max(1.0, (target - current).total_seconds())
+
+
+def _theme_cache_scheduler(stop_event: threading.Event):
+    while not stop_event.wait(_seconds_until_next_theme_refresh()):
+        _warm_cache()
 
 @asynccontextmanager
 async def lifespan(app):
+    scheduler_stop = threading.Event()
     if _warm_cache_on_startup():
         threading.Thread(target=_warm_cache, daemon=True).start()
     else:
         print("[startup] Theme cache warm-up skipped. Set ALPHAMATE_WARM_CACHE_ON_STARTUP=true to enable it.")
-    yield
+    scheduler = threading.Thread(target=lambda: _theme_cache_scheduler(scheduler_stop), daemon=True)
+    scheduler.start()
+    try:
+        yield
+    finally:
+        scheduler_stop.set()
 
 app = FastAPI(title="Stock Analysis API", lifespan=lifespan)
 
@@ -901,6 +926,46 @@ def delete_old_admin_operational_events(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+def _theme_cache_status_payload() -> dict:
+    periods = {}
+    for period in ("1D", "1W", "1M", "1Y"):
+        start_date, end_date = _period_date_range(period)
+        cached = get_cached_theme_returns(start_date, end_date)
+        periods[period] = {
+            "ready": not cached.empty,
+            "start_date": start_date,
+            "end_date": end_date,
+            "theme_count": int(len(cached)),
+        }
+    return {
+        "refreshing": _theme_warm_lock.locked(),
+        "periods": periods,
+    }
+
+
+@app.get("/api/admin/theme-cache/status")
+def get_admin_theme_cache_status(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+):
+    _enforce_admin_rate_limit(_request_client_key(request))
+    _require_admin_token(authorization)
+    return _theme_cache_status_payload()
+
+
+@app.post("/api/admin/theme-cache/refresh")
+def post_admin_theme_cache_refresh(
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+):
+    _enforce_admin_rate_limit(_request_client_key(request))
+    _require_admin_token(authorization)
+    if _theme_warm_lock.locked():
+        return {"started": False, "status": "already_running", **_theme_cache_status_payload()}
+    threading.Thread(target=_warm_cache, daemon=True).start()
+    return {"started": True, "status": "started"}
+
+
 @app.post("/api/client-events")
 def create_client_event(
     event: ClientEventIn,
@@ -985,6 +1050,12 @@ def get_themes(period: str = "1D", start_date: Optional[str] = None, end_date: O
                 if not fallback.empty:
                     _schedule_theme_cache_refresh(start_date, end_date)
                     return fallback.to_dict(orient="records")
+                if env_value("ALPHAMATE_ENV").lower() == "production":
+                    _schedule_theme_cache_refresh(start_date, end_date)
+                    raise HTTPException(
+                        status_code=503,
+                        detail="최신 기간 수익률을 업데이트 중입니다. 잠시 후 자동으로 다시 확인합니다.",
+                    )
                 df = get_theme_returns_historical(start_date, end_date)
         else:
             df = get_theme_returns_historical(start_date, end_date)
@@ -1118,7 +1189,18 @@ def post_auth_login_naver_code(login: AuthProviderCodeIn, request: Request):
 @app.post("/api/auth/login/oauth-ticket")
 def post_auth_login_oauth_ticket(login: AuthOAuthTicketIn, request: Request):
     _enforce_auth_rate_limit(_request_client_key(request))
-    return consume_oauth_app_ticket(login.ticket)
+    session = consume_oauth_app_ticket(login.ticket)
+    record_event(
+        level="info",
+        event_type="oauth_app_ticket_consumed",
+        method="POST",
+        path="/api/auth/login/oauth-ticket",
+        status_code=200,
+        user_id=str(session.get("user", {}).get("id") or ""),
+        message="OAuth app login completed.",
+        details={"provider": session.get("user", {}).get("provider") or ""},
+    )
+    return session
 
 
 @app.get("/api/auth/kakao/callback")
@@ -1126,7 +1208,17 @@ def get_auth_kakao_callback(request: Request, code: str = "", state: str = "", e
     _enforce_auth_rate_limit(_request_client_key(request))
     if error:
         return RedirectResponse(create_oauth_app_error_redirect(provider="kakao", state=state, error=error))
-    return RedirectResponse(create_oauth_app_redirect(provider="kakao", code=code, state=state))
+    redirect_url = create_oauth_app_redirect(provider="kakao", code=code, state=state)
+    record_event(
+        level="info",
+        event_type="oauth_callback_completed",
+        method="GET",
+        path="/api/auth/kakao/callback",
+        status_code=302,
+        message="OAuth provider callback completed.",
+        details={"provider": "kakao"},
+    )
+    return RedirectResponse(redirect_url)
 
 
 @app.get("/api/auth/naver/callback")
@@ -1134,7 +1226,17 @@ def get_auth_naver_callback(request: Request, code: str = "", state: str = "", e
     _enforce_auth_rate_limit(_request_client_key(request))
     if error:
         return RedirectResponse(create_oauth_app_error_redirect(provider="naver", state=state, error=error))
-    return RedirectResponse(create_oauth_app_redirect(provider="naver", code=code, state=state))
+    redirect_url = create_oauth_app_redirect(provider="naver", code=code, state=state)
+    record_event(
+        level="info",
+        event_type="oauth_callback_completed",
+        method="GET",
+        path="/api/auth/naver/callback",
+        status_code=302,
+        message="OAuth provider callback completed.",
+        details={"provider": "naver"},
+    )
+    return RedirectResponse(redirect_url)
 
 
 @app.get("/api/auth/oauth-config")

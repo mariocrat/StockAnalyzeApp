@@ -128,7 +128,11 @@ class AuthRoutesTest(unittest.TestCase):
         finally:
             main.threading.Thread = original_thread
 
-        self.assertEqual([], started)
+        self.assertEqual(2, len(started))
+        self.assertTrue(callable(started[0]["target"]))
+        self.assertNotEqual(main._warm_cache, started[0]["target"])
+        self.assertTrue(started[0]["daemon"])
+        self.assertEqual("started", started[1])
 
     def test_lifespan_can_enable_theme_warmup_for_manual_prewarming(self):
         backend_dir = os.path.join(os.getcwd(), "backend")
@@ -161,6 +165,10 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertEqual(main._warm_cache, started[0]["target"])
         self.assertTrue(started[0]["daemon"])
         self.assertEqual("started", started[1])
+        self.assertTrue(callable(started[2]["target"]))
+        self.assertNotEqual(main._warm_cache, started[2]["target"])
+        self.assertTrue(started[2]["daemon"])
+        self.assertEqual("started", started[3])
 
 
 if __name__ == "__main__":

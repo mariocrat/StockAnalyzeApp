@@ -57,6 +57,8 @@ const THEME_PERIODS = ['1D', '1W', '1M', '1Y'];
 const SPLASH_MIN_MS = 1150;
 const SPLASH_MAX_MS = 3500;
 const SPLASH_FADE_MS = 280;
+const THEME_REQUEST_TIMEOUT_MS = 20_000;
+const THEME_RETRY_DELAY_MS = 15_000;
 
 function AppSplash({ exiting }) {
   return (
@@ -244,6 +246,7 @@ export default function App() {
   const [themes,          setThemes]         = useState([]);
   const [themesLoading,   setThemesLoading]  = useState(true);
   const [themeError,      setThemeError]     = useState('');
+  const [themeRetryRequest, setThemeRetryRequest] = useState(null);
   const [themePeriod,     setThemePeriod]    = useState('1D');
   const [themeBasisText,  setThemeBasisText] = useState('장마감 기준');
   const [customStart,     setCustomStart]    = useState('');
@@ -275,6 +278,7 @@ export default function App() {
 
   const chartRefs = useRef({});
   const themeRequestSeq = useRef(0);
+  const themeAbortControllerRef = useRef(null);
   const searchRequestSeq = useRef(0);
   const searchCacheRef = useRef({});
   const suppressNextSearchRef = useRef(false);
@@ -308,21 +312,31 @@ export default function App() {
 
   // ── Fetch themes ─────────────────────────────────────────────────────
   const fetchThemes = useCallback(async (period, cStart, cEnd) => {
+    themeAbortControllerRef.current?.abort();
+    const controller = new AbortController();
+    themeAbortControllerRef.current = controller;
     const requestId = themeRequestSeq.current + 1;
     themeRequestSeq.current = requestId;
     setThemesLoading(true);
     setThemeError('');
+    setThemeRetryRequest(null);
     setThemes([]);
     try {
       let data;
       if (period === 'custom') {
         if (!cStart || !cEnd) { setThemesLoading(false); return; }
         const res = await axios.get(`${API_BASE}/api/themes`, {
-          params: { period: 'custom', start_date: cStart.replace(/-/g, ''), end_date: cEnd.replace(/-/g, '') }
+          params: { period: 'custom', start_date: cStart.replace(/-/g, ''), end_date: cEnd.replace(/-/g, '') },
+          timeout: THEME_REQUEST_TIMEOUT_MS,
+          signal: controller.signal,
         });
         data = res.data;
       } else {
-        const res = await axios.get(`${API_BASE}/api/themes`, { params: { period } });
+        const res = await axios.get(`${API_BASE}/api/themes`, {
+          params: { period },
+          timeout: THEME_REQUEST_TIMEOUT_MS,
+          signal: controller.signal,
+        });
         data = res.data;
       }
       if (themeRequestSeq.current === requestId) {
@@ -335,18 +349,53 @@ export default function App() {
         }
       }
     } catch (err) {
+      if (axios.isCancel(err)) return;
       reportAppClientEvent('theme_fetch_failed', err, { period });
-      if (themeRequestSeq.current === requestId) setThemeError('테마 상승률을 계산하지 못했습니다. 잠시 후 다시 눌러주세요.');
+      if (themeRequestSeq.current === requestId) {
+        const isPreparing = err.response?.status === 503;
+        const isTimeout = err.code === 'ECONNABORTED';
+        const detail = err.response?.data?.detail;
+        setThemeError(
+          isPreparing
+            ? detail || '최신 기간 수익률을 업데이트 중입니다. 잠시 후 자동으로 다시 확인합니다.'
+            : isTimeout
+              ? '서버 응답이 늦어지고 있습니다. 잠시 후 자동으로 다시 확인합니다.'
+              : '테마 상승률을 불러오지 못했습니다. 잠시 후 자동으로 다시 확인합니다.',
+        );
+        setThemeRetryRequest({ period, cStart, cEnd, requestId });
+      }
     } finally {
+      if (themeAbortControllerRef.current === controller) {
+        themeAbortControllerRef.current = null;
+      }
       if (themeRequestSeq.current === requestId) setThemesLoading(false);
     }
   }, [reportAppClientEvent]);
 
   useEffect(() => {
-    if (themePeriod !== 'custom') {
+    if (!themeRetryRequest || activeView !== 'themes') return undefined;
+    const timer = window.setTimeout(() => {
+      if (themeRequestSeq.current === themeRetryRequest.requestId) {
+        fetchThemes(themeRetryRequest.period, themeRetryRequest.cStart, themeRetryRequest.cEnd);
+      }
+    }, THEME_RETRY_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [activeView, fetchThemes, themeRetryRequest]);
+
+  useEffect(() => {
+    if (activeView === 'themes' && themePeriod !== 'custom') {
       fetchThemes(themePeriod, '', '');
     }
-  }, [themePeriod, fetchThemes]);
+  }, [activeView, themePeriod, fetchThemes]);
+
+  useEffect(() => {
+    if (activeView === 'themes') return;
+    themeRequestSeq.current += 1;
+    themeAbortControllerRef.current?.abort();
+    themeAbortControllerRef.current = null;
+    setThemeRetryRequest(null);
+    setThemesLoading(false);
+  }, [activeView]);
 
   const handleThemePeriodChange = (p) => {
     setThemePeriod(p);
@@ -549,7 +598,7 @@ export default function App() {
   return (
     <>
     {showSplash && <AppSplash exiting={splashExiting} />}
-    <div className={bannerReserved ? "app-container app-container-mobile-banner" : "app-container"}>
+    <div className={`${bannerReserved ? 'app-container app-container-mobile-banner' : 'app-container'} ${activeView === 'journal' ? 'journal-view' : 'themes-view'}`}>
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <div className="sidebar">
         <h2 className="sidebar-title">{APP_NAME}</h2>

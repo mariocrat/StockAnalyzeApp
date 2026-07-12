@@ -157,6 +157,7 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
   const reviewHistoryAdShownRef = useRef(false);
+  const handledOAuthReturnUrlRef = useRef('');
 
   const activeAuthToken = authSession?.session_token || DEV_AUTH_TOKEN;
   const authHeaders = { Authorization: `Bearer ${activeAuthToken}` };
@@ -469,6 +470,16 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
       setMessage(`${provider === 'kakao' ? '카카오' : '네이버'} 로그인했습니다.`);
     } catch (err) {
       localStorage.removeItem(OAUTH_STATE_KEY);
+      reportJournalClientEvent({
+        eventType: 'oauth_code_login_failed',
+        level: 'warning',
+        message: err?.message || 'OAuth code login failed.',
+        details: {
+          provider,
+          stage: 'code_exchange',
+          status: err.response?.status || 0,
+        },
+      });
       setMessage(err.response?.data?.detail || '로그인을 완료하지 못했습니다.');
     } finally {
       setAuthLoading(false);
@@ -513,6 +524,16 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
       setMessage(`${provider === 'kakao' ? '카카오' : '네이버'} 로그인했습니다.`);
     } catch (err) {
       localStorage.removeItem(OAUTH_STATE_KEY);
+      reportJournalClientEvent({
+        eventType: 'oauth_app_ticket_login_failed',
+        level: 'warning',
+        message: err?.message || 'OAuth app ticket login failed.',
+        details: {
+          provider,
+          stage: 'ticket_exchange',
+          status: err.response?.status || 0,
+        },
+      });
       setMessage(err.response?.data?.detail || '로그인을 완료하지 못했습니다.');
     } finally {
       setAuthLoading(false);
@@ -522,6 +543,8 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
   const handleOAuthAppReturn = (rawUrl) => {
     const parsed = parseOAuthAppReturnUrl(rawUrl);
     if (!parsed) return false;
+    if (handledOAuthReturnUrlRef.current === rawUrl) return true;
+    handledOAuthReturnUrlRef.current = rawUrl;
     if (parsed.error) {
       localStorage.removeItem(OAUTH_STATE_KEY);
       setMessage('로그인이 취소되었거나 실패했습니다. 다시 시도해 주세요.');
@@ -682,6 +705,11 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
 
   const loadJournal = async (nextTrades = trades) => {
     if (transientJournalMode) {
+      if (!nextTrades.length) {
+        setTrades([]);
+        setReview(null);
+        return;
+      }
       const reviewRes = await axios.post(`${apiBase}/api/journal/review-once`, { trades: nextTrades });
       setTrades(nextTrades);
       setReview(reviewRes.data || null);
@@ -845,12 +873,19 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
 
   useEffect(() => {
     let listener = null;
+    let active = true;
     CapacitorApp.addListener('appUrlOpen', ({ url }) => {
       handleOAuthAppReturn(url);
     }).then(handle => {
       listener = handle;
     }).catch(() => {});
+    CapacitorApp.getLaunchUrl()
+      .then(result => {
+        if (active && result?.url) handleOAuthAppReturn(result.url);
+      })
+      .catch(() => {});
     return () => {
+      active = false;
       if (listener?.remove) listener.remove();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1383,7 +1418,7 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
             )}
           </div>
         </div>
-        {!authSession && (
+        {!authSession && DEV_TOOLS_ENABLED && (
           <div className="journal-oauth-setup">
             <div className="journal-oauth-setup-head">
               <strong>실제 로그인 준비</strong>
@@ -1420,29 +1455,31 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
             )}
           </div>
         )}
-        <div className="journal-data-grid">
-          <div>
-            <span>계정 상태</span>
-            <strong>{authSession ? '로그인됨' : '로그인 안 됨'}</strong>
+        {authSession && (
+          <div className="journal-data-grid">
+            <div>
+              <span>계정 상태</span>
+              <strong>로그인됨</strong>
+            </div>
+            <div>
+              <span>연결 로그인</span>
+              <strong>{connectedProviderText}</strong>
+            </div>
+            <div>
+              <span>저장된 매매 기록</span>
+              <strong>{dataSummary?.saved_trade_count ?? 0}건</strong>
+            </div>
+            <div>
+              <span>AI 분석 기록</span>
+              <strong>{dataSummary?.server_keeps_ai_review_history ? '서버 저장' : '서버 저장 안 함'}</strong>
+            </div>
+            <div>
+              <span>AI 동의 기록</span>
+              <strong>{consentStatusText}</strong>
+              <em>{consentDetailText}</em>
+            </div>
           </div>
-          <div>
-            <span>연결 로그인</span>
-            <strong>{connectedProviderText}</strong>
-          </div>
-          <div>
-            <span>저장된 매매 기록</span>
-            <strong>{authSession ? `${dataSummary?.saved_trade_count ?? 0}건` : '0건'}</strong>
-          </div>
-          <div>
-            <span>AI 분석 기록</span>
-            <strong>{dataSummary?.server_keeps_ai_review_history ? '서버 저장' : '서버 저장 안 함'}</strong>
-          </div>
-          <div>
-            <span>AI 동의 기록</span>
-            <strong>{consentStatusText}</strong>
-            <em>{consentDetailText}</em>
-          </div>
-        </div>
+        )}
         <details className="journal-privacy-disclosure">
           <summary>개인정보/AI 이용 안내</summary>
           <div>
@@ -1457,34 +1494,34 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
             <span>현재 동의 안내 버전: {currentConsentVersion}</span>
           </div>
         </details>
-        <label className="journal-auth-toggle">
-          <input
-            type="checkbox"
-            checked={Boolean(authSession?.user?.journal_storage_enabled)}
-            disabled={!authSession || authLoading}
-            onChange={e => handleJournalStorageToggle(e.target.checked)}
-          />
-          <span>매매 이력 저장</span>
-          <em>{authSession?.user?.journal_storage_enabled ? '켜짐' : '꺼짐'}</em>
-        </label>
-        {savedJournalMode && (
-          <button className="journal-danger" disabled={authLoading || !trades.length} onClick={handleClearSavedTrades}>
-            저장 기록 전체 삭제
-          </button>
-        )}
         {authSession && (
-          <button className="journal-secondary journal-inline-action" disabled={authLoading} onClick={handleExportAccountData}>
-            내 데이터 내보내기
-          </button>
+          <>
+            <label className="journal-auth-toggle">
+              <input
+                type="checkbox"
+                checked={Boolean(authSession.user?.journal_storage_enabled)}
+                disabled={authLoading}
+                onChange={e => handleJournalStorageToggle(e.target.checked)}
+              />
+              <span>매매 이력 저장</span>
+              <em>{authSession.user?.journal_storage_enabled ? '켜짐' : '꺼짐'}</em>
+            </label>
+            {savedJournalMode && (
+              <button className="journal-danger" disabled={authLoading || !trades.length} onClick={handleClearSavedTrades}>
+                저장 기록 전체 삭제
+              </button>
+            )}
+            <button className="journal-secondary journal-inline-action" disabled={authLoading} onClick={handleExportAccountData}>
+              내 데이터 내보내기
+            </button>
+            <button className="journal-danger journal-danger-outline" disabled={authLoading} onClick={handleDeleteAccountData}>
+              계정 데이터 삭제
+            </button>
+            <p className="journal-privacy-note">
+              저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 내 데이터 내보내기는 저장 기록과 이용권 현황을 파일로 내려받고, 계정 데이터 삭제는 현재 로그인 계정의 저장 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보를 함께 정리합니다.
+            </p>
+          </>
         )}
-        {authSession && (
-          <button className="journal-danger journal-danger-outline" disabled={authLoading} onClick={handleDeleteAccountData}>
-            계정 데이터 삭제
-          </button>
-        )}
-        <p className="journal-privacy-note">
-          저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 내 데이터 내보내기는 저장 기록과 이용권 현황을 파일로 내려받고, 계정 데이터 삭제는 현재 로그인 계정의 저장 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보를 함께 정리합니다.
-        </p>
       </section>
 
       {journalSubView === 'history' ? (
@@ -1557,33 +1594,39 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
             <strong>{adPolicyText}</strong>
             <em>현재 주간 광고 시청 {weeklyAdViews}/{adsPerAdvancedTicket}회</em>
           </div>
-          <div>
-            <span>AdMob 상태</span>
-            <strong className={admobStatus.ready ? 'ready' : 'not-ready'}>{adReadinessText}</strong>
-            <em>{mobileAdStatusText}</em>
-            <em>연속 광고 강제: {adPolicy.force_rewarded_ad_chain ? '켜짐' : '꺼짐'}</em>
-          </div>
-          <div>
-            <span>결제 상태</span>
-            <strong className={billingStatus.native ? 'ready' : 'not-ready'}>{billingStatusText}</strong>
-            <em>패키지 {GOOGLE_PLAY_PACKAGE_NAME}</em>
-          </div>
-        </div>
-        <div className="journal-readiness-box">
-          <div className="journal-readiness-head">
-            <strong>배포 준비 상태</strong>
-            <span>{appReadiness?.overall_ready ? '서버 설정 준비됨' : '설정 확인 필요'}</span>
-          </div>
-          <div className="journal-readiness-grid">
-            {readinessItems.map(item => (
-              <div key={item.label}>
-                <span>{item.label}</span>
-                <strong className={item.ready ? 'ready' : 'not-ready'}>{item.ready ? '준비됨' : '설정 필요'}</strong>
-                <em>{item.detail}</em>
+          {DEV_TOOLS_ENABLED && (
+            <>
+              <div>
+                <span>AdMob 상태</span>
+                <strong className={admobStatus.ready ? 'ready' : 'not-ready'}>{adReadinessText}</strong>
+                <em>{mobileAdStatusText}</em>
+                <em>연속 광고 강제: {adPolicy.force_rewarded_ad_chain ? '켜짐' : '꺼짐'}</em>
               </div>
-            ))}
-          </div>
+              <div>
+                <span>결제 상태</span>
+                <strong className={billingStatus.native ? 'ready' : 'not-ready'}>{billingStatusText}</strong>
+                <em>패키지 {GOOGLE_PLAY_PACKAGE_NAME}</em>
+              </div>
+            </>
+          )}
         </div>
+        {DEV_TOOLS_ENABLED && (
+          <div className="journal-readiness-box">
+            <div className="journal-readiness-head">
+              <strong>배포 준비 상태</strong>
+              <span>{appReadiness?.overall_ready ? '서버 설정 준비됨' : '설정 확인 필요'}</span>
+            </div>
+            <div className="journal-readiness-grid">
+              {readinessItems.map(item => (
+                <div key={item.label}>
+                  <span>{item.label}</span>
+                  <strong className={item.ready ? 'ready' : 'not-ready'}>{item.ready ? '준비됨' : '설정 필요'}</strong>
+                  <em>{item.detail}</em>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {DEV_TOOLS_ENABLED || billingStatus.native ? (
           <div className="journal-product-list">
             {REVIEW_PRODUCTS.map(([id, label, price]) => (

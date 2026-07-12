@@ -20,6 +20,9 @@ class RenderBlueprintTest(unittest.TestCase):
         self.assertIn("startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT", text)
         self.assertIn("healthCheckPath: /healthz", text)
         self.assertRegex(text, r"key: ALPHAMATE_WARM_CACHE_ON_STARTUP\n\s+value: false")
+        self.assertIn("key: ALPHAMATE_CACHE_DIR", text)
+        self.assertIn("value: /var/data/alphamate/cache", text)
+        self.assertRegex(text, r"key: ALPHAMATE_THEME_FETCH_WORKERS\n\s+value: 8")
 
     def test_render_blueprint_mounts_one_persistent_disk_for_sqlite(self):
         text = RENDER.read_text(encoding="utf-8")

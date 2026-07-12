@@ -1412,7 +1412,7 @@ body {
 
 @media (max-width: 900px) {
   .journal-summary {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .journal-row {
@@ -1433,15 +1433,132 @@ body {
   }
 
   .journal-oauth-provider-grid,
-  .journal-data-grid,
-  .journal-entitlement-grid,
   .journal-ad-policy,
   .journal-readiness-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
+@media (max-width: 720px) {
+  .app-container {
+    width: 100%;
+    min-width: 0;
+    height: 100dvh;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-height: 45dvh;
+    flex: 0 0 45dvh;
+    padding: 12px;
+    border-right: 0;
+    border-bottom: 1px solid #2a2e39;
+  }
+
+  .app-container.journal-view .sidebar {
+    max-height: none;
+    flex: 0 0 auto;
+    overflow: visible;
+    padding-bottom: 8px;
+  }
+
+  .sidebar-title {
+    margin-bottom: 10px;
+    text-align: center;
+  }
+
+  .app-nav {
+    margin-bottom: 10px;
+  }
+
+  .app-container.journal-view .app-nav {
+    margin-bottom: 0;
+  }
+
+  .main-content {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
+
 @media (max-width: 520px) {
+
+  .journal-page,
+  .journal-panel,
+  .journal-summary > div {
+    min-width: 0;
+  }
+
+  .journal-header p {
+    line-height: 1.5;
+  }
+
+  .journal-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .journal-summary > div {
+    padding: 10px;
+  }
+
+  .journal-summary strong {
+    font-size: 16px;
+  }
+
+  .journal-panel {
+    padding: 12px;
+  }
+
+  .journal-form {
+    grid-template-columns: 1fr;
+  }
+
+  .journal-auth-actions,
+  .journal-review-actions,
+  .journal-product-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .journal-auth-actions button,
+  .journal-review-actions button,
+  .journal-product-list button,
+  .journal-primary {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .journal-subnav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .journal-subnav button {
+    min-width: 0;
+  }
+
+  .journal-data-grid,
+  .journal-entitlement-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .journal-trade-chart {
+    min-height: 280px;
+  }
+
+  .journal-table {
+    overflow-x: auto;
+  }
+
   .journal-oauth-setup-head {
     flex-direction: column;
   }
