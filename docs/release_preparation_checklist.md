@@ -62,7 +62,7 @@ OAuth 로그인 timeout 안전 상한: 최대 20초.
 확인 방법:
 
 ```powershell
-Invoke-RestMethod -Uri 'https://your-api.example.com/healthz'
+Invoke-RestMethod -Uri 'https://api.alphamate.co.kr/healthz'
 ```
 
 정상 예시:
@@ -107,9 +107,9 @@ ALPHAMATE_EVENT_LOG_DB_PATH=/secure-data/event_log.sqlite3
 
 ```env
 VITE_KAKAO_REST_API_KEY=카카오_REST_API_KEY
-VITE_KAKAO_REDIRECT_URI=https://your-api.example.com/api/auth/kakao/callback
+VITE_KAKAO_REDIRECT_URI=https://api.alphamate.co.kr/api/auth/kakao/callback
 KAKAO_CLIENT_ID=카카오_REST_API_KEY
-KAKAO_REDIRECT_URI=https://your-api.example.com/api/auth/kakao/callback
+KAKAO_REDIRECT_URI=https://api.alphamate.co.kr/api/auth/kakao/callback
 ALPHAMATE_OAUTH_TIMEOUT_SECONDS=8
 ALPHAMATE_OAUTH_APP_SCHEME=com.mariocrat.stockanalyze
 ```
@@ -128,9 +128,9 @@ ALPHAMATE_OAUTH_APP_SCHEME=com.mariocrat.stockanalyze
 
 ```env
 VITE_NAVER_CLIENT_ID=네이버_Client_ID
-VITE_NAVER_REDIRECT_URI=https://your-api.example.com/api/auth/naver/callback
+VITE_NAVER_REDIRECT_URI=https://api.alphamate.co.kr/api/auth/naver/callback
 NAVER_CLIENT_ID=네이버_Client_ID
-NAVER_REDIRECT_URI=https://your-api.example.com/api/auth/naver/callback
+NAVER_REDIRECT_URI=https://api.alphamate.co.kr/api/auth/naver/callback
 ALPHAMATE_OAUTH_TIMEOUT_SECONDS=8
 ALPHAMATE_OAUTH_APP_SCHEME=com.mariocrat.stockanalyze
 ```
@@ -238,7 +238,7 @@ ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-...
 환경변수:
 
 ```env
-ALPHAMATE_PRIVACY_POLICY_URL=https://your-site.example.com/privacy
+ALPHAMATE_PRIVACY_POLICY_URL=https://alphamate.co.kr/privacy
 ALPHAMATE_PRIVACY_CONSENT_VERSION=2026-06-24
 ```
 
@@ -301,13 +301,13 @@ ALPHAMATE_EVENT_LOG_RETENTION_DAYS=90
 문의용 ID로 조회:
 
 ```powershell
-Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events?request_id=문의용ID' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
+Invoke-RestMethod -Uri 'https://api.alphamate.co.kr/api/admin/operational-events?request_id=문의용ID' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
 ```
 
 오류 요약 보기:
 
 ```powershell
-Invoke-RestMethod -Uri 'https://your-api.example.com/api/admin/operational-events/summary?limit=500' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
+Invoke-RestMethod -Uri 'https://api.alphamate.co.kr/api/admin/operational-events/summary?limit=500' -Headers @{ Authorization = "Bearer $env:ALPHAMATE_ADMIN_TOKEN" }
 ```
 
 ## 9. 최종 검증
