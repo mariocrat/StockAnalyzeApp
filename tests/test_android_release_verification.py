@@ -14,6 +14,8 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("ExecutionPolicy Bypass", batch)
         self.assertTrue(batch.isascii())
         self.assertIn("Android release build verification passed.", batch)
+        self.assertIn("if errorlevel 1", batch)
+        self.assertNotIn("%EXIT_CODE%", batch)
         self.assertIn("ALPHAMATE_NO_PAUSE", batch)
         self.assertIn("if not \"%ALPHAMATE_NO_PAUSE%\"==\"1\" pause", batch)
         self.assertIn("pause", batch.lower())
@@ -26,9 +28,40 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("ExecutionPolicy Bypass", batch)
         self.assertTrue(batch.isascii())
         self.assertIn("Android debug build verification passed.", batch)
+        self.assertIn("if errorlevel 1", batch)
+        self.assertNotIn("%EXIT_CODE%", batch)
         self.assertIn("ALPHAMATE_NO_PAUSE", batch)
         self.assertIn("if not \"%ALPHAMATE_NO_PAUSE%\"==\"1\" pause", batch)
         self.assertIn("pause", batch.lower())
+
+    def test_oauth_debug_batch_runs_safe_oauth_apk_script(self):
+        batch = (ROOT / "verify_android_oauth_debug.bat").read_text(encoding="utf-8")
+
+        self.assertIn("scripts\\verify_android_oauth_debug.ps1", batch)
+        self.assertIn("ExecutionPolicy Bypass", batch)
+        self.assertTrue(batch.isascii())
+        self.assertIn("Android OAuth test APK build passed.", batch)
+        self.assertIn("ALPHAMATE_NO_PAUSE", batch)
+        self.assertIn("if errorlevel 1", batch)
+        self.assertNotIn("%EXIT_CODE%", batch)
+
+    def test_oauth_debug_script_loads_only_public_release_settings(self):
+        script = (ROOT / "scripts" / "verify_android_oauth_debug.ps1").read_text(encoding="utf-8")
+
+        self.assertIn('Join-Path $frontend ".env.release"', script)
+        self.assertIn("Read-AllowedEnvFile", script)
+        self.assertIn('"VITE_KAKAO_REST_API_KEY"', script)
+        self.assertIn('"VITE_NAVER_CLIENT_ID"', script)
+        public_allowlist = script.split("$allowedNames = @(", 1)[1].split(")\n$requiredNames", 1)[0]
+        self.assertNotIn("NAVER_CLIENT_SECRET", public_allowlist)
+        self.assertNotIn("KAKAO_CLIENT_SECRET", public_allowlist)
+        self.assertNotIn("OPENAI_API_KEY", public_allowlist)
+        self.assertIn("ca-app-pub-3940256099942544~3347511713", script)
+        self.assertIn("server-only secret value", script)
+        self.assertNotIn("server-only secret variable name", script)
+        self.assertIn("Select-String -Path $distFiles.FullName", script)
+        self.assertIn("assembleDebug", script)
+        self.assertIn("app-debug.apk", script)
 
     def test_release_verification_script_loads_frontend_release_env_and_builds_aab(self):
         script = (ROOT / "scripts" / "verify_android_release.ps1").read_text(encoding="utf-8")

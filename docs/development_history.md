@@ -704,3 +704,11 @@
 - Added Android OAuth deep links and frontend Capacitor app URL handling for the one-time ticket flow.
 - Split AdMob interstitial ad unit settings by placement: review history, app resume, and chart detail.
 - Added a Billing Library audit test that verifies the Play Billing client dependency used by `capacitor-plugin-cdv-purchase` is version 8 or newer.
+
+## 2026-07-12 Android OAuth Test APK
+
+- Added `verify_android_oauth_debug.bat` to build a debug APK with production API and public OAuth settings from `frontend/.env.release`.
+- The OAuth test build uses an explicit public-setting allowlist and checks that backend secret values are absent from built web assets.
+- Google test AdMob App ID is forced for this APK, so production advertising settings are not required for login testing.
+- Fixed Android verification batch files so a failed PowerShell build returns a non-zero exit code instead of being reported as successful.
+- Verified the generated APK package, app label, and Kakao/Naver deep-link routes, and added `docs/android_oauth_test_guide.md` for phone testing.
