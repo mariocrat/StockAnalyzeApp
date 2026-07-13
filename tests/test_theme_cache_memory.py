@@ -24,14 +24,20 @@ class ThemeCacheMemoryTests(unittest.TestCase):
             "000002": '["20250101", 0, 0, 0, 200, 0]\n["20250109", 0, 0, 0, 180, 0]\n["20250110", 0, 0, 0, 198, 0]',
         }
         requested = []
+        sessions = []
 
-        def fake_get(url, **_kwargs):
-            ticker = url.split("symbol=", 1)[1].split("&", 1)[0]
-            requested.append(ticker)
-            return _Response(rows[ticker])
+        class FakeSession:
+            def __init__(self):
+                self.headers = {}
+                sessions.append(self)
+
+            def get(self, url, **_kwargs):
+                ticker = url.split("symbol=", 1)[1].split("&", 1)[0]
+                requested.append(ticker)
+                return _Response(rows[ticker])
 
         with mock.patch.object(data_fetcher, "get_krx_themes", return_value=(themes, names, {})), \
-             mock.patch("requests.get", side_effect=fake_get), \
+             mock.patch("requests.Session", side_effect=FakeSession), \
              mock.patch.dict(os.environ, {"ALPHAMATE_THEME_FETCH_WORKERS": "2"}):
             result = data_fetcher._calculate_theme_return_ranges({
                 "1Y": ("20250101", "20250110"),
@@ -39,6 +45,7 @@ class ThemeCacheMemoryTests(unittest.TestCase):
             })
 
         self.assertCountEqual(["000001", "000002"], requested)
+        self.assertLessEqual(len(sessions), 2)
         self.assertEqual(1, len(result["1Y"]))
         self.assertEqual(1, len(result["1D"]))
         self.assertAlmostEqual(24.5, result["1Y"].iloc[0]["Avg Return (%)"])

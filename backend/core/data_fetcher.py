@@ -5,6 +5,7 @@ import datetime
 import json
 import os
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -450,6 +451,15 @@ def _calculate_theme_return_ranges(period_ranges: dict[str, tuple[str, str]]) ->
     latest_end = max(end for _, end in period_ranges.values())
     row_re = re.compile(r'\["(\d{8})",\s*[-\d.]+,\s*[-\d.]+,\s*[-\d.]+,\s*([-\d.]+),')
     headers = {'User-Agent': 'Mozilla/5.0'}
+    request_state = threading.local()
+
+    def _session() -> requests.Session:
+        session = getattr(request_state, "session", None)
+        if session is None:
+            session = requests.Session()
+            session.headers.update(headers)
+            request_state.session = session
+        return session
 
     def _fetch_closes(ticker: str):
         url = (
@@ -458,7 +468,9 @@ def _calculate_theme_return_ranges(period_ranges: dict[str, tuple[str, str]]) ->
             f"&endTime={latest_end}&timeframe=day"
         )
         try:
-            response = requests.get(url, headers=headers, timeout=8)
+            # A session per worker keeps the Naver HTTPS connection alive.
+            # Render otherwise pays a TLS handshake for every ticker.
+            response = _session().get(url, timeout=8)
             if response.status_code != 200:
                 return ticker, []
             rows = []

@@ -730,5 +730,6 @@
 - Reworked theme warming so one bounded fetch pass calculates every missing standard period while retaining only per-ticker returns. Daily close rows are no longer accumulated and serialized as one large in-memory object.
 - Serialized standard and custom theme calculations so simultaneous 1W/1M/1Y requests cannot multiply background workers and exhaust the web instance.
 - Measured a real four-period market-data warm locally at 54.86 seconds with an 88.15 MB Python allocation peak; all 1D/1W/1M/1Y rankings were produced in the same pass.
+- Reused one HTTPS session per fetch worker after measuring Render's first Naver request at 0.84 seconds versus 1.70 seconds for ten requests over one persistent connection.
 - Added an always-available mobile back button and Android hardware back handling. Back now unwinds chart detail, review history detail, review history, journal, and theme selection before showing an explicit exit confirmation on the root screen.
 - Added regression tests for low-memory multi-period theme calculation and app back-navigation policy.
