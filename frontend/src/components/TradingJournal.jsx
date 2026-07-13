@@ -10,6 +10,7 @@ import { shouldFinishGooglePlayTransaction } from '../mobile/billingPolicy';
 import { buildAiReviewIdempotencyKey } from '../utils/aiReviewIdempotency';
 import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
+import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
 
 const sideLabels = { buy: '매수', sell: '매도' };
 const DEFAULT_FEE_RATE = '0.015';
@@ -157,6 +158,20 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
   const reviewHistoryAdShownRef = useRef(false);
+
+  useEffect(() => {
+    const handleBackRequest = (event) => {
+      if (journalSubView !== 'history') return;
+      event.detail.handled = true;
+      if (activeReviewHistory) {
+        setActiveReviewHistory(null);
+        return;
+      }
+      setJournalSubView('review');
+    };
+    window.addEventListener(APP_BACK_REQUEST_EVENT, handleBackRequest);
+    return () => window.removeEventListener(APP_BACK_REQUEST_EVENT, handleBackRequest);
+  }, [activeReviewHistory, journalSubView]);
   const handledOAuthReturnUrlRef = useRef('');
 
   const activeAuthToken = authSession?.session_token || DEV_AUTH_TOKEN;

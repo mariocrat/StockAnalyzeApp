@@ -1,10 +1,14 @@
 import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
+import { ArrowLeft } from 'lucide-react';
 import './App.css';
 import appIcon from './assets/app-icon.png';
 import { getAdMobRuntimeStatus, removeAppBanner, showAppBanner, showChartDetailInterstitial, showResumeInterstitial } from './mobile/admob';
 import { shouldShowBannerAd, shouldShowChartDetailInterstitial, shouldShowResumeInterstitial } from './mobile/admobPolicy';
 import { reportClientEvent } from './utils/clientEventLog';
+import { nextRootBackAction, requestNestedBack } from './utils/appNavigation';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
@@ -74,6 +78,7 @@ export default function App() {
   const [splashExiting, setSplashExiting] = useState(false);
   const [adPlan, setAdPlan] = useState(DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free');
   const [bannerReserved, setBannerReserved] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
   const backgroundedAtRef = useRef(0);
   const lastResumeInterstitialAtRef = useRef(0);
   const resumeInterstitialInFlightRef = useRef(false);
@@ -282,6 +287,61 @@ export default function App() {
   const searchRequestSeq = useRef(0);
   const searchCacheRef = useRef({});
   const suppressNextSearchRef = useRef(false);
+
+  const changeActiveView = useCallback((nextView) => {
+    setActiveView(nextView);
+    try {
+      const url = new URL(window.location.href);
+      if (nextView === 'journal') url.searchParams.set('view', 'journal');
+      else url.searchParams.delete('view');
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      // The in-memory view still changes when URL APIs are unavailable.
+    }
+  }, []);
+
+  const handleAppBack = useCallback(() => {
+    if (requestNestedBack()) return;
+
+    const action = nextRootBackAction({
+      activeView,
+      hasThemeSelection: Boolean(activeTheme || selectedStocks.length),
+    });
+    if (action === 'themes') {
+      changeActiveView('themes');
+      return;
+    }
+    if (action === 'clear-theme-selection') {
+      setActiveTheme(null);
+      setSelectedStocks([]);
+      return;
+    }
+    setShowExitConfirm(true);
+  }, [activeTheme, activeView, changeActiveView, selectedStocks.length]);
+
+  const exitApplication = useCallback(async () => {
+    setShowExitConfirm(false);
+    if (Capacitor.isNativePlatform()) {
+      await CapacitorApp.exitApp();
+      return;
+    }
+    if (window.history.length > 1) window.history.back();
+  }, []);
+
+  useEffect(() => {
+    let listener;
+    let mounted = true;
+    CapacitorApp.addListener('backButton', () => handleAppBack())
+      .then(handle => {
+        if (mounted) listener = handle;
+        else handle.remove();
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+      listener?.remove();
+    };
+  }, [handleAppBack]);
 
   useEffect(() => {
     if (!showSplash) return undefined;
@@ -599,13 +659,20 @@ export default function App() {
     <>
     {showSplash && <AppSplash exiting={splashExiting} />}
     <div className={`${bannerReserved ? 'app-container app-container-mobile-banner' : 'app-container'} ${activeView === 'journal' ? 'journal-view' : 'themes-view'}`}>
+      <header className="mobile-app-bar">
+        <button type="button" className="mobile-app-back" onClick={handleAppBack} aria-label="뒤로 가기" title="뒤로 가기">
+          <ArrowLeft size={21} aria-hidden="true" />
+        </button>
+        <strong>{APP_NAME}</strong>
+        <span className="mobile-app-bar-spacer" aria-hidden="true" />
+      </header>
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <div className="sidebar">
         <h2 className="sidebar-title">{APP_NAME}</h2>
 
         <div className="app-nav">
-          <button className={activeView === 'themes' ? 'active' : ''} onClick={() => setActiveView('themes')}>테마/차트</button>
-          <button className={activeView === 'journal' ? 'active' : ''} onClick={() => setActiveView('journal')}>매매복기</button>
+          <button className={activeView === 'themes' ? 'active' : ''} onClick={() => changeActiveView('themes')}>테마/차트</button>
+          <button className={activeView === 'journal' ? 'active' : ''} onClick={() => changeActiveView('journal')}>매매복기</button>
         </div>
 
         {activeView === 'themes' && (
@@ -930,6 +997,18 @@ export default function App() {
         )}
       </div>
     </div>
+    {showExitConfirm && (
+      <div className="app-exit-backdrop" role="presentation" onClick={() => setShowExitConfirm(false)}>
+        <div className="app-exit-dialog" role="dialog" aria-modal="true" aria-labelledby="app-exit-title" onClick={event => event.stopPropagation()}>
+          <h2 id="app-exit-title">앱을 종료할까요?</h2>
+          <p>종료하면 현재 보고 있던 화면이 닫힙니다.</p>
+          <div className="app-exit-actions">
+            <button type="button" onClick={() => setShowExitConfirm(false)}>취소</button>
+            <button type="button" className="confirm" onClick={exitApplication}>종료</button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }

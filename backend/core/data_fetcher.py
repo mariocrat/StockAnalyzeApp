@@ -358,7 +358,7 @@ def get_krx_themes():
                         local_returns[ticker] = rate
             return theme_name, tickers_list, local_names, local_returns
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=24) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=_theme_fetch_workers(len(theme_links))) as executor:
             results = list(executor.map(fetch_theme_detail, theme_links))
 
         for result in results:
@@ -399,107 +399,160 @@ def get_theme_returns_historical(start_date: str, end_date: str):
     if cached:
         return pd.DataFrame(cached)
 
+    results = _calculate_theme_return_ranges({"requested": (start_date, end_date)})
+    stats = results.get("requested", pd.DataFrame())
+    if not stats.empty:
+        _write_json_cache(cache_name, stats.to_dict(orient="records"))
+    return stats
+
+
+def warm_theme_return_caches(period_ranges: dict[str, tuple[str, str]]) -> dict[str, int]:
+    """Build all missing standard-period caches with one bounded market-data pass."""
+    missing = {
+        period: date_range
+        for period, date_range in period_ranges.items()
+        if get_cached_theme_returns(*date_range).empty
+    }
+    if not missing:
+        return {
+            period: len(get_cached_theme_returns(*date_range))
+            for period, date_range in period_ranges.items()
+        }
+
+    calculated = _calculate_theme_return_ranges(missing)
+    counts = {}
+    for period, date_range in period_ranges.items():
+        stats = calculated.get(period)
+        if stats is not None and not stats.empty:
+            cache_name = f"theme_returns_v3_{date_range[0]}_{date_range[1]}.json"
+            _write_json_cache(cache_name, stats.to_dict(orient="records"))
+        cached = get_cached_theme_returns(*date_range)
+        counts[period] = int(len(cached))
+    return counts
+
+
+def _calculate_theme_return_ranges(period_ranges: dict[str, tuple[str, str]]) -> dict[str, pd.DataFrame]:
+    """Fetch closes once and retain only per-period returns, not every daily row."""
+    if not period_ranges:
+        return {}
+
+    import concurrent.futures
+    import requests
+
     themes, names, _ = get_krx_themes()
-    unique_tickers = list({
-        t
-        for tlist in themes.values()
-        for t in tlist
-        if isinstance(t, str) and t.isdigit() and len(t) == 6
+    unique_tickers = sorted({
+        ticker
+        for ticker_list in themes.values()
+        for ticker in ticker_list
+        if isinstance(ticker, str) and ticker.isdigit() and len(ticker) == 6
     })
+    earliest_start = min(start for start, _ in period_ranges.values())
+    latest_end = max(end for _, end in period_ranges.values())
+    row_re = re.compile(r'\["(\d{8})",\s*[-\d.]+,\s*[-\d.]+,\s*[-\d.]+,\s*([-\d.]+),')
+    headers = {'User-Agent': 'Mozilla/5.0'}
 
-    close_rows_by_ticker = _read_covering_close_cache(start_date, end_date)
-    if close_rows_by_ticker is None:
-        import concurrent.futures
-        import requests
-
-        row_re = re.compile(r'\["(\d{8})",\s*[-\d.]+,\s*[-\d.]+,\s*[-\d.]+,\s*([-\d.]+),')
-        headers = {'User-Agent': 'Mozilla/5.0'}
-
-        def _fetch_closes(ticker: str):
-            url = (
-                "https://api.finance.naver.com/siseJson.naver"
-                f"?symbol={ticker}&requestType=1&startTime={start_date}"
-                f"&endTime={end_date}&timeframe=day"
-            )
-            try:
-                res = requests.get(url, headers=headers, timeout=8)
-                if res.status_code != 200:
-                    return ticker, []
-                rows = []
-                for date_text, close_text in row_re.findall(res.text):
-                    try:
-                        close = float(close_text)
-                    except ValueError:
-                        continue
-                    if close > 0:
-                        rows.append([date_text, close])
-                rows.sort(key=lambda item: item[0])
-                return ticker, rows
-            except Exception:
+    def _fetch_closes(ticker: str):
+        url = (
+            "https://api.finance.naver.com/siseJson.naver"
+            f"?symbol={ticker}&requestType=1&startTime={earliest_start}"
+            f"&endTime={latest_end}&timeframe=day"
+        )
+        try:
+            response = requests.get(url, headers=headers, timeout=8)
+            if response.status_code != 200:
                 return ticker, []
+            rows = []
+            for date_text, close_text in row_re.findall(response.text):
+                try:
+                    close = float(close_text)
+                except ValueError:
+                    continue
+                if close > 0:
+                    rows.append((date_text, close))
+            rows.sort(key=lambda item: item[0])
+            return ticker, rows
+        except Exception:
+            return ticker, []
 
-        close_rows_by_ticker = {}
-        max_workers = _theme_fetch_workers(len(unique_tickers))
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for ticker, rows_for_ticker in executor.map(_fetch_closes, unique_tickers):
-                if len(rows_for_ticker) >= 2:
-                    close_rows_by_ticker[ticker] = rows_for_ticker
-        _write_json_cache(f"naver_closes_{start_date}_{end_date}.json", close_rows_by_ticker)
+    returns_by_period = {period: {} for period in period_ranges}
+    max_workers = _theme_fetch_workers(len(unique_tickers))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_fetch_closes, ticker) for ticker in unique_tickers]
+        for future in concurrent.futures.as_completed(futures):
+            ticker, close_rows = future.result()
+            if len(close_rows) < 2:
+                continue
+            for period, (start_date, end_date) in period_ranges.items():
+                period_rows = [row for row in close_rows if start_date <= row[0] <= end_date]
+                if len(period_rows) < 2:
+                    continue
+                start_price = period_rows[0][1]
+                end_price = period_rows[-1][1]
+                if start_price > 0:
+                    returns_by_period[period][ticker] = round(
+                        ((end_price - start_price) / start_price) * 100,
+                        2,
+                    )
 
-    return_dict: dict = {}
-    for ticker, rows_for_ticker in close_rows_by_ticker.items():
-        period_rows = [
-            row for row in rows_for_ticker
-            if start_date <= row[0] <= end_date
-        ]
-        if len(period_rows) < 2:
-            continue
-        start_price = period_rows[0][1]
-        end_price = period_rows[-1][1]
-        if start_price > 0:
-            return_dict[ticker] = round(((end_price - start_price) / start_price) * 100, 2)
+    return {
+        period: _build_theme_return_stats(
+            themes=themes,
+            names=names,
+            ticker_returns=ticker_returns,
+            start_date=period_ranges[period][0],
+            end_date=period_ranges[period][1],
+        )
+        for period, ticker_returns in returns_by_period.items()
+    }
 
-    rows = [{'Theme': tn, 'Ticker': t} for tn, tl in themes.items() for t in tl]
+
+def _build_theme_return_stats(
+    *,
+    themes: dict,
+    names: dict,
+    ticker_returns: dict,
+    start_date: str,
+    end_date: str,
+) -> pd.DataFrame:
+    rows = [{'Theme': theme, 'Ticker': ticker} for theme, tickers in themes.items() for ticker in tickers]
     df_map = pd.DataFrame(rows)
-    df_map['Return'] = df_map['Ticker'].map(return_dict)
+    if df_map.empty:
+        return pd.DataFrame()
+    df_map['Return'] = df_map['Ticker'].map(ticker_returns)
     df_map['Name'] = df_map['Ticker'].map(names)
-
     valid_df = df_map.dropna(subset=['Return']).copy()
+    if valid_df.empty:
+        return pd.DataFrame()
 
     stats = (valid_df.groupby('Theme')['Return']
-               .mean()
-               .round(2)
-               .reset_index()
-               .rename(columns={'Return': 'Avg Return (%)'}))
+             .mean()
+             .round(2)
+             .reset_index()
+             .rename(columns={'Return': 'Avg Return (%)'}))
 
-    def _build_ticker_list(g):
-        items = []
-        for r in g.itertuples():
-            items.append({
-                'ticker': r.Ticker,
-                'name': r.Name if pd.notna(r.Name) else r.Ticker,
-                'return_rate': round(r.Return, 2)
-            })
-        items.sort(key=lambda x: -(x['return_rate'] or 0))
+    def _build_ticker_list(group):
+        items = [
+            {
+                'ticker': row.Ticker,
+                'name': row.Name if pd.notna(row.Name) else row.Ticker,
+                'return_rate': round(row.Return, 2),
+            }
+            for row in group.itertuples()
+        ]
+        items.sort(key=lambda item: -(item['return_rate'] or 0))
         return items
 
-    if not valid_df.empty:
-        ticker_lists = {
-            theme: _build_ticker_list(group)
-            for theme, group in valid_df.groupby('Theme')
-        }
-        stats['Tickers'] = stats['Theme'].map(ticker_lists)
-        stats['Num Stocks'] = stats['Tickers'].apply(len)
-    else:
-        stats['Tickers'] = []
-        stats['Num Stocks'] = 0
-
+    ticker_lists = {
+        theme: _build_ticker_list(group)
+        for theme, group in valid_df.groupby('Theme')
+    }
+    stats['Tickers'] = stats['Theme'].map(ticker_lists)
+    stats['Num Stocks'] = stats['Tickers'].apply(len)
     stats = stats.sort_values('Avg Return (%)', ascending=False).reset_index(drop=True)
     stats.insert(0, 'Rank', range(1, len(stats) + 1))
     stats['Start Date'] = start_date
     stats['End Date'] = end_date
     stats['Data Source'] = 'Naver chart close'
-    _write_json_cache(cache_name, stats.to_dict(orient="records"))
     return stats
 
 @ttl_cache(maxsize=100, ttl=3600*24)

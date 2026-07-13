@@ -54,6 +54,7 @@ try {
     Run-Step "프론트 사용자 오류 로그 테스트" { & npm.cmd run test:client-events }
     Run-Step "프론트 API 오류 요청 ID 테스트" { & npm.cmd run test:api-errors }
     Run-Step "프론트 OAuth 앱 복귀 테스트" { & npm.cmd run test:oauth-app-return }
+    Run-Step "프론트 앱 뒤로가기 테스트" { & npm.cmd run test:app-navigation }
     Run-Step "프론트 AI 복기 중복 요청 방지 테스트" { & npm.cmd run test:ai-idempotency }
     Run-Step "프론트 스플래시 로딩 정책 테스트" { & npm.cmd run test:splash-loading }
     Run-Step "프론트 린트" { & npm.cmd run lint }

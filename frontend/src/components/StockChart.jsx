@@ -1,9 +1,11 @@
 import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
+import { ArrowLeft, Maximize2 } from 'lucide-react';
 import {
   createChart, CrosshairMode, PriceScaleMode,
   CandlestickSeries, HistogramSeries, LineSeries,
 } from 'lightweight-charts';
 import { getStoredAuthSessionToken, reportClientEvent } from '../utils/clientEventLog';
+import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
 // API_BASE and axios no longer used in StockChart.jsx
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -192,6 +194,31 @@ const StockChart = forwardRef(({
   const [drawnLines, setDrawnLines] = React.useState([]); // For individual deletion UI
   const [localScale, setLocalScale] = React.useState(scaleMode);
   const hasVisibleCandleCount = String(visibleCandleCount || '').trim() !== '';
+
+  const resizeAfterFullscreenChange = React.useCallback(() => {
+    window.setTimeout(() => {
+      try {
+        stateRef.current.chart?.timeScale().fitContent();
+      } catch {
+        // The chart may already be unmounted.
+      }
+    }, 50);
+  }, []);
+
+  const closeFullscreen = React.useCallback(() => {
+    setIsFullscreen(false);
+    resizeAfterFullscreenChange();
+  }, [resizeAfterFullscreenChange]);
+
+  useEffect(() => {
+    if (!isFullscreen) return undefined;
+    const handleBackRequest = (event) => {
+      event.detail.handled = true;
+      closeFullscreen();
+    };
+    window.addEventListener(APP_BACK_REQUEST_EVENT, handleBackRequest);
+    return () => window.removeEventListener(APP_BACK_REQUEST_EVENT, handleBackRequest);
+  }, [closeFullscreen, isFullscreen]);
 
   const getDrawingPoint = (event) => {
     const chart = stateRef.current.chart;
@@ -555,7 +582,7 @@ const StockChart = forwardRef(({
 
   return (
     <div style={isFullscreen ? {
-        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh',
         zIndex: 9999, background: '#151924', padding: '20px', boxSizing: 'border-box',
         display: 'flex', flexDirection: 'column'
       } : { 
@@ -564,6 +591,17 @@ const StockChart = forwardRef(({
       }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {isFullscreen && (
+            <button
+              type="button"
+              onClick={closeFullscreen}
+              className="stock-chart-back-button"
+              aria-label="차트로 돌아가기"
+              title="차트로 돌아가기"
+            >
+              <ArrowLeft size={20} aria-hidden="true" />
+            </button>
+          )}
           <h3 style={{ color: '#fff', margin: 0, fontSize: '14px', fontWeight: 600 }}>
             {name}
             <span style={{ color: '#444', fontWeight: 400, fontSize: '12px', marginLeft: '6px' }}>({ticker})</span>
@@ -745,20 +783,22 @@ const StockChart = forwardRef(({
                   // Ad failures should not block chart detail access.
                 }
               }
-              setIsFullscreen(nextFullscreen);
-              // Trigger a resize on next tick to ensure fitContent works well
-              setTimeout(() => {
-                if (stateRef.current.chart) {
-                  try { stateRef.current.chart.timeScale().fitContent(); } catch(err){ console.debug(err); }
-                }
-              }, 50);
+              if (nextFullscreen) {
+                setIsFullscreen(true);
+                resizeAfterFullscreenChange();
+              } else {
+                closeFullscreen();
+              }
             }}
+            className="stock-chart-fullscreen-button"
+            aria-label={isFullscreen ? '차트 닫기' : '자세히 보기'}
+            title={isFullscreen ? '차트 닫기' : '자세히 보기'}
             style={{ 
               background: '#2962ff', color: '#fff', border: 'none', 
-              borderRadius: '4px', padding: '4px 10px', fontSize: '12px', cursor: 'pointer',
+              borderRadius: '4px', padding: '4px 8px', fontSize: '12px', cursor: 'pointer',
               fontWeight: 600
             }}>
-            {isFullscreen ? '<닫기>' : '<자세히 보기>'}
+            {isFullscreen ? '닫기' : <Maximize2 size={16} aria-hidden="true" />}
           </button>
         </div>
       </div>

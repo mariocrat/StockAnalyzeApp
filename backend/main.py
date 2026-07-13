@@ -16,6 +16,7 @@ from core.data_fetcher import (
     get_theme_returns_historical,
     get_cached_theme_returns,
     get_latest_cached_theme_returns,
+    warm_theme_return_caches,
 )
 from core.metrics import calculate_theme_rankings, get_stocks_in_theme
 from core.utils import get_chosung
@@ -57,6 +58,7 @@ logging.getLogger("yfinance").setLevel(logging.CRITICAL)
 _theme_refresh_lock = threading.Lock()
 _theme_refresh_jobs = set()
 _theme_warm_lock = threading.Lock()
+_theme_calculation_lock = threading.Lock()
 _client_event_rate_limiter = InMemoryRateLimiter()
 _market_rate_limiter = InMemoryRateLimiter()
 _admin_rate_limiter = InMemoryRateLimiter()
@@ -356,9 +358,13 @@ def _fallback_span(period: str):
     }.get(period)
 
 
-def _schedule_theme_cache_refresh(start_date: str, end_date: str):
+def _schedule_theme_cache_refresh(start_date: str = "", end_date: str = ""):
     if _theme_warm_lock.locked():
         return
+    threading.Thread(target=_warm_cache, daemon=True).start()
+
+
+def _schedule_custom_theme_cache_refresh(start_date: str, end_date: str):
     key = (start_date, end_date)
     with _theme_refresh_lock:
         if key in _theme_refresh_jobs:
@@ -367,7 +373,8 @@ def _schedule_theme_cache_refresh(start_date: str, end_date: str):
 
     def _worker():
         try:
-            get_theme_returns_historical(start_date, end_date)
+            with _theme_calculation_lock:
+                get_theme_returns_historical(start_date, end_date)
         except Exception as e:
             print(f"[cache] Theme refresh failed {start_date}-{end_date}: {e}")
         finally:
@@ -403,10 +410,13 @@ def _warm_cache():
         except Exception as e:
             print(f"[startup] Search index warm-up failed (non-fatal): {e}")
 
-        for period in ("1Y", "1M", "1W", "1D"):
-            start, end = _period_date_range(period)
-            get_theme_returns_historical(start, end)
-        print("[startup] Theme cache ready.")
+        period_ranges = {
+            period: _period_date_range(period)
+            for period in ("1D", "1W", "1M", "1Y")
+        }
+        with _theme_calculation_lock:
+            counts = warm_theme_return_caches(period_ranges)
+        print(f"[startup] Theme cache ready: {counts}")
     except Exception as e:
         print(f"[startup] Cache warm-up failed (non-fatal): {e}")
     finally:
@@ -1058,7 +1068,15 @@ def get_themes(period: str = "1D", start_date: Optional[str] = None, end_date: O
                     )
                 df = get_theme_returns_historical(start_date, end_date)
         else:
-            df = get_theme_returns_historical(start_date, end_date)
+            df = get_cached_theme_returns(start_date, end_date)
+            if df.empty and env_value("ALPHAMATE_ENV").lower() == "production":
+                _schedule_custom_theme_cache_refresh(start_date, end_date)
+                raise HTTPException(
+                    status_code=503,
+                    detail="요청한 기간 수익률을 준비 중입니다. 잠시 후 자동으로 다시 확인합니다.",
+                )
+            if df.empty:
+                df = get_theme_returns_historical(start_date, end_date)
         return df.to_dict(orient="records")
     return []
 

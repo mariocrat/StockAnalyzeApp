@@ -17,6 +17,7 @@
     "test:client-events": "node --test scripts/client-event-log.test.js",
     "test:api-errors": "node --test scripts/api-error-request-id.test.js",
     "test:oauth-app-return": "node --test scripts/oauth-app-return.test.js",
+    "test:app-navigation": "node --test scripts/app-navigation.test.js",
     "test:ai-idempotency": "node --test scripts/ai-review-idempotency.test.js",
     "test:splash-loading": "node --test scripts/splash-loading-policy.test.js",
     "test:release-env": "node --test scripts/validate-release-env.test.js",

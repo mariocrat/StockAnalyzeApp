@@ -65,6 +65,64 @@ body {
   padding-bottom: 64px;
 }
 
+.mobile-app-bar {
+  display: none;
+}
+
+.app-exit-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(3, 6, 14, 0.78);
+}
+
+.app-exit-dialog {
+  box-sizing: border-box;
+  width: min(100%, 340px);
+  padding: 20px;
+  border: 1px solid #343a4a;
+  border-radius: 8px;
+  background: #171b27;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.52);
+}
+
+.app-exit-dialog h2 {
+  margin: 0;
+  color: #f5f7fb;
+  font-size: 18px;
+}
+
+.app-exit-dialog p {
+  margin: 10px 0 20px;
+  color: #9ba3b5;
+  line-height: 1.5;
+}
+
+.app-exit-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.app-exit-actions button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 5px;
+  background: #2a2f3c;
+  color: #e7eaf1;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.app-exit-actions button.confirm {
+  background: #2962ff;
+  color: #fff;
+}
+
 .sidebar {
   width: 300px;
   min-width: 260px;
@@ -118,6 +176,23 @@ body {
   flex-direction: column;
   overflow-y: auto;
   gap: 0;
+}
+
+.stock-chart-back-button,
+.stock-chart-fullscreen-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 32px;
+}
+
+.stock-chart-back-button {
+  border: 0;
+  border-radius: 4px;
+  background: #2a2e39;
+  color: #fff;
+  cursor: pointer;
 }
 
 /* ── Search ───────────────────────────────────────────────────────────── */
@@ -1448,6 +1523,44 @@ body {
     overflow: hidden;
   }
 
+  .mobile-app-bar {
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: 40px 1fr 40px;
+    flex: 0 0 48px;
+    width: 100%;
+    min-height: 48px;
+    align-items: center;
+    border-bottom: 1px solid #2a2e39;
+    background: #111520;
+  }
+
+  .mobile-app-bar strong {
+    overflow: hidden;
+    color: #fff;
+    font-size: 15px;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-app-back {
+    display: inline-flex;
+    width: 40px;
+    height: 40px;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: #e8ebf3;
+    cursor: pointer;
+  }
+
+  .mobile-app-bar-spacer {
+    width: 40px;
+    height: 40px;
+  }
+
   .sidebar {
     box-sizing: border-box;
     width: 100%;
@@ -1467,8 +1580,7 @@ body {
   }
 
   .sidebar-title {
-    margin-bottom: 10px;
-    text-align: center;
+    display: none;
   }
 
   .app-nav {

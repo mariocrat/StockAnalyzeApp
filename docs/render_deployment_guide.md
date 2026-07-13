@@ -74,7 +74,7 @@ https://api.alphamate.co.kr/healthz
 
 Render의 Health Check는 5초 timeout으로 민감합니다. 그래서 `render.yaml`은 `ALPHAMATE_WARM_CACHE_ON_STARTUP=false`로 시작 직후 전체 테마 계산을 실행하지 않습니다.
 
-기간 수익률 캐시는 Persistent Disk의 `/var/data/alphamate/cache`에 저장되고, 외부 시세 요청은 최대 8개로 제한됩니다. 서버는 한국시간 매일 00:01에 네 기간 캐시를 갱신합니다. 캐시가 아직 없을 때 앱은 서버 요청을 오래 붙잡지 않고 업데이트 안내를 표시한 뒤 자동으로 다시 확인합니다.
+기간 수익률 캐시는 Persistent Disk의 `/var/data/alphamate/cache`에 저장되고, 외부 시세 요청은 최대 8개로 제한됩니다. 서버는 한국시간 매일 00:01에 한 번의 제한된 시세 수집으로 네 기간 캐시를 갱신하며, 종목별 일봉 전체를 메모리에 쌓지 않습니다. 캐시가 아직 없을 때 앱은 서버 요청을 오래 붙잡지 않고 업데이트 안내를 표시한 뒤 자동으로 다시 확인합니다.
 
 배포 직후 캐시를 바로 준비하려면 관리자 토큰을 현재 PowerShell 세션의 환경변수에만 넣고 아래 명령을 한 번 실행합니다. 토큰을 문서나 Git에 적지 않습니다.
 
