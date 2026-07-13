@@ -30,6 +30,7 @@ class CorsConfigTest(unittest.TestCase):
 
             self.assertIn("http://127.0.0.1:5174", origins)
             self.assertIn("http://localhost:5174", origins)
+            self.assertIn("https://localhost", origins)
             self.assertIn("capacitor://localhost", origins)
             self.assertIn("ionic://localhost", origins)
 

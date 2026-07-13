@@ -733,3 +733,9 @@
 - Reused one HTTPS session per fetch worker after measuring Render's first Naver request at 0.84 seconds versus 1.70 seconds for ten requests over one persistent connection.
 - Added an always-available mobile back button and Android hardware back handling. Back now unwinds chart detail, review history detail, review history, journal, and theme selection before showing an explicit exit confirmation on the root screen.
 - Added regression tests for low-memory multi-period theme calculation and app back-navigation policy.
+
+## 2026-07-14 Android OAuth CORS Recovery
+
+- Traced the real Kakao/Naver phone failure to `OPTIONS /api/auth/login/oauth-ticket` returning 400 after the provider callback and app deep-link return.
+- Added the Capacitor Android WebView origin `https://localhost` to production CORS while continuing to reject wildcard and development-server localhost origins.
+- Added regression coverage so release readiness accepts the exact Android WebView origin without weakening the existing CORS safety checks.

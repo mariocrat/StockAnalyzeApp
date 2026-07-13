@@ -18,6 +18,7 @@ ADMIN_TOKEN_MIN_LENGTH = 32
 CORS_ORIGINS_SETTING = "ALPHAMATE_CORS_ORIGINS"
 PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
 LOCAL_HTTP_CORS_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
+CAPACITOR_RELEASE_ORIGINS = {"https://localhost", "capacitor://localhost", "ionic://localhost"}
 LOCAL_DATA_PATH_PARTS = ("backend/data", "backend\\data")
 TEMPLATE_DATA_PATH_PARTS = ("d:/secure/alphamate/", "d:\\secure\\alphamate\\")
 
@@ -127,13 +128,17 @@ def _cors_status() -> dict:
         for origin in origins
     )
     has_wildcard = "*" in origins
-    has_local_http_origin = any(
-        (urlparse(origin).scheme in {"http", "https"} and urlparse(origin).hostname in LOCAL_HTTP_CORS_HOSTS)
+    has_unsafe_local_http_origin = any(
+        (
+            urlparse(origin).scheme in {"http", "https"}
+            and urlparse(origin).hostname in LOCAL_HTTP_CORS_HOSTS
+            and origin not in CAPACITOR_RELEASE_ORIGINS
+        )
         for origin in origins
     )
     if has_placeholder:
         missing.append(f"{CORS_ORIGINS_SETTING}_PLACEHOLDER")
-    if has_local_http_origin:
+    if has_unsafe_local_http_origin:
         missing.append(f"{CORS_ORIGINS_SETTING}_LOCALHOST")
     if has_wildcard:
         missing.append(f"{CORS_ORIGINS_SETTING}_WILDCARD")
@@ -143,7 +148,7 @@ def _cors_status() -> dict:
         "origins": origins if not missing else [],
         "missing_server_settings": missing,
         "required_server_settings": [CORS_ORIGINS_SETTING],
-        "note": "Use deployed HTTPS web origins and mobile app origins only. Do not use wildcard or local HTTP origins for release.",
+        "note": "Use deployed HTTPS web origins and exact mobile WebView origins only. Do not use wildcard or development-server origins for release.",
     }
 
 

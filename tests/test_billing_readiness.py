@@ -211,6 +211,18 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertIn("ALPHAMATE_CORS_ORIGINS_WILDCARD", status["sections"]["cors"]["missing_server_settings"])
             self.assertIn("ALPHAMATE_CORS_ORIGINS_LOCALHOST", status["sections"]["cors"]["missing_server_settings"])
 
+    def test_app_readiness_accepts_capacitor_android_https_origin(self):
+        with patched_env(
+            ALPHAMATE_CORS_ORIGINS="https://alphamate.co.kr,https://localhost,capacitor://localhost",
+        ):
+            from backend.core import readiness
+
+            readiness = importlib.reload(readiness)
+            status = readiness.get_app_readiness()
+
+            self.assertTrue(status["sections"]["cors"]["ready"])
+            self.assertIn("https://localhost", status["sections"]["cors"]["origins"])
+
     def test_product_catalog_exposes_public_ids_and_readiness_only(self):
         with patched_env(
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",

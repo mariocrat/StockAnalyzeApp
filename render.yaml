@@ -23,7 +23,7 @@ services:
       - key: ALPHAMATE_THEME_FETCH_WORKERS
         value: 8
       - key: ALPHAMATE_CORS_ORIGINS
-        value: https://alphamate.co.kr,capacitor://localhost
+        value: https://alphamate.co.kr,https://localhost,capacitor://localhost
       - key: ALPHAMATE_PRIVACY_POLICY_URL
         value: https://alphamate.co.kr/privacy
       - key: ALPHAMATE_ACCOUNT_DB_PATH

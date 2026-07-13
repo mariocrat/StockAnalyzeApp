@@ -284,7 +284,7 @@ Invoke-RestMethod -Method Delete -Uri 'https://your-api.example.com/api/admin/op
 
 관리자 운영 로그 API는 IP별 분당 기본 30회로 제한됩니다. 운영 환경에서 필요하면 `ALPHAMATE_ADMIN_RATE_LIMIT_PER_MINUTE` 값으로 조정하되, 관리자 토큰은 계속 서버 secret으로만 보관합니다.
 
-운영 서버에서 웹 또는 Android WebView가 API를 호출해야 하면 `ALPHAMATE_CORS_ORIGINS`에 허용할 주소를 쉼표로 넣습니다. 예: `https://your-app.example.com,capacitor://localhost`
+운영 서버에서 웹 또는 Android WebView가 API를 호출해야 하면 `ALPHAMATE_CORS_ORIGINS`에 허용할 주소를 쉼표로 넣습니다. 현재 Android 앱은 `androidScheme: https`이므로 `https://localhost`가 반드시 필요합니다. 예: `https://your-app.example.com,https://localhost,capacitor://localhost`
 
 서버 생존 여부만 확인하는 모니터링에는 `/healthz` 또는 `/api/healthz`를 사용합니다. 이 응답은 `{"ok": true, "service": "alphamate-api"}`처럼 최소 정보만 반환하고, 설정 누락이나 secret 이름은 반환하지 않습니다.
 
