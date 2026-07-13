@@ -7,6 +7,8 @@ import {
   CrosshairMode,
   createSeriesMarkers,
 } from 'lightweight-charts';
+import { MARKET_DOWN, MARKET_DOWN_ALPHA, MARKET_UP, MARKET_UP_ALPHA } from '../theme/marketColors';
+import { getTooltipPosition } from '../utils/chartLayout';
 
 const intFmt = (value) => new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(value || 0);
 const maFmt = (value) => new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 2 }).format(value || 0);
@@ -29,7 +31,7 @@ function candleRows(candles) {
     volumeData.push({
       time: row.time,
       value: Number(row.volume || 0),
-      color: item.close >= item.open ? 'rgba(239,83,80,0.55)' : 'rgba(38,166,154,0.55)',
+      color: item.close >= item.open ? MARKET_UP_ALPHA : MARKET_DOWN_ALPHA,
     });
     if (row.ma5) ma5.push({ time: row.time, value: Number(row.ma5) });
     if (row.ma20) ma20.push({ time: row.time, value: Number(row.ma20) });
@@ -61,12 +63,12 @@ export default function JournalTradeChart({ chartData }) {
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#ef5350',
-      downColor: '#26a69a',
-      borderUpColor: '#ef5350',
-      borderDownColor: '#26a69a',
-      wickUpColor: '#ef5350',
-      wickDownColor: '#26a69a',
+      upColor: MARKET_UP,
+      downColor: MARKET_DOWN,
+      borderUpColor: MARKET_UP,
+      borderDownColor: MARKET_DOWN,
+      wickUpColor: MARKET_UP,
+      wickDownColor: MARKET_DOWN,
       priceFormat: { type: 'custom', formatter: (p) => intFmt(p), minMove: 1 },
     }, 0);
     candleSeries.setData(candleData);
@@ -123,11 +125,17 @@ export default function JournalTradeChart({ chartData }) {
       const detail = document.createElement('em');
       detail.textContent = `${prices}원`;
       tooltip.append(title, summary, detail);
-      const x = Math.min(Math.max(param.point.x + 12, 8), containerRef.current.clientWidth - 210);
-      const y = Math.min(Math.max(param.point.y + 12, 8), containerRef.current.clientHeight - 92);
+      tooltip.style.display = 'block';
+      const { x, y } = getTooltipPosition({
+        pointX: param.point.x,
+        pointY: param.point.y,
+        containerWidth: containerRef.current.clientWidth,
+        containerHeight: containerRef.current.clientHeight,
+        tooltipWidth: tooltip.offsetWidth,
+        tooltipHeight: tooltip.offsetHeight,
+      });
       tooltip.style.left = `${x}px`;
       tooltip.style.top = `${y}px`;
-      tooltip.style.display = 'block';
     });
     chart.timeScale().fitContent();
 

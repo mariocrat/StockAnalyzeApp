@@ -1,11 +1,15 @@
 import React, { useEffect, useRef, useImperativeHandle, forwardRef } from 'react';
 import { ArrowLeft, Maximize2 } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { StatusBar } from '@capacitor/status-bar';
 import {
   createChart, CrosshairMode, PriceScaleMode,
   CandlestickSeries, HistogramSeries, LineSeries,
 } from 'lightweight-charts';
 import { getStoredAuthSessionToken, reportClientEvent } from '../utils/clientEventLog';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
+import { MARKET_DOWN, MARKET_DOWN_ALPHA, MARKET_FLAT, MARKET_UP, MARKET_UP_ALPHA } from '../theme/marketColors';
+import { getPaneHeights, getTooltipPosition } from '../utils/chartLayout';
 // API_BASE and axios no longer used in StockChart.jsx
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -52,7 +56,7 @@ function buildCandleRows(data) {
     if (!isFinite(o) || !isFinite(h) || !isFinite(l) || !isFinite(c) || h < l || c <= 0) continue;
     seen.add(d.Date);
     candles.push({ time: d.Date, open: o, high: h, low: l, close: c, volume: v });
-    vols.push({ time: d.Date, value: v, color: c >= o ? 'rgba(239,83,80,0.6)' : 'rgba(38,166,154,0.6)' });
+    vols.push({ time: d.Date, value: v, color: c >= o ? MARKET_UP_ALPHA : MARKET_DOWN_ALPHA });
   }
   candles.sort((a, b) => a.time.localeCompare(b.time));
   vols.sort((a, b) => a.time.localeCompare(b.time));
@@ -132,7 +136,7 @@ function applyAllData(st, bbPer, bbMul, rawData) {
         if (d.MACD !== undefined && d.MACD !== null) {
           macdData.push({ time: d.Date, value: d.MACD });
           signalData.push({ time: d.Date, value: d.MACD_Signal });
-          histData.push({ time: d.Date, value: d.MACD_Hist, color: d.MACD_Hist >= 0 ? 'rgba(38,166,154,0.8)' : 'rgba(239,83,80,0.8)' });
+          histData.push({ time: d.Date, value: d.MACD_Hist, color: d.MACD_Hist >= 0 ? MARKET_UP_ALPHA : MARKET_DOWN_ALPHA });
         }
         if (d.Stoch_K !== undefined && d.Stoch_K !== null) {
           stochK.push({ time: d.Date, value: d.Stoch_K });
@@ -187,13 +191,27 @@ const StockChart = forwardRef(({
   const [drawMode, setDrawMode] = React.useState('none'); // 'none' | 'trend' | 'horizontal'
   const drawStateRef = useRef({
     isDragging: false,
+    type: 'none',
     startPoint: null,
     endPoint: null,
     tempLineSeries: null,
+    tempPriceLine: null,
   });
   const [drawnLines, setDrawnLines] = React.useState([]); // For individual deletion UI
   const [localScale, setLocalScale] = React.useState(scaleMode);
   const hasVisibleCandleCount = String(visibleCandleCount || '').trim() !== '';
+  const displayedInds = isFullscreen ? localInds : (activeInds || {});
+  const paneIndicatorKeys = ['RSI', 'MACD', 'STOCH'].filter(key => displayedInds[key]);
+  const paneStructureKey = paneIndicatorKeys.join('|');
+  const regularChartHeight = Math.min(620, 340 + paneIndicatorKeys.length * 92);
+
+  const layoutPanes = React.useCallback((height) => {
+    const chart = stateRef.current.chart;
+    if (!chart) return;
+    const panes = chart.panes();
+    const paneHeights = getPaneHeights(height, paneIndicatorKeys.length);
+    panes.forEach((pane, index) => pane.setHeight(paneHeights[index] || 52));
+  }, [paneStructureKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const resizeAfterFullscreenChange = React.useCallback(() => {
     window.setTimeout(() => {
@@ -220,6 +238,18 @@ const StockChart = forwardRef(({
     return () => window.removeEventListener(APP_BACK_REQUEST_EVENT, handleBackRequest);
   }, [closeFullscreen, isFullscreen]);
 
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+    if (isFullscreen) {
+      StatusBar.hide().catch(() => {});
+    } else {
+      StatusBar.show().catch(() => {});
+    }
+    return () => {
+      if (isFullscreen) StatusBar.show().catch(() => {});
+    };
+  }, [isFullscreen]);
+
   const getDrawingPoint = (event) => {
     const chart = stateRef.current.chart;
     const candleSeries = stateRef.current.series.candle;
@@ -229,22 +259,39 @@ const StockChart = forwardRef(({
     const rect = chartEl.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
+    const mainPaneHeight = chart.panes()[0]?.getHeight?.() || rect.height;
+    if (y < 0 || y > mainPaneHeight) return null;
     const time = normalizeChartTime(chart.timeScale().coordinateToTime(x));
     const price = candleSeries.coordinateToPrice(y);
-    if (!time || price == null) return null;
+    if (price == null) return null;
     return { time, price };
   };
 
-  const finishTrendLine = () => {
-    if (drawMode !== 'trend' || !drawStateRef.current.isDragging) return;
-    const lineSeries = drawStateRef.current.tempLineSeries;
-    const { startPoint, endPoint } = drawStateRef.current;
-    if (lineSeries && startPoint && endPoint && startPoint.time !== endPoint.time) {
-      setDrawnLines(prev => [...prev, { id: Date.now(), type: 'trend', name: '추세선', obj: lineSeries }]);
-    } else if (lineSeries && stateRef.current.chart) {
-      try { stateRef.current.chart.removeSeries(lineSeries); } catch { /* ignore */ }
+  const finishDrawing = (cancel = false) => {
+    if (!drawStateRef.current.isDragging) return;
+    const { type, startPoint, endPoint, tempLineSeries, tempPriceLine } = drawStateRef.current;
+    if (type === 'trend') {
+      if (!cancel && tempLineSeries && startPoint && endPoint && startPoint.time !== endPoint.time) {
+        setDrawnLines(prev => [...prev, { id: Date.now(), type: 'trend', name: '추세선', obj: tempLineSeries }]);
+      } else if (tempLineSeries && stateRef.current.chart) {
+        try { stateRef.current.chart.removeSeries(tempLineSeries); } catch { /* ignore */ }
+      }
+    } else if (type === 'horizontal' && tempPriceLine) {
+      const finalPrice = endPoint?.price ?? startPoint?.price;
+      if (!cancel && finalPrice != null) {
+        setDrawnLines(prev => [...prev, { id: Date.now(), type: 'horizontal', name: `수평선 ${intFmt(finalPrice)}`, obj: tempPriceLine }]);
+      } else {
+        try { stateRef.current.series.candle?.removePriceLine(tempPriceLine); } catch { /* ignore */ }
+      }
     }
-    drawStateRef.current = { isDragging: false, startPoint: null, endPoint: null, tempLineSeries: null };
+    drawStateRef.current = {
+      isDragging: false,
+      type: 'none',
+      startPoint: null,
+      endPoint: null,
+      tempLineSeries: null,
+      tempPriceLine: null,
+    };
     setDrawMode('none');
   };
 
@@ -279,7 +326,7 @@ const StockChart = forwardRef(({
         } else {
           stateRef.current.chart.applyOptions({
             handleScroll: { pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
-            handleScale: { mouseWheel: true, pinch: false, axisPressedMouseMove: false }
+            handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: false }
           });
         }
       } catch { /* ignore */ }
@@ -302,6 +349,7 @@ const StockChart = forwardRef(({
     if (!containerRef.current || !data || !Array.isArray(data) || data.length === 0) return;
     const { candles, vols } = buildCandleRows(data);
     if (!candles || candles.length === 0) return;
+    const currentInds = isFullscreen ? localInds : (activeInds || {});
 
     // Destroy old
     if (stateRef.current.chart) {
@@ -313,7 +361,7 @@ const StockChart = forwardRef(({
     try {
       chart = createChart(containerRef.current, {
         autoSize: true,
-        height: 500,
+        height: containerRef.current.clientHeight || regularChartHeight,
         layout: { background: { type: 'solid', color: '#151924' }, textColor: '#c0c3cc', fontSize: 12 },
         grid: { vertLines: { color: 'rgba(42,46,57,0.4)' }, horzLines: { color: 'rgba(42,46,57,0.4)' } },
         crosshair: { mode: CrosshairMode.Magnet },
@@ -326,7 +374,7 @@ const StockChart = forwardRef(({
           }
         },
         handleScroll: { pressedMouseMove: drawMode === 'none', horzTouchDrag: true, vertTouchDrag: false },
-        handleScale: { mouseWheel: true, pinch: false, axisPressedMouseMove: false },
+        handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: false },
         localization: { dateFormat: 'yyyy-MM-dd' },
       });
     } catch(err) { reportChartClientError('chart_create_failed', err, { ticker }); return; }
@@ -337,9 +385,9 @@ const StockChart = forwardRef(({
 
     // ── Pane 0: Candlestick (main chart) ─────────────────────────────
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: '#ef5350', downColor: '#26a69a',
-      borderUpColor: '#ef5350', borderDownColor: '#26a69a',
-      wickUpColor: '#ef5350', wickDownColor: '#26a69a',
+      upColor: MARKET_UP, downColor: MARKET_DOWN,
+      borderUpColor: MARKET_UP, borderDownColor: MARKET_DOWN,
+      wickUpColor: MARKET_UP, wickDownColor: MARKET_DOWN,
       priceFormat: { type: 'custom', formatter: (p) => intFmt(p), minMove: 1 },
     }, 0);
     stateRef.current.series.candle = candleSeries;
@@ -350,13 +398,13 @@ const StockChart = forwardRef(({
         color, lineWidth: 1,
         priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
         priceFormat: { type: 'custom', formatter: (p) => maFmt(p) },
-        visible: activeInds?.[key] ?? false,
+        visible: currentInds[key] ?? false,
       }, 0);
       stateRef.current.series[key] = s;
     }
 
     // BB — pane 0
-    const bbV = activeInds?.BB ?? false;
+    const bbV = currentInds.BB ?? false;
     const bbBase = { color: '#b39ddb', lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false, visible: bbV };
     stateRef.current.series.BB_U = chart.addSeries(LineSeries, { ...bbBase, lineStyle: 2 }, 0);
     stateRef.current.series.BB_M = chart.addSeries(LineSeries, { ...bbBase, lineStyle: 0 }, 0);
@@ -369,49 +417,55 @@ const StockChart = forwardRef(({
     }, 1);
     stateRef.current.series.vol = volSeries;
 
-    // ── Pane 2: RSI ───────────────────────────────────────────────────
-    const rsiSeries = chart.addSeries(LineSeries, {
-      color: '#26a69a', lineWidth: 1,
-      priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
-      priceScaleId: 'right',
-      priceFormat: { type: 'price', precision: 1, minMove: 0.1 },
-      visible: activeIndsRef.current?.RSI ?? false,
-    }, 2);
-    stateRef.current.series.RSI = rsiSeries;
+    let paneIndex = 2;
+    let rsiSeries = null;
+    let macdSeries = null;
+    let signalSeries = null;
+    let histSeries = null;
+    let stochK = null;
+    let stochD = null;
 
-    // RSI 30/70 reference lines
-    rsiSeries.createPriceLine({ price: 70, color: '#ef535066', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
-    rsiSeries.createPriceLine({ price: 30, color: '#26a69a66', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+    if (currentInds.RSI) {
+      rsiSeries = chart.addSeries(LineSeries, {
+        color: '#26c6da', lineWidth: 1,
+        priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false,
+        priceScaleId: 'right',
+        priceFormat: { type: 'price', precision: 1, minMove: 0.1 },
+      }, paneIndex++);
+      rsiSeries.createPriceLine({ price: 70, color: `${MARKET_UP}66`, lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+      rsiSeries.createPriceLine({ price: 30, color: `${MARKET_DOWN}66`, lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+      stateRef.current.series.RSI = rsiSeries;
+    }
 
-    // ── Pane 3: MACD (Expert Mode) ────────────────────────────────────
-    const macdSeries = chart.addSeries(LineSeries, {
-      color: '#2962ff', lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false, visible: activeIndsRef.current?.MACD ?? false,
-    }, 3);
-    const signalSeries = chart.addSeries(LineSeries, {
-      color: '#ff9800', lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false, visible: activeIndsRef.current?.MACD ?? false,
-    }, 3);
-    const histSeries = chart.addSeries(HistogramSeries, {
-      priceFormat: { type: 'volume' }, visible: activeIndsRef.current?.MACD ?? false,
-    }, 3);
-    stateRef.current.series.MACD = macdSeries;
-    stateRef.current.series.MACD_S = signalSeries;
-    stateRef.current.series.MACD_H = histSeries;
+    if (currentInds.MACD) {
+      macdSeries = chart.addSeries(LineSeries, {
+        color: '#7c9cff', lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false,
+      }, paneIndex);
+      signalSeries = chart.addSeries(LineSeries, {
+        color: '#ffb74d', lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false,
+      }, paneIndex);
+      histSeries = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' } }, paneIndex++);
+      stateRef.current.series.MACD = macdSeries;
+      stateRef.current.series.MACD_S = signalSeries;
+      stateRef.current.series.MACD_H = histSeries;
+    }
 
-    // ── Pane 4: Stochastic (Expert Mode) ──────────────────────────────
-    const stochK = chart.addSeries(LineSeries, {
-      color: '#ff5252', lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false, visible: activeIndsRef.current?.STOCH ?? false,
-      priceFormat: { type: 'price', precision: 1, minMove: 0.1 },
-    }, 4);
-    const stochD = chart.addSeries(LineSeries, {
-      color: '#448aff', lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false, visible: activeIndsRef.current?.STOCH ?? false,
-    }, 4);
-    stochK.createPriceLine({ price: 80, color: '#ef535066', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
-    stochK.createPriceLine({ price: 20, color: '#26a69a66', lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
-    stateRef.current.series.STOCH_K = stochK;
-    stateRef.current.series.STOCH_D = stochD;
+    if (currentInds.STOCH) {
+      stochK = chart.addSeries(LineSeries, {
+        color: '#ff8a95', lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false,
+        priceFormat: { type: 'price', precision: 1, minMove: 0.1 },
+      }, paneIndex);
+      stochD = chart.addSeries(LineSeries, {
+        color: '#6ea2ff', lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false,
+      }, paneIndex);
+      stochK.createPriceLine({ price: 80, color: `${MARKET_UP}66`, lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+      stochK.createPriceLine({ price: 20, color: `${MARKET_DOWN}66`, lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+      stateRef.current.series.STOCH_K = stochK;
+      stateRef.current.series.STOCH_D = stochD;
+    }
 
     // ── Ichimoku Cloud (Main Pane 0) ──────────────────────────────────
-    const ichiBase = { lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false, visible: activeIndsRef.current?.ICHI ?? false };
+    const ichiBase = { lineWidth: 1, priceLineVisible: false, crosshairMarkerVisible: false, visible: currentInds.ICHI ?? false };
     stateRef.current.series.ICHI_T = chart.addSeries(LineSeries, { ...ichiBase, color: '#2962ff' }, 0); // Tenkan
     stateRef.current.series.ICHI_K = chart.addSeries(LineSeries, { ...ichiBase, color: '#ff5252' }, 0); // Kijun
     stateRef.current.series.ICHI_SA = chart.addSeries(LineSeries, { ...ichiBase, color: '#81c784', lineStyle: 2 }, 0); // Senkou A
@@ -439,14 +493,14 @@ const StockChart = forwardRef(({
       if (idx > 0) {
         const prevClose = candles[idx - 1].close;
         const pct = ((ohlc.close - prevClose) / prevClose) * 100;
-        const pctColor = pct > 0 ? '#ef5350' : pct < 0 ? '#26a69a' : '#888';
+        const pctColor = pct > 0 ? MARKET_UP : pct < 0 ? MARKET_DOWN : MARKET_FLAT;
         const sign = pct > 0 ? '+' : '';
         pctStr = ` <span style="color:${pctColor}">(${sign}${pct.toFixed(2)}%)</span>`;
       }
 
       const lines = [
         `<span style="color:#888">${param.time}</span>`,
-        `시 <b>${intFmt(ohlc.open)}</b>  고 <b style="color:#ef5350">${intFmt(ohlc.high)}</b>  저 <b style="color:#26a69a">${intFmt(ohlc.low)}</b>  종 <b>${intFmt(ohlc.close)}</b>${pctStr}`,
+        `시 <b>${intFmt(ohlc.open)}</b>  고 <b style="color:${MARKET_UP}">${intFmt(ohlc.high)}</b>  저 <b style="color:${MARKET_DOWN}">${intFmt(ohlc.low)}</b>  종 <b>${intFmt(ohlc.close)}</b>${pctStr}`,
         vol ? `거래량 <b>${volFmt(vol.value)}</b>` : null,
       ];
 
@@ -459,19 +513,22 @@ const StockChart = forwardRef(({
           );
         }
       }
-      const rsiV = param.seriesData.get(rsiSeries);
+      const rsiV = rsiSeries ? param.seriesData.get(rsiSeries) : null;
       if (inds?.RSI && rsiV?.value != null)
-        lines.push(`<span style="color:#26a69a">RSI(14) <b>${rsiV.value.toFixed(1)}</b></span>`);
+        lines.push(`<span style="color:#26c6da">RSI(14) <b>${rsiV.value.toFixed(1)}</b></span>`);
       
-      const macdV = param.seriesData.get(macdSeries);
-      const sigV = param.seriesData.get(signalSeries);
-      const histV = param.seriesData.get(histSeries);
+      const macdV = macdSeries ? param.seriesData.get(macdSeries) : null;
+      const sigV = signalSeries ? param.seriesData.get(signalSeries) : null;
+      const histV = histSeries ? param.seriesData.get(histSeries) : null;
       if (inds?.MACD && macdV?.value != null && sigV?.value != null) {
-        lines.push(`<span>MACD(12,26) <b style="color:#2962ff">${macdV.value.toFixed(2)}</b> / Sig(9) <b style="color:#ff9800">${sigV.value.toFixed(2)}</b> / Hist <b style="color:${histV.value>=0?'#26a69a':'#ef5350'}">${histV.value.toFixed(2)}</b></span>`);
+        const histText = histV?.value != null
+          ? ` / Hist <b style="color:${histV.value >= 0 ? MARKET_UP : MARKET_DOWN}">${histV.value.toFixed(2)}</b>`
+          : '';
+        lines.push(`<span>MACD(12,26) <b style="color:#7c9cff">${macdV.value.toFixed(2)}</b> / Sig(9) <b style="color:#ffb74d">${sigV.value.toFixed(2)}</b>${histText}</span>`);
       }
 
-      const sK = param.seriesData.get(stochK);
-      const sD = param.seriesData.get(stochD);
+      const sK = stochK ? param.seriesData.get(stochK) : null;
+      const sD = stochD ? param.seriesData.get(stochD) : null;
       if (inds?.STOCH && sK?.value != null && sD?.value != null) {
         lines.push(`<span>Stoch(14,3) %K <b style="color:#ff5252">${sK.value.toFixed(1)}</b> / %D <b style="color:#448aff">${sD.value.toFixed(1)}</b></span>`);
       }
@@ -484,12 +541,27 @@ const StockChart = forwardRef(({
 
       tooltip.innerHTML = lines.filter(Boolean).join('<br>');
       tooltip.style.display = 'block';
-      tooltip.style.left = (param.point.x + 15) + 'px';
-      tooltip.style.top = (param.point.y + 15) + 'px';
+      const { x, y } = getTooltipPosition({
+        pointX: param.point.x,
+        pointY: param.point.y,
+        containerWidth: containerRef.current.clientWidth,
+        containerHeight: containerRef.current.clientHeight,
+        tooltipWidth: tooltip.offsetWidth,
+        tooltipHeight: tooltip.offsetHeight,
+      });
+      tooltip.style.left = `${x}px`;
+      tooltip.style.top = `${y}px`;
     });
 
     // ── Apply initial data ────────────────────────────────────────────
     applyAllData(stateRef.current, bbPeriod ?? 20, bbMultiplier ?? 2, data);
+    layoutPanes(containerRef.current.clientHeight || regularChartHeight);
+
+    const resizeObserver = new ResizeObserver(entries => {
+      const nextHeight = entries[0]?.contentRect?.height;
+      if (nextHeight) layoutPanes(nextHeight);
+    });
+    resizeObserver.observe(containerRef.current);
 
     // Trend line click handler removed in favor of drag-to-draw overlay
 
@@ -507,11 +579,12 @@ const StockChart = forwardRef(({
     } catch(err){ console.debug(err); }
 
     return () => {
+      resizeObserver.disconnect();
       try { chart.remove(); } catch(err){ console.debug(err); }
       if (stateRef.current.chart === chart) stateRef.current = { chart: null, series: {}, allCandles: [], allVols: [], currentCandles: [] };
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, ticker]);
+  }, [data, ticker, paneStructureKey, isFullscreen]);
 
   // ── candlePeriod → resample done via backend, just zoom out ────────
   useEffect(() => {
@@ -581,16 +654,9 @@ const StockChart = forwardRef(({
   }, [bbPeriod, bbMultiplier]);
 
   return (
-    <div style={isFullscreen ? {
-        position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh',
-        zIndex: 9999, background: '#151924', padding: '20px', boxSizing: 'border-box',
-        display: 'flex', flexDirection: 'column'
-      } : { 
-        marginBottom: '8px', background: '#151924', borderRadius: '8px', 
-        padding: '10px 12px', boxShadow: '0 1px 8px rgba(0,0,0,0.4)' 
-      }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+    <div className={`stock-chart-shell ${isFullscreen ? 'stock-chart-fullscreen' : 'stock-chart-card'}`}>
+      <div className="stock-chart-header">
+        <div className="stock-chart-title-row">
           {isFullscreen && (
             <button
               type="button"
@@ -620,7 +686,7 @@ const StockChart = forwardRef(({
         
         {/* Fullscreen HTS Toggles */}
         {isFullscreen && (
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="stock-chart-detail-controls">
             <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
               <span style={{ color: '#8b93a5', fontSize: '11px', fontWeight: 600 }}>봉 기간</span>
               {[
@@ -772,7 +838,7 @@ const StockChart = forwardRef(({
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="stock-chart-actions">
           <button 
             onClick={async () => {
               const nextFullscreen = !isFullscreen;
@@ -802,75 +868,15 @@ const StockChart = forwardRef(({
           </button>
         </div>
       </div>
-      <div style={{ position: 'relative', flex: isFullscreen ? 1 : 'none' }}>
+      <div className="stock-chart-body">
         <div 
           ref={containerRef} 
-          style={{ width: '100%', height: isFullscreen ? '100%' : '500px', backgroundColor: '#151924', cursor: drawMode !== 'none' ? 'crosshair' : 'default' }} 
-          onMouseDown={(e) => {
-            if (drawMode === 'none' || !stateRef.current.chart) return;
-            try {
-              const chart = stateRef.current.chart;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              const y = e.clientY - rect.top;
-              
-              const time = normalizeChartTime(chart.timeScale().coordinateToTime(x));
-              const price = stateRef.current.series.candle?.coordinateToPrice(y);
-              if (!time || price == null) return;
-              
-              if (drawMode === 'trend') {
-                const startPt = { time, value: price };
-                const tempLine = chart.addSeries(LineSeries, {
-                  color: '#ffeb3b', lineWidth: 2, lineStyle: 0,
-                  crosshairMarkerVisible: false, priceLineVisible: false, lastValueVisible: false
-                }, 0);
-                drawStateRef.current = { isDragging: true, startPoint: startPt, endPoint: null, tempLineSeries: tempLine };
-              } else if (drawMode === 'horizontal') {
-                const priceLine = { price, color: '#ffeb3b', lineWidth: 2, lineStyle: 0, axisLabelVisible: true };
-                const lineObj = stateRef.current.series.candle?.createPriceLine(priceLine);
-                if (lineObj) {
-                  setDrawnLines(prev => [...prev, { id: Date.now(), type: 'horizontal', name: `수평선 ${intFmt(price)}`, obj: lineObj }]);
-                }
-                setDrawMode('none'); // auto-reset after drawing horizontal line
-              }
-            } catch (err) {
-              reportChartClientError('chart_trend_mousedown_failed', err, { ticker });
-            }
-          }}
-          onMouseMove={(e) => {
-            if (drawMode !== 'trend' || !drawStateRef.current.isDragging) return;
-            try {
-              const chart = stateRef.current.chart;
-              const rect = e.currentTarget.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              const y = e.clientY - rect.top;
-              
-              // Allow drawing even outside the time bounds if possible, or fallback to start point
-              let time = normalizeChartTime(chart.timeScale().coordinateToTime(x));
-              const price = stateRef.current.series.candle?.coordinateToPrice(y);
-              if (price == null) return;
-              
-              const { startPoint, tempLineSeries } = drawStateRef.current;
-              if (!time) time = startPoint.time; // Fallback if dragged out of time scale
-              const endPoint = { time, value: price };
-              if (startPoint.time === endPoint.time) return;
-              
-              const sorted = [startPoint, endPoint].sort((a, b) => {
-                if (a.time < b.time) return -1;
-                if (a.time > b.time) return 1;
-                return 0;
-              });
-              tempLineSeries.setData(sorted);
-              drawStateRef.current.endPoint = endPoint;
-            } catch (err) {
-              reportChartClientError('chart_trend_mousemove_failed', err, { ticker });
-            }
-          }}
-          onMouseUp={finishTrendLine}
-          onMouseLeave={finishTrendLine}
+          className="stock-chart-canvas"
+          style={{ height: isFullscreen ? '100%' : `${regularChartHeight}px`, cursor: drawMode !== 'none' ? 'crosshair' : 'default' }}
         />
         {drawMode !== 'none' && (
           <div
+            className="stock-chart-drawing-overlay"
             style={{
               position: 'absolute',
               inset: 0,
@@ -887,6 +893,7 @@ const StockChart = forwardRef(({
 
               const chart = stateRef.current.chart;
               if (drawMode === 'trend') {
+                if (!point.time) return;
                 const startPt = { time: point.time, value: point.price };
                 const tempLine = chart.addSeries(LineSeries, {
                   color: '#ffeb3b',
@@ -896,7 +903,14 @@ const StockChart = forwardRef(({
                   priceLineVisible: false,
                   lastValueVisible: false,
                 }, 0);
-                drawStateRef.current = { isDragging: true, startPoint: startPt, endPoint: null, tempLineSeries: tempLine };
+                drawStateRef.current = {
+                  isDragging: true,
+                  type: 'trend',
+                  startPoint: startPt,
+                  endPoint: null,
+                  tempLineSeries: tempLine,
+                  tempPriceLine: null,
+                };
               } else if (drawMode === 'horizontal') {
                 const lineObj = stateRef.current.series.candle?.createPriceLine({
                   price: point.price,
@@ -906,34 +920,46 @@ const StockChart = forwardRef(({
                   axisLabelVisible: true,
                 });
                 if (lineObj) {
-                  setDrawnLines(prev => [...prev, { id: Date.now(), type: 'horizontal', name: `수평선 ${intFmt(point.price)}`, obj: lineObj }]);
+                  drawStateRef.current = {
+                    isDragging: true,
+                    type: 'horizontal',
+                    startPoint: point,
+                    endPoint: point,
+                    tempLineSeries: null,
+                    tempPriceLine: lineObj,
+                  };
                 }
-                setDrawMode('none');
               }
             }}
             onPointerMove={(e) => {
-              if (drawMode !== 'trend' || !drawStateRef.current.isDragging) return;
+              if (!drawStateRef.current.isDragging) return;
               e.preventDefault();
               const point = getDrawingPoint(e);
               if (!point) return;
-              const { startPoint, tempLineSeries } = drawStateRef.current;
-              if (!startPoint || !tempLineSeries) return;
-              const endPoint = { time: point.time, value: point.price };
-              if (startPoint.time === endPoint.time) return;
-              const sorted = [startPoint, { time: point.time, value: point.price }].sort((a, b) => {
-                if (a.time < b.time) return -1;
-                if (a.time > b.time) return 1;
-                return 0;
-              });
-              tempLineSeries.setData(sorted);
-              drawStateRef.current.endPoint = endPoint;
+              const { type, startPoint, tempLineSeries, tempPriceLine } = drawStateRef.current;
+              if (type === 'horizontal' && tempPriceLine) {
+                tempPriceLine.applyOptions({ price: point.price });
+                drawStateRef.current.endPoint = point;
+                return;
+              }
+              if (type === 'trend' && point.time && startPoint && tempLineSeries) {
+                const endPoint = { time: point.time, value: point.price };
+                if (startPoint.time === endPoint.time) return;
+                const sorted = [startPoint, endPoint].sort((a, b) => {
+                  if (a.time < b.time) return -1;
+                  if (a.time > b.time) return 1;
+                  return 0;
+                });
+                tempLineSeries.setData(sorted);
+                drawStateRef.current.endPoint = endPoint;
+              }
             }}
             onPointerUp={(e) => {
               e.preventDefault();
-              finishTrendLine();
+              finishDrawing(false);
             }}
-            onPointerCancel={finishTrendLine}
-            onLostPointerCapture={finishTrendLine}
+            onPointerCancel={() => finishDrawing(true)}
+            onLostPointerCapture={() => finishDrawing(false)}
           />
         )}
         
@@ -942,7 +968,7 @@ const StockChart = forwardRef(({
           background: 'rgba(15,18,28,0.93)', border: '1px solid #2a2e39', borderRadius: '6px',
           padding: '8px 12px', fontSize: '12px', lineHeight: '1.75', color: '#d1d4dc',
           pointerEvents: 'none', backdropFilter: 'blur(4px)', boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-          minWidth: '200px',
+          boxSizing: 'border-box', maxWidth: 'calc(100% - 16px)', minWidth: 'min(200px, calc(100% - 16px))',
         }} />
       </div>
     </div>

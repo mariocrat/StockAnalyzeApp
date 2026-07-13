@@ -1809,7 +1809,7 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
             <div className="journal-row" key={trade.id}>
               <span>{trade.trade_date}</span>
               <span>{trade.name} <em>{trade.ticker}</em></span>
-              <span className={trade.side === 'buy' ? 'negative' : 'positive'}>{sideLabels[trade.side]}</span>
+              <span className={trade.side === 'buy' ? 'positive' : 'negative'}>{sideLabels[trade.side]}</span>
               <span>{money(trade.price)} x {trade.quantity}</span>
               <button onClick={() => removeTrade(trade.id)}>삭제</button>
             </div>

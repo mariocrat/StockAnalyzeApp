@@ -1,5 +1,16 @@
 # AlphaMate Development History
 
+## 2026-07-14 mobile chart usability
+
+- Unified market direction colors across theme returns, stock returns, review charts, candlesticks, volume, and indicator histograms: red for rising and blue for falling.
+- Made chart tooltips measure their rendered size and automatically move left/right and above/below the pointer so they stay inside mobile chart bounds.
+- Removed the slow custom theme-period input from the app UI while retaining the cached 1D, 1W, 1M, and 1Y choices.
+- Added a collapsible top-theme area, sticky navigation/search and period controls, automatic collapse on theme selection, and parallel initial stock loading.
+- Removed unused indicator panes from charts, dynamically allocated pane heights, enabled pinch zoom, and fixed portrait/landscape detail layouts.
+- Added drag-to-place horizontal price lines and constrained drawing input to the main price pane.
+- Added native Android status-bar hiding while chart detail is fullscreen and restored it when detail closes.
+- Added chart layout regression tests for tooltip containment and dynamic pane allocation.
+
 ## 2026-07-04 release readiness owner report
 
 - Disabled startup theme cache warm-up by default for Render so strict `/healthz` checks do not recycle the API while market data prewarming runs.

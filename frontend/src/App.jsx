@@ -2,13 +2,14 @@ import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import './App.css';
 import appIcon from './assets/app-icon.png';
 import { getAdMobRuntimeStatus, removeAppBanner, showAppBanner, showChartDetailInterstitial, showResumeInterstitial } from './mobile/admob';
 import { shouldShowBannerAd, shouldShowChartDetailInterstitial, shouldShowResumeInterstitial } from './mobile/admobPolicy';
 import { reportClientEvent } from './utils/clientEventLog';
 import { nextRootBackAction, requestNestedBack } from './utils/appNavigation';
+import { MARKET_DOWN, MARKET_FLAT, MARKET_UP } from './theme/marketColors';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
@@ -254,9 +255,7 @@ export default function App() {
   const [themeRetryRequest, setThemeRetryRequest] = useState(null);
   const [themePeriod,     setThemePeriod]    = useState('1D');
   const [themeBasisText,  setThemeBasisText] = useState('장마감 기준');
-  const [customStart,     setCustomStart]    = useState('');
-  const [customEnd,       setCustomEnd]      = useState('');
-  const [showCustom,      setShowCustom]     = useState(false);
+  const [themesExpanded,  setThemesExpanded] = useState(true);
   const [activeTheme,     setActiveTheme]    = useState(null);
   const [selectedStocks,  setSelectedStocks] = useState([]);
 
@@ -287,6 +286,8 @@ export default function App() {
   const searchRequestSeq = useRef(0);
   const searchCacheRef = useRef({});
   const suppressNextSearchRef = useRef(false);
+  const mainContentRef = useRef(null);
+  const themeStocksRef = useRef(null);
 
   const changeActiveView = useCallback((nextView) => {
     setActiveView(nextView);
@@ -371,7 +372,7 @@ export default function App() {
   }, [showSplash, themesLoading, themeError]);
 
   // ── Fetch themes ─────────────────────────────────────────────────────
-  const fetchThemes = useCallback(async (period, cStart, cEnd) => {
+  const fetchThemes = useCallback(async (period) => {
     themeAbortControllerRef.current?.abort();
     const controller = new AbortController();
     themeAbortControllerRef.current = controller;
@@ -382,23 +383,12 @@ export default function App() {
     setThemeRetryRequest(null);
     setThemes([]);
     try {
-      let data;
-      if (period === 'custom') {
-        if (!cStart || !cEnd) { setThemesLoading(false); return; }
-        const res = await axios.get(`${API_BASE}/api/themes`, {
-          params: { period: 'custom', start_date: cStart.replace(/-/g, ''), end_date: cEnd.replace(/-/g, '') },
-          timeout: THEME_REQUEST_TIMEOUT_MS,
-          signal: controller.signal,
-        });
-        data = res.data;
-      } else {
-        const res = await axios.get(`${API_BASE}/api/themes`, {
-          params: { period },
-          timeout: THEME_REQUEST_TIMEOUT_MS,
-          signal: controller.signal,
-        });
-        data = res.data;
-      }
+      const res = await axios.get(`${API_BASE}/api/themes`, {
+        params: { period },
+        timeout: THEME_REQUEST_TIMEOUT_MS,
+        signal: controller.signal,
+      });
+      const data = res.data;
       if (themeRequestSeq.current === requestId) {
         setThemes(data || []);
         const endDate = data?.[0]?.['End Date'];
@@ -422,7 +412,7 @@ export default function App() {
               ? '서버 응답이 늦어지고 있습니다. 잠시 후 자동으로 다시 확인합니다.'
               : '테마 상승률을 불러오지 못했습니다. 잠시 후 자동으로 다시 확인합니다.',
         );
-        setThemeRetryRequest({ period, cStart, cEnd, requestId });
+        setThemeRetryRequest({ period, requestId });
       }
     } finally {
       if (themeAbortControllerRef.current === controller) {
@@ -436,15 +426,15 @@ export default function App() {
     if (!themeRetryRequest || activeView !== 'themes') return undefined;
     const timer = window.setTimeout(() => {
       if (themeRequestSeq.current === themeRetryRequest.requestId) {
-        fetchThemes(themeRetryRequest.period, themeRetryRequest.cStart, themeRetryRequest.cEnd);
+        fetchThemes(themeRetryRequest.period);
       }
     }, THEME_RETRY_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [activeView, fetchThemes, themeRetryRequest]);
 
   useEffect(() => {
-    if (activeView === 'themes' && themePeriod !== 'custom') {
-      fetchThemes(themePeriod, '', '');
+    if (activeView === 'themes') {
+      fetchThemes(themePeriod);
     }
   }, [activeView, themePeriod, fetchThemes]);
 
@@ -459,7 +449,6 @@ export default function App() {
 
   const handleThemePeriodChange = (p) => {
     setThemePeriod(p);
-    setShowCustom(p === 'custom');
   };
 
   // Reset theme and selected stocks when period changes
@@ -467,10 +456,6 @@ export default function App() {
     setActiveTheme(null);
     setSelectedStocks([]);
   }, [themePeriod]);
-
-  const handleCustomApply = () => {
-    fetchThemes('custom', customStart, customEnd);
-  };
 
   // ── Stock data fetch ──────────────────────────────────────────────────
   const fetchStockData = useCallback(async (ticker, name, currentCandlePeriod) => {
@@ -514,7 +499,12 @@ export default function App() {
     // Default-select top-2 by return (already sorted by backend)
     const defaultSelected = tickers.slice(0, 2);
     setSelectedStocks(defaultSelected);
-    for (const s of defaultSelected) await fetchStockData(s.ticker, s.name, candlePeriod);
+    setThemesExpanded(false);
+    window.requestAnimationFrame(() => {
+      mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      themeStocksRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    });
+    await Promise.all(defaultSelected.map(s => fetchStockData(s.ticker, s.name, candlePeriod)));
   }, [fetchStockData, candlePeriod]);
 
   // ── Stock chip toggle ─────────────────────────────────────────────────
@@ -658,7 +648,7 @@ export default function App() {
   return (
     <>
     {showSplash && <AppSplash exiting={splashExiting} />}
-    <div className={`${bannerReserved ? 'app-container app-container-mobile-banner' : 'app-container'} ${activeView === 'journal' ? 'journal-view' : 'themes-view'}`}>
+    <div className={`${bannerReserved ? 'app-container app-container-mobile-banner' : 'app-container'} ${activeView === 'journal' ? 'journal-view' : 'themes-view'} ${themesExpanded ? 'themes-expanded' : 'themes-collapsed'}`}>
       <header className="mobile-app-bar">
         <button type="button" className="mobile-app-back" onClick={handleAppBack} aria-label="뒤로 가기" title="뒤로 가기">
           <ArrowLeft size={21} aria-hidden="true" />
@@ -668,16 +658,16 @@ export default function App() {
       </header>
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <div className="sidebar">
-        <h2 className="sidebar-title">{APP_NAME}</h2>
+        <div className={activeView === 'themes' ? 'theme-sidebar-fixed' : ''}>
+          <h2 className="sidebar-title">{APP_NAME}</h2>
 
-        <div className="app-nav">
-          <button className={activeView === 'themes' ? 'active' : ''} onClick={() => changeActiveView('themes')}>테마/차트</button>
-          <button className={activeView === 'journal' ? 'active' : ''} onClick={() => changeActiveView('journal')}>매매복기</button>
-        </div>
+          <div className="app-nav">
+            <button className={activeView === 'themes' ? 'active' : ''} onClick={() => changeActiveView('themes')}>테마/차트</button>
+            <button className={activeView === 'journal' ? 'active' : ''} onClick={() => changeActiveView('journal')}>매매복기</button>
+          </div>
 
-        {activeView === 'themes' && (
-          <>
-            {/* Search */}
+          {/* Search */}
+          {activeView === 'themes' && (
             <div className="search-box">
               <input
                 placeholder="종목 검색 (이름, 초성, 코드)"
@@ -705,75 +695,79 @@ export default function App() {
                 </ul>
               )}
             </div>
+          )}
+        </div>
+
+        {activeView === 'themes' && (
+          <>
 
             {/* Theme section header */}
-            <div className="section-header">
+            <div className="section-header theme-section-header">
               <h3 className="section-title">상승률 상위 테마</h3>
+              <button
+                type="button"
+                className="theme-collapse-button"
+                onClick={() => setThemesExpanded(expanded => !expanded)}
+                aria-expanded={themesExpanded}
+              >
+                {themesExpanded ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
+                {themesExpanded ? '접기' : '펼치기'}
+              </button>
             </div>
 
-            {/* Theme period tabs */}
-            <div style={{ marginBottom: '10px' }}>
-              <div className="theme-period-tabs">
-                {THEME_PERIODS.map(p => (
-                  <button
-                    key={p}
-                    className={themePeriod === p ? 'active' : ''}
-                    onClick={() => handleThemePeriodChange(p)}
-                  >{p}</button>
-                ))}
-                <button
-                  className={themePeriod === 'custom' ? 'active' : ''}
-                  onClick={() => handleThemePeriodChange('custom')}
-                >직접입력</button>
-              </div>
-              <div className="theme-basis-note">
-                {themeBasisText} · 매일 00:00~00:10 업데이트
-              </div>
-
-              {/* Custom date range */}
-              {showCustom && (
-                <div className="custom-range-row" style={{ marginTop: '8px' }}>
-                  <input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} />
-                  <span style={{ color: '#555' }}>~</span>
-                  <input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
-                  <button onClick={handleCustomApply}>조회</button>
-                </div>
-              )}
-            </div>
-
-            {/* Theme list */}
-            {themesLoading ? (
-              <div className="themes-loading">
-                {themePeriod === '1D' ? '로딩중…' : '기간 수익률 준비 중…'}
-              </div>
-            ) : themeError ? (
-              <div className="themes-loading">{themeError}</div>
-            ) : themes.length === 0 ? (
-              <div className="themes-loading">표시할 테마가 없습니다.</div>
-            ) : (
-              themes.map((theme, i) => {
-                const ret = theme['Avg Return (%)'] ?? theme['Return'] ?? 0;
-                const isActive = activeTheme === theme.Theme;
-                return (
-                  <div
-                    key={theme.Theme + i}
-                    className={`theme-item ${isActive ? 'active' : ''}`}
-                    onClick={(e) => handleThemeClick(e, theme)}
-                  >
-                    <span className="theme-name">{theme.Theme}</span>
-                    <span className={ret >= 0 ? 'positive' : 'negative'}>
-                      {ret >= 0 ? '+' : ''}{typeof ret === 'number' ? ret.toFixed(2) : ret}%
-                    </span>
+            {themesExpanded && (
+              <>
+                {/* Theme period tabs */}
+                <div className="theme-controls-sticky">
+                  <div className="theme-period-tabs">
+                    {THEME_PERIODS.map(p => (
+                      <button
+                        key={p}
+                        className={themePeriod === p ? 'active' : ''}
+                        onClick={() => handleThemePeriodChange(p)}
+                      >{p}</button>
+                    ))}
                   </div>
-                );
-              })
+                  <div className="theme-basis-note">
+                    {themeBasisText} · 매일 00:00~00:10 업데이트
+                  </div>
+                </div>
+
+                {/* Theme list */}
+                {themesLoading ? (
+                  <div className="themes-loading">
+                    {themePeriod === '1D' ? '로딩중…' : '기간 수익률 준비 중…'}
+                  </div>
+                ) : themeError ? (
+                  <div className="themes-loading">{themeError}</div>
+                ) : themes.length === 0 ? (
+                  <div className="themes-loading">표시할 테마가 없습니다.</div>
+                ) : (
+                  themes.map((theme, i) => {
+                    const ret = theme['Avg Return (%)'] ?? theme['Return'] ?? 0;
+                    const isActive = activeTheme === theme.Theme;
+                    return (
+                      <div
+                        key={theme.Theme + i}
+                        className={`theme-item ${isActive ? 'active' : ''}`}
+                        onClick={(e) => handleThemeClick(e, theme)}
+                      >
+                        <span className="theme-name">{theme.Theme}</span>
+                        <span className={ret >= 0 ? 'positive' : 'negative'}>
+                          {ret >= 0 ? '+' : ''}{typeof ret === 'number' ? ret.toFixed(2) : ret}%
+                        </span>
+                      </div>
+                    );
+                  })
+                )}
+              </>
             )}
           </>
         )}
       </div>
 
       {/* ── Main Content ────────────────────────────────────────────────── */}
-      <div className="main-content">
+      <div className="main-content" ref={mainContentRef}>
         {activeView === 'journal' ? (
           <Suspense fallback={<div className="themes-loading">매매복기 화면을 불러오는 중입니다.</div>}>
             <TradingJournal apiBase={API_BASE} onEntitlementsChange={handleEntitlementsChange} />
@@ -783,7 +777,7 @@ export default function App() {
 
         {/* Stock chip selector */}
         {themeTickers.length > 0 && (
-          <div className="theme-stocks-selector">
+          <div className="theme-stocks-selector" ref={themeStocksRef}>
             <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#aaa', display: 'flex', justifyContent: 'space-between' }}>
               <span>{activeTheme}</span>
               <span style={{ color: '#555', fontSize: '11px', fontWeight: 400 }}>{themeTickers.length}개 종목</span>
@@ -794,7 +788,7 @@ export default function App() {
                 const { ticker, name, return_rate } = stock;
                 const isSel     = selectedStocks.some(s => s.ticker === ticker);
                 const isLoading = loadingStocks[ticker];
-                const retColor  = return_rate == null ? '#555' : return_rate >= 0 ? '#ef5350' : '#26a69a';
+                const retColor  = return_rate == null ? MARKET_FLAT : return_rate >= 0 ? MARKET_UP : MARKET_DOWN;
                 const retLabel  = return_rate == null ? '' : `${return_rate >= 0 ? '+' : ''}${return_rate.toFixed(2)}%`;
                 return (
                   <div key={ticker}

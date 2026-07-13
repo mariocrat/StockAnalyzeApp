@@ -1,3 +1,9 @@
+:root {
+  --market-up: #ff5b65;
+  --market-down: #4f8cff;
+  --market-flat: #a7afbf;
+}
+
 body {
   margin: 0;
   padding: 0;
@@ -195,10 +201,144 @@ body {
   cursor: pointer;
 }
 
+.stock-chart-shell {
+  box-sizing: border-box;
+  background: #151924;
+}
+
+.stock-chart-card {
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+}
+
+.stock-chart-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  width: 100vw;
+  height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+}
+
+.stock-chart-fullscreen .stock-chart-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "title actions"
+    "controls controls";
+}
+
+.stock-chart-fullscreen .stock-chart-title-row {
+  grid-area: title;
+}
+
+.stock-chart-fullscreen .stock-chart-detail-controls {
+  grid-area: controls;
+  width: 100%;
+}
+
+.stock-chart-fullscreen .stock-chart-actions {
+  grid-area: actions;
+}
+
+.stock-chart-header {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.stock-chart-title-row,
+.stock-chart-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.stock-chart-title-row h3 {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stock-chart-fullscreen .stock-chart-title-row > button[title="목록에서 빼기"] {
+  display: none;
+}
+
+.stock-chart-detail-controls {
+  display: flex;
+  min-width: 0;
+  max-height: 86px;
+  align-items: center;
+  gap: 8px;
+  overflow: auto;
+  flex-wrap: wrap;
+  scrollbar-width: thin;
+}
+
+.stock-chart-body {
+  position: relative;
+  min-height: 0;
+}
+
+.stock-chart-fullscreen .stock-chart-body {
+  flex: 1 1 auto;
+}
+
+.stock-chart-canvas {
+  width: 100%;
+  background: #151924;
+}
+
 /* ── Search ───────────────────────────────────────────────────────────── */
 .search-box {
   margin-bottom: 16px;
   position: relative;
+}
+
+.theme-sidebar-fixed {
+  position: sticky;
+  top: -16px;
+  z-index: 30;
+  padding-top: 16px;
+  background: #131722;
+}
+
+.theme-section-header {
+  min-height: 30px;
+}
+
+.theme-collapse-button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid #363c4e;
+  border-radius: 4px;
+  background: #1e222d;
+  color: #c9ceda;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.theme-controls-sticky {
+  position: sticky;
+  top: 120px;
+  z-index: 20;
+  margin-bottom: 10px;
+  padding: 4px 0 8px;
+  background: #131722;
 }
 
 .search-box input {
@@ -294,34 +434,6 @@ body {
   line-height: 1.35;
 }
 
-.custom-range-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-  align-items: center;
-}
-
-.custom-range-row input[type="date"] {
-  flex: 1;
-  padding: 5px 8px;
-  background: #1e222d;
-  border: 1px solid #363c4e;
-  color: #d1d4dc;
-  border-radius: 4px;
-  font-size: 11px;
-  outline: none;
-}
-
-.custom-range-row button {
-  padding: 5px 10px;
-  background: #2962ff;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: 11px;
-  cursor: pointer;
-}
-
 /* ── Theme List ───────────────────────────────────────────────────────── */
 .themes-loading {
   color: #555;
@@ -347,8 +459,8 @@ body {
 
 .theme-name { font-size: 12px; color: #c9c9c9; flex: 1; }
 
-.positive { color: #26a69a; font-size: 12px; font-weight: 600; }
-.negative { color: #ef5350; font-size: 12px; font-weight: 600; }
+.positive { color: var(--market-up); font-size: 12px; font-weight: 600; }
+.negative { color: var(--market-down); font-size: 12px; font-weight: 600; }
 
 /* ── Global Chart Controls ────────────────────────────────────────────── */
 .global-controls {
@@ -470,6 +582,7 @@ body {
   border-radius: 8px;
   margin-bottom: 14px;
   border: 1px solid #2a2e39;
+  scroll-margin-top: 12px;
 }
 
 .theme-stocks-selector h3 {
@@ -1340,8 +1453,9 @@ body {
 .journal-marker-tooltip {
   position: absolute;
   z-index: 30;
-  min-width: 180px;
-  max-width: 210px;
+  box-sizing: border-box;
+  min-width: min(180px, calc(100% - 16px));
+  max-width: min(240px, calc(100% - 16px));
   pointer-events: none;
   background: rgba(11, 15, 23, 0.96);
   color: #d1d4dc;
@@ -1572,6 +1686,21 @@ body {
     border-bottom: 1px solid #2a2e39;
   }
 
+  .app-container.themes-collapsed .sidebar {
+    max-height: none;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .theme-sidebar-fixed {
+    top: -12px;
+    padding-top: 12px;
+  }
+
+  .theme-controls-sticky {
+    top: 91px;
+  }
+
   .app-container.journal-view .sidebar {
     max-height: none;
     flex: 0 0 auto;
@@ -1598,6 +1727,47 @@ body {
     padding: 12px;
     overflow-x: hidden;
     overflow-y: auto;
+  }
+
+  .stock-chart-card {
+    padding: 8px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 600px) {
+  .stock-chart-fullscreen {
+    padding: 4px 6px;
+  }
+
+  .stock-chart-fullscreen .stock-chart-header {
+    display: grid;
+    grid-template-columns: minmax(130px, auto) minmax(0, 1fr) auto;
+    grid-template-areas: "title controls actions";
+    margin-bottom: 2px;
+    gap: 5px;
+  }
+
+  .stock-chart-fullscreen .stock-chart-title-row {
+    max-width: 180px;
+  }
+
+  .stock-chart-fullscreen .stock-chart-detail-controls {
+    width: auto;
+    max-height: 36px;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    gap: 5px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .stock-chart-fullscreen .stock-chart-detail-controls > * {
+    flex: 0 0 auto;
+  }
+
+  .stock-chart-fullscreen .stock-chart-detail-controls button,
+  .stock-chart-fullscreen .stock-chart-detail-controls input {
+    min-height: 28px;
   }
 }
 
