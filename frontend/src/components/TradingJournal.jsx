@@ -39,7 +39,7 @@ const REVIEW_PRODUCTS = [
   ['advanced_review_5', '심층 복기 이용권 5회', '2,900원'],
   ['advanced_review_10', '심층 복기 이용권 10회', '4,900원'],
 ];
-const chartIntervalLabel = { '1m': '1분봉', '3m': '3분봉', '1d': '일봉' };
+const chartIntervalLabel = { '1m': '1분봉', '3m': '3분봉', '1d': '일봉', '1wk': '주봉' };
 const reviewSourceLabels = {
   signup_basic: '가입 축하 제공량',
   free_daily_basic: '무료 일일 제공량',
@@ -66,6 +66,17 @@ const emptyForm = {
 
 function money(value) {
   return new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 0 }).format(value || 0);
+}
+
+function dateTimeText(value) {
+  if (!value) return '-';
+  return String(value).replace('T', ' ').replace(/:00$/, '');
+}
+
+function tradePeriodText(row) {
+  const first = dateTimeText(row.first_trade_date);
+  const last = dateTimeText(row.last_trade_date);
+  return first === last ? first : `${first} ~ ${last}`;
 }
 
 function loadStoredAuth() {
@@ -1546,46 +1557,43 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
       <section className="journal-panel">
         <h3>매매 기록 입력</h3>
         <div className="journal-form">
-          <input type="datetime-local" value={form.trade_date} onChange={e => updateForm('trade_date', e.target.value)} />
-          <div className="journal-stock-search">
-            <input
-              placeholder="종목명 검색"
-              value={stockQuery}
-              onChange={e => handleStockQueryChange(e.target.value)}
-              onFocus={() => stockResults.length && setShowStockResults(true)}
-              onBlur={() => setTimeout(() => setShowStockResults(false), 180)}
-            />
-            {showStockResults && stockResults.length > 0 && (
-              <ul className="journal-stock-results">
-                {stockResults.map(result => {
-                  const ticker = result.Ticker || result.ticker;
-                  const name = result.Name || result.name || ticker;
-                  return (
-                    <li key={ticker} onMouseDown={() => selectStock(result)}>
-                      <span>{name}</span>
-                      <em>{ticker}</em>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-          <input placeholder="종목코드" value={form.ticker} onChange={e => updateForm('ticker', e.target.value)} />
-          <select value={form.side} onChange={e => updateForm('side', e.target.value)}>
-            <option value="buy">매수</option>
-            <option value="sell">매도</option>
-          </select>
-          <input type="number" placeholder="가격" value={form.price} onChange={e => updateForm('price', e.target.value)} />
-          <input type="number" placeholder="수량" value={form.quantity} onChange={e => updateForm('quantity', e.target.value)} />
-          <label className="journal-check">
-            <input type="checkbox" checked={feeFree} onChange={e => setFeeFree(e.target.checked)} />
-            수수료 무료
+          <label className="journal-field"><span>매매일시</span><input type="datetime-local" value={form.trade_date} onInput={e => updateForm('trade_date', e.currentTarget.value)} /></label>
+          <label className="journal-field">
+            <span>종목명</span>
+            <div className="journal-stock-search">
+              <input
+                placeholder="이름, 초성, 코드 검색"
+                value={stockQuery}
+                onChange={e => handleStockQueryChange(e.target.value)}
+                onFocus={() => stockResults.length && setShowStockResults(true)}
+                onBlur={() => setTimeout(() => setShowStockResults(false), 180)}
+              />
+              {showStockResults && stockResults.length > 0 && (
+                <ul className="journal-stock-results">
+                  {stockResults.map(result => {
+                    const ticker = result.Ticker || result.ticker;
+                    const name = result.Name || result.name || ticker;
+                    return (
+                      <li key={ticker} onMouseDown={() => selectStock(result)}>
+                        <span>{name}</span>
+                        <em>{ticker}</em>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </label>
-          <input type="number" step="0.001" placeholder="수수료율(%)" value={feeRate} disabled={feeFree} onChange={e => setFeeRate(e.target.value)} />
-          <input type="number" step="0.01" placeholder="세금률(%)" value={taxRate} onChange={e => setTaxRate(e.target.value)} />
-          <input type="number" placeholder="수수료" value={form.fee} readOnly />
-          <input type="number" placeholder="세금" value={form.tax} readOnly />
-          <textarea placeholder="매매 이유, 감정, 실수 메모" value={form.memo} onChange={e => updateForm('memo', e.target.value)} />
+          <label className="journal-field"><span>종목코드</span><input placeholder="검색 시 자동 입력" value={form.ticker} onChange={e => updateForm('ticker', e.target.value)} /></label>
+          <label className="journal-field"><span>구분</span><select value={form.side} onChange={e => updateForm('side', e.target.value)}><option value="buy">매수</option><option value="sell">매도</option></select></label>
+          <label className="journal-field"><span>가격</span><input type="number" placeholder="체결가" value={form.price} onChange={e => updateForm('price', e.target.value)} /></label>
+          <label className="journal-field"><span>수량</span><input type="number" placeholder="체결 수량" value={form.quantity} onChange={e => updateForm('quantity', e.target.value)} /></label>
+          <div className="journal-field"><span>수수료 무료</span><label className="journal-check"><input type="checkbox" checked={feeFree} onChange={e => setFeeFree(e.target.checked)} /><span>무료 적용</span></label></div>
+          <label className="journal-field"><span>수수료율</span><input type="number" step="0.001" value={feeRate} disabled={feeFree} onChange={e => setFeeRate(e.target.value)} /></label>
+          <label className="journal-field"><span>세금률</span><input type="number" step="0.01" value={taxRate} onChange={e => setTaxRate(e.target.value)} /></label>
+          <label className="journal-field"><span>수수료</span><input type="number" value={form.fee} readOnly /></label>
+          <label className="journal-field"><span>세금</span><input type="number" value={form.tax} readOnly /></label>
+          <label className="journal-field journal-field-memo"><span>매매 메모</span><textarea placeholder="선택 입력: 이유, 감정, 실수" value={form.memo} onChange={e => updateForm('memo', e.target.value)} /></label>
         </div>
         <button className="journal-primary" disabled={loading} onClick={submitManual}>저장</button>
       </section>
@@ -1675,7 +1683,8 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
         <div className="journal-panel-title">
           <h3>매매 차트</h3>
           <span className="journal-chart-mode">
-            {chartIntervalLabel[activeTradeChart?.interval] || (activeTradeChart?.timeframe === 'intraday' ? '분봉' : '일봉')} · {activeTradeChart?.source || '-'}
+            {chartIntervalLabel[activeTradeChart?.interval] || (activeTradeChart?.timeframe === 'intraday' ? '분봉' : activeTradeChart?.timeframe === 'weekly' ? '주봉' : '일봉')}
+            {activeTradeChart?.period_label ? ` · ${activeTradeChart.period_label}` : ''}
           </span>
         </div>
         {chartReview.charts?.length > 1 && (
@@ -1710,7 +1719,7 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
       </section>
 
       <section className="journal-panel">
-        <div className="journal-panel-title">
+        <div className="journal-panel-title journal-review-title">
           <h3>복기 조언</h3>
           <div className="journal-review-actions">
             <button
@@ -1786,17 +1795,20 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
 
       <section className="journal-panel">
         <h3>종목별 결과</h3>
-        <div className="journal-table">
-          <div className="journal-row journal-row-head">
-            <span>종목</span><span>매수금액</span><span>매도금액</span><span>실현손익</span><span>미청산</span>
-          </div>
+        <div className="journal-symbol-results">
           {(review?.by_symbol || []).map(row => (
-            <div className="journal-row" key={row.ticker || row.name}>
-              <span>{row.name} {row.ticker && <em>{row.ticker}</em>}</span>
-              <span>{money(row.buy_amount)}</span>
-              <span>{money(row.sell_amount)}</span>
-              <span className={(row.realized_pnl || 0) >= 0 ? 'positive' : 'negative'}>{money(row.realized_pnl)}</span>
-              <span>{row.open_quantity}</span>
+            <div className="journal-symbol-result" key={row.ticker || row.name}>
+              <div className="journal-symbol-result-title"><strong>{row.name}</strong>{row.ticker && <span>{row.ticker}</span>}<em>{row.trade_count || 0}건</em></div>
+              <div className="journal-symbol-result-grid">
+                <div className="wide"><span>매매일시</span><strong>{tradePeriodText(row)}</strong></div>
+                <div><span>매수액</span><strong>{money(row.buy_amount)}원</strong></div>
+                <div><span>매도액</span><strong>{money(row.sell_amount)}원</strong></div>
+                <div><span>순수익</span><strong className={(row.realized_pnl || 0) >= 0 ? 'positive' : 'negative'}>{money(row.realized_pnl)}원</strong></div>
+                <div><span>수수료</span><strong>{money(row.total_fee)}원</strong></div>
+                <div><span>세금</span><strong>{money(row.total_tax)}원</strong></div>
+                <div><span>수익률</span><strong className={(row.realized_return_pct || 0) >= 0 ? 'positive' : 'negative'}>{row.realized_return_pct || 0}%</strong></div>
+                <div><span>미청산</span><strong>{row.open_quantity}주</strong></div>
+              </div>
             </div>
           ))}
         </div>

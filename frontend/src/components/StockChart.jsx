@@ -9,7 +9,7 @@ import {
 import { getStoredAuthSessionToken, reportClientEvent } from '../utils/clientEventLog';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
 import { MARKET_DOWN, MARKET_DOWN_ALPHA, MARKET_FLAT, MARKET_UP, MARKET_UP_ALPHA } from '../theme/marketColors';
-import { getPaneHeights, getTooltipPosition } from '../utils/chartLayout';
+import { getPaneStretchFactors, getTooltipPosition } from '../utils/chartLayout';
 // API_BASE and axios no longer used in StockChart.jsx
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -197,7 +197,9 @@ const StockChart = forwardRef(({
     tempLineSeries: null,
     tempPriceLine: null,
   });
-  const [drawnLines, setDrawnLines] = React.useState([]); // For individual deletion UI
+  const [drawnLines, setDrawnLines] = React.useState([]);
+  const drawingsRef = useRef([]);
+  const drawingObjectsRef = useRef(new Map());
   const [localScale, setLocalScale] = React.useState(scaleMode);
   const hasVisibleCandleCount = String(visibleCandleCount || '').trim() !== '';
   const displayedInds = isFullscreen ? localInds : (activeInds || {});
@@ -205,13 +207,47 @@ const StockChart = forwardRef(({
   const paneStructureKey = paneIndicatorKeys.join('|');
   const regularChartHeight = Math.min(620, 340 + paneIndicatorKeys.length * 92);
 
-  const layoutPanes = React.useCallback((height) => {
+  const layoutPanes = React.useCallback(() => {
     const chart = stateRef.current.chart;
     if (!chart) return;
     const panes = chart.panes();
-    const paneHeights = getPaneHeights(height, paneIndicatorKeys.length);
-    panes.forEach((pane, index) => pane.setHeight(paneHeights[index] || 52));
+    const stretchFactors = getPaneStretchFactors(paneIndicatorKeys.length);
+    panes.forEach((pane, index) => pane.setStretchFactor(stretchFactors[index] || 14));
   }, [paneStructureKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const commitDrawnLines = React.useCallback((updater) => {
+    setDrawnLines(previous => {
+      const next = typeof updater === 'function' ? updater(previous) : updater;
+      drawingsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const removeDrawingObject = React.useCallback((id) => {
+    const item = drawingsRef.current.find(line => line.id === id);
+    const object = drawingObjectsRef.current.get(id);
+    if (item && object) {
+      try {
+        if (item.type === 'trend') stateRef.current.chart?.removeSeries(object);
+        if (item.type === 'horizontal') stateRef.current.series.candle?.removePriceLine(object);
+      } catch {
+        // The chart may have been rebuilt already.
+      }
+    }
+    drawingObjectsRef.current.delete(id);
+  }, []);
+
+  const removeDrawing = React.useCallback((id) => {
+    removeDrawingObject(id);
+    commitDrawnLines(previous => previous.filter(line => line.id !== id));
+  }, [commitDrawnLines, removeDrawingObject]);
+
+  const clearDrawings = React.useCallback(() => {
+    drawingsRef.current.forEach(line => removeDrawingObject(line.id));
+    drawingObjectsRef.current.clear();
+    commitDrawnLines([]);
+    setDrawMode('none');
+  }, [commitDrawnLines, removeDrawingObject]);
 
   const resizeAfterFullscreenChange = React.useCallback(() => {
     window.setTimeout(() => {
@@ -272,14 +308,20 @@ const StockChart = forwardRef(({
     const { type, startPoint, endPoint, tempLineSeries, tempPriceLine } = drawStateRef.current;
     if (type === 'trend') {
       if (!cancel && tempLineSeries && startPoint && endPoint && startPoint.time !== endPoint.time) {
-        setDrawnLines(prev => [...prev, { id: Date.now(), type: 'trend', name: '추세선', obj: tempLineSeries }]);
+        const id = `${Date.now()}-trend`;
+        const descriptor = { id, type: 'trend', name: '추세선', startPoint, endPoint };
+        drawingObjectsRef.current.set(id, tempLineSeries);
+        commitDrawnLines(prev => [...prev, descriptor]);
       } else if (tempLineSeries && stateRef.current.chart) {
         try { stateRef.current.chart.removeSeries(tempLineSeries); } catch { /* ignore */ }
       }
     } else if (type === 'horizontal' && tempPriceLine) {
       const finalPrice = endPoint?.price ?? startPoint?.price;
       if (!cancel && finalPrice != null) {
-        setDrawnLines(prev => [...prev, { id: Date.now(), type: 'horizontal', name: `수평선 ${intFmt(finalPrice)}`, obj: tempPriceLine }]);
+        const id = `${Date.now()}-horizontal`;
+        const descriptor = { id, type: 'horizontal', name: `수평선 ${intFmt(finalPrice)}`, price: finalPrice };
+        drawingObjectsRef.current.set(id, tempPriceLine);
+        commitDrawnLines(prev => [...prev, descriptor]);
       } else {
         try { stateRef.current.series.candle?.removePriceLine(tempPriceLine); } catch { /* ignore */ }
       }
@@ -347,12 +389,14 @@ const StockChart = forwardRef(({
   // ── Build chart once ──────────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || !data || !Array.isArray(data) || data.length === 0) return;
+    const drawingObjects = drawingObjectsRef.current;
     const { candles, vols } = buildCandleRows(data);
     if (!candles || candles.length === 0) return;
     const currentInds = isFullscreen ? localInds : (activeInds || {});
 
     // Destroy old
     if (stateRef.current.chart) {
+      drawingObjects.clear();
       try { stateRef.current.chart.remove(); } catch(err){ console.debug(err); }
       stateRef.current = { chart: null, series: {}, allCandles: [], allVols: [], currentCandles: [] };
     }
@@ -391,6 +435,34 @@ const StockChart = forwardRef(({
       priceFormat: { type: 'custom', formatter: (p) => intFmt(p), minMove: 1 },
     }, 0);
     stateRef.current.series.candle = candleSeries;
+
+    for (const line of drawingsRef.current) {
+      try {
+        if (line.type === 'horizontal') {
+          const object = candleSeries.createPriceLine({
+            price: line.price,
+            color: '#ffeb3b',
+            lineWidth: 2,
+            lineStyle: 0,
+            axisLabelVisible: true,
+          });
+          drawingObjectsRef.current.set(line.id, object);
+        } else if (line.type === 'trend' && line.startPoint && line.endPoint) {
+          const object = chart.addSeries(LineSeries, {
+            color: '#ffeb3b',
+            lineWidth: 2,
+            lineStyle: 0,
+            crosshairMarkerVisible: false,
+            priceLineVisible: false,
+            lastValueVisible: false,
+          }, 0);
+          object.setData([line.startPoint, line.endPoint].sort((a, b) => a.time < b.time ? -1 : 1));
+          drawingObjectsRef.current.set(line.id, object);
+        }
+      } catch {
+        // Invalid drawings are ignored without breaking chart rendering.
+      }
+    }
 
     // MA lines — pane 0
     for (const { key, color } of MA_CONFIG) {
@@ -555,11 +627,12 @@ const StockChart = forwardRef(({
 
     // ── Apply initial data ────────────────────────────────────────────
     applyAllData(stateRef.current, bbPeriod ?? 20, bbMultiplier ?? 2, data);
-    layoutPanes(containerRef.current.clientHeight || regularChartHeight);
+    layoutPanes();
+    const paneLayoutFrame = window.requestAnimationFrame(layoutPanes);
 
     const resizeObserver = new ResizeObserver(entries => {
       const nextHeight = entries[0]?.contentRect?.height;
-      if (nextHeight) layoutPanes(nextHeight);
+      if (nextHeight) layoutPanes();
     });
     resizeObserver.observe(containerRef.current);
 
@@ -579,7 +652,9 @@ const StockChart = forwardRef(({
     } catch(err){ console.debug(err); }
 
     return () => {
+      window.cancelAnimationFrame(paneLayoutFrame);
       resizeObserver.disconnect();
+      drawingObjects.clear();
       try { chart.remove(); } catch(err){ console.debug(err); }
       if (stateRef.current.chart === chart) stateRef.current = { chart: null, series: {}, allCandles: [], allVols: [], currentCandles: [] };
     };
@@ -783,29 +858,19 @@ const StockChart = forwardRef(({
               ➖ 수평선
             </button>
             <button
-              onClick={() => {
-                const chart = stateRef.current.chart;
-                if (!chart) return;
-                drawnLines.forEach(item => {
-                  try {
-                    if (item.type === 'trend') chart.removeSeries(item.obj);
-                    else if (item.type === 'horizontal') stateRef.current.series.candle?.removePriceLine(item.obj);
-                  } catch { /* ignore */ }
-                });
-                setDrawnLines([]);
-                setDrawMode('none');
-              }}
+              onClick={clearDrawings}
+              disabled={!drawnLines.length}
               style={{
                 background: '#ef5350', color: '#fff', border: 'none', borderRadius: '4px', 
                 padding: '4px 8px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold'
               }}
             >
-              🗑️ 모두 지우기
+              모두 지우기
             </button>
             
             {/* 개별 지우기 목록 */}
             {drawnLines.length > 0 && (
-              <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', maxWidth: '200px' }}>
+              <div className="stock-chart-drawing-list">
                 {drawnLines.map(line => (
                   <div key={line.id} style={{ 
                     display: 'flex', alignItems: 'center', gap: '4px', background: '#333', 
@@ -814,27 +879,23 @@ const StockChart = forwardRef(({
                     {line.name}
                     <span 
                       style={{ cursor: 'pointer', color: '#ef5350', fontWeight: 'bold' }}
-                      onClick={() => {
-                        const chart = stateRef.current.chart;
-                        if (!chart) return;
-                        try {
-                          if (line.type === 'trend') chart.removeSeries(line.obj);
-                          else if (line.type === 'horizontal') stateRef.current.series.candle?.removePriceLine(line.obj);
-                        } catch { /* ignore */ }
-                        setDrawnLines(prev => prev.filter(l => l.id !== line.id));
-                      }}
+                      onClick={() => removeDrawing(line.id)}
                     >✕</span>
                   </div>
                 ))}
               </div>
             )}
-            <div style={{ width: '1px', height: '16px', background: '#555' }} />
-            {['MA_5', 'MA_10', 'MA_20', 'MA_60', 'MA_120', 'BB', 'RSI', 'MACD', 'STOCH', 'ICHI'].map(ind => (
-              <label key={ind} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: localInds[ind] ? '#2962ff' : '#888' }}>
-                <input type="checkbox" checked={localInds[ind] || false} onChange={() => setLocalInds(p => ({ ...p, [ind]: !p[ind] }))} style={{ margin: 0 }} />
-                {ind.replace('MA_', '')}
-              </label>
-            ))}
+            <div className="stock-chart-indicator-grid" aria-label="차트 지표">
+              {[
+                ['MA_5', 'MA 5'], ['MA_10', 'MA 10'], ['MA_20', 'MA 20'], ['MA_60', 'MA 60'], ['MA_120', 'MA 120'],
+                ['BB', 'BB'], ['RSI', 'RSI'], ['MACD', 'MACD'], ['STOCH', 'Stoch'], ['ICHI', '일목'],
+              ].map(([key, label]) => (
+                <label key={key} className={localInds[key] ? 'active' : ''}>
+                  <input type="checkbox" checked={Boolean(localInds[key])} onChange={() => setLocalInds(previous => ({ ...previous, [key]: !previous[key] }))} />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
           </div>
         )}
 

@@ -984,7 +984,7 @@ export default function App() {
             alignItems: 'center', justifyContent: 'center', color: '#333',
           }}>
             <div style={{ fontSize: '48px', marginBottom: '12px' }}>📈</div>
-            <div style={{ fontSize: '14px' }}>좌측에서 테마를 선택하거나 종목을 검색하세요</div>
+            <div style={{ fontSize: '14px' }}>테마를 선택하거나 종목을 검색하세요</div>
           </div>
         )}
           </>

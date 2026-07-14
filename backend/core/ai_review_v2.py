@@ -6,6 +6,8 @@ import urllib.request
 
 from core.ai_review import _env_value, _fmt8, _parse_date, _prepare_ohlcv, _chart_context_for_trade
 from core.data_fetcher import get_stock_ohlcv
+from core.journal import build_review
+from core.journal_chart import build_journal_charts
 
 
 OPENAI_TIMEOUT_MAX_SECONDS = 90
@@ -128,14 +130,122 @@ def _contexts_for_trades(trades: list[dict]) -> list[dict]:
     return contexts
 
 
-def _fallback_basic_text(trade: dict) -> str:
-    side = "매수" if trade.get("side") == "buy" else "매도"
-    name = trade.get("name") or trade.get("ticker") or "선택 종목"
+def _trade_episode(trades: list[dict], target: dict) -> list[dict]:
+    ticker = str(target.get("ticker") or "").strip()
+    name = str(target.get("name") or "").strip()
+    episode = [
+        row for row in trades
+        if (ticker and str(row.get("ticker") or "").strip() == ticker)
+        or (not ticker and name and str(row.get("name") or "").strip() == name)
+    ]
+    return sorted(episode, key=lambda row: (row.get("trade_date", ""), row.get("id", 0)))[-20:]
+
+
+def _compact_chart_snapshot(trades: list[dict]) -> dict:
+    try:
+        chart = (build_journal_charts(trades).get("charts") or [None])[0]
+    except Exception:
+        chart = None
+    if not chart:
+        return {}
+
+    candles = chart.get("candles") or []
+    markers = chart.get("markers") or []
+    marker_times = {str(item.get("time")) for item in markers}
+    marker_indexes = [index for index, row in enumerate(candles) if str(row.get("time")) in marker_times]
+    if marker_indexes:
+        start = max(0, min(marker_indexes) - 25)
+        end = min(len(candles), max(marker_indexes) + 36)
+        candles = candles[start:end]
+    else:
+        candles = candles[-100:]
+    if len(candles) > 140:
+        step = max(1, len(candles) // 120)
+        candles = candles[::step][-140:]
+
+    return {
+        "ticker": chart.get("ticker"),
+        "name": chart.get("name"),
+        "timeframe": chart.get("timeframe"),
+        "interval": chart.get("interval"),
+        "period": chart.get("period_label"),
+        "candles": [
+            {
+                "t": row.get("label") or row.get("time"),
+                "o": row.get("open"), "h": row.get("high"), "l": row.get("low"), "c": row.get("close"),
+                "v": row.get("volume"), "ma5": row.get("ma5"), "ma20": row.get("ma20"),
+            }
+            for row in candles
+        ],
+        "trade_markers": [
+            {"time": row.get("time"), "side": row.get("side"), "tooltip": row.get("tooltip")}
+            for row in markers
+        ],
+        "rule_based_observations": chart.get("reviews") or [],
+    }
+
+
+def _weighted_average(trades: list[dict], side: str) -> float | None:
+    rows = [row for row in trades if row.get("side") == side]
+    total_quantity = sum(float(row.get("quantity") or 0) for row in rows)
+    if total_quantity <= 0:
+        return None
+    return sum(float(row.get("price") or 0) * float(row.get("quantity") or 0) for row in rows) / total_quantity
+
+
+def _fallback_basic_text(trades: list[dict], chart_snapshot: dict) -> str:
+    target = trades[-1]
+    name = target.get("name") or target.get("ticker") or "선택 종목"
+    review = build_review(trades)
+    summary = review.get("summary") or {}
+    pnl = float(summary.get("realized_pnl") or 0)
+    return_pct = float(summary.get("realized_return_pct") or 0)
+    buy_avg = _weighted_average(trades, "buy")
+    sell_avg = _weighted_average(trades, "sell")
+    observations = chart_snapshot.get("rule_based_observations") or []
+    buy_observation = next((row.get("detail") for row in observations if "매수" in str(row.get("title"))), "")
+    sell_observation = next((row.get("detail") for row in observations if "매도" in str(row.get("title"))), "")
+
+    if buy_avg is not None and sell_avg is not None:
+        verdict = f"{name} 매매는 평균 {buy_avg:,.0f}원 매수, {sell_avg:,.0f}원 매도로 실현손익 {pnl:+,.0f}원({return_pct:+.2f}%)입니다."
+    else:
+        verdict = f"{name} 매매는 아직 매수·매도가 모두 확인되지 않아 체결 시점의 위험 관리 중심으로 봐야 합니다."
+
+    if pnl >= 0:
+        good = sell_observation or "손실 포지션을 남기지 않고 수익을 실현한 점은 대응 측면에서 유효했습니다."
+        weak = buy_observation or "수익 여부와 별개로 매수 직후 불리한 움직임을 견딜 가격 기준이 숫자로 정해져 있었는지 확인해야 합니다."
+    else:
+        good = sell_observation or "손실을 확정해 미청산 위험을 더 키우지 않은 점은 대응 측면에서 의미가 있습니다."
+        weak = buy_observation or "평균 매수가 대비 매도가가 낮았습니다. 첫 매수 뒤 가격이 가설과 반대로 움직였을 때 추가 매수보다 철회 기준이 먼저 필요했습니다."
+
     return (
-        f"총평: {name} {side} 기록을 기준으로 차트와 매매 이유를 함께 점검하세요.\n"
-        "잘한 점: 체결 가격과 수량을 기록해 복기 가능한 상태로 만들었습니다.\n"
-        "아쉬운 점: 매매 전 가설, 손절 기준, 목표가가 메모에 충분히 남아있는지 확인이 필요합니다.\n"
-        "다음 체크리스트: 1) 진입 가설을 한 문장으로 적기 2) 손절 기준을 가격으로 적기 3) 매도 후 대응 규칙을 남기기"
+        f"총평: {verdict}\n"
+        f"잘한 점: {good}\n"
+        f"아쉬운 점: {weak}\n"
+        "다음 체크리스트: 1) 매수 전 무효화 가격을 먼저 정하기 2) 첫 체결 후 3~5개 봉의 반응을 확인하고 추가 매수 결정하기 3) 매도 후 같은 시간대 주가 흐름과 비교해 너무 이른 매도인지 확인하기"
+    )
+
+
+def _fallback_advanced_text(trades: list[dict], chart_snapshots: list[dict]) -> str:
+    review = build_review(trades)
+    summary = review.get("summary") or {}
+    symbols = review.get("by_symbol") or []
+    losses = [row for row in symbols if float(row.get("realized_pnl") or 0) < 0]
+    open_positions = [row for row in symbols if float(row.get("open_quantity") or 0) > 0]
+    observations = [
+        item
+        for snapshot in chart_snapshots
+        for item in (snapshot.get("rule_based_observations") or [])
+    ]
+    weak_entries = [item.get("detail") for item in observations if "매수 시점: 아쉬움" in str(item.get("title"))]
+    weak_exits = [item.get("detail") for item in observations if "매도 시점: 아쉬움" in str(item.get("title"))]
+    repeated_issue = weak_entries[0] if weak_entries else weak_exits[0] if weak_exits else "체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다."
+    loss_text = ", ".join(f"{row.get('name')} {float(row.get('realized_pnl') or 0):+,.0f}원" for row in losses[:3]) or "확정 손실 종목 없음"
+    return (
+        f"최근 패턴: {len(trades)}건, 실현손익 {float(summary.get('realized_pnl') or 0):+,.0f}원, 승률 {float(summary.get('win_rate_pct') or 0):.1f}%입니다.\n"
+        f"반복 문제: {repeated_issue}\n"
+        f"손실 관리: {loss_text}. 미청산 종목은 {len(open_positions)}개입니다.\n"
+        "다음 규칙: 첫 매수 전에 손절 가격과 최대 손실액을 숫자로 정하고, 추가 매수는 첫 체결 뒤 최소 3개 봉에서 저점이 높아질 때만 검토하며, 매도 후 5개 봉 흐름과 비교해 청산이 너무 빨랐는지 점검하세요."
     )
 
 
@@ -144,11 +254,14 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None) -> dict:
     if not target:
         return {"status": "empty", "source": "none", "review_type": "basic", "summary": "매매 기록을 먼저 입력하세요."}
 
-    contexts = _contexts_for_trades([target])
+    episode = _trade_episode(trades, target)
+    chart_snapshot = _compact_chart_snapshot(episode)
+    contexts = [] if chart_snapshot else _contexts_for_trades(episode)
     payload = {
         "review_type": "basic",
-        "trade": target,
-        "chart_context": contexts[0] if contexts else {},
+        "trade_episode": episode,
+        "daily_chart_contexts": contexts,
+        "trade_chart_snapshot": chart_snapshot,
         "output_contract": {
             "format": "plain text",
             "sections": ["총평 1줄", "잘한 점 1줄", "아쉬운 점 1줄", "다음 체크리스트 3개"],
@@ -157,18 +270,23 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None) -> dict:
     }
     model = _env_value("OPENAI_BASIC_REVIEW_MODEL") or _env_value("OPENAI_MODEL") or "gpt-5.4-mini"
     instructions = (
-        "너는 한국 주식 매매 복기 코치다. 단건 매매 하나만 짧게 평가한다. "
-        "투자 추천이나 매수/매도 지시는 하지 않는다. 반드시 총평, 잘한 점, 아쉬운 점, 다음 체크리스트 3개로만 답한다."
+        "너는 한국 주식 매매 복기 코치다. 같은 종목의 여러 분할 체결은 하나의 매매 에피소드로 묶어 평가한다. "
+        "trade_chart_snapshot의 실제 봉, 매수·매도 마커, 평균 체결가, 실현손익을 우선 근거로 사용한다. "
+        "메모가 없어도 가격과 차트만으로 매수 시점, 매도 시점, 대응을 평가한다. 기록을 남겼다는 사실 자체를 잘한 점으로 쓰지 말고, "
+        "메모가 없다는 이유만으로 핵심 평가를 회피하지 않는다. 반드시 서로 다른 숫자 근거를 2개 이상 포함한다. "
+        "투자 추천이나 매수·매도 지시는 하지 않는다. 반드시 총평 1줄, 잘한 점 1줄, 아쉬운 점 1줄, 다음 체크리스트 3개로만 짧고 구체적으로 답한다."
     )
     try:
         ai_text = _call_openai_review(payload, model=model, instructions=instructions)
-    except RuntimeError as e:
+    except RuntimeError:
         return {
             "status": "error",
             "source": "chart-rules",
             "review_type": "basic",
-            "summary": f"{_fallback_basic_text(target)}\n\nAI 호출 실패: {e}",
+            "summary": _fallback_basic_text(episode, chart_snapshot),
             "chart_contexts": contexts,
+            "chart_snapshot": chart_snapshot,
+            "chart_reviews": chart_snapshot.get("rule_based_observations") or [],
         }
 
     return {
@@ -176,8 +294,10 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None) -> dict:
         "source": "openai" if ai_text else "chart-rules",
         "review_type": "basic",
         "model": model if ai_text else None,
-        "summary": ai_text or _fallback_basic_text(target),
+        "summary": ai_text or _fallback_basic_text(episode, chart_snapshot),
         "chart_contexts": contexts,
+        "chart_snapshot": chart_snapshot,
+        "chart_reviews": chart_snapshot.get("rule_based_observations") or [],
     }
 
 
@@ -188,12 +308,21 @@ def build_advanced_ai_review(trades: list[dict], target_trade_id=None) -> dict:
         return {"status": "empty", "source": "none", "review_type": "advanced", "summary": "매매 기록을 먼저 입력하세요."}
 
     recent = ordered[-10:]
-    contexts = _contexts_for_trades(recent)
+    chart_snapshots = []
+    by_ticker = {}
+    for trade in recent:
+        by_ticker.setdefault(str(trade.get("ticker") or trade.get("name") or ""), []).append(trade)
+    for ticker_trades in by_ticker.values():
+        snapshot = _compact_chart_snapshot(ticker_trades)
+        if snapshot:
+            chart_snapshots.append(snapshot)
+    contexts = [] if chart_snapshots else _contexts_for_trades(recent)
     payload = {
         "review_type": "advanced",
         "target_trade": target,
         "recent_trades": recent,
         "chart_contexts": contexts,
+        "trade_chart_snapshots": chart_snapshots,
         "output_contract": {
             "format": "plain text",
             "must_cover": ["반복 실수", "손절 기준", "진입 가설", "대응 문제", "다음 매매 규칙"],
@@ -201,18 +330,22 @@ def build_advanced_ai_review(trades: list[dict], target_trade_id=None) -> dict:
     }
     model = _env_value("OPENAI_ADVANCED_REVIEW_MODEL") or "gpt-5.5"
     instructions = (
-        "너는 한국 주식 매매 복기 코치다. 이번 매매와 최근 5~10건을 비교해 반복 실수, 손절 기준, "
-        "진입 가설, 대응 문제를 분석한다. 투자 추천이나 종목 추천은 금지한다. 다음 매매에서 지킬 규칙 중심으로 답한다."
+        "너는 한국 주식 매매 복기 코치다. 이번 매매와 최근 5~10건의 실제 체결·차트 스냅샷을 비교해 반복 실수, 손절 기준, "
+        "매수 가설, 매도 대응 문제를 분석한다. 메모가 없어도 체결가와 전후 봉 흐름으로 판단하고, 기록 자체를 칭찬하지 않는다. "
+        "각 판단에는 종목명, 가격, 수익률, 이동평균선 또는 전후 봉 흐름 중 구체 근거를 붙인다. 투자 추천이나 종목 추천은 금지한다. "
+        "마지막에는 다음 매매에서 바로 지킬 수 있는 숫자 기준의 규칙을 제시한다."
     )
     try:
         ai_text = _call_openai_review(payload, model=model, instructions=instructions)
-    except RuntimeError as e:
+    except RuntimeError:
         return {
             "status": "error",
             "source": "chart-rules",
             "review_type": "advanced",
-            "summary": f"최근 매매 {len(recent)}건을 기준으로 반복 패턴을 확인하세요. AI 호출 실패: {e}",
+            "summary": _fallback_advanced_text(recent, chart_snapshots),
             "chart_contexts": contexts,
+            "chart_snapshots": chart_snapshots,
+            "chart_reviews": [item for snapshot in chart_snapshots for item in (snapshot.get("rule_based_observations") or [])],
         }
 
     return {
@@ -220,6 +353,8 @@ def build_advanced_ai_review(trades: list[dict], target_trade_id=None) -> dict:
         "source": "openai" if ai_text else "chart-rules",
         "review_type": "advanced",
         "model": model if ai_text else None,
-        "summary": ai_text or "OPENAI_API_KEY가 설정되지 않아 고급 복기는 기본 안내로 표시됩니다. 최근 매매의 반복 실수, 손절 기준, 진입 가설을 메모와 함께 점검하세요.",
+        "summary": ai_text or _fallback_advanced_text(recent, chart_snapshots),
         "chart_contexts": contexts,
+        "chart_snapshots": chart_snapshots,
+        "chart_reviews": [item for snapshot in chart_snapshots for item in (snapshot.get("rule_based_observations") or [])],
     }

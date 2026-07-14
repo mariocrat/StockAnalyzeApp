@@ -110,6 +110,19 @@ def _daily_data(ticker: str, start: datetime.date, end: datetime.date) -> pd.Dat
     return _prepare_ohlcv(get_stock_ohlcv(ticker, _fmt8(padded_start), _fmt8(padded_end)))
 
 
+def _weekly_data(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    weekly = df[["Open", "High", "Low", "Close", "Volume"]].resample("W-FRI").agg({
+        "Open": "first",
+        "High": "max",
+        "Low": "min",
+        "Close": "last",
+        "Volume": "sum",
+    })
+    return _prepare_ohlcv(weekly.dropna(subset=["Open", "High", "Low", "Close"]))
+
+
 def _candles_from_df(df: pd.DataFrame, timeframe: str):
     candles = []
     for idx, row in df.iterrows():
@@ -162,8 +175,37 @@ def _marker_time(trade: dict, candles: list[dict], timeframe: str):
     return (candidates[-1] if candidates else candles[0])["time"]
 
 
+def _trade_outcomes(trades: list[dict]) -> dict:
+    position_qty = 0.0
+    position_cost = 0.0
+    outcomes = {}
+    for trade in sorted(trades, key=lambda row: (row.get("trade_date", ""), row.get("id", 0))):
+        qty = _to_float(trade.get("quantity"))
+        price = _to_float(trade.get("price"))
+        costs = _to_float(trade.get("fee")) + _to_float(trade.get("tax"))
+        if trade.get("side") == "buy":
+            position_qty += qty
+            position_cost += price * qty + costs
+            continue
+        avg_cost = position_cost / position_qty if position_qty > 0 else 0.0
+        matched_qty = min(qty, position_qty) if position_qty > 0 else 0.0
+        matched_cost = avg_cost * matched_qty
+        net_sell = price * qty - costs
+        profit = net_sell - matched_cost if matched_qty > 0 else None
+        outcomes[str(trade.get("id"))] = {
+            "profit_amount": round(profit, 0) if profit is not None else None,
+            "return_rate": round((profit / matched_cost) * 100, 2) if profit is not None and matched_cost else None,
+            "matched_cost": matched_cost if matched_qty > 0 else None,
+        }
+        if matched_qty > 0:
+            position_qty -= matched_qty
+            position_cost -= matched_cost
+    return outcomes
+
+
 def _markers_for_trades(trades: list[dict], candles: list[dict], timeframe: str):
     grouped = {}
+    outcomes = _trade_outcomes(trades)
     for trade in trades:
         time_value = _marker_time(trade, candles, timeframe)
         if time_value is None:
@@ -185,6 +227,7 @@ def _markers_for_trades(trades: list[dict], candles: list[dict], timeframe: str)
             "date": trade.get("trade_date"),
             "price": _to_float(trade.get("price")),
             "quantity": _to_float(trade.get("quantity")),
+            **outcomes.get(str(trade.get("id")), {}),
         })
 
     markers = []
@@ -204,6 +247,13 @@ def _markers_for_trades(trades: list[dict], candles: list[dict], timeframe: str)
             "total_quantity": round(total_qty, 4),
             "prices": [row["price"] for row in item["trades"]],
         }
+        if item["side"] == "sell":
+            profits = [row.get("profit_amount") for row in item["trades"] if row.get("profit_amount") is not None]
+            matched_cost = sum(row.get("matched_cost") or 0 for row in item["trades"])
+            item["tooltip"]["profit_amount"] = round(sum(profits), 0) if profits else None
+            item["tooltip"]["return_rate"] = round((sum(profits) / matched_cost) * 100, 2) if profits and matched_cost else None
+            for row in item["trades"]:
+                row.pop("matched_cost", None)
         markers.append(item)
     return sorted(markers, key=lambda row: (row["time"], row["side"]))
 
@@ -243,7 +293,7 @@ def _technical_reviews(trades: list[dict], candles: list[dict], timeframe: str):
         ma5 = candle.get("ma5")
         ma20 = candle.get("ma20")
         after_fast = _movement_after(candles, time_value, 5)
-        after_slow = _movement_after(candles, time_value, 20 if timeframe == "daily" else 30)
+        after_slow = _movement_after(candles, time_value, 8 if timeframe == "weekly" else 20 if timeframe == "daily" else 30)
         price_gap = round(((price - close) / close) * 100, 2) if close else 0
 
         points = []
@@ -305,6 +355,7 @@ def build_journal_charts(trades: list[dict]) -> dict:
         rows = sorted(rows, key=lambda row: (row.get("trade_date", ""), row.get("id", 0)))
         start, end = _trade_day_range(rows)
         same_day = start == end
+        holding_days = (end - start).days
 
         timeframe = "daily"
         source = "daily"
@@ -313,15 +364,23 @@ def build_journal_charts(trades: list[dict]) -> dict:
         if same_day:
             interval = _choose_intraday_interval(rows)
             df = _try_intraday(ticker, start, end, interval)
-            if not df.empty:
+            if len(df.index) >= 10:
                 timeframe = "intraday"
                 source = f"{interval} intraday"
+            else:
+                df = pd.DataFrame()
 
         if df.empty:
             df = _daily_data(ticker, start, end)
-            timeframe = "daily"
-            interval = "1d"
-            source = "daily OHLCV"
+            if holding_days >= 120 and not df.empty:
+                df = _weekly_data(df)
+                timeframe = "weekly"
+                interval = "1wk"
+                source = "weekly OHLCV"
+            else:
+                timeframe = "daily"
+                interval = "1d"
+                source = "daily OHLCV"
 
         if df.empty:
             charts.append({
@@ -344,6 +403,7 @@ def build_journal_charts(trades: list[dict]) -> dict:
             "timeframe": timeframe,
             "interval": interval,
             "source": source,
+            "period_label": start.isoformat() if same_day else f"{start.isoformat()} ~ {end.isoformat()}",
             "candles": candles,
             "markers": markers,
             "reviews": _technical_reviews(rows, candles, timeframe),

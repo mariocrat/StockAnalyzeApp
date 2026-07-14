@@ -165,6 +165,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             return f"{payload['review_type']}-ok"
 
         self.ai_review_v2._contexts_for_trades = lambda trades: []
+        self.ai_review_v2._compact_chart_snapshot = lambda trades: {}
         self.ai_review_v2._call_openai_review = fake_call
 
         basic = self.ai_review_v2.build_basic_ai_review([{
@@ -200,6 +201,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             return "ok"
 
         self.ai_review_v2._contexts_for_trades = lambda trades: []
+        self.ai_review_v2._compact_chart_snapshot = lambda trades: {}
         self.ai_review_v2._call_openai_review = fake_call
         trade = {
             "id": 1,

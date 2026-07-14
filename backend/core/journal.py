@@ -263,7 +263,16 @@ def build_review(trades: list[dict] | None = None) -> dict:
             "sell_amount": 0.0,
             "realized_pnl": 0.0,
             "open_quantity": 0.0,
+            "trade_count": 0,
+            "first_trade_date": trade.get("trade_date", ""),
+            "last_trade_date": trade.get("trade_date", ""),
+            "total_fee": 0.0,
+            "total_tax": 0.0,
         })
+        symbol["trade_count"] += 1
+        symbol["last_trade_date"] = trade.get("trade_date", "")
+        symbol["total_fee"] += float(trade.get("fee") or 0)
+        symbol["total_tax"] += float(trade.get("tax") or 0)
 
         if side == "buy":
             amount = price * qty + fee_tax
@@ -296,6 +305,8 @@ def build_review(trades: list[dict] | None = None) -> dict:
             by_symbol[key]["realized_pnl"] = round(pnl, 0)
             by_symbol[key]["buy_amount"] = round(buy_amount, 0)
             by_symbol[key]["sell_amount"] = round(by_symbol[key]["sell_amount"], 0)
+            by_symbol[key]["total_fee"] = round(by_symbol[key]["total_fee"], 0)
+            by_symbol[key]["total_tax"] = round(by_symbol[key]["total_tax"], 0)
 
     symbol_rows = sorted(by_symbol.values(), key=lambda row: row["realized_pnl"], reverse=True)
     ret_pct = (realized_pnl / realized_cost) * 100 if realized_cost else 0
@@ -305,7 +316,7 @@ def build_review(trades: list[dict] | None = None) -> dict:
     if closed_count == 0:
         advice.append("아직 매도 기록이 없어 실현 손익보다 보유 포지션 관리가 핵심입니다.")
     elif ret_pct < 0:
-        advice.append("전체 실현 손익이 마이너스입니다. 진입 이유와 손절 기준을 기록해 반복 손실 구간을 먼저 찾으세요.")
+        advice.append("전체 실현 손익이 마이너스입니다. 손실 종목의 매수 후 3~5개 봉 반응과 평균 손실 크기를 먼저 확인하세요.")
     else:
         advice.append("전체 실현 손익은 플러스입니다. 수익 매매의 진입 조건을 따로 모아 재현 가능한 규칙으로 정리하세요.")
     if win_rate and win_rate < 45:

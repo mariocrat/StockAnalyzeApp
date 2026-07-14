@@ -35,3 +35,11 @@ export function getPaneHeights(totalHeight, indicatorCount) {
   const main = safeHeight - volume - indicator * count;
   return [main, volume, ...Array(count).fill(indicator)];
 }
+
+export function getPaneStretchFactors(indicatorCount) {
+  const count = Math.max(0, Math.min(3, Math.floor(indicatorCount || 0)));
+  if (count === 0) return [76, 24];
+  if (count === 1) return [60, 12, 28];
+  if (count === 2) return [52, 10, 19, 19];
+  return [46, 10, 15, 15, 14];
+}
