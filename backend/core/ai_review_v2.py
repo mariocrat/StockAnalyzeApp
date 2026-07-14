@@ -6,6 +6,7 @@ import urllib.request
 
 from core.ai_review import _env_value, _fmt8, _parse_date, _prepare_ohlcv, _chart_context_for_trade
 from core.data_fetcher import get_stock_ohlcv
+from core.event_log import record_event
 from core.journal import build_review
 from core.journal_chart import build_journal_charts
 
@@ -13,6 +14,7 @@ from core.journal_chart import build_journal_charts
 OPENAI_TIMEOUT_MAX_SECONDS = 90
 OPENAI_MAX_RETRIES_LIMIT = 3
 OPENAI_RETRY_BACKOFF_MAX_SECONDS = 5.0
+OPENAI_MAX_OUTPUT_TOKENS_LIMIT = 10_000
 
 
 def _env_int(name: str, default: int, minimum: int, maximum: int | None = None) -> int:
@@ -43,6 +45,42 @@ def _is_retryable_openai_error(error: BaseException) -> bool:
     return isinstance(error, (urllib.error.URLError, TimeoutError))
 
 
+def _review_max_output_tokens(payload: dict) -> int:
+    if str(payload.get("review_type") or "").strip().lower() == "advanced":
+        return _env_int("OPENAI_ADVANCED_REVIEW_MAX_OUTPUT_TOKENS", 3000, 256, OPENAI_MAX_OUTPUT_TOKENS_LIMIT)
+    return _env_int("OPENAI_BASIC_REVIEW_MAX_OUTPUT_TOKENS", 1000, 256, OPENAI_MAX_OUTPUT_TOKENS_LIMIT)
+
+
+def _record_openai_usage(data: dict, *, payload: dict, model: str) -> None:
+    usage = data.get("usage") if isinstance(data, dict) else None
+    if not isinstance(usage, dict):
+        return
+    input_details = usage.get("input_tokens_details") or {}
+    output_details = usage.get("output_tokens_details") or {}
+    details = {
+        "review_type": str(payload.get("review_type") or "unknown"),
+        "model": model,
+        "input_tokens": int(usage.get("input_tokens") or 0),
+        "cached_input_tokens": int(input_details.get("cached_tokens") or 0),
+        "output_tokens": int(usage.get("output_tokens") or 0),
+        "reasoning_tokens": int(output_details.get("reasoning_tokens") or 0),
+        "total_tokens": int(usage.get("total_tokens") or 0),
+    }
+    try:
+        record_event(
+            level="info",
+            event_type="openai_review_usage",
+            method="POST",
+            path="/v1/responses",
+            status_code=200,
+            message="OpenAI review token usage recorded.",
+            details=details,
+        )
+    except Exception:
+        # Usage telemetry must never turn a successful review into a user-facing failure.
+        return
+
+
 def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
     api_key = _env_value("OPENAI_API_KEY") or _env_value("ALPHAMATE_OPENAI_API_KEY")
     if not api_key:
@@ -52,6 +90,7 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
         "model": model,
         "instructions": instructions,
         "input": json.dumps(payload, ensure_ascii=False),
+        "max_output_tokens": _review_max_output_tokens(payload),
     }
     req = urllib.request.Request(
         "https://api.openai.com/v1/responses",
@@ -76,6 +115,7 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
         try:
             with urllib.request.urlopen(req, timeout=timeout_seconds) as res:
                 data = json.loads(res.read().decode("utf-8"))
+            _record_openai_usage(data, payload=payload, model=model)
             break
         except (urllib.error.URLError, TimeoutError) as e:
             last_error = e
@@ -328,7 +368,7 @@ def build_advanced_ai_review(trades: list[dict], target_trade_id=None) -> dict:
             "must_cover": ["반복 실수", "손절 기준", "진입 가설", "대응 문제", "다음 매매 규칙"],
         },
     }
-    model = _env_value("OPENAI_ADVANCED_REVIEW_MODEL") or "gpt-5.5"
+    model = _env_value("OPENAI_ADVANCED_REVIEW_MODEL") or "gpt-5.6-terra"
     instructions = (
         "너는 한국 주식 매매 복기 코치다. 이번 매매와 최근 5~10건의 실제 체결·차트 스냅샷을 비교해 반복 실수, 손절 기준, "
         "매수 가설, 매도 대응 문제를 분석한다. 메모가 없어도 체결가와 전후 봉 흐름으로 판단하고, 기록 자체를 칭찬하지 않는다. "

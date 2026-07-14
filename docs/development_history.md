@@ -1,5 +1,12 @@
 # AlphaMate Development History
 
+## 2026-07-15 AI review model update
+
+- Kept general reviews on `gpt-5.4-mini` for ad-supported cost efficiency.
+- Changed the advanced review default from `gpt-5.5` to `gpt-5.6-terra` to improve the quality-to-cost balance.
+- Kept both model IDs configurable through backend-only environment variables so no OpenAI credential or model setting is bundled in the Android app.
+- Added separate output-token caps for general and advanced reviews and aggregate token-usage operational events without storing prompts or API credentials.
+
 ## 2026-07-14 mobile chart usability
 
 - Unified market direction colors across theme returns, stock returns, review charts, candlesticks, volume, and indicator histograms: red for rising and blue for falling.

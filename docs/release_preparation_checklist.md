@@ -17,7 +17,9 @@
 ```env
 OPENAI_API_KEY=실제_Key
 OPENAI_BASIC_REVIEW_MODEL=gpt-5.4-mini
-OPENAI_ADVANCED_REVIEW_MODEL=gpt-5.5
+OPENAI_ADVANCED_REVIEW_MODEL=gpt-5.6-terra
+OPENAI_BASIC_REVIEW_MAX_OUTPUT_TOKENS=1000
+OPENAI_ADVANCED_REVIEW_MAX_OUTPUT_TOKENS=3000
 ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE=10
 ALPHAMATE_AI_REVIEW_MAX_CONCURRENT=3
 ALPHAMATE_AI_REVIEW_IDEMPOTENCY_TTL_SECONDS=300
@@ -31,8 +33,9 @@ ALPHAMATE_OPENAI_MAX_RETRIES=1
 ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS=0.5
 ```
 
-기본값은 일반 복기 `gpt-5.4-mini`, 심층 복기 `gpt-5.5`입니다. 출시 직전 OpenAI 공식 모델/가격표가 바뀌었으면 이 두 환경변수만 바꾸면 됩니다.
+기본값은 일반 복기 `gpt-5.4-mini`, 심층 복기 `gpt-5.6-terra`입니다. 출시 직전 OpenAI 공식 모델/가격표가 바뀌었으면 이 두 환경변수만 바꾸면 됩니다.
 OpenAI 실행 안전 상한: timeout 최대 90초, 재시도 최대 3회, 재시도 대기 최대 5초.
+OpenAI 출력 안전 상한: 일반 복기 기본 1,000토큰, 심층 복기 기본 3,000토큰, 설정 가능한 최대 10,000토큰.
 AI 복기 요청 제한 안전 상한: 분당 최대 60회.
 AI 복기 동시 실행 안전 상한: 최대 20개 작업.
 AI 복기 중복 요청 방지 캐시 안전 상한: 서버 프로세스당 메모리 최대 1,000개.
