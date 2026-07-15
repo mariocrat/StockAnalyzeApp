@@ -21,6 +21,7 @@
     "test:ai-idempotency": "node --test scripts/ai-review-idempotency.test.js",
     "test:splash-loading": "node --test scripts/splash-loading-policy.test.js",
     "test:chart-layout": "node --test scripts/chart-layout.test.js",
+    "test:journal-mobile-ux": "node --test scripts/journal-mobile-ux.test.js",
     "test:release-env": "node --test scripts/validate-release-env.test.js",
     "test:mobile-bundle": "node --test scripts/validate-mobile-bundle.test.js",
     "mobile:build": "vite build --mode release && node scripts/validate-mobile-bundle.js && npx cap sync android",

@@ -1,5 +1,14 @@
 # AlphaMate Development History
 
+## 2026-07-16 mobile information density and AI review resilience
+
+- Aligned the mobile top spacing between the theme/chart and trading journal views and exposed the same account drawer from both views.
+- Reorganized chart controls into a compact two-column mobile grid, strengthened section headings, and added a clear selected-theme chart heading.
+- Reduced entitlement and product-card height, removed internal AI model and consent-version labels, and kept only the user-facing consent date.
+- Added calendar plus time-picker input with an optional direct `HH:MM` entry mode and changed data export to a shareable JSON file with a browser download fallback.
+- Added an advanced-review fallback model so a temporary primary-model failure does not consume a review ticket without a second attempt.
+- Added regression coverage proving that general review uses one stock episode while advanced review compares only the latest ten trades.
+
 ## 2026-07-15 chart state, account drawer, and close-date alignment
 
 - Promoted indicator selection, pane proportions, and per-stock drawings to shared app state so chart settings remain consistent across stocks and survive indicator pane rebuilds.

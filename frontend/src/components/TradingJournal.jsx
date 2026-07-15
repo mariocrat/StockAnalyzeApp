@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import axios from 'axios';
-import { UserRound, X } from 'lucide-react';
+import { Clock3, Keyboard, UserRound, X } from 'lucide-react';
 import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
@@ -72,6 +72,36 @@ function money(value) {
 function dateTimeText(value) {
   if (!value) return '-';
   return String(value).replace('T', ' ').replace(/:00$/, '');
+}
+
+function localDateText(date = new Date()) {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function tradeDatePart(value) {
+  return String(value || '').split('T')[0] || '';
+}
+
+function tradeTimePart(value) {
+  return String(value || '').split('T')[1]?.slice(0, 5) || '';
+}
+
+function combineTradeDateTime(currentValue, { date, time }) {
+  const nextDate = date ?? tradeDatePart(currentValue) ?? localDateText();
+  const nextTime = time ?? tradeTimePart(currentValue);
+  return nextDate && nextTime ? `${nextDate}T${nextTime}` : nextDate || '';
+}
+
+function normalizeDirectTime(value) {
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function validTradeDateTime(value) {
+  const match = String(value || '').match(/^\d{4}-\d{2}-\d{2}T(\d{2}):(\d{2})$/);
+  return Boolean(match && Number(match[1]) <= 23 && Number(match[2]) <= 59);
 }
 
 function tradePeriodText(row) {
@@ -155,6 +185,7 @@ export default function TradingJournal({
   const [entitlements, setEntitlements] = useState(null);
   const [productCatalog, setProductCatalog] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [directTimeEntry, setDirectTimeEntry] = useState(false);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [aiConsentAccepted, setAiConsentAccepted] = useState(false);
@@ -688,20 +719,35 @@ export default function TradingJournal({
       const res = await axios.get(`${apiBase}/api/me/export-data`, {
         headers: { Authorization: `Bearer ${authSession.session_token}` },
       });
-      const blob = new Blob([JSON.stringify(res.data || {}, null, 2)], {
-        type: 'application/json;charset=utf-8',
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
       const dateText = new Date().toISOString().slice(0, 10);
-      link.href = url;
-      link.download = `alphamate-my-data-${dateText}.json`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
-      setMessage('내 데이터 내보내기 파일을 만들었습니다.');
+      const filename = `alphamate-my-data-${dateText}.json`;
+      const jsonText = JSON.stringify(res.data || {}, null, 2);
+      const file = typeof File === 'function'
+        ? new File([jsonText], filename, { type: 'application/json;charset=utf-8' })
+        : null;
+      const canShareFile = file && navigator.share
+        && (!navigator.canShare || navigator.canShare({ files: [file] }));
+
+      if (canShareFile) {
+        await navigator.share({ title: 'AlphaMate 내 데이터', files: [file] });
+        setMessage('JSON 파일을 저장하거나 공유할 앱을 선택했습니다.');
+      } else {
+        const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 0);
+        setMessage('JSON 형식의 내 데이터 파일을 만들었습니다.');
+      }
     } catch (err) {
+      if (err?.name === 'AbortError') {
+        setMessage('내 데이터 내보내기를 취소했습니다.');
+        return;
+      }
       setMessage(err.response?.data?.detail || '내 데이터를 내보내지 못했습니다.');
     } finally {
       setAuthLoading(false);
@@ -791,6 +837,9 @@ export default function TradingJournal({
         { headers: { ...authHeaders, 'X-Idempotency-Key': idempotencyKey } },
       );
       setAiReview(res.data || null);
+      if (res.data?.status === 'error') {
+        setMessage('AI 서버 응답을 완료하지 못했습니다. 사용한 복기 이용권은 다시 돌려드렸습니다.');
+      }
       if (res.data?.access?.wallet) setEntitlements(res.data.access.wallet);
       if (res.data?.review_history_id) {
         await loadReviewHistory();
@@ -1165,8 +1214,8 @@ export default function TradingJournal({
   };
 
   const submitManual = async () => {
-    if (!form.trade_date || !form.name || !form.price || !form.quantity) {
-      setMessage('일시, 종목명, 가격, 수량은 꼭 입력해야 합니다.');
+    if (!validTradeDateTime(form.trade_date) || !form.name || !form.price || !form.quantity) {
+      setMessage('날짜와 시간을 정확히 입력하고 종목명, 가격, 수량을 확인해주세요.');
       return;
     }
     setLoading(true);
@@ -1257,7 +1306,7 @@ export default function TradingJournal({
   const consentVersion = dataSummary?.privacy_consent_version || authSession?.user?.privacy_consent_version || '';
   const currentConsentVersion = dataSummary?.privacy_consent_current_version || consentVersion || 'ai-review-privacy-v1';
   const consentStatusText = consentRecordedAt ? '동의 완료' : '동의 필요';
-  const consentDetailText = consentRecordedAt ? `${consentVersion || '현재 버전'} · ${consentRecordedAt.slice(0, 10)}` : 'AI 복기 실행 시 동의할 수 있습니다.';
+  const consentDetailText = consentRecordedAt ? `동의일 ${consentRecordedAt.slice(0, 10)}` : 'AI 복기 실행 시 동의할 수 있습니다.';
   const missingText = (items = []) => items.length ? `누락: ${items.join(', ')}` : '설정 완료';
   const readinessItems = [
     {
@@ -1331,7 +1380,7 @@ export default function TradingJournal({
                   onClick={() => openReviewHistoryDetail(item.id)}
                 >
                   <strong>{item.name || item.ticker || '종목 미입력'}</strong>
-                  <span>{item.review_type === 'advanced' ? '심층 복기' : '일반 복기'} · {item.trade_date || item.created_at}</span>
+                  <span>{item.review_type === 'advanced' ? '심층 복기' : '일반 복기'} · {dateTimeText(item.trade_date || item.created_at)}</span>
                 </button>
               ))}
             </div>
@@ -1342,7 +1391,7 @@ export default function TradingJournal({
                     <div>
                       <h4>{activeReviewHistory.name || activeReviewHistory.ticker || '저장된 복기'}</h4>
                       <span className="journal-chart-mode">
-                        {activeReviewHistory.review_type === 'advanced' ? '심층 복기' : '일반 복기'} · {activeReviewHistory.model || activeReviewHistory.source || '-'}
+                        {activeReviewHistory.review_type === 'advanced' ? '심층 복기' : '일반 복기'}
                       </span>
                     </div>
                     <button
@@ -1579,7 +1628,43 @@ export default function TradingJournal({
       <section className="journal-panel">
         <h3>매매 기록 입력</h3>
         <div className="journal-form">
-          <label className="journal-field"><span>매매일시</span><input type="datetime-local" value={form.trade_date} onInput={e => updateForm('trade_date', e.currentTarget.value)} /></label>
+          <div className="journal-field journal-datetime-field">
+            <span>매매일시</span>
+            <div className="journal-datetime-inputs">
+              <input
+                type="date"
+                aria-label="매매 날짜"
+                value={tradeDatePart(form.trade_date)}
+                onChange={event => updateForm('trade_date', combineTradeDateTime(form.trade_date, { date: event.target.value }))}
+              />
+              <div className="journal-time-entry">
+                <input
+                  type={directTimeEntry ? 'text' : 'time'}
+                  inputMode={directTimeEntry ? 'numeric' : undefined}
+                  aria-label={directTimeEntry ? '매매 시간 직접 입력' : '매매 시간 선택'}
+                  placeholder={directTimeEntry ? 'HH:MM' : undefined}
+                  maxLength={directTimeEntry ? 5 : undefined}
+                  value={tradeTimePart(form.trade_date)}
+                  onChange={event => {
+                    const time = directTimeEntry ? normalizeDirectTime(event.target.value) : event.target.value;
+                    updateForm('trade_date', combineTradeDateTime(form.trade_date, {
+                      date: tradeDatePart(form.trade_date) || localDateText(),
+                      time,
+                    }));
+                  }}
+                />
+                <button
+                  type="button"
+                  className={directTimeEntry ? 'journal-time-mode active' : 'journal-time-mode'}
+                  onClick={() => setDirectTimeEntry(value => !value)}
+                  aria-label={directTimeEntry ? '시간 선택기로 전환' : '시간 직접 입력으로 전환'}
+                  title={directTimeEntry ? '시간 선택기로 전환' : '시간 직접 입력으로 전환'}
+                >
+                  {directTimeEntry ? <Clock3 size={16} aria-hidden="true" /> : <Keyboard size={16} aria-hidden="true" />}
+                </button>
+              </div>
+            </div>
+          </div>
           <label className="journal-field">
             <span>종목명</span>
             <div className="journal-stock-search">
@@ -1742,7 +1827,7 @@ export default function TradingJournal({
 
       <section className="journal-panel">
         <div className="journal-panel-title journal-review-title">
-          <h3>복기 조언</h3>
+          <h3>AI 복기</h3>
           <div className="journal-review-actions">
             <button
               className="journal-secondary"

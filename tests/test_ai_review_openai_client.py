@@ -17,6 +17,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         "ALPHAMATE_ENV_FILE",
         "OPENAI_BASIC_REVIEW_MODEL",
         "OPENAI_ADVANCED_REVIEW_MODEL",
+        "OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL",
         "OPENAI_MODEL",
         "OPENAI_BASIC_REVIEW_MAX_OUTPUT_TOKENS",
         "OPENAI_ADVANCED_REVIEW_MAX_OUTPUT_TOKENS",
@@ -297,6 +298,70 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.ai_review_v2.build_advanced_ai_review([trade])
 
         self.assertEqual(["custom-basic-model", "custom-advanced-model"], captured)
+
+    def test_advanced_review_uses_configurable_fallback_model_after_primary_failure(self):
+        os.environ["OPENAI_ADVANCED_REVIEW_MODEL"] = "primary-advanced-model"
+        os.environ["OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL"] = "fallback-advanced-model"
+        captured = []
+
+        def fake_call(payload, *, model, instructions):
+            captured.append(model)
+            if model == "primary-advanced-model":
+                raise RuntimeError("primary failed")
+            return "fallback-ok"
+
+        self.ai_review_v2._contexts_for_trades = lambda trades: []
+        self.ai_review_v2._compact_chart_snapshot = lambda trades: {}
+        self.ai_review_v2._call_openai_review = fake_call
+        result = self.ai_review_v2.build_advanced_ai_review([{
+            "id": 1,
+            "trade_date": "2026-06-19T10:30",
+            "ticker": "005930",
+            "name": "삼성전자",
+            "side": "buy",
+            "price": 70000,
+            "quantity": 1,
+        }])
+
+        self.assertEqual("ready", result["status"])
+        self.assertEqual("fallback-advanced-model", result["model"])
+        self.assertEqual(["primary-advanced-model", "fallback-advanced-model"], captured)
+
+    def test_many_trades_keep_basic_episode_and_advanced_history_scopes_separate(self):
+        captured = {}
+
+        def fake_call(payload, *, model, instructions):
+            captured[payload["review_type"]] = payload
+            return "ok"
+
+        self.ai_review_v2._contexts_for_trades = lambda trades: []
+        self.ai_review_v2._compact_chart_snapshot = lambda trades: {}
+        self.ai_review_v2._call_openai_review = fake_call
+        trades = [
+            {
+                "id": index,
+                "trade_date": f"2026-07-{index:02d}T10:30",
+                "ticker": "005930" if index % 2 else "000660",
+                "name": "Samsung Electronics" if index % 2 else "SK hynix",
+                "side": "buy" if index % 3 else "sell",
+                "price": 70000 + index * 100,
+                "quantity": 1,
+            }
+            for index in range(1, 13)
+        ]
+
+        self.ai_review_v2.build_basic_ai_review(trades, target_trade_id=12)
+        self.ai_review_v2.build_advanced_ai_review(trades, target_trade_id=12)
+
+        basic_episode = captured["basic"]["trade_episode"]
+        self.assertEqual(6, len(basic_episode))
+        self.assertEqual({"000660"}, {trade["ticker"] for trade in basic_episode})
+        self.assertEqual(list(range(2, 13, 2)), [trade["id"] for trade in basic_episode])
+
+        advanced_history = captured["advanced"]["recent_trades"]
+        self.assertEqual(10, len(advanced_history))
+        self.assertEqual(list(range(3, 13)), [trade["id"] for trade in advanced_history])
+        self.assertEqual(12, captured["advanced"]["target_trade"]["id"])
 
 if __name__ == "__main__":
     unittest.main()

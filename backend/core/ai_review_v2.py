@@ -81,6 +81,29 @@ def _record_openai_usage(data: dict, *, payload: dict, model: str) -> None:
         return
 
 
+def _record_openai_failure(error: BaseException, *, payload: dict, model: str, attempt: int) -> None:
+    status_code = error.code if isinstance(error, urllib.error.HTTPError) else 0
+    details = {
+        "review_type": str(payload.get("review_type") or "unknown"),
+        "model": model,
+        "attempt": attempt,
+        "error_type": type(error).__name__,
+        "retryable": _is_retryable_openai_error(error),
+    }
+    try:
+        record_event(
+            level="error",
+            event_type="openai_review_request_failed",
+            method="POST",
+            path="/v1/responses",
+            status_code=status_code,
+            message="OpenAI review request failed without storing prompt or response content.",
+            details=details,
+        )
+    except Exception:
+        return
+
+
 def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
     api_key = _env_value("OPENAI_API_KEY") or _env_value("ALPHAMATE_OPENAI_API_KEY")
     if not api_key:
@@ -120,16 +143,20 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
         except (urllib.error.URLError, TimeoutError) as e:
             last_error = e
             if attempt >= max_retries or not _is_retryable_openai_error(e):
+                _record_openai_failure(e, payload=payload, model=model, attempt=attempt + 1)
                 raise RuntimeError(str(e)) from e
             if retry_backoff_seconds:
                 time.sleep(retry_backoff_seconds)
         except json.JSONDecodeError as e:
+            _record_openai_failure(e, payload=payload, model=model, attempt=attempt + 1)
             raise RuntimeError(str(e)) from e
     else:
         raise RuntimeError(str(last_error))
 
     if data.get("output_text"):
-        return str(data["output_text"]).strip()
+        output_text = str(data["output_text"]).strip()
+        if output_text:
+            return output_text
 
     chunks = []
     for item in data.get("output", []):
@@ -137,7 +164,29 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
             text = content.get("text")
             if text:
                 chunks.append(text)
-    return "\n".join(chunks).strip()
+    output_text = "\n".join(chunks).strip()
+    if output_text:
+        return output_text
+
+    incomplete = data.get("incomplete_details") if isinstance(data, dict) else None
+    try:
+        record_event(
+            level="error",
+            event_type="openai_review_empty_output",
+            method="POST",
+            path="/v1/responses",
+            status_code=502,
+            message="OpenAI review response did not contain user-visible text.",
+            details={
+                "review_type": str(payload.get("review_type") or "unknown"),
+                "model": model,
+                "response_status": str(data.get("status") or "unknown"),
+                "incomplete_reason": str((incomplete or {}).get("reason") or ""),
+            },
+        )
+    except Exception:
+        pass
+    raise RuntimeError("OpenAI response did not include output text.")
 
 
 def _target_trade(trades: list[dict], target_trade_id=None) -> dict | None:
@@ -369,6 +418,11 @@ def build_advanced_ai_review(trades: list[dict], target_trade_id=None) -> dict:
         },
     }
     model = _env_value("OPENAI_ADVANCED_REVIEW_MODEL") or "gpt-5.6-terra"
+    fallback_model = (
+        _env_value("OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL")
+        or _env_value("OPENAI_BASIC_REVIEW_MODEL")
+        or "gpt-5.4-mini"
+    )
     instructions = (
         "너는 한국 주식 매매 복기 코치다. 이번 매매와 최근 5~10건의 실제 체결·차트 스냅샷을 비교해 반복 실수, 손절 기준, "
         "매수 가설, 매도 대응 문제를 분석한다. 메모가 없어도 체결가와 전후 봉 흐름으로 판단하고, 기록 자체를 칭찬하지 않는다. "
@@ -378,15 +432,24 @@ def build_advanced_ai_review(trades: list[dict], target_trade_id=None) -> dict:
     try:
         ai_text = _call_openai_review(payload, model=model, instructions=instructions)
     except RuntimeError:
-        return {
-            "status": "error",
-            "source": "chart-rules",
-            "review_type": "advanced",
-            "summary": _fallback_advanced_text(recent, chart_snapshots),
-            "chart_contexts": contexts,
-            "chart_snapshots": chart_snapshots,
-            "chart_reviews": [item for snapshot in chart_snapshots for item in (snapshot.get("rule_based_observations") or [])],
-        }
+        if fallback_model and fallback_model != model:
+            try:
+                ai_text = _call_openai_review(payload, model=fallback_model, instructions=instructions)
+                model = fallback_model
+            except RuntimeError:
+                ai_text = ""
+        else:
+            ai_text = ""
+        if not ai_text:
+            return {
+                "status": "error",
+                "source": "chart-rules",
+                "review_type": "advanced",
+                "summary": _fallback_advanced_text(recent, chart_snapshots),
+                "chart_contexts": contexts,
+                "chart_snapshots": chart_snapshots,
+                "chart_reviews": [item for snapshot in chart_snapshots for item in (snapshot.get("rule_based_observations") or [])],
+            }
 
     return {
         "status": "ready" if ai_text else "missing_key",

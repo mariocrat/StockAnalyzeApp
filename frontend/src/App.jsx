@@ -291,6 +291,7 @@ export default function App() {
   const suppressNextSearchRef = useRef(false);
   const mainContentRef = useRef(null);
   const themeStocksRef = useRef(null);
+  const accountReturnViewRef = useRef(null);
 
   const changeActiveView = useCallback((nextView) => {
     setActiveView(nextView);
@@ -304,6 +305,19 @@ export default function App() {
       // The in-memory view still changes when URL APIs are unavailable.
     }
   }, []);
+
+  const openAccountPanel = useCallback(() => {
+    accountReturnViewRef.current = activeView;
+    if (activeView !== 'journal') changeActiveView('journal');
+    setAccountPanelOpen(true);
+  }, [activeView, changeActiveView]);
+
+  const closeAccountPanel = useCallback(() => {
+    const returnView = accountReturnViewRef.current;
+    accountReturnViewRef.current = null;
+    setAccountPanelOpen(false);
+    if (returnView && returnView !== 'journal') changeActiveView(returnView);
+  }, [changeActiveView]);
 
   const paneLayoutKey = ['RSI', 'MACD', 'STOCH'].filter(key => activeInds[key]).join('|') || 'base';
   const handlePaneLayoutChange = useCallback((key, factors) => {
@@ -661,11 +675,6 @@ export default function App() {
       return b.return_rate - a.return_rate;
     });
 
-  // ── Inline styles for controls ────────────────────────────────────────
-  const separatorStyle = {
-    width: '1px', height: '20px', background: '#2a2e39', margin: '0 4px',
-  };
-
   return (
     <>
     {showSplash && <AppSplash exiting={splashExiting} />}
@@ -675,17 +684,15 @@ export default function App() {
           <ArrowLeft size={21} aria-hidden="true" />
         </button>
         <strong>{APP_NAME}</strong>
-        {activeView === 'journal' ? (
-          <button
-            type="button"
-            className="mobile-app-account"
-            onClick={() => setAccountPanelOpen(true)}
-            aria-label="계정 및 데이터 관리"
-            title="계정 및 데이터 관리"
-          >
-            <UserRound size={20} aria-hidden="true" />
-          </button>
-        ) : <span className="mobile-app-bar-spacer" aria-hidden="true" />}
+        <button
+          type="button"
+          className="mobile-app-account"
+          onClick={openAccountPanel}
+          aria-label="계정 및 데이터 관리"
+          title="계정 및 데이터 관리"
+        >
+          <UserRound size={20} aria-hidden="true" />
+        </button>
       </header>
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <div className="sidebar">
@@ -805,8 +812,8 @@ export default function App() {
               apiBase={API_BASE}
               onEntitlementsChange={handleEntitlementsChange}
               accountPanelOpen={accountPanelOpen}
-              onOpenAccountPanel={() => setAccountPanelOpen(true)}
-              onCloseAccountPanel={() => setAccountPanelOpen(false)}
+              onOpenAccountPanel={openAccountPanel}
+              onCloseAccountPanel={closeAccountPanel}
             />
           </Suspense>
         ) : (
@@ -814,11 +821,18 @@ export default function App() {
 
         {/* Stock chip selector */}
         {themeTickers.length > 0 && (
+          <>
+          <div className="main-section-heading">
+            <h3>종목별 차트</h3>
+          </div>
           <div className="theme-stocks-selector" ref={themeStocksRef}>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#aaa', display: 'flex', justifyContent: 'space-between' }}>
-              <span>{activeTheme}</span>
-              <span style={{ color: '#555', fontSize: '11px', fontWeight: 400 }}>{themeTickers.length}개 종목</span>
-            </h3>
+            <div className="theme-stocks-selector-heading">
+              <div>
+                <span>선택한 테마</span>
+                <h3>{activeTheme}</h3>
+              </div>
+              <em>{themeTickers.length}개 종목</em>
+            </div>
             {/* List UI with return_rate */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '220px', overflowY: 'auto' }}>
               {themeTickers.map((stock) => {
@@ -854,13 +868,14 @@ export default function App() {
               })}
             </div>
           </div>
+          </>
         )}
 
         {selectedStocks.length > 0 && (
           <div className="global-controls">
 
             {/* 봉 선택 */}
-            <div className="controls-group">
+            <div className="controls-group controls-candles">
               <span className="controls-label">봉</span>
               {CANDLE_PERIODS.map(p => (
                 <button key={p.value}
@@ -870,10 +885,10 @@ export default function App() {
               ))}
             </div>
 
-            <div style={separatorStyle} />
+            <div className="controls-separator" aria-hidden="true" />
 
             {/* 기간 */}
-            <div className="controls-group">
+            <div className="controls-group controls-period">
               <span className="controls-label">기간</span>
               {CHART_PERIODS.map(p => (
                 <button key={p}
@@ -883,10 +898,10 @@ export default function App() {
               ))}
             </div>
 
-            <div style={separatorStyle} />
+            <div className="controls-separator" aria-hidden="true" />
 
             {/* 봉 개수 */}
-            <div className="controls-group">
+            <div className="controls-group controls-count">
               <span className="controls-label">봉 개수</span>
               <input
                 className="candle-count-input"
@@ -907,10 +922,10 @@ export default function App() {
               </button>
             </div>
 
-            <div style={separatorStyle} />
+            <div className="controls-separator" aria-hidden="true" />
 
             {/* 스케일 */}
-            <div className="controls-group">
+            <div className="controls-group controls-scale">
               <span className="controls-label">스케일</span>
               {[{l:'선형',v:'linear'},{l:'로그',v:'log'}].map(s => (
                 <button key={s.v}
@@ -920,10 +935,10 @@ export default function App() {
               ))}
             </div>
 
-            <div style={separatorStyle} />
+            <div className="controls-separator" aria-hidden="true" />
 
             {/* 지표 */}
-            <div className="controls-group">
+            <div className="controls-group controls-indicators">
               <span className="controls-label">지표</span>
               {IND_DEFS.map(ind => {
                 const isOn = activeInds[ind.key] ?? false;
@@ -938,14 +953,11 @@ export default function App() {
                 );
               })}
             </div>
-            
-            <div style={separatorStyle} />
-
             {/* BB params */}
             {activeInds.BB && (
               <>
-                <div style={separatorStyle} />
-                <div className="controls-group bb-param-group">
+                <div className="controls-separator" aria-hidden="true" />
+                <div className="controls-group controls-bb bb-param-group">
                   <span className="controls-label">BB</span>
                   <label>기간<input type="number" min={2} max={200} value={bbPeriod}
                     onChange={e => setBbPeriod(Math.max(2, parseInt(e.target.value) || 20))}
