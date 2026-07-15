@@ -757,3 +757,10 @@
 - Traced the real Kakao/Naver phone failure to `OPTIONS /api/auth/login/oauth-ticket` returning 400 after the provider callback and app deep-link return.
 - Added the Capacitor Android WebView origin `https://localhost` to production CORS while continuing to reject wildcard and development-server localhost origins.
 - Added regression coverage so release readiness accepts the exact Android WebView origin without weakening the existing CORS safety checks.
+
+## 2026-07-15 Android Production API Bundle Fix
+
+- Traced simultaneous theme, stock-search, and OAuth failures in the installed APK to the mobile build using Vite's default mode and embedding `http://127.0.0.1:8002`.
+- Changed Android mobile builds to use `.env.release` through `vite build --mode release` before Capacitor synchronization.
+- Added a bundle validator and regression tests that fail the build when the Android web bundle targets the local development API or omits the configured production API.
+- Rebuilt the debug APK and verified that it contains `https://api.alphamate.co.kr`, contains no `127.0.0.1:8002` API reference, and passes the Android build.
