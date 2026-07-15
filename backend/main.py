@@ -329,11 +329,31 @@ def _previous_weekday(day: datetime.date) -> datetime.date:
         day = day - datetime.timedelta(days=1)
     return day
 
+
+KST = datetime.timezone(datetime.timedelta(hours=9))
+THEME_MARKET_DATA_READY_HOUR = 15
+THEME_MARKET_DATA_READY_MINUTE = 40
+
+
+def _kst_now(now: Optional[datetime.datetime] = None) -> datetime.datetime:
+    if now is None:
+        return datetime.datetime.now(KST)
+    if now.tzinfo is None:
+        return now.replace(tzinfo=KST)
+    return now.astimezone(KST)
+
+
 def _last_completed_market_date(now: Optional[datetime.datetime] = None) -> datetime.date:
-    now = now or datetime.datetime.now()
-    today = now.date()
-    # Rankings are updated by the nightly cache cycle, so intraday and
-    # post-close sessions both keep using the previous trading day.
+    current = _kst_now(now)
+    today = current.date()
+    data_ready_at = current.replace(
+        hour=THEME_MARKET_DATA_READY_HOUR,
+        minute=THEME_MARKET_DATA_READY_MINUTE,
+        second=0,
+        microsecond=0,
+    )
+    if today.weekday() < 5 and current >= data_ready_at:
+        return today
     return _previous_weekday(today)
 
 
@@ -416,6 +436,7 @@ def _warm_cache():
         }
         with _theme_calculation_lock:
             counts = warm_theme_return_caches(period_ranges)
+        get_themes.cache_clear()
         print(f"[startup] Theme cache ready: {counts}")
     except Exception as e:
         print(f"[startup] Cache warm-up failed (non-fatal): {e}")
@@ -424,9 +445,13 @@ def _warm_cache():
 
 
 def _seconds_until_next_theme_refresh(now: Optional[datetime.datetime] = None) -> float:
-    kst = datetime.timezone(datetime.timedelta(hours=9))
-    current = now.astimezone(kst) if now and now.tzinfo else (now or datetime.datetime.now(kst)).replace(tzinfo=kst)
-    target = current.replace(hour=0, minute=1, second=0, microsecond=0)
+    current = _kst_now(now)
+    target = current.replace(
+        hour=THEME_MARKET_DATA_READY_HOUR,
+        minute=THEME_MARKET_DATA_READY_MINUTE,
+        second=0,
+        microsecond=0,
+    )
     if target <= current:
         target += datetime.timedelta(days=1)
     return max(1.0, (target - current).total_seconds())
@@ -1059,7 +1084,11 @@ def get_themes(period: str = "1D", start_date: Optional[str] = None, end_date: O
                     )
                 if not fallback.empty:
                     _schedule_theme_cache_refresh(start_date, end_date)
-                    return fallback.to_dict(orient="records")
+                    records = fallback.to_dict(orient="records")
+                    for record in records:
+                        record["Data Status"] = "updating"
+                        record["Expected End Date"] = end_date
+                    return records
                 if env_value("ALPHAMATE_ENV").lower() == "production":
                     _schedule_theme_cache_refresh(start_date, end_date)
                     raise HTTPException(

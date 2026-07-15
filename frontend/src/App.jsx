@@ -2,7 +2,7 @@ import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
-import { ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, UserRound } from 'lucide-react';
 import './App.css';
 import appIcon from './assets/app-icon.png';
 import { getAdMobRuntimeStatus, removeAppBanner, showAppBanner, showChartDetailInterstitial, showResumeInterstitial } from './mobile/admob';
@@ -48,7 +48,7 @@ const IND_DEFS = [
   { key: 'RSI',    label: 'RSI',    color: '#26a69a' },
   { key: 'MACD',   label: 'MACD',   color: '#2962ff' },
   { key: 'STOCH',  label: 'Stoch',  color: '#ff5252' },
-  { key: 'ICHI',   label: 'Ichimoku',color: '#81c784' },
+  { key: 'ICHI',   label: '일목균형표', color: '#81c784' },
 ];
 
 const CHART_PERIODS  = ['1M', '3M', '6M', '1Y'];
@@ -92,6 +92,7 @@ export default function App() {
       return 'themes';
     }
   });
+  const [accountPanelOpen, setAccountPanelOpen] = useState(false);
 
   useEffect(() => {
     document.title = APP_NAME;
@@ -277,6 +278,8 @@ export default function App() {
   const [activeInds,   setActiveInds]   = useState({
     MA_5: false, MA_10: false, MA_20: false, MA_60: false, MA_120: false, BB: false, RSI: false, MACD: false, STOCH: false, ICHI: false
   });
+  const [chartPaneLayouts, setChartPaneLayouts] = useState({});
+  const [chartDrawings, setChartDrawings] = useState({});
   const [bbPeriod, setBbPeriod] = useState(20);
   const [bbMultiplier, setBbMultiplier] = useState(2.0);
 
@@ -291,6 +294,7 @@ export default function App() {
 
   const changeActiveView = useCallback((nextView) => {
     setActiveView(nextView);
+    if (nextView !== 'journal') setAccountPanelOpen(false);
     try {
       const url = new URL(window.location.href);
       if (nextView === 'journal') url.searchParams.set('view', 'journal');
@@ -299,6 +303,20 @@ export default function App() {
     } catch {
       // The in-memory view still changes when URL APIs are unavailable.
     }
+  }, []);
+
+  const paneLayoutKey = ['RSI', 'MACD', 'STOCH'].filter(key => activeInds[key]).join('|') || 'base';
+  const handlePaneLayoutChange = useCallback((key, factors) => {
+    setChartPaneLayouts(previous => {
+      const current = previous[key];
+      const unchanged = Array.isArray(current)
+        && current.length === factors.length
+        && current.every((value, index) => Math.abs(value - factors[index]) < 0.001);
+      return unchanged ? previous : { ...previous, [key]: factors };
+    });
+  }, []);
+  const handleChartDrawingsChange = useCallback((ticker, drawings) => {
+    setChartDrawings(previous => ({ ...previous, [ticker]: drawings }));
   }, []);
 
   const handleAppBack = useCallback(() => {
@@ -372,16 +390,16 @@ export default function App() {
   }, [showSplash, themesLoading, themeError]);
 
   // ── Fetch themes ─────────────────────────────────────────────────────
-  const fetchThemes = useCallback(async (period) => {
+  const fetchThemes = useCallback(async (period, { preserveData = false } = {}) => {
     themeAbortControllerRef.current?.abort();
     const controller = new AbortController();
     themeAbortControllerRef.current = controller;
     const requestId = themeRequestSeq.current + 1;
     themeRequestSeq.current = requestId;
-    setThemesLoading(true);
+    setThemesLoading(!preserveData);
     setThemeError('');
     setThemeRetryRequest(null);
-    setThemes([]);
+    if (!preserveData) setThemes([]);
     try {
       const res = await axios.get(`${API_BASE}/api/themes`, {
         params: { period },
@@ -392,11 +410,13 @@ export default function App() {
       if (themeRequestSeq.current === requestId) {
         setThemes(data || []);
         const endDate = data?.[0]?.['End Date'];
+        const isRefreshing = data?.[0]?.['Data Status'] === 'updating';
         if (endDate && /^\d{8}$/.test(String(endDate))) {
-          setThemeBasisText(`${String(endDate).slice(0, 4)}-${String(endDate).slice(4, 6)}-${String(endDate).slice(6, 8)} 장마감 기준`);
+          setThemeBasisText(`${String(endDate).slice(0, 4)}-${String(endDate).slice(4, 6)}-${String(endDate).slice(6, 8)} 장마감 기준${isRefreshing ? ' · 최신 종가 반영 중' : ''}`);
         } else {
           setThemeBasisText('장마감 기준');
         }
+        if (isRefreshing) setThemeRetryRequest({ period, requestId });
       }
     } catch (err) {
       if (axios.isCancel(err)) return;
@@ -426,7 +446,7 @@ export default function App() {
     if (!themeRetryRequest || activeView !== 'themes') return undefined;
     const timer = window.setTimeout(() => {
       if (themeRequestSeq.current === themeRetryRequest.requestId) {
-        fetchThemes(themeRetryRequest.period);
+        fetchThemes(themeRetryRequest.period, { preserveData: true });
       }
     }, THEME_RETRY_DELAY_MS);
     return () => window.clearTimeout(timer);
@@ -448,6 +468,7 @@ export default function App() {
   }, [activeView]);
 
   const handleThemePeriodChange = (p) => {
+    setThemes([]);
     setThemePeriod(p);
   };
 
@@ -654,7 +675,17 @@ export default function App() {
           <ArrowLeft size={21} aria-hidden="true" />
         </button>
         <strong>{APP_NAME}</strong>
-        <span className="mobile-app-bar-spacer" aria-hidden="true" />
+        {activeView === 'journal' ? (
+          <button
+            type="button"
+            className="mobile-app-account"
+            onClick={() => setAccountPanelOpen(true)}
+            aria-label="계정 및 데이터 관리"
+            title="계정 및 데이터 관리"
+          >
+            <UserRound size={20} aria-hidden="true" />
+          </button>
+        ) : <span className="mobile-app-bar-spacer" aria-hidden="true" />}
       </header>
       {/* ── Sidebar ─────────────────────────────────────────────────────── */}
       <div className="sidebar">
@@ -729,7 +760,7 @@ export default function App() {
                     ))}
                   </div>
                   <div className="theme-basis-note">
-                    {themeBasisText} · 매일 00:00~00:10 업데이트
+                    {themeBasisText} · 장 마감 후 순차 업데이트
                   </div>
                 </div>
 
@@ -770,7 +801,13 @@ export default function App() {
       <div className="main-content" ref={mainContentRef}>
         {activeView === 'journal' ? (
           <Suspense fallback={<div className="themes-loading">매매복기 화면을 불러오는 중입니다.</div>}>
-            <TradingJournal apiBase={API_BASE} onEntitlementsChange={handleEntitlementsChange} />
+            <TradingJournal
+              apiBase={API_BASE}
+              onEntitlementsChange={handleEntitlementsChange}
+              accountPanelOpen={accountPanelOpen}
+              onOpenAccountPanel={() => setAccountPanelOpen(true)}
+              onCloseAccountPanel={() => setAccountPanelOpen(false)}
+            />
           </Suspense>
         ) : (
           <>
@@ -965,6 +1002,12 @@ export default function App() {
                   onApplyCandleCount={applyVisibleCandleCount}
                   scaleMode={scaleMode}
                   activeInds={activeInds}
+                  onIndicatorsChange={setActiveInds}
+                  paneLayoutKey={paneLayoutKey}
+                  paneStretchFactors={chartPaneLayouts[paneLayoutKey]}
+                  onPaneStretchFactorsChange={handlePaneLayoutChange}
+                  drawings={chartDrawings[s.ticker] || []}
+                  onDrawingsChange={(drawings) => handleChartDrawingsChange(s.ticker, drawings)}
                   bbMultiplier={bbMultiplier}
                   onTimeRangeChange={handleTimeRangeChange}
                   onCandlePeriodChange={handleCandlePeriodChange}

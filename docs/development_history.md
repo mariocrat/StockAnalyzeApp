@@ -1,5 +1,13 @@
 # AlphaMate Development History
 
+## 2026-07-15 chart state, account drawer, and close-date alignment
+
+- Promoted indicator selection, pane proportions, and per-stock drawings to shared app state so chart settings remain consistent across stocks and survive indicator pane rebuilds.
+- Kept saved drawings visible in both overview and detail charts, made horizontal price lines thinner, and standardized the indicator label as `일목균형표`.
+- Moved account and data controls into a top-right account drawer, removed the exposed user ID and redundant login-state cards, and simplified AI consent to `동의 완료` or `동의 필요`.
+- Changed the theme basis from an unconditional previous trading day to the latest market close available after 15:40 KST, retaining the previous ranking with an updating notice while the newest close is calculated.
+- Recorded the actual first and last market-data dates in theme results so weekends and exchange holidays are not mislabeled as trading dates.
+
 ## 2026-07-15 AI review model update
 
 - Kept general reviews on `gpt-5.4-mini` for ad-supported cost efficiency.

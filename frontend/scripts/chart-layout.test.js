@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { getPaneHeights, getPaneStretchFactors, getTooltipPosition } from '../src/utils/chartLayout.js';
+
+const chartSource = readFileSync(new URL('../src/components/StockChart.jsx', import.meta.url), 'utf8');
+const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 
 test('tooltip flips inside every chart edge', () => {
   const common = {
@@ -39,4 +43,18 @@ test('pane stretch factors keep indicators equal and the price pane dominant', (
     assert.ok(factors[0] > factors[1]);
     if (count === 2) assert.equal(factors[2], factors[3]);
   }
+});
+
+test('indicator layout and drawings are controlled above each stock chart', () => {
+  assert.match(appSource, /chartPaneLayouts/);
+  assert.match(appSource, /chartDrawings/);
+  assert.match(chartSource, /onPaneStretchFactorsChange/);
+  assert.match(chartSource, /onDrawingsChange/);
+  assert.doesNotMatch(chartSource, /setLocalInds/);
+});
+
+test('horizontal drawings use the thinner line and common Korean label', () => {
+  assert.match(chartSource, /type === 'horizontal'[\s\S]*?lineWidth: 1/);
+  assert.match(chartSource, /\['ICHI', '일목균형표'\]/);
+  assert.match(appSource, /label: '일목균형표'/);
 });

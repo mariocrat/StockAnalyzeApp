@@ -40,8 +40,8 @@ class ThemeCacheMemoryTests(unittest.TestCase):
              mock.patch("requests.Session", side_effect=FakeSession), \
              mock.patch.dict(os.environ, {"ALPHAMATE_THEME_FETCH_WORKERS": "2"}):
             result = data_fetcher._calculate_theme_return_ranges({
-                "1Y": ("20250101", "20250110"),
-                "1D": ("20250109", "20250110"),
+                "1Y": ("20250101", "20250111"),
+                "1D": ("20250109", "20250111"),
             })
 
         self.assertCountEqual(["000001", "000002"], requested)
@@ -50,6 +50,8 @@ class ThemeCacheMemoryTests(unittest.TestCase):
         self.assertEqual(1, len(result["1D"]))
         self.assertAlmostEqual(24.5, result["1Y"].iloc[0]["Avg Return (%)"])
         self.assertAlmostEqual(17.5, result["1D"].iloc[0]["Avg Return (%)"])
+        self.assertEqual("20250110", result["1Y"].iloc[0]["End Date"])
+        self.assertEqual("20250110", result["1D"].iloc[0]["End Date"])
 
     def test_warm_cache_writes_separate_period_results_without_close_history_file(self):
         from backend.core import data_fetcher

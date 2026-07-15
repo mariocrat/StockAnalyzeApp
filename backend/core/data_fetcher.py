@@ -487,6 +487,10 @@ def _calculate_theme_return_ranges(period_ranges: dict[str, tuple[str, str]]) ->
             return ticker, []
 
     returns_by_period = {period: {} for period in period_ranges}
+    effective_dates = {
+        period: {"starts": [], "ends": []}
+        for period in period_ranges
+    }
     max_workers = _theme_fetch_workers(len(unique_tickers))
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(_fetch_closes, ticker) for ticker in unique_tickers]
@@ -505,14 +509,24 @@ def _calculate_theme_return_ranges(period_ranges: dict[str, tuple[str, str]]) ->
                         ((end_price - start_price) / start_price) * 100,
                         2,
                     )
+                    effective_dates[period]["starts"].append(period_rows[0][0])
+                    effective_dates[period]["ends"].append(period_rows[-1][0])
 
     return {
         period: _build_theme_return_stats(
             themes=themes,
             names=names,
             ticker_returns=ticker_returns,
-            start_date=period_ranges[period][0],
-            end_date=period_ranges[period][1],
+            start_date=(
+                min(effective_dates[period]["starts"])
+                if effective_dates[period]["starts"]
+                else period_ranges[period][0]
+            ),
+            end_date=(
+                max(effective_dates[period]["ends"])
+                if effective_dates[period]["ends"]
+                else period_ranges[period][1]
+            ),
         )
         for period, ticker_returns in returns_by_period.items()
     }

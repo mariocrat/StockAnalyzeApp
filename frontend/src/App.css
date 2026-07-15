@@ -75,6 +75,49 @@ body {
   display: none;
 }
 
+.mobile-app-account,
+.journal-account-launch,
+.journal-account-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: #e8ebf3;
+  cursor: pointer;
+}
+
+.journal-account-launch,
+.journal-account-close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #303747;
+  border-radius: 6px;
+  background: #1b202c;
+}
+
+.journal-account-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 11000;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(3, 6, 14, 0.72);
+}
+
+.journal-account-drawer {
+  box-sizing: border-box;
+  width: min(420px, 100%);
+  height: 100dvh;
+  margin: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-radius: 0;
+  border-width: 0 0 0 1px;
+  padding: max(18px, env(safe-area-inset-top)) 16px max(18px, env(safe-area-inset-bottom));
+  box-shadow: -10px 0 32px rgba(0, 0, 0, 0.42);
+}
+
 .app-exit-backdrop {
   position: fixed;
   inset: 0;
@@ -1119,7 +1162,7 @@ body {
 
 .journal-data-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
@@ -1827,9 +1870,22 @@ body {
     cursor: pointer;
   }
 
+  .mobile-app-account {
+    width: 40px;
+    height: 40px;
+  }
+
   .mobile-app-bar-spacer {
     width: 40px;
     height: 40px;
+  }
+
+  .journal-account-launch {
+    display: none;
+  }
+
+  .journal-account-drawer {
+    width: min(390px, 100%);
   }
 
   .sidebar {

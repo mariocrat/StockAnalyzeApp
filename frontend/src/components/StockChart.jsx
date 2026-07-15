@@ -174,7 +174,9 @@ function applyAllData(st, bbPer, bbMul, rawData) {
 const StockChart = forwardRef(({
   data, ticker, name,
   chartPeriod, candlePeriod, scaleMode,
-  activeInds, bbPeriod, bbMultiplier,
+  activeInds, onIndicatorsChange, bbPeriod, bbMultiplier,
+  paneLayoutKey, paneStretchFactors, onPaneStretchFactorsChange,
+  drawings = [], onDrawingsChange,
   visibleCandleCount, setVisibleCandleCount,
   candleCountApplySeq, onApplyCandleCount,
   onTimeRangeChange, onCandlePeriodChange, onChartPeriodChange, onOpenDetailAd, onRemove
@@ -185,7 +187,6 @@ const StockChart = forwardRef(({
   // Ref to always read the LATEST activeInds inside event-handler closures
   const activeIndsRef   = useRef(activeInds);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
-  const [localInds, setLocalInds] = React.useState(activeInds || {});
 
   // Advanced drawing state
   const [drawMode, setDrawMode] = React.useState('none'); // 'none' | 'trend' | 'horizontal'
@@ -197,12 +198,11 @@ const StockChart = forwardRef(({
     tempLineSeries: null,
     tempPriceLine: null,
   });
-  const [drawnLines, setDrawnLines] = React.useState([]);
-  const drawingsRef = useRef([]);
+  const drawingsRef = useRef(drawings);
   const drawingObjectsRef = useRef(new Map());
   const [localScale, setLocalScale] = React.useState(scaleMode);
   const hasVisibleCandleCount = String(visibleCandleCount || '').trim() !== '';
-  const displayedInds = isFullscreen ? localInds : (activeInds || {});
+  const displayedInds = activeInds || {};
   const paneIndicatorKeys = ['RSI', 'MACD', 'STOCH'].filter(key => displayedInds[key]);
   const paneStructureKey = paneIndicatorKeys.join('|');
   const regularChartHeight = Math.min(620, 340 + paneIndicatorKeys.length * 92);
@@ -211,17 +211,32 @@ const StockChart = forwardRef(({
     const chart = stateRef.current.chart;
     if (!chart) return;
     const panes = chart.panes();
-    const stretchFactors = getPaneStretchFactors(paneIndicatorKeys.length);
+    const configuredFactors = Array.isArray(paneStretchFactors) && paneStretchFactors.length === panes.length
+      ? paneStretchFactors
+      : null;
+    const stretchFactors = configuredFactors || getPaneStretchFactors(paneIndicatorKeys.length);
     panes.forEach((pane, index) => pane.setStretchFactor(stretchFactors[index] || 14));
-  }, [paneStructureKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [paneStretchFactors, paneIndicatorKeys.length]);
 
   const commitDrawnLines = React.useCallback((updater) => {
-    setDrawnLines(previous => {
-      const next = typeof updater === 'function' ? updater(previous) : updater;
-      drawingsRef.current = next;
-      return next;
+    const next = typeof updater === 'function' ? updater(drawingsRef.current) : updater;
+    drawingsRef.current = next;
+    onDrawingsChange?.(next);
+  }, [onDrawingsChange]);
+
+  useEffect(() => {
+    drawingsRef.current = Array.isArray(drawings) ? drawings : [];
+  }, [drawings]);
+
+  const capturePaneLayout = React.useCallback(() => {
+    window.requestAnimationFrame(() => {
+      const panes = stateRef.current.chart?.panes?.() || [];
+      if (!panes.length || !onPaneStretchFactorsChange) return;
+      const factors = panes.map(pane => Number(pane.getStretchFactor?.() || 0));
+      if (factors.some(value => !Number.isFinite(value) || value <= 0)) return;
+      onPaneStretchFactorsChange(paneLayoutKey || paneStructureKey || 'base', factors);
     });
-  }, []);
+  }, [onPaneStretchFactorsChange, paneLayoutKey, paneStructureKey]);
 
   const removeDrawingObject = React.useCallback((id) => {
     const item = drawingsRef.current.find(line => line.id === id);
@@ -380,11 +395,8 @@ const StockChart = forwardRef(({
     setVisibleTimeRange: (range) => { try { stateRef.current.chart?.timeScale().setVisibleRange(range); } catch(err){ console.debug(err); } },
   }));
 
-  // Sync external indicators to local, but prioritize local if in fullscreen
-  useEffect(() => { if (!isFullscreen) setLocalInds(activeInds); }, [activeInds, isFullscreen]);
-
   // Keep activeIndsRef in sync
-  useEffect(() => { activeIndsRef.current = isFullscreen ? localInds : activeInds; }, [activeInds, localInds, isFullscreen]);
+  useEffect(() => { activeIndsRef.current = activeInds; }, [activeInds]);
 
   // ── Build chart once ──────────────────────────────────────────────────
   useEffect(() => {
@@ -392,7 +404,7 @@ const StockChart = forwardRef(({
     const drawingObjects = drawingObjectsRef.current;
     const { candles, vols } = buildCandleRows(data);
     if (!candles || candles.length === 0) return;
-    const currentInds = isFullscreen ? localInds : (activeInds || {});
+    const currentInds = activeInds || {};
 
     // Destroy old
     if (stateRef.current.chart) {
@@ -442,7 +454,7 @@ const StockChart = forwardRef(({
           const object = candleSeries.createPriceLine({
             price: line.price,
             color: '#ffeb3b',
-            lineWidth: 2,
+            lineWidth: 1,
             lineStyle: 0,
             axisLabelVisible: true,
           });
@@ -659,7 +671,7 @@ const StockChart = forwardRef(({
       if (stateRef.current.chart === chart) stateRef.current = { chart: null, series: {}, allCandles: [], allVols: [], currentCandles: [] };
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, ticker, paneStructureKey, isFullscreen]);
+  }, [data, ticker, paneStructureKey, isFullscreen, paneStretchFactors]);
 
   // ── candlePeriod → resample done via backend, just zoom out ────────
   useEffect(() => {
@@ -716,7 +728,7 @@ const StockChart = forwardRef(({
       series.ICHI_SA?.applyOptions({ visible: ichiV });
       series.ICHI_SB?.applyOptions({ visible: ichiV });
     } catch(err){ console.debug(err); }
-  }, [localInds, activeInds, isFullscreen]);
+  }, [activeInds]);
 
   // ── bbPeriod/bbMultiplier → recompute BB ─────────────────────────────
   useEffect(() => {
@@ -859,7 +871,7 @@ const StockChart = forwardRef(({
             </button>
             <button
               onClick={clearDrawings}
-              disabled={!drawnLines.length}
+              disabled={!drawings.length}
               style={{
                 background: '#ef5350', color: '#fff', border: 'none', borderRadius: '4px', 
                 padding: '4px 8px', fontSize: '12px', cursor: 'pointer', fontWeight: 'bold'
@@ -869,9 +881,9 @@ const StockChart = forwardRef(({
             </button>
             
             {/* 개별 지우기 목록 */}
-            {drawnLines.length > 0 && (
+            {drawings.length > 0 && (
               <div className="stock-chart-drawing-list">
-                {drawnLines.map(line => (
+                {drawings.map(line => (
                   <div key={line.id} style={{ 
                     display: 'flex', alignItems: 'center', gap: '4px', background: '#333', 
                     borderRadius: '4px', padding: '2px 6px', fontSize: '11px', color: '#fff' 
@@ -888,10 +900,14 @@ const StockChart = forwardRef(({
             <div className="stock-chart-indicator-grid" aria-label="차트 지표">
               {[
                 ['MA_5', 'MA 5'], ['MA_10', 'MA 10'], ['MA_20', 'MA 20'], ['MA_60', 'MA 60'], ['MA_120', 'MA 120'],
-                ['BB', 'BB'], ['RSI', 'RSI'], ['MACD', 'MACD'], ['STOCH', 'Stoch'], ['ICHI', '일목'],
+                ['BB', 'BB'], ['RSI', 'RSI'], ['MACD', 'MACD'], ['STOCH', 'Stoch'], ['ICHI', '일목균형표'],
               ].map(([key, label]) => (
-                <label key={key} className={localInds[key] ? 'active' : ''}>
-                  <input type="checkbox" checked={Boolean(localInds[key])} onChange={() => setLocalInds(previous => ({ ...previous, [key]: !previous[key] }))} />
+                <label key={key} className={activeInds?.[key] ? 'active' : ''}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(activeInds?.[key])}
+                    onChange={() => onIndicatorsChange?.({ ...(activeInds || {}), [key]: !activeInds?.[key] })}
+                  />
                   <span>{label}</span>
                 </label>
               ))}
@@ -929,7 +945,7 @@ const StockChart = forwardRef(({
           </button>
         </div>
       </div>
-      <div className="stock-chart-body">
+      <div className="stock-chart-body" onPointerUpCapture={capturePaneLayout}>
         <div 
           ref={containerRef} 
           className="stock-chart-canvas"
@@ -976,7 +992,7 @@ const StockChart = forwardRef(({
                 const lineObj = stateRef.current.series.candle?.createPriceLine({
                   price: point.price,
                   color: '#ffeb3b',
-                  lineWidth: 2,
+                  lineWidth: 1,
                   lineStyle: 0,
                   axisLabelVisible: true,
                 });

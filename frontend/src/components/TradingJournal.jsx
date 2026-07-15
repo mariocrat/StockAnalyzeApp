@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import axios from 'axios';
+import { UserRound, X } from 'lucide-react';
 import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
@@ -131,7 +132,13 @@ function reviewAccessText(access) {
   return `${plan} · ${type} · ${source} · 오늘 무료 ${basic.free_daily_max_remaining || 0}회 · 구매 ${basic.purchased_remaining || 0}회`;
 }
 
-export default function TradingJournal({ apiBase, onEntitlementsChange }) {
+export default function TradingJournal({
+  apiBase,
+  onEntitlementsChange,
+  accountPanelOpen = false,
+  onOpenAccountPanel,
+  onCloseAccountPanel,
+}) {
   const oneTimeMode = import.meta.env.VITE_JOURNAL_STORAGE_MODE !== 'persisted';
   const [trades, setTrades] = useState([]);
   const [review, setReview] = useState(null);
@@ -172,6 +179,11 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
 
   useEffect(() => {
     const handleBackRequest = (event) => {
+      if (accountPanelOpen) {
+        event.detail.handled = true;
+        onCloseAccountPanel?.();
+        return;
+      }
       if (journalSubView !== 'history') return;
       event.detail.handled = true;
       if (activeReviewHistory) {
@@ -182,7 +194,7 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
     };
     window.addEventListener(APP_BACK_REQUEST_EVENT, handleBackRequest);
     return () => window.removeEventListener(APP_BACK_REQUEST_EVENT, handleBackRequest);
-  }, [activeReviewHistory, journalSubView]);
+  }, [accountPanelOpen, activeReviewHistory, journalSubView, onCloseAccountPanel]);
   const handledOAuthReturnUrlRef = useRef('');
 
   const activeAuthToken = authSession?.session_token || DEV_AUTH_TOKEN;
@@ -1241,14 +1253,11 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
   const billingStatusText = billingStatus.native ? 'Google Play Billing SDK 준비됨' : '웹 화면에서는 Google Play 결제 미사용';
   const activeIdentity = authSession?.user?.identities?.[0];
   const activeProviderLabel = activeIdentity ? DEV_LOGIN_PROFILES[activeIdentity.provider]?.label || activeIdentity.provider : '';
-  const connectedProviderText = (dataSummary?.connected_providers || [])
-    .map(provider => DEV_LOGIN_PROFILES[provider]?.label || provider)
-    .join(', ') || '-';
   const consentRecordedAt = dataSummary?.privacy_consented_at || authSession?.user?.privacy_consented_at || '';
   const consentVersion = dataSummary?.privacy_consent_version || authSession?.user?.privacy_consent_version || '';
   const currentConsentVersion = dataSummary?.privacy_consent_current_version || consentVersion || 'ai-review-privacy-v1';
-  const consentStatusText = consentRecordedAt ? '동의 완료' : '미기록';
-  const consentDetailText = consentRecordedAt ? `${consentVersion || '현재 버전'} · ${consentRecordedAt.slice(0, 10)}` : 'AI 복기 실행 전 동의 필요';
+  const consentStatusText = consentRecordedAt ? '동의 완료' : '동의 필요';
+  const consentDetailText = consentRecordedAt ? `${consentVersion || '현재 버전'} · ${consentRecordedAt.slice(0, 10)}` : 'AI 복기 실행 시 동의할 수 있습니다.';
   const missingText = (items = []) => items.length ? `누락: ${items.join(', ')}` : '설정 완료';
   const readinessItems = [
     {
@@ -1372,6 +1381,15 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
           <h2>매매복기</h2>
           <p>매수와 매도 기록을 남기고 실현손익, 승률, 반복 패턴을 점검합니다.</p>
         </div>
+        <button
+          type="button"
+          className="journal-account-launch"
+          onClick={onOpenAccountPanel}
+          aria-label="계정 및 데이터 관리"
+          title="계정 및 데이터 관리"
+        >
+          <UserRound size={19} aria-hidden="true" />
+        </button>
       </div>
 
       <div className="journal-summary">
@@ -1392,15 +1410,25 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
         </button>
       </div>
 
-      <section className="journal-panel journal-account-panel">
+      {accountPanelOpen && (
+      <div className="journal-account-backdrop" role="presentation" onClick={onCloseAccountPanel}>
+      <section
+        className="journal-panel journal-account-panel journal-account-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label="계정 및 데이터 관리"
+        onClick={event => event.stopPropagation()}
+      >
         <div className="journal-panel-title">
           <h3>계정/데이터 관리</h3>
-          <span className="journal-chart-mode">{authSession ? activeProviderLabel : DEV_TOOLS_ENABLED ? '개발 모드' : '로그인 필요'}</span>
+          <button type="button" className="journal-account-close" onClick={onCloseAccountPanel} aria-label="닫기" title="닫기">
+            <X size={19} aria-hidden="true" />
+          </button>
         </div>
         <div className="journal-auth-box">
           <div>
-            <strong>{authSession ? `${authSession.user?.display_name || activeProviderLabel} 로그인 중` : '로그인 안 됨'}</strong>
-            <span>{authSession ? `사용자 ${String(authSession.user?.id || '').slice(0, 8)}` : DEV_TOOLS_ENABLED ? '기본 개발 계정으로 표시됩니다.' : '실제 로그인 연결 전에는 계정 저장 기능을 사용할 수 없습니다.'}</span>
+            <strong>{authSession ? `${authSession.user?.display_name || activeProviderLabel} 계정` : '로그인이 필요합니다'}</strong>
+            <span>{authSession ? `${activeProviderLabel}로 연결됨` : DEV_TOOLS_ENABLED ? '기본 개발 계정으로 표시됩니다.' : '복기 보관함과 이용권 관리를 위해 로그인하세요.'}</span>
           </div>
           <div className="journal-auth-actions">
             {DEV_TOOLS_ENABLED && (
@@ -1484,14 +1512,6 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
         {authSession && (
           <div className="journal-data-grid">
             <div>
-              <span>계정 상태</span>
-              <strong>로그인됨</strong>
-            </div>
-            <div>
-              <span>연결 로그인</span>
-              <strong>{connectedProviderText}</strong>
-            </div>
-            <div>
               <span>저장된 매매 기록</span>
               <strong>{dataSummary?.saved_trade_count ?? 0}건</strong>
             </div>
@@ -1500,7 +1520,7 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
               <strong>{dataSummary?.server_keeps_ai_review_history ? '서버 저장' : '서버 저장 안 함'}</strong>
             </div>
             <div>
-              <span>AI 동의 기록</span>
+              <span>AI 복기 동의</span>
               <strong>{consentStatusText}</strong>
               <em>{consentDetailText}</em>
             </div>
@@ -1549,6 +1569,8 @@ export default function TradingJournal({ apiBase, onEntitlementsChange }) {
           </>
         )}
       </section>
+      </div>
+      )}
 
       {journalSubView === 'history' ? (
         renderReviewHistoryArchive()

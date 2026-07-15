@@ -106,17 +106,57 @@ class MobileRuntimeRecoveryTest(unittest.TestCase):
         self.assertIn("ALPHAMATE_THEME_FETCH_WORKERS", blueprint)
         self.assertIn("ALPHAMATE_WARM_CACHE_ON_STARTUP", blueprint)
 
-    def test_daily_theme_refresh_targets_just_after_midnight_kst(self):
+    def test_daily_theme_refresh_targets_after_market_close_kst(self):
         if str(BACKEND) not in sys.path:
             sys.path.insert(0, str(BACKEND))
         import main
 
         kst = datetime.timezone(datetime.timedelta(hours=9))
-        now = datetime.datetime(2026, 7, 13, 23, 59, 30, tzinfo=kst)
-        self.assertEqual(90.0, main._seconds_until_next_theme_refresh(now))
+        now = datetime.datetime(2026, 7, 13, 15, 39, 30, tzinfo=kst)
+        self.assertEqual(30.0, main._seconds_until_next_theme_refresh(now))
 
-        after_midnight = datetime.datetime(2026, 7, 13, 0, 2, 0, tzinfo=kst)
-        self.assertEqual(86340.0, main._seconds_until_next_theme_refresh(after_midnight))
+        after_refresh = datetime.datetime(2026, 7, 13, 15, 41, 0, tzinfo=kst)
+        self.assertEqual(86340.0, main._seconds_until_next_theme_refresh(after_refresh))
+
+    def test_theme_basis_switches_to_today_after_market_data_is_ready(self):
+        if str(BACKEND) not in sys.path:
+            sys.path.insert(0, str(BACKEND))
+        import main
+
+        kst = datetime.timezone(datetime.timedelta(hours=9))
+        before_ready = datetime.datetime(2026, 7, 13, 15, 39, tzinfo=kst)
+        after_ready = datetime.datetime(2026, 7, 13, 15, 40, tzinfo=kst)
+        sunday = datetime.datetime(2026, 7, 12, 18, 0, tzinfo=kst)
+
+        self.assertEqual(datetime.date(2026, 7, 10), main._last_completed_market_date(before_ready))
+        self.assertEqual(datetime.date(2026, 7, 13), main._last_completed_market_date(after_ready))
+        self.assertEqual(datetime.date(2026, 7, 10), main._last_completed_market_date(sunday))
+
+    def test_stale_theme_cache_is_returned_while_latest_close_is_calculated(self):
+        if str(BACKEND) not in sys.path:
+            sys.path.insert(0, str(BACKEND))
+        import main
+
+        main.get_themes.cache_clear()
+        fallback = pd.DataFrame([{
+            "Theme": "반도체",
+            "Avg Return (%)": 12.5,
+            "End Date": "20260714",
+        }])
+        scheduled = []
+        with (
+            patch.object(main, "_period_date_range", return_value=("20260708", "20260715")),
+            patch.object(main, "get_cached_theme_returns", return_value=pd.DataFrame()),
+            patch.object(main, "get_latest_cached_theme_returns", return_value=fallback),
+            patch.object(main, "_schedule_theme_cache_refresh", side_effect=lambda start, end: scheduled.append((start, end))),
+        ):
+            records = main.get_themes(period="1W")
+
+        self.assertEqual("20260714", records[0]["End Date"])
+        self.assertEqual("updating", records[0]["Data Status"])
+        self.assertEqual("20260715", records[0]["Expected End Date"])
+        self.assertEqual([("20260708", "20260715")], scheduled)
+        main.get_themes.cache_clear()
 
     def test_admin_can_trigger_and_inspect_initial_theme_cache(self):
         source = (BACKEND / "main.py").read_text(encoding="utf-8")
