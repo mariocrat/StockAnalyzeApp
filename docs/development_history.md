@@ -1,5 +1,14 @@
 # AlphaMate Development History
 
+## 2026-07-16 advanced review access and mobile header polish
+
+- Distinguished an advanced-ticket shortage from an OpenAI failure and replaced the misplaced English inline error with a Korean access dialog that links to the entitlement section.
+- Kept the approved ticket-consumption policy intact: advanced review is available through Pro allowance, an ad reward ticket, or a purchased advanced-review pass.
+- Added a graphical app wordmark using the existing AlphaMate icon and strengthened the moving divider between the collapsible theme ranking and stock-chart sections.
+- Closed the mobile sticky-header transparency gap so scrolled content no longer shows through the navigation area.
+- Added an optional safe Render revision value to the health response so a deployed backend can be matched to an exact Git commit without exposing secrets.
+- Added regression coverage for the Korean advanced-ticket error, access dialog, mobile header mask, graphical wordmark, and deployment revision.
+
 ## 2026-07-16 mobile information density and AI review resilience
 
 - Aligned the mobile top spacing between the theme/chart and trading journal views and exposed the same account drawer from both views.

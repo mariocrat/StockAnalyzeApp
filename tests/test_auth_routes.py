@@ -94,12 +94,26 @@ class AuthRoutesTest(unittest.TestCase):
 
         import main
 
-        payload = main.healthz()
+        with patched_env(RENDER_GIT_COMMIT=None):
+            payload = main.healthz()
         payload_text = str(payload)
 
         self.assertEqual({"ok": True, "service": "alphamate-api"}, payload)
         self.assertNotIn("OPENAI", payload_text)
         self.assertNotIn("TOKEN", payload_text)
+
+    def test_health_payload_exposes_only_short_render_revision(self):
+        backend_dir = os.path.join(os.getcwd(), "backend")
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+
+        import main
+
+        with patched_env(RENDER_GIT_COMMIT="1234567890abcdef"):
+            payload = main.healthz()
+
+        self.assertEqual("1234567890ab", payload["revision"])
+        self.assertEqual({"ok", "service", "revision"}, set(payload))
     def test_lifespan_skips_theme_warmup_when_disabled_for_render(self):
         backend_dir = os.path.join(os.getcwd(), "backend")
         if backend_dir not in sys.path:

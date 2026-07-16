@@ -1331,7 +1331,10 @@ def _consume_advanced(wallet: UserWallet, plan: str) -> str:
     if wallet.purchased_advanced > 0:
         wallet.purchased_advanced -= 1
         return "purchased_advanced"
-    raise HTTPException(status_code=402, detail="Advanced review ticket required. Please buy an advanced review pack.")
+    raise HTTPException(
+        status_code=402,
+        detail="심층 복기 이용권이 필요합니다. Pro 제공량, 광고 보상 심층권 또는 구매 이용권을 확인해주세요.",
+    )
 
 
 def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:

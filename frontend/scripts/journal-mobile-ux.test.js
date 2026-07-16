@@ -39,3 +39,22 @@ test('account data export uses Android share sheet with JSON fallback download',
 test('mobile entitlement balances remain in a compact three-column grid', () => {
   assert.match(cssSource, /\.journal-entitlement-grid \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
 });
+
+test('advanced review shortage opens a Korean pass dialog instead of an inline AI error', () => {
+  assert.match(journalSource, /err\.response\?\.status === 402 && reviewType === 'advanced'/);
+  assert.match(journalSource, /심층 복기 이용권이 필요합니다/);
+  assert.match(journalSource, /onClick=\{startAdvancedReview\}/);
+  assert.match(journalSource, /showReviewPasses/);
+});
+
+test('mobile header uses a graphical wordmark and masks scrolling content', () => {
+  assert.match(appSource, /function AppWordmark\(\)/);
+  assert.match(appSource, /<img src=\{appIcon\}/);
+  assert.match(cssSource, /\.mobile-app-brand img \{[\s\S]*?drop-shadow/);
+  assert.match(cssSource, /\.theme-sidebar-fixed \{[\s\S]*?margin: -12px -12px 0;[\s\S]*?background: #131722/);
+  assert.match(cssSource, /\.mobile-app-bar > \* \{[\s\S]*?z-index: 1/);
+});
+
+test('theme and chart divider follows the collapsible mobile sidebar', () => {
+  assert.match(cssSource, /\.app-container\.themes-view \.sidebar \{[\s\S]*?border-bottom: 2px solid #44506a/);
+});

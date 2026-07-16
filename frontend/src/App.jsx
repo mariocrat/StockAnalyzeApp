@@ -73,6 +73,20 @@ function AppSplash({ exiting }) {
   );
 }
 
+function AppWordmark() {
+  const isAlphaMate = APP_NAME === 'AlphaMate';
+  return (
+    <span className="mobile-app-brand" aria-label={APP_NAME}>
+      <img src={appIcon} alt="" aria-hidden="true" />
+      {isAlphaMate ? (
+        <span className="mobile-app-brand-text"><span>Alpha</span><em>Mate</em></span>
+      ) : (
+        <span className="mobile-app-brand-text"><span>{APP_NAME}</span></span>
+      )}
+    </span>
+  );
+}
+
 // ── App ───────────────────────────────────────────────────────────────────
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
@@ -683,7 +697,7 @@ export default function App() {
         <button type="button" className="mobile-app-back" onClick={handleAppBack} aria-label="뒤로 가기" title="뒤로 가기">
           <ArrowLeft size={21} aria-hidden="true" />
         </button>
-        <strong>{APP_NAME}</strong>
+        <strong><AppWordmark /></strong>
         <button
           type="button"
           className="mobile-app-account"

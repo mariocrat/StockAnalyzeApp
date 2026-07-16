@@ -47,6 +47,7 @@ import copy
 import hmac
 import hashlib
 import json
+import os
 import uuid
 import threading
 import logging
@@ -849,7 +850,11 @@ async def log_failed_api_requests(request: Request, call_next):
 @app.get("/healthz")
 @app.get("/api/healthz")
 def healthz():
-    return {"ok": True, "service": "alphamate-api"}
+    payload = {"ok": True, "service": "alphamate-api"}
+    revision = os.getenv("RENDER_GIT_COMMIT", "").strip()
+    if revision:
+        payload["revision"] = revision[:12]
+    return payload
 
 
 def _clean_client_event_text(value: str, fallback: str, *, limit: int = 120) -> str:

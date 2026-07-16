@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import axios from 'axios';
-import { Clock3, Keyboard, UserRound, X } from 'lucide-react';
+import { Clock3, Keyboard, Ticket, UserRound, X } from 'lucide-react';
 import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
@@ -187,6 +187,7 @@ export default function TradingJournal({
   const [form, setForm] = useState(emptyForm);
   const [directTimeEntry, setDirectTimeEntry] = useState(false);
   const [message, setMessage] = useState('');
+  const [reviewAccessDialog, setReviewAccessDialog] = useState(null);
   const [loading, setLoading] = useState(false);
   const [aiConsentAccepted, setAiConsentAccepted] = useState(false);
   const [stockQuery, setStockQuery] = useState('');
@@ -207,6 +208,7 @@ export default function TradingJournal({
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
   const reviewHistoryAdShownRef = useRef(false);
+  const entitlementSectionRef = useRef(null);
 
   useEffect(() => {
     const handleBackRequest = (event) => {
@@ -848,6 +850,12 @@ export default function TradingJournal({
         await loadDataSummary(authSession.session_token);
       }
     } catch (err) {
+      if (err.response?.status === 402 && reviewType === 'advanced') {
+        setMessage('');
+        setReviewAccessDialog('advanced');
+        await loadEntitlements();
+        return;
+      }
       setMessage(err.response?.data?.detail || 'AI 분석을 불러오지 못했습니다.');
       setAiReview({
         status: 'error',
@@ -857,6 +865,29 @@ export default function TradingJournal({
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const startAdvancedReview = () => {
+    setAiReviewType('advanced');
+    const advanced = entitlements?.advanced;
+    const availableTickets = advanced
+      ? (advanced.pro_monthly_remaining || 0)
+        + (advanced.weekly_reward_remaining || 0)
+        + (advanced.purchased_remaining || 0)
+      : null;
+    if (availableTickets === 0) {
+      setMessage('');
+      setReviewAccessDialog('advanced');
+      return;
+    }
+    loadAiReview(trades, 'advanced');
+  };
+
+  const showReviewPasses = () => {
+    setReviewAccessDialog(null);
+    window.requestAnimationFrame(() => {
+      entitlementSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   const handleRewardedAdBasicReview = async () => {
@@ -1450,6 +1481,26 @@ export default function TradingJournal({
 
       {message && <div className="journal-message">{message}</div>}
 
+      {reviewAccessDialog === 'advanced' && (
+        <div className="journal-access-backdrop" role="presentation" onClick={() => setReviewAccessDialog(null)}>
+          <section
+            className="journal-access-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="advanced-review-access-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="journal-access-icon" aria-hidden="true"><Ticket size={22} /></div>
+            <h3 id="advanced-review-access-title">심층 복기 이용권이 필요합니다</h3>
+            <p>심층 복기는 Pro 월 제공량, 광고 보상 심층권 또는 구매한 심층 이용권 1장을 사용합니다.</p>
+            <div className="journal-access-actions">
+              <button type="button" onClick={() => setReviewAccessDialog(null)}>닫기</button>
+              <button type="button" className="primary" onClick={showReviewPasses}>이용권 확인</button>
+            </div>
+          </section>
+        </div>
+      )}
+
       <div className="journal-subnav">
         <button className={journalSubView === 'review' ? 'active' : ''} onClick={() => setJournalSubView('review')}>
           매매복기
@@ -1705,7 +1756,7 @@ export default function TradingJournal({
         <button className="journal-primary" disabled={loading} onClick={submitManual}>저장</button>
       </section>
 
-      <section className="journal-panel">
+      <section className="journal-panel" ref={entitlementSectionRef}>
         <div className="journal-panel-title">
           <h3>이용권</h3>
           <span className="journal-chart-mode">{entitlements?.plan === 'pro' ? 'Pro' : '무료'}</span>
@@ -1847,7 +1898,7 @@ export default function TradingJournal({
             <button
               className="journal-secondary"
               disabled={aiLoading || adLoading || !trades.length || !aiConsentAccepted}
-              onClick={() => { setAiReviewType('advanced'); loadAiReview(trades, 'advanced'); }}
+              onClick={startAdvancedReview}
             >
               {aiLoading && aiReviewType === 'advanced' ? '분석중' : '심층 복기'}
             </button>

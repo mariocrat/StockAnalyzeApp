@@ -75,6 +75,35 @@ body {
   display: none;
 }
 
+.mobile-app-brand {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.mobile-app-brand img {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 5px rgba(41, 98, 255, 0.38));
+}
+
+.mobile-app-brand-text {
+  display: inline-flex;
+  min-width: 0;
+  align-items: baseline;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.mobile-app-brand-text em {
+  color: #6ea4ff;
+  font-style: normal;
+}
+
 .mobile-app-account,
 .journal-account-launch,
 .journal-account-close {
@@ -814,6 +843,74 @@ body {
   border-radius: 6px;
   padding: 9px 12px;
   font-size: 12px;
+}
+
+.journal-access-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: 20px;
+  background: rgba(3, 6, 14, 0.8);
+}
+
+.journal-access-dialog {
+  box-sizing: border-box;
+  width: min(100%, 360px);
+  padding: 22px;
+  border: 1px solid #3b465d;
+  border-radius: 8px;
+  background: #171c28;
+  box-shadow: 0 20px 54px rgba(0, 0, 0, 0.56);
+}
+
+.journal-access-icon {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  margin-bottom: 14px;
+  border: 1px solid #426ecb;
+  border-radius: 50%;
+  background: #1b2c55;
+  color: #81aaff;
+}
+
+.journal-access-dialog h3 {
+  margin: 0;
+  color: #f5f7fb;
+  font-size: 18px;
+}
+
+.journal-access-dialog p {
+  margin: 10px 0 20px;
+  color: #aeb6c8;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.journal-access-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.journal-access-actions button {
+  min-height: 42px;
+  border: 1px solid #343c50;
+  border-radius: 5px;
+  background: #252b39;
+  color: #e7eaf1;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.journal-access-actions button.primary {
+  border-color: #2962ff;
+  background: #2962ff;
+  color: #fff;
 }
 
 .journal-subnav {
@@ -1922,6 +2019,15 @@ body {
     align-items: center;
     border-bottom: 1px solid #2a2e39;
     background: #111520;
+    position: relative;
+    z-index: 100;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    isolation: isolate;
+  }
+
+  .mobile-app-bar > * {
+    position: relative;
+    z-index: 1;
   }
 
   .mobile-app-bar strong {
@@ -1932,6 +2038,10 @@ body {
     text-align: center;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .mobile-app-brand-text {
+    font-size: 17px;
   }
 
   .mobile-app-back {
@@ -1973,6 +2083,14 @@ body {
     padding: 12px;
     border-right: 0;
     border-bottom: 1px solid #2a2e39;
+    position: relative;
+    isolation: isolate;
+    background: #131722;
+  }
+
+  .app-container.themes-view .sidebar {
+    border-bottom: 2px solid #44506a;
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.38);
   }
 
   .app-container.themes-collapsed .sidebar {
@@ -1982,8 +2100,11 @@ body {
   }
 
   .theme-sidebar-fixed {
-    top: 0;
-    padding-top: 0;
+    top: -12px;
+    z-index: 60;
+    margin: -12px -12px 0;
+    padding: 12px 12px 0;
+    background: #131722;
   }
 
   .theme-controls-sticky {
