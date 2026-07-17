@@ -67,7 +67,7 @@ class RenderBlueprintTest(unittest.TestCase):
         expected_values = (
             "https://api.alphamate.co.kr",
             "https://alphamate.co.kr",
-            "https://alphamate.co.kr/privacy",
+            "https://api.alphamate.co.kr/privacy",
             "https://api.alphamate.co.kr/api/auth/kakao/callback",
             "https://api.alphamate.co.kr/api/auth/naver/callback",
             "https://api.alphamate.co.kr/api/journal/google-play-rtdn",

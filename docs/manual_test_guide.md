@@ -75,14 +75,14 @@ root `.env` 또는 backend `.env`:
 8. `내 데이터 내보내기`를 누르면 현재 로그인 계정의 저장 기록과 이용권 현황 JSON 파일이 내려받아지는지 확인합니다.
 9. `계정 데이터 삭제`를 누르면 현재 로그인 계정의 저장 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보가 정리되고 로그아웃 상태로 바뀌는지 확인합니다.
 
-## 5. 일반/심층 복기 확인
+## 5. 일반/심화 복기 확인
 
 1. 매매 기록을 입력합니다.
 2. `AI 분석` 개인정보 및 매매 기록 전송 동의를 체크합니다.
 3. `일반 복기`를 실행합니다.
 4. 결과가 한 줄 총평, 잘한 점, 아쉬운 점, 다음 체크리스트 3개 중심으로 짧게 나오는지 확인합니다.
-5. `심층 복기`를 실행합니다.
-6. 심층 복기권이 없으면 구매 또는 광고 보상 안내가 나오는지 확인합니다.
+5. `심화 복기`를 실행합니다.
+6. 심화 복기 이용권이 없으면 구매 또는 광고 보상 안내가 나오는지 확인합니다.
 
 ## 6. 개발 데이터 초기화
 
@@ -138,7 +138,7 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/app/readiness
 - 응답에는 API Key, client secret, Google 서비스 계정 JSON 원문이 포함되면 안 됩니다.
 
 1. backend가 켜진 상태에서 `http://127.0.0.1:8002/api/journal/products`를 엽니다.
-2. `consumables`에 일반/심층 복기권 상품이 보이는지 확인합니다.
+2. `consumables`에 일반/심화 복기 이용권 상품이 보이는지 확인합니다.
 3. `subscriptions`에 Pro 월 구독 상품이 보이는지 확인합니다.
 4. `google_play.missing_server_settings`에 빠진 서버 설정이 표시되는지 확인합니다.
 5. Android 앱에서는 이용권 구매 버튼이 Google Play Billing SDK를 열고, 구매 token을 `POST /api/journal/google-play-purchase`로 보내 서버 검증을 요청합니다.
@@ -191,7 +191,7 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/app/readiness
 
 광고 정책 설정:
 
-- `ALPHAMATE_ADS_PER_ADVANCED_TICKET=5`: 광고 5회 시청 시 주간 심층 복기권 1장 지급
+- `ALPHAMATE_ADS_PER_ADVANCED_TICKET=5`: 광고 5회 시청 시 주간 심화 복기 이용권 1장 지급
 - `ALPHAMATE_FORCE_REWARDED_AD_CHAIN=false`: 여러 보상형 광고를 연속으로 강제하지 않음
 - `GET /api/journal/products`에서 `admob.ready`, `settings.ad_policy` 값을 확인할 수 있습니다.
 
@@ -352,7 +352,7 @@ Google Play 결제 후 앱 종료, 네트워크 끊김, 서버 일시 장애 때
 
 1. 매매복기 화면에서 카카오 또는 네이버 개발 계정으로 로그인합니다.
 2. `매매 이력 저장`을 켭니다.
-3. 종목과 매매 기록을 1건 이상 입력하고 AI 분석 동의 체크 후 `일반 복기` 또는 `심층 복기`를 실행합니다.
+3. 종목과 매매 기록을 1건 이상 입력하고 AI 분석 동의 체크 후 `일반 복기` 또는 `심화 복기`를 실행합니다.
 4. 상단의 `복기 보관함` 탭을 누릅니다.
 5. 저장된 복기 목록이 보이고, 항목을 누르면 당시 차트와 AI 복기 내용이 함께 보이는지 확인합니다.
 6. 같은 앱 세션에서 보관함 안의 다른 복기를 눌러도 전면 광고가 반복 진입처럼 과하게 뜨지 않는지 확인합니다.

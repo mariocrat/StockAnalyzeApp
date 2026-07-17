@@ -2,6 +2,7 @@ import importlib
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from fastapi import HTTPException
 
@@ -26,7 +27,41 @@ class AccessControlPersistenceTest(unittest.TestCase):
                 )
 
             self.assertEqual(402, raised.exception.status_code)
-            self.assertIn("심층 복기 이용권이 필요합니다", raised.exception.detail)
+            self.assertIn("심화 복기 이용권이 필요합니다", raised.exception.detail)
+
+    def test_rewarded_ads_can_be_claimed_toward_advanced_ticket(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(os.environ, {
+            "ALPHAMATE_ACCESS_DB_PATH": os.path.join(tmpdir, "access.sqlite3"),
+            "ALPHAMATE_ALLOW_DEV_ACCESS": "true",
+            "ALPHAMATE_ADS_PER_ADVANCED_TICKET": "2",
+        }):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            first = access_control.claim_rewarded_ad_progress(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                ad_reward_token="dev-ad-reward",
+            )
+            second = access_control.claim_rewarded_ad_progress(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                ad_reward_token="dev-ad-reward",
+            )
+            blocked = access_control.claim_rewarded_ad_progress(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                ad_reward_token="dev-ad-reward",
+            )
+
+            self.assertTrue(first["ad_reward"]["claimed"])
+            self.assertFalse(first["ad_reward"]["advanced_ticket_granted"])
+            self.assertEqual(1, first["advanced"]["weekly_ad_views"])
+            self.assertTrue(second["ad_reward"]["advanced_ticket_granted"])
+            self.assertEqual(1, second["advanced"]["weekly_reward_remaining"])
+            self.assertFalse(blocked["ad_reward"]["claimed"])
+            self.assertEqual("ticket_already_held", blocked["ad_reward"]["blocked_reason"])
+            self.assertEqual(second["advanced"]["weekly_ad_views"], blocked["advanced"]["weekly_ad_views"])
 
     def test_purchased_advanced_credits_survive_module_reload(self):
         with tempfile.TemporaryDirectory() as tmpdir:

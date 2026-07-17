@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 from typing import Optional
 import uvicorn
@@ -30,6 +30,7 @@ from core.access_control import (
     handle_google_play_rtdn,
     get_product_catalog,
     get_user_entitlements,
+    claim_rewarded_ad_progress,
     record_admob_ssv_reward,
     refund_ai_review_access,
     verify_ai_review_access,
@@ -166,6 +167,11 @@ class JournalAiReviewIn(JournalBatchIn):
 
 class JournalDevPurchaseIn(BaseModel):
     product_id: str
+    entitlement_token: str = ""
+
+
+class JournalAdRewardClaimIn(BaseModel):
+    ad_reward_token: str = ""
     entitlement_token: str = ""
 
 
@@ -857,6 +863,13 @@ def healthz():
     return payload
 
 
+@app.get("/privacy", response_class=HTMLResponse)
+def privacy_policy():
+    from core.privacy_policy import privacy_policy_html
+
+    return HTMLResponse(privacy_policy_html())
+
+
 def _clean_client_event_text(value: str, fallback: str, *, limit: int = 120) -> str:
     text = "".join(ch for ch in str(value or "") if ch.isalnum() or ch in {"_", "-", ".", "/", ":"}).strip()
     return (text or fallback)[:limit]
@@ -1483,6 +1496,20 @@ def get_journal_entitlements(
     return get_user_entitlements(
         authorization=authorization,
         entitlement_token=entitlement_token,
+    )
+
+
+@app.post("/api/journal/ad-reward-claim")
+def post_journal_ad_reward_claim(
+    claim: JournalAdRewardClaimIn,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+):
+    _enforce_billing_rate_limit(authorization, _request_client_key(request))
+    return claim_rewarded_ad_progress(
+        authorization=authorization,
+        entitlement_token=claim.entitlement_token,
+        ad_reward_token=claim.ad_reward_token,
     )
 
 

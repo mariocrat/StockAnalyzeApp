@@ -57,9 +57,9 @@ class PolicyDocumentationTest(unittest.TestCase):
         plan = (ROOT / "docs" / "ai_review_monetization_plan.md").read_text(encoding="utf-8")
 
         self.assertIn("일반 복기권 30회", plan)
-        self.assertIn("심층 복기권 10회", plan)
+        self.assertIn("심화 복기 이용권 10회", plan)
         self.assertIn("일반 복기", plan)
-        self.assertIn("심층 복기", plan)
+        self.assertIn("심화 복기", plan)
         self.assertNotIn("�", plan)
         self.assertFalse(any(0x4E00 <= ord(char) <= 0x9FFF for char in plan))
 
@@ -82,7 +82,7 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertIn("Android 출시 AAB 빌드", checklist)
         self.assertIn("OPENAI_BASIC_REVIEW_MODEL=gpt-5.4-mini", checklist)
         self.assertIn("OPENAI_ADVANCED_REVIEW_MODEL=gpt-5.6-terra", checklist)
-        self.assertIn("기본값은 일반 복기 `gpt-5.4-mini`, 심층 복기 `gpt-5.6-terra`", checklist)
+        self.assertIn("기본값은 일반 복기 `gpt-5.4-mini`, 심화 복기 `gpt-5.6-terra`", checklist)
         self.assertIn("메모리 기반 요청 제한기 안전 상한", checklist)
         self.assertNotIn("frontend release-env tests", checklist)
         self.assertNotIn("Android release AAB build", checklist)

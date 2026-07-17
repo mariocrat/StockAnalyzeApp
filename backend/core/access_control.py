@@ -1238,19 +1238,31 @@ def _verify_ad(ad_reward_token: str | None) -> bool:
     return _dev_access_enabled() and str(ad_reward_token or "").strip() == dev_ad_token
 
 
-def _consume_pending_admob_reward(user_id: str) -> bool:
+def _consume_pending_admob_reward(user_id: str, *, custom_data: str = "") -> bool:
     conn = _connect_access_db()
     try:
-        row = conn.execute(
-            """
-            SELECT transaction_id
-            FROM admob_reward_events
-            WHERE user_id = ? AND status = 'pending'
-            ORDER BY created_at ASC
-            LIMIT 1
-            """,
-            (user_id,),
-        ).fetchone()
+        if custom_data:
+            row = conn.execute(
+                """
+                SELECT transaction_id
+                FROM admob_reward_events
+                WHERE user_id = ? AND status = 'pending' AND custom_data = ?
+                ORDER BY created_at ASC
+                LIMIT 1
+                """,
+                (user_id, custom_data),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """
+                SELECT transaction_id
+                FROM admob_reward_events
+                WHERE user_id = ? AND status = 'pending'
+                ORDER BY created_at ASC
+                LIMIT 1
+                """,
+                (user_id,),
+            ).fetchone()
         if not row:
             return False
 
@@ -1272,7 +1284,7 @@ def _consume_pending_admob_reward(user_id: str) -> bool:
 def _consume_ad_reward(user_id: str, ad_reward_token: str | None) -> bool:
     if _verify_ad(ad_reward_token):
         return True
-    return _consume_pending_admob_reward(user_id)
+    return _consume_pending_admob_reward(user_id, custom_data="basic_review")
 
 
 def _grant_weekly_advanced_if_earned(wallet: UserWallet):
@@ -1333,7 +1345,7 @@ def _consume_advanced(wallet: UserWallet, plan: str) -> str:
         return "purchased_advanced"
     raise HTTPException(
         status_code=402,
-        detail="심층 복기 이용권이 필요합니다. Pro 제공량, 광고 보상 심층권 또는 구매 이용권을 확인해주세요.",
+        detail="심화 복기 이용권이 필요합니다. Pro 제공량, 광고 보상 심화 복기 이용권 또는 구매한 심화 복기 이용권을 확인해주세요.",
     )
 
 
@@ -1374,6 +1386,43 @@ def get_user_entitlements(*, authorization: str | None, entitlement_token: str |
         data = _wallet_snapshot(wallet, plan)
     data["user"] = {"id": user_id, "auth_mode": auth_mode}
     return data
+
+
+def claim_rewarded_ad_progress(
+    *,
+    authorization: str | None,
+    entitlement_token: str | None,
+    ad_reward_token: str | None = None,
+) -> dict:
+    user_id, auth_mode = _authenticate(authorization)
+    plan = _plan_for(user_id, entitlement_token)
+    with _WALLET_LOCK:
+        wallet = _wallet_for(user_id)
+        before = wallet.weekly_advanced
+        reward_blocked_reason = ""
+        if plan == "pro":
+            verified = False
+            reward_blocked_reason = "pro_no_ads"
+        elif wallet.weekly_advanced >= 1:
+            verified = False
+            reward_blocked_reason = "ticket_already_held"
+        else:
+            verified = _verify_ad(ad_reward_token) or _consume_pending_admob_reward(
+                user_id,
+                custom_data="advanced_ticket_progress",
+            )
+        if verified:
+            wallet.usage.weekly_ad_views += 1
+            _grant_weekly_advanced_if_earned(wallet)
+            _save_wallet(user_id, wallet)
+        snapshot = _wallet_snapshot(wallet, plan)
+    snapshot["user"] = {"id": user_id, "auth_mode": auth_mode}
+    snapshot["ad_reward"] = {
+        "claimed": verified,
+        "advanced_ticket_granted": wallet.weekly_advanced > before,
+        "blocked_reason": reward_blocked_reason,
+    }
+    return snapshot
 
 
 def apply_dev_purchase(*, authorization: str | None, entitlement_token: str | None, product_id: str) -> dict:

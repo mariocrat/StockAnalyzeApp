@@ -37,8 +37,8 @@ const DEV_LOGIN_PROFILES = {
 const REVIEW_PRODUCTS = [
   ['basic_review_30', '일반 복기 이용권 30회', '2,900원'],
   ['basic_review_100', '일반 복기 이용권 100회', '6,900원'],
-  ['advanced_review_5', '심층 복기 이용권 5회', '2,900원'],
-  ['advanced_review_10', '심층 복기 이용권 10회', '4,900원'],
+  ['advanced_review_5', '심화 복기 이용권 5회', '2,900원'],
+  ['advanced_review_10', '심화 복기 이용권 10회', '4,900원'],
 ];
 const chartIntervalLabel = { '1m': '1분봉', '3m': '3분봉', '1d': '일봉', '1wk': '주봉' };
 const reviewSourceLabels = {
@@ -46,11 +46,11 @@ const reviewSourceLabels = {
   free_daily_basic: '무료 일일 제공량',
   rewarded_ad_basic: '광고 보상 제공량',
   pro_monthly_basic: 'Pro 월 제공량',
-  pro_monthly_advanced: 'Pro 심층 제공량',
-  weekly_ad_advanced: '광고 보상 심층권',
+  pro_monthly_advanced: 'Pro 심화 복기 제공량',
+  weekly_ad_advanced: '광고 보상 심화 복기 이용권',
   purchased_basic: '구매한 일반 복기 이용권',
-  purchased_advanced: '구매한 심층 복기 이용권',
-  purchased_advanced_as_basic: '심층 이용권 전환 사용',
+  purchased_advanced: '구매한 심화 복기 이용권',
+  purchased_advanced_as_basic: '심화 복기 이용권 전환 사용',
 };
 
 const emptyForm = {
@@ -152,7 +152,7 @@ function providerButtonClass(provider) {
 function reviewAccessText(access) {
   if (!access?.quota) return '';
   const plan = access.plan === 'pro' ? 'Pro' : '무료';
-  const type = access.review_type === 'advanced' ? '심층 복기' : '일반 복기';
+  const type = access.review_type === 'advanced' ? '심화 복기' : '일반 복기';
   const source = reviewSourceLabels[access.source] || access.source || '제공량';
   if (access.review_type === 'advanced') {
     const advanced = access.quota.advanced || {};
@@ -890,6 +890,99 @@ export default function TradingJournal({
     });
   };
 
+  const claimAdvancedAdProgress = async (adRewardToken = '') => {
+    const res = await axios.post(
+      `${apiBase}/api/journal/ad-reward-claim`,
+      {
+        ad_reward_token: adRewardToken,
+        entitlement_token: DEV_ENTITLEMENT_TOKEN,
+      },
+      { headers: authHeaders },
+    );
+    if (res.data?.ad_reward?.claimed || res.data?.ad_reward?.blocked_reason) {
+      setEntitlements(res.data);
+      return res.data;
+    }
+    return null;
+  };
+
+  const handleRewardedAdAdvancedTicket = async () => {
+    if (!authSession?.user?.id) {
+      setMessage('광고 보상은 로그인 후 받을 수 있습니다. 먼저 카카오 또는 네이버 로그인을 완료해주세요.');
+      return;
+    }
+    if (entitlements?.plan === 'pro') {
+      setMessage('Pro 이용자는 월 제공되는 심화 복기 이용권을 광고 없이 사용할 수 있습니다.');
+      return;
+    }
+    if ((entitlements?.advanced?.weekly_reward_remaining || 0) > 0) {
+      setMessage('이미 광고 보상 심화 복기 이용권 1장을 보유하고 있습니다.');
+      return;
+    }
+
+    setAdLoading(true);
+    try {
+      const delayedReward = await claimAdvancedAdProgress();
+      if (delayedReward) {
+        if (delayedReward.ad_reward.blocked_reason === 'ticket_already_held') {
+          setMessage('이미 광고 보상 심화 복기 이용권 1장을 보유하고 있습니다.');
+          return;
+        }
+        if (delayedReward.ad_reward.blocked_reason === 'pro_no_ads') {
+          setMessage('Pro 이용자는 월 제공되는 심화 복기 이용권을 광고 없이 사용할 수 있습니다.');
+          return;
+        }
+        const granted = delayedReward.ad_reward.advanced_ticket_granted;
+        setMessage(granted ? '광고 보상 심화 복기 이용권 1장이 지급되었습니다.' : '이전 광고 시청이 반영되었습니다.');
+        return;
+      }
+
+      if (!mobileAdStatus.native) {
+        if (!DEV_TOOLS_ENABLED) {
+          setMessage('보상형 광고는 Android 앱에서 이용할 수 있습니다.');
+          return;
+        }
+        const devReward = await claimAdvancedAdProgress(DEV_AD_REWARD_TOKEN);
+        setMessage(devReward?.ad_reward?.advanced_ticket_granted
+          ? '광고 보상 심화 복기 이용권 1장이 지급되었습니다.'
+          : '테스트 광고 시청이 주간 횟수에 반영되었습니다.');
+        return;
+      }
+
+      await showRewardedReviewAd({
+        userId: authSession.user.id,
+        purpose: 'advanced_ticket_progress',
+      });
+      let claimed = null;
+      for (let attempt = 0; attempt < 3 && !claimed; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 1600));
+        claimed = await claimAdvancedAdProgress();
+      }
+      if (!claimed) {
+        setMessage('광고 시청은 완료됐고 서버에서 보상을 확인 중입니다. 잠시 후 버튼을 다시 누르면 새 광고 없이 이전 보상부터 확인합니다.');
+        return;
+      }
+      setMessage(claimed.ad_reward.advanced_ticket_granted
+        ? '광고 보상 심화 복기 이용권 1장이 지급되었습니다.'
+        : '광고 시청이 주간 횟수에 반영되었습니다.');
+    } catch (err) {
+      reportJournalClientEvent({
+        eventType: 'rewarded_ad_advanced_ticket_failed',
+        level: 'warning',
+        message: err?.message || 'Rewarded ad advanced ticket failed.',
+        details: {
+          native: mobileAdStatus.native,
+          platform: mobileAdStatus.platform,
+          userId: authSession?.user?.id,
+        },
+      });
+      setMessage(err?.response?.data?.detail || err?.message || '광고 보상을 확인하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setAdLoading(false);
+      await loadEntitlements();
+    }
+  };
+
   const handleRewardedAdBasicReview = async () => {
     if (!trades.length) {
       setMessage('AI 분석을 하려면 먼저 매매 기록을 입력하세요.');
@@ -1317,13 +1410,13 @@ export default function TradingJournal({
   const readinessSections = appReadiness?.sections || {};
   const dataStorageReadiness = readinessSections.data_storage || {};
   const privacyPolicyReadiness = readinessSections.privacy_policy || {};
-  const privacyPolicyUrl = privacyPolicyReadiness.url || '';
+  const privacyPolicyUrl = `${String(apiBase || '').replace(/\/$/, '')}/privacy`;
   const googlePlayReadiness = readinessSections.google_play || productCatalog?.google_play || {};
   const admobStatus = readinessSections.admob || productCatalog?.admob || {};
   const aiReadiness = readinessSections.ai || {};
   const adsPerAdvancedTicket = adPolicy.ads_per_advanced_ticket || entitlements?.advanced?.weekly_ad_views_needed || 5;
   const weeklyAdViews = entitlements?.advanced?.weekly_ad_views || 0;
-  const adPolicyText = `광고 ${adsPerAdvancedTicket}회 시청 시 주간 심층 복기권 1장`;
+  const adPolicyText = `광고 ${adsPerAdvancedTicket}회 시청 시 주간 심화 복기 이용권 1장`;
   const adReadinessText = admobStatus.ready ? 'AdMob 보상형 광고 준비됨' : 'AdMob 광고 단위 설정 필요';
   const mobileAdStatusText = mobileAdStatus.native
     ? mobileAdStatus.productionMisconfigured
@@ -1334,8 +1427,6 @@ export default function TradingJournal({
   const activeIdentity = authSession?.user?.identities?.[0];
   const activeProviderLabel = activeIdentity ? DEV_LOGIN_PROFILES[activeIdentity.provider]?.label || activeIdentity.provider : '';
   const consentRecordedAt = dataSummary?.privacy_consented_at || authSession?.user?.privacy_consented_at || '';
-  const consentVersion = dataSummary?.privacy_consent_version || authSession?.user?.privacy_consent_version || '';
-  const currentConsentVersion = dataSummary?.privacy_consent_current_version || consentVersion || 'ai-review-privacy-v1';
   const consentStatusText = consentRecordedAt ? '동의 완료' : '동의 필요';
   const consentDetailText = consentRecordedAt ? `동의일 ${consentRecordedAt.slice(0, 10)}` : 'AI 복기 실행 시 동의할 수 있습니다.';
   const missingText = (items = []) => items.length ? `누락: ${items.join(', ')}` : '설정 완료';
@@ -1411,7 +1502,7 @@ export default function TradingJournal({
                   onClick={() => openReviewHistoryDetail(item.id)}
                 >
                   <strong>{item.name || item.ticker || '종목 미입력'}</strong>
-                  <span>{item.review_type === 'advanced' ? '심층 복기' : '일반 복기'} · {dateTimeText(item.trade_date || item.created_at)}</span>
+                  <span>{item.review_type === 'advanced' ? '심화 복기' : '일반 복기'} · {dateTimeText(item.trade_date || item.created_at)}</span>
                 </button>
               ))}
             </div>
@@ -1422,7 +1513,7 @@ export default function TradingJournal({
                     <div>
                       <h4>{activeReviewHistory.name || activeReviewHistory.ticker || '저장된 복기'}</h4>
                       <span className="journal-chart-mode">
-                        {activeReviewHistory.review_type === 'advanced' ? '심층 복기' : '일반 복기'}
+                        {activeReviewHistory.review_type === 'advanced' ? '심화 복기' : '일반 복기'}
                       </span>
                     </div>
                     <button
@@ -1491,8 +1582,8 @@ export default function TradingJournal({
             onClick={event => event.stopPropagation()}
           >
             <div className="journal-access-icon" aria-hidden="true"><Ticket size={22} /></div>
-            <h3 id="advanced-review-access-title">심층 복기 이용권이 필요합니다</h3>
-            <p>심층 복기는 Pro 월 제공량, 광고 보상 심층권 또는 구매한 심층 이용권 1장을 사용합니다.</p>
+            <h3 id="advanced-review-access-title">심화 복기 이용권이 필요합니다</h3>
+            <p>심화 복기는 Pro 월 제공량, 광고 보상 심화 복기 이용권 또는 구매한 심화 복기 이용권 1장을 사용합니다.</p>
             <div className="journal-access-actions">
               <button type="button" onClick={() => setReviewAccessDialog(null)}>닫기</button>
               <button type="button" className="primary" onClick={showReviewPasses}>이용권 확인</button>
@@ -1632,12 +1723,9 @@ export default function TradingJournal({
             <p>AI 복기는 입력한 매매 기록, 메모, 차트 요약을 서버와 AI 제공업체로 전송해 분석합니다.</p>
             <p>매매 이력 저장을 켠 계정은 AI 복기 결과와 당시 차트 스냅샷이 복기 보관함에 저장될 수 있습니다.</p>
             <p>내 데이터 내보내기로 저장 내용을 확인할 수 있고, 계정 데이터 삭제로 현재 계정의 저장 데이터를 지울 수 있습니다.</p>
-            {privacyPolicyUrl && (
-              <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">
-                개인정보처리방침 열기
-              </a>
-            )}
-            <span>현재 동의 안내 버전: {currentConsentVersion}</span>
+            <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">
+              개인정보처리방침 열기
+            </a>
           </div>
         </details>
         {authSession && (
@@ -1765,15 +1853,29 @@ export default function TradingJournal({
           <div><span>무료 일반 복기</span><strong>{(entitlements?.basic?.signup_remaining || 0) + (entitlements?.basic?.free_daily_max_remaining || 0)}</strong></div>
           <div><span>Pro 일반 복기</span><strong>{entitlements?.basic?.pro_monthly_remaining || 0}</strong></div>
           <div><span>구매 일반 이용권</span><strong>{entitlements?.basic?.purchased_remaining || 0}</strong></div>
-          <div><span>Pro 심층 복기</span><strong>{entitlements?.advanced?.pro_monthly_remaining || 0}</strong></div>
-          <div><span>광고 보상 심층권</span><strong>{entitlements?.advanced?.weekly_reward_remaining || 0}</strong></div>
-          <div><span>구매 심층 이용권</span><strong>{entitlements?.advanced?.purchased_remaining || 0}</strong></div>
+          <div><span>Pro 심화 복기</span><strong>{entitlements?.advanced?.pro_monthly_remaining || 0}</strong></div>
+          <div><span>광고 보상 심화 복기 이용권</span><strong>{entitlements?.advanced?.weekly_reward_remaining || 0}</strong></div>
+          <div><span>구매 심화 복기 이용권</span><strong>{entitlements?.advanced?.purchased_remaining || 0}</strong></div>
         </div>
         <div className="journal-ad-policy">
           <div>
             <span>광고 보상 정책</span>
             <strong>{adPolicyText}</strong>
             <em>현재 주간 광고 시청 {weeklyAdViews}/{adsPerAdvancedTicket}회</em>
+            <button
+              type="button"
+              className="journal-ad-reward-button"
+              disabled={adLoading || entitlements?.plan === 'pro' || (entitlements?.advanced?.weekly_reward_remaining || 0) > 0}
+              onClick={handleRewardedAdAdvancedTicket}
+            >
+              {adLoading
+                ? '광고 보상 확인 중'
+                : entitlements?.plan === 'pro'
+                  ? 'Pro는 광고 없이 이용'
+                  : (entitlements?.advanced?.weekly_reward_remaining || 0) > 0
+                    ? '심화 복기 이용권 보유 중'
+                    : '광고 보고 심화 복기 이용권 받기'}
+            </button>
           </div>
           {DEV_TOOLS_ENABLED && (
             <>
@@ -1900,7 +2002,7 @@ export default function TradingJournal({
               disabled={aiLoading || adLoading || !trades.length || !aiConsentAccepted}
               onClick={startAdvancedReview}
             >
-              {aiLoading && aiReviewType === 'advanced' ? '분석중' : '심층 복기'}
+              {aiLoading && aiReviewType === 'advanced' ? '분석중' : '심화 복기'}
             </button>
           </div>
         </div>

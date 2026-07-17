@@ -1185,7 +1185,7 @@ class BillingReadinessTest(unittest.TestCase):
                 "ad_unit": "rewarded-unit-1",
                 "reward_amount": "1",
                 "reward_item": "AI_REVIEW",
-                "custom_data": "basic",
+                "custom_data": "basic_review",
             }
 
             first = access_control.record_admob_ssv_reward("transaction_id=ad-tx-1")
@@ -1262,7 +1262,7 @@ class BillingReadinessTest(unittest.TestCase):
                 "ad_unit": "rewarded-unit-1",
                 "reward_amount": "1",
                 "reward_item": "AI_REVIEW",
-                "custom_data": "basic",
+                "custom_data": "basic_review",
             }
 
             for _ in range(6):

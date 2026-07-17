@@ -37,6 +37,7 @@ class AuthRoutesTest(unittest.TestCase):
 
         self.assertIn("/healthz", paths)
         self.assertIn("/api/healthz", paths)
+        self.assertIn("/privacy", paths)
         self.assertIn("/api/auth/dev-login", paths)
         self.assertIn("/api/auth/login/kakao", paths)
         self.assertIn("/api/auth/login/naver", paths)
@@ -53,6 +54,7 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("/api/journal/google-play-purchase", paths)
         self.assertIn("/api/journal/google-play-rtdn", paths)
         self.assertIn("/api/journal/admob-ssv", paths)
+        self.assertIn("/api/journal/ad-reward-claim", paths)
         self.assertIn("/api/journal/review-history", paths)
         self.assertIn("/api/journal/review-history/{review_id}", paths)
         self.assertIn("/api/client-events", paths)
@@ -114,6 +116,23 @@ class AuthRoutesTest(unittest.TestCase):
 
         self.assertEqual("1234567890ab", payload["revision"])
         self.assertEqual({"ok", "service", "revision"}, set(payload))
+
+    def test_privacy_policy_is_public_korean_html(self):
+        backend_dir = os.path.join(os.getcwd(), "backend")
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+
+        import main
+
+        response = main.privacy_policy()
+        body = response.body.decode("utf-8")
+
+        self.assertEqual("text/html", response.media_type)
+        self.assertIn("charset=utf-8", response.headers["content-type"])
+        self.assertIn("AlphaMate 개인정보처리방침", body)
+        self.assertIn("AI 분석과 외부 서비스 전송", body)
+        self.assertIn("계정 데이터를 삭제", body)
+
     def test_lifespan_skips_theme_warmup_when_disabled_for_render(self):
         backend_dir = os.path.join(os.getcwd(), "backend")
         if backend_dir not in sys.path:

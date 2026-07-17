@@ -25,7 +25,7 @@ services:
       - key: ALPHAMATE_CORS_ORIGINS
         value: https://alphamate.co.kr,https://localhost,capacitor://localhost
       - key: ALPHAMATE_PRIVACY_POLICY_URL
-        value: https://alphamate.co.kr/privacy
+        value: https://api.alphamate.co.kr/privacy
       - key: ALPHAMATE_ACCOUNT_DB_PATH
         value: /var/data/alphamate/accounts.sqlite3
       - key: ALPHAMATE_ACCESS_DB_PATH

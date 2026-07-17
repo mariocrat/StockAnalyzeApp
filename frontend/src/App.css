@@ -1520,6 +1520,25 @@ body {
   margin: 4px 0;
 }
 
+.journal-ad-reward-button {
+  width: 100%;
+  min-height: 38px;
+  margin-top: 10px;
+  border: 1px solid #3f6fe2;
+  border-radius: 6px;
+  background: #1c4fbd;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.journal-ad-reward-button:disabled {
+  border-color: #31394a;
+  background: #252c3a;
+  color: #929bad;
+  cursor: default;
+}
+
 .journal-ad-policy strong.ready {
   color: #00c853;
 }

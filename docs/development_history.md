@@ -1,5 +1,12 @@
 # AlphaMate Development History
 
+## 2026-07-17 advanced review naming, ad reward, and privacy page
+
+- Standardized every user-facing advanced-review label as `심화 복기` and `심화 복기 이용권` while retaining the internal `advanced` type for database and billing compatibility.
+- Added a rewarded-ad action that securely claims an AdMob SSV event, advances the weekly ad counter, and grants one weekly advanced-review pass at the configured threshold.
+- Added a public Korean privacy-policy page on the API service and routed the app directly to it instead of the unhosted apex-domain path.
+- Hid the internal consent version from the account drawer while preserving the consent date and server-side version record.
+
 ## 2026-07-16 advanced review access and mobile header polish
 
 - Distinguished an advanced-ticket shortage from an OpenAI failure and replaced the misplaced English inline error with a Korean access dialog that links to the entitlement section.

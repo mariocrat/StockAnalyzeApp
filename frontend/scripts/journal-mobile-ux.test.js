@@ -20,6 +20,8 @@ test('mobile chart controls use compact named grid areas', () => {
 
 test('review UI hides internal model ids and consent versions', () => {
   assert.doesNotMatch(journalSource, /activeReviewHistory\.model/);
+  assert.doesNotMatch(journalSource, /현재 동의 안내 버전/);
+  assert.doesNotMatch(journalSource, /currentConsentVersion/);
   assert.match(journalSource, /동의일 \$\{consentRecordedAt\.slice\(0, 10\)\}/);
   assert.match(journalSource, /<h3>AI 복기<\/h3>/);
 });
@@ -42,9 +44,18 @@ test('mobile entitlement balances remain in a compact three-column grid', () => 
 
 test('advanced review shortage opens a Korean pass dialog instead of an inline AI error', () => {
   assert.match(journalSource, /err\.response\?\.status === 402 && reviewType === 'advanced'/);
-  assert.match(journalSource, /심층 복기 이용권이 필요합니다/);
+  assert.match(journalSource, /심화 복기 이용권이 필요합니다/);
   assert.match(journalSource, /onClick=\{startAdvancedReview\}/);
   assert.match(journalSource, /showReviewPasses/);
+});
+
+test('advanced review terminology and rewarded-ad ticket action are user-facing', () => {
+  assert.doesNotMatch(journalSource, /심층/);
+  assert.match(journalSource, /광고 보상 심화 복기 이용권/);
+  assert.match(journalSource, /handleRewardedAdAdvancedTicket/);
+  assert.match(journalSource, /광고 보고 심화 복기 이용권 받기/);
+  assert.match(journalSource, /\/api\/journal\/ad-reward-claim/);
+  assert.match(journalSource, /\/privacy/);
 });
 
 test('mobile header uses a graphical wordmark and masks scrolling content', () => {

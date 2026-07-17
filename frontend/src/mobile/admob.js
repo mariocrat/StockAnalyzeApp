@@ -57,7 +57,7 @@ export async function initializeAdMob() {
   return getAdMobRuntimeStatus();
 }
 
-export async function showRewardedReviewAd({ userId }) {
+export async function showRewardedReviewAd({ userId, purpose = 'basic_review' }) {
   if (!Capacitor.isNativePlatform()) {
     throw new Error('AdMob rewarded ads are available only in the mobile app.');
   }
@@ -72,7 +72,7 @@ export async function showRewardedReviewAd({ userId }) {
     immersiveMode: true,
     ssv: {
       userId: String(userId),
-      customData: 'basic_review',
+      customData: purpose,
     },
   });
 
