@@ -114,6 +114,7 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
         "instructions": instructions,
         "input": json.dumps(payload, ensure_ascii=False),
         "max_output_tokens": _review_max_output_tokens(payload),
+        "store": False,
     }
     req = urllib.request.Request(
         "https://api.openai.com/v1/responses",

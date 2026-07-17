@@ -121,6 +121,24 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
 
         self.assertEqual([1000, 3000], captured)
 
+    def test_openai_review_disables_response_storage(self):
+        os.environ["OPENAI_API_KEY"] = "sk-test"
+        captured = {}
+
+        def fake_urlopen(req, timeout):
+            captured.update(json.loads(req.data.decode("utf-8")))
+            return self._success_response("private-ok")
+
+        self.ai_review_v2.urllib.request.urlopen = fake_urlopen
+        result = self.ai_review_v2._call_openai_review(
+            {"review_type": "advanced", "private_trade_note": "do-not-store"},
+            model="gpt-test",
+            instructions="test",
+        )
+
+        self.assertEqual("private-ok", result)
+        self.assertIs(False, captured["store"])
+
     def test_openai_review_output_limits_are_safely_bounded(self):
         os.environ["OPENAI_API_KEY"] = "sk-test"
         os.environ["OPENAI_BASIC_REVIEW_MAX_OUTPUT_TOKENS"] = "1"

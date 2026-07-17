@@ -59,6 +59,7 @@ try {
     Run-Step "프론트 스플래시 로딩 정책 테스트" { & npm.cmd run test:splash-loading }
     Run-Step "프론트 차트 레이아웃 테스트" { & npm.cmd run test:chart-layout }
     Run-Step "프론트 매매복기 모바일 UX 테스트" { & npm.cmd run test:journal-mobile-ux }
+    Run-Step "프론트 사용자 안내 문구 테스트" { & npm.cmd run test:user-messages }
     Run-Step "프론트 린트" { & npm.cmd run lint }
     if (-not $env:VITE_APP_NAME) {
         $env:VITE_APP_NAME = "AlphaMate"

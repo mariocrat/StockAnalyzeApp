@@ -38,6 +38,7 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("/healthz", paths)
         self.assertIn("/api/healthz", paths)
         self.assertIn("/privacy", paths)
+        self.assertIn("/account-deletion", paths)
         self.assertIn("/api/auth/dev-login", paths)
         self.assertIn("/api/auth/login/kakao", paths)
         self.assertIn("/api/auth/login/naver", paths)
@@ -130,8 +131,28 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertEqual("text/html", response.media_type)
         self.assertIn("charset=utf-8", response.headers["content-type"])
         self.assertIn("AlphaMate 개인정보처리방침", body)
-        self.assertIn("AI 분석과 외부 서비스 전송", body)
+        self.assertIn("제3자 제공, 처리위탁 및 국외 이전", body)
+        self.assertIn("privacy@render.com", body)
+        self.assertIn("privacy@openai.com", body)
+        self.assertIn("국외 처리에 동의하지 않는 경우", body)
         self.assertIn("계정 데이터를 삭제", body)
+        self.assertIn("store=false", body)
+        self.assertIn("Google AdMob", body)
+
+    def test_account_deletion_page_is_public_korean_html(self):
+        backend_dir = os.path.join(os.getcwd(), "backend")
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+
+        import main
+
+        response = main.account_deletion()
+        body = response.body.decode("utf-8")
+
+        self.assertEqual("text/html", response.media_type)
+        self.assertIn("AlphaMate 계정 및 데이터 삭제", body)
+        self.assertIn("계정 데이터 삭제", body)
+        self.assertIn("카카오·네이버 로그인 연결", body)
 
     def test_lifespan_skips_theme_warmup_when_disabled_for_render(self):
         backend_dir = os.path.join(os.getcwd(), "backend")

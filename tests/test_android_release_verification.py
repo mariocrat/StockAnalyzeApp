@@ -63,6 +63,22 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("assembleDebug", script)
         self.assertIn("app-debug.apk", script)
 
+    def test_debug_apk_scripts_use_google_demo_ads_instead_of_placeholder_publishers(self):
+        expected_ids = (
+            "ca-app-pub-3940256099942544~3347511713",
+            "ca-app-pub-3940256099942544/5224354917",
+            "ca-app-pub-3940256099942544/1033173712",
+            "ca-app-pub-3940256099942544/6300978111",
+        )
+        for script_name in ("verify_android_debug.ps1", "verify_android_oauth_debug.ps1"):
+            with self.subTest(script=script_name):
+                script = (ROOT / "scripts" / script_name).read_text(encoding="utf-8-sig")
+                for ad_id in expected_ids:
+                    self.assertIn(ad_id, script)
+                self.assertIn('VITE_ALPHAMATE_ENV = "development"', script)
+                self.assertIn('VITE_ENABLE_DEV_TOOLS = "false"', script)
+                self.assertNotIn("ca-app-pub-0000000000000000", script)
+
     def test_release_verification_script_loads_frontend_release_env_and_builds_aab(self):
         script = (ROOT / "scripts" / "verify_android_release.ps1").read_text(encoding="utf-8")
 

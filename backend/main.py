@@ -870,6 +870,13 @@ def privacy_policy():
     return HTMLResponse(privacy_policy_html())
 
 
+@app.get("/account-deletion", response_class=HTMLResponse)
+def account_deletion():
+    from core.privacy_policy import account_deletion_html
+
+    return HTMLResponse(account_deletion_html())
+
+
 def _clean_client_event_text(value: str, fallback: str, *, limit: int = 120) -> str:
     text = "".join(ch for ch in str(value or "") if ch.isalnum() or ch in {"_", "-", ".", "/", ":"}).strip()
     return (text or fallback)[:limit]

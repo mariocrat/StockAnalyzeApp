@@ -2,7 +2,7 @@ import { lazy, Suspense, useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios';
 import { Capacitor } from '@capacitor/core';
 import { App as CapacitorApp } from '@capacitor/app';
-import { ArrowLeft, ChevronDown, ChevronUp, UserRound } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, CircleAlert, UserRound } from 'lucide-react';
 import './App.css';
 import appIcon from './assets/app-icon.png';
 import { getAdMobRuntimeStatus, removeAppBanner, showAppBanner, showChartDetailInterstitial, showResumeInterstitial } from './mobile/admob';
@@ -10,6 +10,7 @@ import { shouldShowBannerAd, shouldShowChartDetailInterstitial, shouldShowResume
 import { reportClientEvent } from './utils/clientEventLog';
 import { nextRootBackAction, requestNestedBack } from './utils/appNavigation';
 import { MARKET_DOWN, MARKET_FLAT, MARKET_UP } from './theme/marketColors';
+import { toKoreanUserMessage } from './utils/userMessage';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
@@ -94,6 +95,7 @@ export default function App() {
   const [adPlan, setAdPlan] = useState(DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free');
   const [bannerReserved, setBannerReserved] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [appNotice, setAppNotice] = useState('');
   const backgroundedAtRef = useRef(0);
   const lastResumeInterstitialAtRef = useRef(0);
   const resumeInterstitialInFlightRef = useRef(false);
@@ -348,6 +350,10 @@ export default function App() {
   }, []);
 
   const handleAppBack = useCallback(() => {
+    if (appNotice) {
+      setAppNotice('');
+      return;
+    }
     if (requestNestedBack()) return;
 
     const action = nextRootBackAction({
@@ -364,7 +370,7 @@ export default function App() {
       return;
     }
     setShowExitConfirm(true);
-  }, [activeTheme, activeView, changeActiveView, selectedStocks.length]);
+  }, [activeTheme, activeView, appNotice, changeActiveView, selectedStocks.length]);
 
   const exitApplication = useCallback(async () => {
     setShowExitConfirm(false);
@@ -453,13 +459,15 @@ export default function App() {
         const isPreparing = err.response?.status === 503;
         const isTimeout = err.code === 'ECONNABORTED';
         const detail = err.response?.data?.detail;
-        setThemeError(
+        const userMessage = toKoreanUserMessage(
           isPreparing
             ? detail || '최신 기간 수익률을 업데이트 중입니다. 잠시 후 자동으로 다시 확인합니다.'
             : isTimeout
               ? '서버 응답이 늦어지고 있습니다. 잠시 후 자동으로 다시 확인합니다.'
               : '테마 상승률을 불러오지 못했습니다. 잠시 후 자동으로 다시 확인합니다.',
         );
+        setThemeError(userMessage);
+        setAppNotice(userMessage);
         setThemeRetryRequest({ period, requestId });
       }
     } finally {
@@ -525,6 +533,7 @@ export default function App() {
       setStockData(prev => ({ ...prev, [cacheKey]: res.data?.data || [] }));
     } catch (err) {
       reportAppClientEvent('stock_data_fetch_failed', err, { ticker, interval });
+      setAppNotice(toKoreanUserMessage(err.response?.data?.detail || `${name} 종목 데이터를 불러오지 못했습니다.`));
     } finally {
       setLoadingStocks(prev => ({ ...prev, [ticker]: false }));
     }
@@ -629,7 +638,10 @@ export default function App() {
         setShowResults(true);
       } catch (err) {
         if (err.name === 'CanceledError' || err.code === 'ERR_CANCELED') return;
-        if (searchRequestSeq.current === requestId) setSearchResults([]);
+        if (searchRequestSeq.current === requestId) {
+          setSearchResults([]);
+          setAppNotice(toKoreanUserMessage(err.response?.data?.detail || '종목 검색 결과를 불러오지 못했습니다.'));
+        }
       }
     }, 180);
 
@@ -791,7 +803,7 @@ export default function App() {
                     {themePeriod === '1D' ? '로딩중…' : '기간 수익률 준비 중…'}
                   </div>
                 ) : themeError ? (
-                  <div className="themes-loading">{themeError}</div>
+                  <div className="themes-loading">자동으로 다시 확인하는 중입니다.</div>
                 ) : themes.length === 0 ? (
                   <div className="themes-loading">표시할 테마가 없습니다.</div>
                 ) : (
@@ -998,7 +1010,7 @@ export default function App() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: '#555', fontSize: '13px', marginBottom: '4px',
                 }}>
-                  {loadingStocks[s.ticker] ? `${s.name} 데이터 로딩 중...` : `${s.name} No data`}
+                  {loadingStocks[s.ticker] ? `${s.name} 데이터 로딩 중...` : `${s.name} 데이터가 없습니다.`}
                 </div>
               );
             }
@@ -1060,6 +1072,22 @@ export default function App() {
         )}
       </div>
     </div>
+    {appNotice && (
+      <div className="journal-notice-backdrop" role="presentation" onClick={() => setAppNotice('')}>
+        <section
+          className="journal-notice-dialog"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="app-notice-title"
+          onClick={event => event.stopPropagation()}
+        >
+          <div className="journal-notice-icon" aria-hidden="true"><CircleAlert size={22} /></div>
+          <h3 id="app-notice-title">안내</h3>
+          <p>{appNotice}</p>
+          <button type="button" onClick={() => setAppNotice('')}>확인</button>
+        </section>
+      </div>
+    )}
     {showExitConfirm && (
       <div className="app-exit-backdrop" role="presentation" onClick={() => setShowExitConfirm(false)}>
         <div className="app-exit-dialog" role="dialog" aria-modal="true" aria-labelledby="app-exit-title" onClick={event => event.stopPropagation()}>

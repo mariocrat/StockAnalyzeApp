@@ -49,12 +49,21 @@ test('advanced review shortage opens a Korean pass dialog instead of an inline A
   assert.match(journalSource, /showReviewPasses/);
 });
 
+test('journal notices use a Korean popup and never render raw messages inline', () => {
+  assert.match(journalSource, /toKoreanUserMessage/);
+  assert.match(journalSource, /className="journal-notice-backdrop"/);
+  assert.match(journalSource, /role="alertdialog"/);
+  assert.doesNotMatch(journalSource, /className="journal-message"/);
+  assert.doesNotMatch(cssSource, /\.journal-message\s*\{/);
+});
+
 test('advanced review terminology and rewarded-ad ticket action are user-facing', () => {
   assert.doesNotMatch(journalSource, /심층/);
   assert.match(journalSource, /광고 보상 심화 복기 이용권/);
   assert.match(journalSource, /handleRewardedAdAdvancedTicket/);
   assert.match(journalSource, /광고 보고 심화 복기 이용권 받기/);
   assert.match(journalSource, /\/api\/journal\/ad-reward-claim/);
+  assert.match(journalSource, /테스트 광고는 실제 심화 복기 이용권을 지급하지 않습니다/);
   assert.match(journalSource, /\/privacy/);
 });
 

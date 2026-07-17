@@ -39,8 +39,25 @@ $oldAndroidHome = $env:ANDROID_HOME
 $oldAndroidSdkRoot = $env:ANDROID_SDK_ROOT
 $oldNpmUpdateNotifier = $env:npm_config_update_notifier
 $oldPath = $env:Path
+$debugAdValues = @{
+    VITE_ALPHAMATE_ENV = "development"
+    VITE_ENABLE_DEV_TOOLS = "false"
+    VITE_ADMOB_ANDROID_APP_ID = "ca-app-pub-3940256099942544~3347511713"
+    VITE_ADMOB_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917"
+    VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+    VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+    VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
+    VITE_ADMOB_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
+}
+$oldDebugAdValues = @{}
+foreach ($name in $debugAdValues.Keys) {
+    $oldDebugAdValues[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+}
 
 try {
+    foreach ($name in $debugAdValues.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $debugAdValues[$name], "Process")
+    }
     $env:JAVA_HOME = $javaHome
     $env:ANDROID_HOME = $androidHome
     $env:ANDROID_SDK_ROOT = $androidHome
@@ -84,4 +101,7 @@ finally {
     $env:ANDROID_SDK_ROOT = $oldAndroidSdkRoot
     $env:npm_config_update_notifier = $oldNpmUpdateNotifier
     $env:Path = $oldPath
+    foreach ($name in $debugAdValues.Keys) {
+        [Environment]::SetEnvironmentVariable($name, $oldDebugAdValues[$name], "Process")
+    }
 }

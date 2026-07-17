@@ -17,7 +17,7 @@ except ModuleNotFoundError:
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 SESSION_DAYS = 30
 SUPPORTED_PROVIDERS = {"kakao", "naver"}
-PRIVACY_CONSENT_VERSION = env_value("ALPHAMATE_PRIVACY_CONSENT_VERSION") or "ai-review-privacy-v1"
+PRIVACY_CONSENT_VERSION = env_value("ALPHAMATE_PRIVACY_CONSENT_VERSION") or "privacy-2026-07-18"
 ACCOUNT_FIELD_MAX_CHARS = 120
 _ACCOUNT_LOCK = threading.Lock()
 

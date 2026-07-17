@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import axios from 'axios';
-import { Clock3, Keyboard, Ticket, UserRound, X } from 'lucide-react';
+import { CircleAlert, Clock3, Keyboard, Ticket, UserRound, X } from 'lucide-react';
 import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
@@ -12,6 +12,7 @@ import { buildAiReviewIdempotencyKey } from '../utils/aiReviewIdempotency';
 import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
+import { toKoreanUserMessage } from '../utils/userMessage';
 
 const sideLabels = { buy: '매수', sell: '매도' };
 const DEFAULT_FEE_RATE = '0.015';
@@ -186,7 +187,7 @@ export default function TradingJournal({
   const [productCatalog, setProductCatalog] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [directTimeEntry, setDirectTimeEntry] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setRawMessage] = useState('');
   const [reviewAccessDialog, setReviewAccessDialog] = useState(null);
   const [loading, setLoading] = useState(false);
   const [aiConsentAccepted, setAiConsentAccepted] = useState(false);
@@ -209,9 +210,20 @@ export default function TradingJournal({
   const suppressStockSearchRef = useRef(false);
   const reviewHistoryAdShownRef = useRef(false);
   const entitlementSectionRef = useRef(null);
+  const setMessage = (value) => setRawMessage(toKoreanUserMessage(value));
 
   useEffect(() => {
     const handleBackRequest = (event) => {
+      if (message) {
+        event.detail.handled = true;
+        setRawMessage('');
+        return;
+      }
+      if (reviewAccessDialog) {
+        event.detail.handled = true;
+        setReviewAccessDialog(null);
+        return;
+      }
       if (accountPanelOpen) {
         event.detail.handled = true;
         onCloseAccountPanel?.();
@@ -227,7 +239,7 @@ export default function TradingJournal({
     };
     window.addEventListener(APP_BACK_REQUEST_EVENT, handleBackRequest);
     return () => window.removeEventListener(APP_BACK_REQUEST_EVENT, handleBackRequest);
-  }, [accountPanelOpen, activeReviewHistory, journalSubView, onCloseAccountPanel]);
+  }, [accountPanelOpen, activeReviewHistory, journalSubView, message, onCloseAccountPanel, reviewAccessDialog]);
   const handledOAuthReturnUrlRef = useRef('');
 
   const activeAuthToken = authSession?.session_token || DEV_AUTH_TOKEN;
@@ -953,6 +965,10 @@ export default function TradingJournal({
         userId: authSession.user.id,
         purpose: 'advanced_ticket_progress',
       });
+      if (mobileAdStatus.usingTestAdUnit) {
+        setMessage('테스트 광고 재생을 확인했습니다. 테스트 광고는 실제 심화 복기 이용권을 지급하지 않습니다. 실제 AdMob 보상형 광고와 서버 보상 확인을 연결한 운영 앱에서 이용권이 지급됩니다.');
+        return;
+      }
       let claimed = null;
       for (let attempt = 0; attempt < 3 && !claimed; attempt += 1) {
         await new Promise(resolve => setTimeout(resolve, 1600));
@@ -1570,7 +1586,22 @@ export default function TradingJournal({
         <div><span>승률</span><strong>{summary.win_rate_pct || 0}%</strong></div>
       </div>
 
-      {message && <div className="journal-message">{message}</div>}
+      {message && (
+        <div className="journal-notice-backdrop" role="presentation" onClick={() => setRawMessage('')}>
+          <section
+            className="journal-notice-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="journal-notice-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="journal-notice-icon" aria-hidden="true"><CircleAlert size={22} /></div>
+            <h3 id="journal-notice-title">안내</h3>
+            <p>{message}</p>
+            <button type="button" onClick={() => setRawMessage('')}>확인</button>
+          </section>
+        </div>
+      )}
 
       {reviewAccessDialog === 'advanced' && (
         <div className="journal-access-backdrop" role="presentation" onClick={() => setReviewAccessDialog(null)}>

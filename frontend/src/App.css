@@ -836,15 +836,7 @@ body {
   font-size: 18px;
 }
 
-.journal-message {
-  background: #1a2345;
-  color: #dbe6ff;
-  border: 1px solid #2962ff66;
-  border-radius: 6px;
-  padding: 9px 12px;
-  font-size: 12px;
-}
-
+.journal-notice-backdrop,
 .journal-access-backdrop {
   position: fixed;
   inset: 0;
@@ -856,6 +848,7 @@ body {
   background: rgba(3, 6, 14, 0.8);
 }
 
+.journal-notice-dialog,
 .journal-access-dialog {
   box-sizing: border-box;
   width: min(100%, 360px);
@@ -866,6 +859,7 @@ body {
   box-shadow: 0 20px 54px rgba(0, 0, 0, 0.56);
 }
 
+.journal-notice-icon,
 .journal-access-icon {
   display: grid;
   width: 40px;
@@ -878,17 +872,30 @@ body {
   color: #81aaff;
 }
 
+.journal-notice-dialog h3,
 .journal-access-dialog h3 {
   margin: 0;
   color: #f5f7fb;
   font-size: 18px;
 }
 
+.journal-notice-dialog p,
 .journal-access-dialog p {
   margin: 10px 0 20px;
   color: #aeb6c8;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.journal-notice-dialog button {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #366df0;
+  border-radius: 5px;
+  background: #2962ff;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 .journal-access-actions {

@@ -217,6 +217,8 @@ Set-Location $projectRoot
 
 `ALPHAMATE_PRIVACY_POLICY_URL`은 Play Store에 등록할 공개 HTTPS 개인정보처리방침 주소입니다. 실제 배포 전에는 앱 안의 `개인정보/AI 이용 안내` 문구와 이 URL의 정책 문서 내용이 서로 어긋나지 않는지 확인합니다.
 
+운영 배포 전에는 `ALPHAMATE_PRIVACY_OPERATOR_NAME`과 `ALPHAMATE_PRIVACY_CONTACT_EMAIL`에 실제 공개 가능한 운영자명과 작동하는 문의 이메일을 넣습니다. `/privacy`와 `/account-deletion`을 휴대폰 브라우저에서 열어 정책, 연락처, 앱을 사용할 수 없을 때의 계정 삭제 방법이 표시되는지 확인합니다.
+
 운영용 환경변수를 별도 파일에 둘 경우 `ALPHAMATE_ENV_FILE=D:\secure\alphamate-backend.env`처럼 지정한 뒤 같은 명령을 실행할 수 있습니다.
 
 운영 장애 확인용 로그는 `ALPHAMATE_EVENT_LOG_DB_PATH`에 지정한 SQLite DB의 `operational_events` 테이블에 저장됩니다. 로컬 개발 기본값은 `backend/data/event_log.sqlite3`입니다. 실패한 `/api/...` 요청의 method, path, status code, 사용자 ID, 메시지를 확인할 수 있고, token/secret/password/private key처럼 비밀값으로 보이는 필드는 저장 전에 가려집니다.
