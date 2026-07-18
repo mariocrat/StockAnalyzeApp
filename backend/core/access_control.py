@@ -614,11 +614,26 @@ def _verify_admob_ssv_signature(raw_query: str) -> dict:
     return params
 
 
+def _admob_ad_unit_matches(expected: str, received: str) -> bool:
+    expected_text = str(expected or "").strip()
+    received_text = str(received or "").strip()
+    if not expected_text or not received_text:
+        return False
+    if expected_text == received_text:
+        return True
+
+    # AdMob SSV sends the signed numeric ad-unit identifier, while the app
+    # configuration normally stores the full ca-app-pub-.../... value.
+    if "/" in expected_text:
+        return expected_text.rsplit("/", 1)[-1] == received_text.rsplit("/", 1)[-1]
+    return False
+
+
 def record_admob_ssv_reward(raw_query: str) -> dict:
     params = _verify_admob_ssv_signature(raw_query)
     expected_ad_unit = _env_value("ADMOB_REWARDED_AD_UNIT_ID")
     ad_unit = str(params.get("ad_unit") or "")
-    if expected_ad_unit and ad_unit != expected_ad_unit:
+    if expected_ad_unit and not _admob_ad_unit_matches(expected_ad_unit, ad_unit):
         raise HTTPException(status_code=403, detail="AdMob rewarded ad unit does not match server configuration.")
 
     transaction_id = _short_text(params.get("transaction_id"), limit=ADMOB_SSV_FIELD_MAX_CHARS)

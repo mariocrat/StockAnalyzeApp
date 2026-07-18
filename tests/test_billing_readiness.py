@@ -1246,6 +1246,28 @@ class BillingReadinessTest(unittest.TestCase):
 
             self.assertEqual(403, raised.exception.status_code)
 
+    def test_admob_ssv_accepts_signed_numeric_ad_unit_identifier(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ADMOB_REWARDED_AD_UNIT_ID="ca-app-pub-1234567890123456/9876543210",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_admob_ssv_signature = lambda raw_query: {
+                "transaction_id": "ad-tx-numeric-unit",
+                "user_id": "dev-user",
+                "ad_unit": "9876543210",
+                "reward_amount": "1",
+                "reward_item": "AI_REVIEW",
+                "custom_data": "advanced_ticket_progress",
+            }
+
+            result = access_control.record_admob_ssv_reward("transaction_id=ad-tx-numeric-unit")
+
+            self.assertEqual("recorded", result["status"])
+
     def test_pending_admob_reward_is_consumed_for_basic_review(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="development",
