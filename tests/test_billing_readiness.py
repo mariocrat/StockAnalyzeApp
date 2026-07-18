@@ -1268,6 +1268,33 @@ class BillingReadinessTest(unittest.TestCase):
 
             self.assertEqual("recorded", result["status"])
 
+    def test_admob_ssv_accepts_console_verification_probe_without_recording_reward(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ADMOB_REWARDED_AD_UNIT_ID="ca-app-pub-1234567890123456/9876543210",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_admob_ssv_signature = lambda raw_query: {
+                "transaction_id": "123456789",
+                "user_id": "admob-setup-test",
+                "ad_unit": "1234567890",
+                "reward_amount": "1",
+                "reward_item": "AI_REVIEW",
+                "custom_data": "advanced_ticket_progress",
+            }
+
+            result = access_control.record_admob_ssv_reward("transaction_id=123456789")
+
+            self.assertEqual({"ok": True, "status": "verification_probe"}, result)
+            conn = access_control._connect_access_db()
+            try:
+                self.assertEqual(0, conn.execute("SELECT COUNT(*) FROM admob_reward_events").fetchone()[0])
+            finally:
+                conn.close()
+
     def test_pending_admob_reward_is_consumed_for_basic_review(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="development",

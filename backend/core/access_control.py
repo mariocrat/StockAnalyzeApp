@@ -53,6 +53,8 @@ RTDN_SHARED_TOKEN_MIN_LENGTH = 32
 ADMOB_SSV_FIELD_MAX_CHARS = 120
 ADMOB_SSV_CUSTOM_DATA_MAX_CHARS = 500
 ADMOB_PLACEHOLDER_AD_UNIT = "ca-app-pub-0000000000000000/0000000000"
+ADMOB_SSV_VERIFICATION_AD_UNIT = "1234567890"
+ADMOB_SSV_VERIFICATION_TRANSACTION_ID = "123456789"
 GOOGLE_PLAY_FIELD_MAX_CHARS = 120
 PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
 PLACEHOLDER_EMAIL_PARTS = ("your-project", "example.com")
@@ -629,8 +631,18 @@ def _admob_ad_unit_matches(expected: str, received: str) -> bool:
     return False
 
 
+def _is_admob_ssv_verification_probe(params: dict) -> bool:
+    return (
+        str(params.get("ad_unit") or "").strip() == ADMOB_SSV_VERIFICATION_AD_UNIT
+        and str(params.get("transaction_id") or "").strip() == ADMOB_SSV_VERIFICATION_TRANSACTION_ID
+    )
+
+
 def record_admob_ssv_reward(raw_query: str) -> dict:
     params = _verify_admob_ssv_signature(raw_query)
+    if _is_admob_ssv_verification_probe(params):
+        return {"ok": True, "status": "verification_probe"}
+
     expected_ad_unit = _env_value("ADMOB_REWARDED_AD_UNIT_ID")
     ad_unit = str(params.get("ad_unit") or "")
     if expected_ad_unit and not _admob_ad_unit_matches(expected_ad_unit, ad_unit):
