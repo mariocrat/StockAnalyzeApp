@@ -8,7 +8,7 @@ import sqlite3
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import parse_qsl
+from urllib.parse import parse_qsl, unquote
 
 from fastapi import HTTPException
 
@@ -580,7 +580,7 @@ def _admob_content_to_verify(raw_query: str) -> bytes:
     end_index = index - 1 if index > 0 and query[index - 1] == "&" else index
     if end_index <= 0:
         raise HTTPException(status_code=400, detail="AdMob SSV signed content is required.")
-    return query[:end_index].encode("utf-8")
+    return unquote(query[:end_index]).encode("utf-8")
 
 
 def _verify_admob_ssv_signature(raw_query: str) -> dict:

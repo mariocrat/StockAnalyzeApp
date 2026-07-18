@@ -1345,6 +1345,19 @@ class BillingReadinessTest(unittest.TestCase):
 
             self.assertEqual(400, raised.exception.status_code)
 
+    def test_admob_ssv_signature_content_decodes_percent_encoded_reward_text(self):
+        from backend.core import access_control
+
+        content = access_control._admob_content_to_verify(
+            "ad_unit=1234567890&reward_item=%EA%B4%91%EA%B3%A0%20%EC%8B%9C%EC%B2%AD"
+            "&custom_data=a+b&signature=test&key_id=1"
+        )
+
+        self.assertEqual(
+            "ad_unit=1234567890&reward_item=광고 시청&custom_data=a+b".encode("utf-8"),
+            content,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
