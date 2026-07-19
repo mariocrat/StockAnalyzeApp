@@ -63,6 +63,32 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("assembleDebug", script)
         self.assertIn("app-debug.apk", script)
 
+    def test_admob_qa_batch_runs_registered_device_qa_script(self):
+        batch = (ROOT / "verify_android_admob_qa.bat").read_text(encoding="utf-8")
+
+        self.assertIn("scripts\\verify_android_admob_qa.ps1", batch)
+        self.assertIn("ExecutionPolicy Bypass", batch)
+        self.assertTrue(batch.isascii())
+        self.assertIn("Android AdMob QA APK build passed.", batch)
+        self.assertIn("ALPHAMATE_NO_PAUSE", batch)
+        self.assertIn("if errorlevel 1", batch)
+
+    def test_admob_qa_script_uses_real_rewarded_unit_and_demo_secondary_placements(self):
+        script = (ROOT / "scripts" / "verify_android_admob_qa.ps1").read_text(encoding="utf-8")
+
+        self.assertIn('"VITE_ADMOB_ANDROID_APP_ID"', script)
+        self.assertIn('"VITE_ADMOB_REWARDED_AD_UNIT_ID"', script)
+        self.assertIn("real AlphaMate app and rewarded ad unit IDs", script)
+        self.assertIn('$googleDemoPublisher = "3940256099942544"', script)
+        self.assertIn('$placeholderPublisher = "0000000000000000"', script)
+        self.assertIn('VITE_ALPHAMATE_ENV = "development"', script)
+        self.assertIn('VITE_ENABLE_DEV_TOOLS = "false"', script)
+        self.assertIn("ca-app-pub-3940256099942544/1033173712", script)
+        self.assertIn("ca-app-pub-3940256099942544/6300978111", script)
+        self.assertIn("clean assembleDebug --rerun-tasks", script)
+        self.assertIn("alphamate-admob-qa.apk", script)
+        self.assertIn("Get-FileHash -Algorithm SHA256", script)
+
     def test_debug_apk_scripts_use_google_demo_ads_instead_of_placeholder_publishers(self):
         expected_ids = (
             "ca-app-pub-3940256099942544~3347511713",

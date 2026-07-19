@@ -1,5 +1,12 @@
 # AlphaMate Development History
 
+## 2026-07-19 registered-device AdMob QA build
+
+- Added a dedicated QA APK build that reads the real public AdMob app and rewarded-unit IDs from the ignored release environment file without committing either value.
+- Kept banner and interstitial placements on Google's demo units until separate production units are created.
+- Added validation that rejects placeholder or Google demo rewarded IDs, scans the web bundle for backend secrets, and writes a separately named APK with a SHA-256 checksum.
+- Documented the registered-test-device flow for validating rewarded ads, AdMob SSV, and weekly advanced-review ticket issuance end to end.
+
 ## 2026-07-17 advanced review naming, ad reward, and privacy page
 
 - Standardized every user-facing advanced-review label as `심화 복기` and `심화 복기 이용권` while retaining the internal `advanced` type for database and billing compatibility.
