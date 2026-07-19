@@ -15,19 +15,23 @@ const trades = [
   },
 ];
 
-test('builds the same AI review idempotency key for equivalent retry payloads in the same time bucket', () => {
-  const first = buildAiReviewIdempotencyKey({ trades, reviewType: 'basic', nowMs: 60_001 });
-  const second = buildAiReviewIdempotencyKey({ trades: [{ ...trades[0] }], reviewType: 'basic', nowMs: 119_999 });
+test('builds the same AI review idempotency key for an exact retry of one request', () => {
+  const first = buildAiReviewIdempotencyKey({ trades, reviewType: 'basic', requestNonce: 'request-1' });
+  const second = buildAiReviewIdempotencyKey({
+    trades: [{ ...trades[0] }],
+    reviewType: 'basic',
+    requestNonce: 'request-1',
+  });
 
   assert.equal(first, second);
   assert.match(first, /^ai-review-/);
 });
 
-test('changes AI review idempotency key when review type or time bucket changes', () => {
-  const basic = buildAiReviewIdempotencyKey({ trades, reviewType: 'basic', nowMs: 60_001 });
-  const advanced = buildAiReviewIdempotencyKey({ trades, reviewType: 'advanced', nowMs: 60_001 });
-  const later = buildAiReviewIdempotencyKey({ trades, reviewType: 'basic', nowMs: 120_000 });
+test('uses a new key for an intentional rerun while keeping review types separate', () => {
+  const basic = buildAiReviewIdempotencyKey({ trades, reviewType: 'basic', requestNonce: 'request-1' });
+  const advanced = buildAiReviewIdempotencyKey({ trades, reviewType: 'advanced', requestNonce: 'request-1' });
+  const rerun = buildAiReviewIdempotencyKey({ trades, reviewType: 'basic', requestNonce: 'request-2' });
 
   assert.notEqual(basic, advanced);
-  assert.notEqual(basic, later);
+  assert.notEqual(basic, rerun);
 });

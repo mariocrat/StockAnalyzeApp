@@ -163,6 +163,7 @@ class JournalAiReviewIn(JournalBatchIn):
     privacy_consent: bool = False
     review_type: str = "basic"
     target_trade_id: Optional[int] = None
+    analysis_focus: str = "balanced"
 
 
 class JournalDevPurchaseIn(BaseModel):
@@ -1609,7 +1610,11 @@ def get_journal_ai_review_once(
         if access.review_type == "advanced":
             result = build_advanced_ai_review(trades, target_trade_id=batch.target_trade_id)
         else:
-            result = build_basic_ai_review(trades, target_trade_id=batch.target_trade_id)
+            result = build_basic_ai_review(
+                trades,
+                target_trade_id=batch.target_trade_id,
+                analysis_focus=batch.analysis_focus,
+            )
     except Exception:
         _finish_ai_review_idempotency(idempotency_cache_key, None)
         if access is not None:

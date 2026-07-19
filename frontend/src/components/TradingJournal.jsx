@@ -24,6 +24,7 @@ const DEV_AD_REWARD_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_AD_REWA
 const DEV_ACCESS_PLAN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_ACCESS_PLAN || 'free' : 'free';
 const DEV_PRO_ENTITLEMENT_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_PRO_ENTITLEMENT_TOKEN || 'dev-pro-entitlement' : '';
 const DEV_ENTITLEMENT_TOKEN = DEV_ACCESS_PLAN === 'pro' ? DEV_PRO_ENTITLEMENT_TOKEN : '';
+const BASIC_REVIEW_FOCUSES = ['balanced', 'entry_timing', 'exit_timing', 'risk_control'];
 const AUTH_STORAGE_KEY = 'alphamate.devAuth.v1';
 const OAUTH_STATE_KEY = 'alphamate.oauthState.v1';
 const KAKAO_REST_API_KEY = import.meta.env.VITE_KAKAO_REST_API_KEY || '';
@@ -210,6 +211,8 @@ export default function TradingJournal({
   const suppressStockSearchRef = useRef(false);
   const reviewHistoryAdShownRef = useRef(false);
   const entitlementSectionRef = useRef(null);
+  const aiReviewInFlightRef = useRef(false);
+  const basicReviewFocusIndexRef = useRef(0);
   const setMessage = (value) => setRawMessage(toKoreanUserMessage(value));
 
   useEffect(() => {
@@ -831,9 +834,15 @@ export default function TradingJournal({
       setMessage('AI 분석 전 개인정보 및 매매 기록 전송 동의가 필요합니다.');
       return;
     }
+    if (aiReviewInFlightRef.current) return;
 
+    aiReviewInFlightRef.current = true;
     setAiLoading(true);
     try {
+      const analysisFocus = reviewType === 'basic'
+        ? BASIC_REVIEW_FOCUSES[basicReviewFocusIndexRef.current % BASIC_REVIEW_FOCUSES.length]
+        : '';
+      if (reviewType === 'basic') basicReviewFocusIndexRef.current += 1;
       const idempotencyKey = buildAiReviewIdempotencyKey({
         trades: nextTrades,
         reviewType,
@@ -847,6 +856,8 @@ export default function TradingJournal({
           ad_reward_token: options.adRewardToken ?? (DEV_TOOLS_ENABLED && reviewType === 'basic' && DEV_ACCESS_PLAN !== 'pro' ? DEV_AD_REWARD_TOKEN : ''),
           entitlement_token: DEV_ENTITLEMENT_TOKEN,
           privacy_consent: aiConsentAccepted,
+          target_trade_id: options.targetTradeId || null,
+          analysis_focus: analysisFocus,
         },
         { headers: { ...authHeaders, 'X-Idempotency-Key': idempotencyKey } },
       );
@@ -875,6 +886,7 @@ export default function TradingJournal({
         chart_reviews: [],
       });
     } finally {
+      aiReviewInFlightRef.current = false;
       setAiLoading(false);
     }
   };

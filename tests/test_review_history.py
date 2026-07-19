@@ -154,7 +154,7 @@ class ReviewHistoryStoreTest(unittest.TestCase):
             account_store = importlib.reload(importlib.import_module("core.account_store"))
             review_history = importlib.reload(importlib.import_module("core.review_history"))
             main = importlib.reload(importlib.import_module("main"))
-            main.build_basic_ai_review = lambda trades, target_trade_id=None: {
+            main.build_basic_ai_review = lambda trades, target_trade_id=None, analysis_focus="balanced": {
                 "status": "ready",
                 "source": "openai",
                 "review_type": "basic",
@@ -200,7 +200,7 @@ class ReviewHistoryStoreTest(unittest.TestCase):
 
             account_store = importlib.reload(importlib.import_module("core.account_store"))
             main = importlib.reload(importlib.import_module("main"))
-            main.build_basic_ai_review = lambda trades, target_trade_id=None: {
+            main.build_basic_ai_review = lambda trades, target_trade_id=None, analysis_focus="balanced": {
                 "status": "ready",
                 "source": "openai",
                 "review_type": "basic",

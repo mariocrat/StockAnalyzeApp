@@ -93,7 +93,7 @@ class AiReviewSafetyTest(unittest.TestCase):
     def test_ai_review_rate_limit_rejects_repeated_user_requests(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             main, _, token = _load_main_with_temp_state(tmpdir)
-            main.build_basic_ai_review = lambda trades, target_trade_id=None: {
+            main.build_basic_ai_review = lambda trades, target_trade_id=None, analysis_focus="balanced": {
                 "status": "ready",
                 "source": "openai",
                 "review_type": "basic",
@@ -140,7 +140,7 @@ class AiReviewSafetyTest(unittest.TestCase):
     def test_ai_review_error_refunds_consumed_basic_credit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             main, access_control, token = _load_main_with_temp_state(tmpdir)
-            main.build_basic_ai_review = lambda trades, target_trade_id=None: {
+            main.build_basic_ai_review = lambda trades, target_trade_id=None, analysis_focus="balanced": {
                 "status": "error",
                 "source": "chart-rules",
                 "review_type": "basic",
@@ -180,7 +180,7 @@ class AiReviewSafetyTest(unittest.TestCase):
             main, access_control, token = _load_main_with_temp_state(tmpdir)
             calls = {"count": 0}
 
-            def fake_basic_review(trades, target_trade_id=None):
+            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced"):
                 calls["count"] += 1
                 return {
                     "status": "ready",
@@ -210,7 +210,7 @@ class AiReviewSafetyTest(unittest.TestCase):
             main, access_control, token = _load_main_with_temp_state(tmpdir)
             calls = {"count": 0}
 
-            def fake_basic_review(trades, target_trade_id=None):
+            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced"):
                 calls["count"] += 1
                 return {
                     "status": "ready",

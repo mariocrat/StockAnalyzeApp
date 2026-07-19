@@ -17,13 +17,23 @@ function hashText(text) {
   return (hash >>> 0).toString(36);
 }
 
-export function buildAiReviewIdempotencyKey({ trades, reviewType, targetTradeId = '', nowMs = Date.now() }) {
-  const minuteBucket = Math.floor(Number(nowMs || 0) / 60_000);
+export function createAiReviewRequestNonce(nowMs = Date.now()) {
+  const randomUuid = globalThis.crypto?.randomUUID?.();
+  if (randomUuid) return randomUuid;
+  return `${Number(nowMs || 0)}-${Math.random().toString(36).slice(2)}`;
+}
+
+export function buildAiReviewIdempotencyKey({
+  trades,
+  reviewType,
+  targetTradeId = '',
+  requestNonce = createAiReviewRequestNonce(),
+}) {
   const payload = stableStringify({
     reviewType: reviewType || 'basic',
     targetTradeId: targetTradeId || '',
     trades: trades || [],
-    minuteBucket,
+    requestNonce,
   });
-  return `ai-review-${minuteBucket}-${hashText(payload)}`;
+  return `ai-review-${hashText(payload)}-${hashText(String(requestNonce))}`;
 }

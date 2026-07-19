@@ -15,6 +15,12 @@ OPENAI_TIMEOUT_MAX_SECONDS = 90
 OPENAI_MAX_RETRIES_LIMIT = 3
 OPENAI_RETRY_BACKOFF_MAX_SECONDS = 5.0
 OPENAI_MAX_OUTPUT_TOKENS_LIMIT = 10_000
+BASIC_REVIEW_FOCUS_LABELS = {
+    "balanced": "매수 시점, 매도 시점, 위험 관리를 균형 있게 점검",
+    "entry_timing": "매수 직후 5개 봉과 진입 위치를 우선 점검",
+    "exit_timing": "매도 뒤 5개 봉과 청산 효율을 우선 점검",
+    "risk_control": "분할 체결, 평균 체결가, 손실 제한 기준을 우선 점검",
+}
 
 
 def _env_int(name: str, default: int, minimum: int, maximum: int | None = None) -> int:
@@ -283,6 +289,118 @@ def _weighted_average(trades: list[dict], side: str) -> float | None:
     return sum(float(row.get("price") or 0) * float(row.get("quantity") or 0) for row in rows) / total_quantity
 
 
+def _safe_float(value) -> float | None:
+    try:
+        return float(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_basic_review_focus(value: str | None) -> str:
+    focus = str(value or "").strip().lower()
+    return focus if focus in BASIC_REVIEW_FOCUS_LABELS else "balanced"
+
+
+def _observation_for_side(trades: list[dict], chart_snapshot: dict, side: str) -> dict:
+    trade_ids = {
+        str(row.get("id"))
+        for row in trades
+        if row.get("side") == side and row.get("id") is not None
+    }
+    observations = chart_snapshot.get("rule_based_observations") or []
+    for observation in reversed(observations):
+        if str(observation.get("trade_id")) in trade_ids:
+            return observation
+    return {}
+
+
+def _basic_evaluation_anchor(trades: list[dict], chart_snapshot: dict) -> dict:
+    review = build_review(trades)
+    summary = review.get("summary") or {}
+    buy_average = _weighted_average(trades, "buy")
+    sell_average = _weighted_average(trades, "sell")
+    pnl = float(summary.get("realized_pnl") or 0)
+    return_pct = float(summary.get("realized_return_pct") or 0)
+    trade_by_id = {str(row.get("id")): row for row in trades if row.get("id") is not None}
+    execution_evidence = []
+    for observation in chart_snapshot.get("rule_based_observations") or []:
+        trade = trade_by_id.get(str(observation.get("trade_id"))) or {}
+        metrics = observation.get("metrics") or {}
+        execution_evidence.append({
+            "trade_id": observation.get("trade_id"),
+            "side": trade.get("side") or "unknown",
+            "trade_date": trade.get("trade_date"),
+            "trade_price": trade.get("price"),
+            "rule_grade": observation.get("title"),
+            "rule_detail": observation.get("detail"),
+            "price_vs_candle_close_pct": _safe_float(metrics.get("price_vs_close_pct")),
+            "after_5_bars_pct": _safe_float(metrics.get("after_5_bars")),
+            "after_later_bars_pct": _safe_float(metrics.get("after_later_bars")),
+            "ma5": _safe_float(metrics.get("ma5")),
+            "ma20": _safe_float(metrics.get("ma20")),
+        })
+
+    if buy_average is None or sell_average is None:
+        outcome_direction = "open_or_incomplete"
+    elif pnl > 0:
+        outcome_direction = "profit"
+    elif pnl < 0:
+        outcome_direction = "loss"
+    else:
+        outcome_direction = "flat"
+
+    return {
+        "symbol": {
+            "ticker": str((trades[-1] if trades else {}).get("ticker") or ""),
+            "name": str((trades[-1] if trades else {}).get("name") or ""),
+        },
+        "outcome": {
+            "direction": outcome_direction,
+            "realized_pnl": pnl,
+            "realized_return_pct": return_pct,
+            "weighted_buy_price": buy_average,
+            "weighted_sell_price": sell_average,
+            "buy_fill_count": sum(1 for row in trades if row.get("side") == "buy"),
+            "sell_fill_count": sum(1 for row in trades if row.get("side") == "sell"),
+        },
+        "execution_evidence": execution_evidence,
+    }
+
+
+def _basic_checklist_items(trades: list[dict], chart_snapshot: dict) -> list[str]:
+    buy_average = _weighted_average(trades, "buy")
+    sell_average = _weighted_average(trades, "sell")
+    buy_count = sum(1 for row in trades if row.get("side") == "buy")
+    buy_observation = _observation_for_side(trades, chart_snapshot, "buy")
+    sell_observation = _observation_for_side(trades, chart_snapshot, "sell")
+    buy_after_five = _safe_float((buy_observation.get("metrics") or {}).get("after_5_bars"))
+    sell_after_five = _safe_float((sell_observation.get("metrics") or {}).get("after_5_bars"))
+
+    if buy_average is not None:
+        first = f"평균 매수가 {buy_average:,.0f}원을 기준으로 무효화 가격과 허용 손실액을 체결 전에 함께 적기"
+    else:
+        first = "첫 체결 전에 무효화 가격과 허용 손실액을 숫자로 함께 적기"
+
+    if buy_after_five is not None:
+        second = (
+            f"이번 매수 뒤 5개 봉 수익률 {buy_after_five:+.2f}%를 기준으로 "
+            "5번째 봉에서 가설 유지 또는 철회 여부를 기록하기"
+        )
+    else:
+        second = f"이번 {max(1, buy_count)}회 매수 체결마다 분할 진입 목적과 중단 조건을 한 줄씩 남기기"
+
+    if sell_average is not None and sell_after_five is not None:
+        third = (
+            f"평균 매도가 {sell_average:,.0f}원 이후 5개 봉 수익률 {sell_after_five:+.2f}%를 "
+            "다음 복기에서도 같은 기준으로 비교하기"
+        )
+    elif sell_average is not None:
+        third = f"평균 매도가 {sell_average:,.0f}원 뒤 같은 시간 단위의 5개 봉 흐름을 확인해 청산 효율을 비교하기"
+    else:
+        third = "매도 체결 전 일부 청산과 전량 청산 조건을 각각 숫자로 정하기"
+    return [first, second, third]
+
+
 def _fallback_basic_text(trades: list[dict], chart_snapshot: dict) -> str:
     target = trades[-1]
     name = target.get("name") or target.get("ticker") or "선택 종목"
@@ -292,9 +410,9 @@ def _fallback_basic_text(trades: list[dict], chart_snapshot: dict) -> str:
     return_pct = float(summary.get("realized_return_pct") or 0)
     buy_avg = _weighted_average(trades, "buy")
     sell_avg = _weighted_average(trades, "sell")
-    observations = chart_snapshot.get("rule_based_observations") or []
-    buy_observation = next((row.get("detail") for row in observations if "매수" in str(row.get("title"))), "")
-    sell_observation = next((row.get("detail") for row in observations if "매도" in str(row.get("title"))), "")
+    buy_observation = _observation_for_side(trades, chart_snapshot, "buy").get("detail") or ""
+    sell_observation = _observation_for_side(trades, chart_snapshot, "sell").get("detail") or ""
+    checklist = _basic_checklist_items(trades, chart_snapshot)
 
     if buy_avg is not None and sell_avg is not None:
         verdict = f"{name} 매매는 평균 {buy_avg:,.0f}원 매수, {sell_avg:,.0f}원 매도로 실현손익 {pnl:+,.0f}원({return_pct:+.2f}%)입니다."
@@ -312,7 +430,7 @@ def _fallback_basic_text(trades: list[dict], chart_snapshot: dict) -> str:
         f"총평: {verdict}\n"
         f"잘한 점: {good}\n"
         f"아쉬운 점: {weak}\n"
-        "다음 체크리스트: 1) 매수 전 무효화 가격을 먼저 정하기 2) 첫 체결 후 3~5개 봉의 반응을 확인하고 추가 매수 결정하기 3) 매도 후 같은 시간대 주가 흐름과 비교해 너무 이른 매도인지 확인하기"
+        f"다음 체크리스트: 1) {checklist[0]} 2) {checklist[1]} 3) {checklist[2]}"
     )
 
 
@@ -339,7 +457,7 @@ def _fallback_advanced_text(trades: list[dict], chart_snapshots: list[dict]) -> 
     )
 
 
-def build_basic_ai_review(trades: list[dict], target_trade_id=None) -> dict:
+def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_focus: str = "balanced") -> dict:
     target = _target_trade(trades, target_trade_id)
     if not target:
         return {"status": "empty", "source": "none", "review_type": "basic", "summary": "매매 기록을 먼저 입력하세요."}
@@ -347,11 +465,24 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None) -> dict:
     episode = _trade_episode(trades, target)
     chart_snapshot = _compact_chart_snapshot(episode)
     contexts = [] if chart_snapshot else _contexts_for_trades(episode)
+    focus = _normalize_basic_review_focus(analysis_focus)
+    evaluation_anchor = _basic_evaluation_anchor(episode, chart_snapshot)
     payload = {
         "review_type": "basic",
+        "analysis_version": "basic-review-v2",
+        "analysis_focus": {
+            "key": focus,
+            "priority": BASIC_REVIEW_FOCUS_LABELS[focus],
+        },
         "trade_episode": episode,
         "daily_chart_contexts": contexts,
         "trade_chart_snapshot": chart_snapshot,
+        "evaluation_anchor": evaluation_anchor,
+        "consistency_policy": {
+            "stable_dimensions": ["매수 시점", "매도 시점", "위험 관리", "실현 결과"],
+            "rule": "동일한 evaluation_anchor라면 평가 방향과 근거가 서로 모순되면 안 된다.",
+            "focus_rule": "analysis_focus는 강조 근거만 바꾸며 잘함과 아쉬움의 판정을 뒤집지 않는다.",
+        },
         "output_contract": {
             "format": "plain text",
             "sections": ["총평 1줄", "잘한 점 1줄", "아쉬운 점 1줄", "다음 체크리스트 3개"],
@@ -360,11 +491,17 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None) -> dict:
     }
     model = _env_value("OPENAI_BASIC_REVIEW_MODEL") or _env_value("OPENAI_MODEL") or "gpt-5.4-mini"
     instructions = (
-        "너는 한국 주식 매매 복기 코치다. 같은 종목의 여러 분할 체결은 하나의 매매 에피소드로 묶어 평가한다. "
-        "trade_chart_snapshot의 실제 봉, 매수·매도 마커, 평균 체결가, 실현손익을 우선 근거로 사용한다. "
-        "메모가 없어도 가격과 차트만으로 매수 시점, 매도 시점, 대응을 평가한다. 기록을 남겼다는 사실 자체를 잘한 점으로 쓰지 말고, "
-        "메모가 없다는 이유만으로 핵심 평가를 회피하지 않는다. 반드시 서로 다른 숫자 근거를 2개 이상 포함한다. "
-        "투자 추천이나 매수·매도 지시는 하지 않는다. 반드시 총평 1줄, 잘한 점 1줄, 아쉬운 점 1줄, 다음 체크리스트 3개로만 짧고 구체적으로 답한다."
+        "<role>너는 한국 주식 매매 복기 코치다. 같은 종목의 여러 분할 체결은 하나의 매매 에피소드로 평가한다.</role>\n"
+        "<evidence_rules>evaluation_anchor와 trade_chart_snapshot의 실제 봉, 매수·매도 마커, 평균 체결가, "
+        "실현손익을 우선 근거로 사용한다. 메모가 없어도 가격과 차트로 평가하고, 기록을 남긴 사실 자체를 칭찬하지 않는다. "
+        "서로 다른 숫자 근거를 2개 이상 포함하며 근거가 없으면 추측하지 않는다.</evidence_rules>\n"
+        "<consistency_rules>동일한 evaluation_anchor에는 매수 시점, 매도 시점, 위험 관리의 평가 방향을 동일하게 유지한다. "
+        "analysis_focus는 이번 답변에서 우선 설명할 관점일 뿐 잘함과 아쉬움의 판정을 뒤집는 근거가 아니다. "
+        "표현을 새롭게 보이게 하려고 결론을 바꾸거나 모순되는 평가를 만들지 않는다.</consistency_rules>\n"
+        "<quality_rules>잘한 점을 억지로 만들지 말고, 확인된 강점이 없으면 그렇게 쓴다. 아쉬운 점과 체크리스트는 이번 거래의 "
+        "가격, 수익률, 체결 횟수, 5개 봉 또는 이동평균 근거에 직접 연결한다. 어느 거래에도 붙일 수 있는 상투적인 문구만 쓰지 않는다.</quality_rules>\n"
+        "<output_contract>투자 추천이나 매수·매도 지시는 하지 않는다. 총평 1줄, 잘한 점 1줄, 아쉬운 점 1줄, "
+        "다음 체크리스트 3개로만 짧고 구체적으로 답한다.</output_contract>"
     )
     try:
         ai_text = _call_openai_review(payload, model=model, instructions=instructions)

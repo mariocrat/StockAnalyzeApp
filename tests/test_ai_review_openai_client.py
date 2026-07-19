@@ -381,5 +381,67 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.assertEqual(list(range(3, 13)), [trade["id"] for trade in advanced_history])
         self.assertEqual(12, captured["advanced"]["target_trade"]["id"])
 
+    def test_basic_review_anchors_verdict_and_changes_only_analysis_focus(self):
+        captured = {}
+        trades = [
+            {
+                "id": 1,
+                "trade_date": "2026-07-10T09:30",
+                "ticker": "087010",
+                "name": "Sample",
+                "side": "buy",
+                "price": 10000,
+                "quantity": 10,
+            },
+            {
+                "id": 2,
+                "trade_date": "2026-07-10T09:40",
+                "ticker": "087010",
+                "name": "Sample",
+                "side": "sell",
+                "price": 10500,
+                "quantity": 10,
+            },
+        ]
+        snapshot = {
+            "ticker": "087010",
+            "rule_based_observations": [
+                {
+                    "trade_id": 1,
+                    "title": "entry grade",
+                    "detail": "entry evidence",
+                    "metrics": {"after_5_bars": 1.25, "price_vs_close_pct": -0.2},
+                },
+                {
+                    "trade_id": 2,
+                    "title": "exit grade",
+                    "detail": "exit evidence",
+                    "metrics": {"after_5_bars": -0.8, "price_vs_close_pct": 0.1},
+                },
+            ],
+        }
+
+        def fake_call(payload, *, model, instructions):
+            captured["payload"] = payload
+            captured["instructions"] = instructions
+            return "ok"
+
+        self.ai_review_v2._compact_chart_snapshot = lambda rows: snapshot
+        self.ai_review_v2._call_openai_review = fake_call
+
+        result = self.ai_review_v2.build_basic_ai_review(
+            trades,
+            target_trade_id=2,
+            analysis_focus="exit_timing",
+        )
+
+        self.assertEqual("ready", result["status"])
+        self.assertEqual("exit_timing", captured["payload"]["analysis_focus"]["key"])
+        self.assertEqual("profit", captured["payload"]["evaluation_anchor"]["outcome"]["direction"])
+        self.assertEqual(2, len(captured["payload"]["evaluation_anchor"]["execution_evidence"]))
+        self.assertIn("<consistency_rules>", captured["instructions"])
+        self.assertIn("<quality_rules>", captured["instructions"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -78,3 +78,11 @@ test('mobile header uses a graphical wordmark and masks scrolling content', () =
 test('theme and chart divider follows the collapsible mobile sidebar', () => {
   assert.match(cssSource, /\.app-container\.themes-view \.sidebar \{[\s\S]*?border-bottom: 2px solid #44506a/);
 });
+
+test('general review reruns use a fresh request while rapid double taps stay locked', () => {
+  assert.match(journalSource, /BASIC_REVIEW_FOCUSES/);
+  assert.match(journalSource, /if \(aiReviewInFlightRef\.current\) return/);
+  assert.match(journalSource, /aiReviewInFlightRef\.current = true/);
+  assert.match(journalSource, /aiReviewInFlightRef\.current = false/);
+  assert.match(journalSource, /analysis_focus: analysisFocus/);
+});

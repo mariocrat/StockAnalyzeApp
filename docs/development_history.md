@@ -1,5 +1,12 @@
 # AlphaMate Development History
 
+## 2026-07-19 trade-specific general review consistency
+
+- Changed intentional general-review reruns to create a new analysis request instead of replaying the prior one-minute cached response, while retaining a synchronous in-flight lock against rapid duplicate taps and duplicate quota deductions.
+- Added a stable evaluation anchor for realized result, weighted execution prices, fill counts, and post-trade chart metrics so repeated reviews cannot arbitrarily reverse the same trade's assessment.
+- Rotated only the analysis emphasis across balanced, entry, exit, and risk-control views, keeping the underlying verdict direction fixed.
+- Replaced the fixed fallback checklist with trade-specific prices and five-bar outcomes and added regression coverage for request identity, evaluation consistency, and tailored fallback guidance.
+
 ## 2026-07-19 registered-device AdMob QA build
 
 - Added a dedicated QA APK build that reads the real public AdMob app and rewarded-unit IDs from the ignored release environment file without committing either value.

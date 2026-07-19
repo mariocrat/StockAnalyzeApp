@@ -35,6 +35,33 @@ class AiReviewQualityTest(unittest.TestCase):
         self.assertNotIn("복기 가능한 상태", text)
         self.assertNotIn("매매 이유를 함께 점검", text)
 
+    def test_fallback_checklist_uses_trade_specific_chart_metrics(self):
+        trades = [
+            {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "087010", "name": "Sample", "side": "buy", "price": 116900, "quantity": 10},
+            {"id": 2, "trade_date": "2026-07-10T09:34", "ticker": "087010", "name": "Sample", "side": "sell", "price": 115400, "quantity": 10},
+        ]
+        first_snapshot = {
+            "rule_based_observations": [
+                {"trade_id": 1, "detail": "entry evidence", "metrics": {"after_5_bars": -2.5}},
+                {"trade_id": 2, "detail": "exit evidence", "metrics": {"after_5_bars": 1.8}},
+            ],
+        }
+        second_snapshot = {
+            "rule_based_observations": [
+                {"trade_id": 1, "detail": "entry evidence", "metrics": {"after_5_bars": 3.25}},
+                {"trade_id": 2, "detail": "exit evidence", "metrics": {"after_5_bars": -0.75}},
+            ],
+        }
+
+        first = _fallback_basic_text(trades, first_snapshot)
+        second = _fallback_basic_text(trades, second_snapshot)
+
+        self.assertIn("-2.50%", first)
+        self.assertIn("+1.80%", first)
+        self.assertIn("+3.25%", second)
+        self.assertIn("-0.75%", second)
+        self.assertNotEqual(first, second)
+
 
 if __name__ == "__main__":
     unittest.main()
