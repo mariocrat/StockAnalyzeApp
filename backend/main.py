@@ -17,6 +17,7 @@ from core.data_fetcher import (
     get_cached_theme_returns,
     get_latest_cached_theme_returns,
     warm_theme_return_caches,
+    _clean_price_jumps,
 )
 from core.metrics import calculate_theme_rankings, get_stocks_in_theme
 from core.utils import get_chosung
@@ -30,6 +31,7 @@ from core.access_control import (
     handle_google_play_rtdn,
     get_product_catalog,
     get_user_entitlements,
+    get_rewarded_ad_status,
     claim_rewarded_ad_progress,
     record_admob_ssv_reward,
     refund_ai_review_access,
@@ -173,6 +175,11 @@ class JournalDevPurchaseIn(BaseModel):
 
 class JournalAdRewardClaimIn(BaseModel):
     ad_reward_token: str = ""
+    entitlement_token: str = ""
+
+
+class JournalAdRewardStatusIn(BaseModel):
+    purpose: str
     entitlement_token: str = ""
 
 
@@ -371,7 +378,9 @@ def _period_date_range(period: str):
     if period not in period_days:
         return None, None
     if period == "1D":
-        start_dt = _previous_weekday(base_date)
+        # A fixed calendar lookback survives holidays and still lets the
+        # calculator select the latest two actual trading closes.
+        start_dt = base_date - datetime.timedelta(days=14)
     else:
         start_dt = base_date - datetime.timedelta(days=period_days[period])
     return start_dt.strftime("%Y%m%d"), base_date.strftime("%Y%m%d")
@@ -379,7 +388,7 @@ def _period_date_range(period: str):
 
 def _fallback_span(period: str):
     return {
-        "1D": (None, 3),
+        "1D": (10, 20),
         "1W": (4, 10),
         "1M": (20, 45),
         "1Y": (300, 420),
@@ -991,7 +1000,7 @@ def _theme_cache_status_payload() -> dict:
     periods = {}
     for period in ("1D", "1W", "1M", "1Y"):
         start_date, end_date = _period_date_range(period)
-        cached = get_cached_theme_returns(start_date, end_date)
+        cached = get_cached_theme_returns(start_date, end_date, period=period)
         periods[period] = {
             "ready": not cached.empty,
             "start_date": start_date,
@@ -1098,13 +1107,14 @@ def get_themes(period: str = "1D", start_date: Optional[str] = None, end_date: O
 
     if start_date and end_date:
         if period in {"1D", "1W", "1M", "1Y"}:
-            df = get_cached_theme_returns(start_date, end_date)
+            df = get_cached_theme_returns(start_date, end_date, period=period)
             if df.empty:
                 span = _fallback_span(period)
                 fallback = pd.DataFrame()
                 if span:
                     min_span, max_span = span
                     fallback = get_latest_cached_theme_returns(
+                        period=period,
                         min_span_days=min_span,
                         max_span_days=max_span,
                     )
@@ -1121,7 +1131,7 @@ def get_themes(period: str = "1D", start_date: Optional[str] = None, end_date: O
                         status_code=503,
                         detail="최신 기간 수익률을 업데이트 중입니다. 잠시 후 자동으로 다시 확인합니다.",
                     )
-                df = get_theme_returns_historical(start_date, end_date)
+                df = get_theme_returns_historical(start_date, end_date, period=period)
         else:
             df = get_cached_theme_returns(start_date, end_date)
             if df.empty and env_value("ALPHAMATE_ENV").lower() == "production":
@@ -1521,6 +1531,20 @@ def post_journal_ad_reward_claim(
     )
 
 
+@app.post("/api/journal/ad-reward-status")
+def post_journal_ad_reward_status(
+    status: JournalAdRewardStatusIn,
+    request: Request,
+    authorization: Optional[str] = Header(default=None),
+):
+    _enforce_billing_rate_limit(authorization, _request_client_key(request))
+    return get_rewarded_ad_status(
+        authorization=authorization,
+        entitlement_token=status.entitlement_token,
+        purpose=status.purpose,
+    )
+
+
 @app.get("/api/journal/products")
 def get_journal_products():
     return get_product_catalog()
@@ -1690,20 +1714,8 @@ def get_stock_data(ticker: str, start_date: str, end_date: str, indicators: Opti
     if df.empty:
         return {"data": []}
 
-    # 2-b. Noise killer: Korean market daily limit is ±30%.
-    #      Rows where any of High/Low/Close moved >35% vs previous Close → ffill
-    _prev_close = df['Close'].shift(1)
-    _noise = (
-        (df['Close'].sub(_prev_close).div(_prev_close).abs() > 0.35) |
-        (df['High'].sub(_prev_close).div(_prev_close).abs()  > 0.35) |
-        (df['Low'].sub(_prev_close).div(_prev_close).abs()   > 0.35)
-    )
-    # First row has no previous close → never flag it as noise
-    _noise.iloc[0] = False
-    if _noise.any():
-        df.loc[_noise, ['Open', 'High', 'Low', 'Close']] = float('nan')
-        df = df.ffill()
-
+    # 2-b. Normalize stock split/consolidation gaps to the latest share basis.
+    df = _clean_price_jumps(df)
 
     # 3. Apply Resampling based on interval BEFORE calculating indicators
     if interval.lower() == '1w':

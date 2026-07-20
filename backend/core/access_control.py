@@ -1308,6 +1308,23 @@ def _consume_pending_admob_reward(user_id: str, *, custom_data: str = "") -> boo
         conn.close()
 
 
+def _has_pending_admob_reward(user_id: str, *, custom_data: str) -> bool:
+    conn = _connect_access_db()
+    try:
+        row = conn.execute(
+            """
+            SELECT 1
+            FROM admob_reward_events
+            WHERE user_id = ? AND status = 'pending' AND custom_data = ?
+            LIMIT 1
+            """,
+            (user_id, custom_data),
+        ).fetchone()
+        return row is not None
+    finally:
+        conn.close()
+
+
 def _consume_ad_reward(user_id: str, ad_reward_token: str | None) -> bool:
     if _verify_ad(ad_reward_token):
         return True
@@ -1435,6 +1452,29 @@ def get_user_entitlements(*, authorization: str | None, entitlement_token: str |
         data = _wallet_snapshot(wallet, plan)
     data["user"] = {"id": user_id, "auth_mode": auth_mode}
     return data
+
+
+def get_rewarded_ad_status(
+    *,
+    authorization: str | None,
+    entitlement_token: str | None,
+    purpose: str,
+) -> dict:
+    normalized_purpose = str(purpose or "").strip()
+    if normalized_purpose not in {"basic_review", "advanced_ticket_progress"}:
+        raise HTTPException(status_code=400, detail="지원하지 않는 광고 보상 목적입니다.")
+    user_id, auth_mode = _authenticate(authorization)
+    plan = _plan_for(user_id, entitlement_token)
+    with _WALLET_LOCK:
+        wallet = _wallet_for(user_id)
+        _save_wallet(user_id, wallet)
+        snapshot = _wallet_snapshot(wallet, plan)
+    return {
+        "ready": _has_pending_admob_reward(user_id, custom_data=normalized_purpose),
+        "purpose": normalized_purpose,
+        "user": {"id": user_id, "auth_mode": auth_mode},
+        "wallet": snapshot,
+    }
 
 
 def claim_rewarded_ad_progress(

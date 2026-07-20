@@ -84,8 +84,35 @@ class ThemeCacheMemoryTests(unittest.TestCase):
 
                 self.assertEqual({"1D": 1, "1Y": 1}, counts)
                 files = os.listdir(tmp)
-                self.assertEqual(2, len([name for name in files if name.startswith("theme_returns_v3_")]))
+                self.assertEqual(2, len([name for name in files if name.startswith("theme_returns_v4_")]))
                 self.assertFalse(any(name.startswith("naver_closes_") for name in files))
+
+    def test_reverse_split_is_normalized_before_return_calculation(self):
+        from backend.core import data_fetcher
+
+        rows = [
+            {"date": "20260716", "open": 181, "high": 181, "low": 181, "close": 181, "volume": 0},
+            {"date": "20260720", "open": 1600, "high": 1800, "low": 1550, "close": 1726, "volume": 1000},
+        ]
+
+        adjusted = data_fetcher._adjust_price_rows_for_corporate_actions(rows)
+
+        self.assertEqual(1810, adjusted[0]["close"])
+        self.assertEqual(1726, adjusted[1]["close"])
+        self.assertAlmostEqual(-4.64, ((adjusted[1]["close"] / adjusted[0]["close"]) - 1) * 100, places=2)
+
+    def test_gradual_market_move_is_not_treated_as_corporate_action(self):
+        from backend.core import data_fetcher
+
+        rows = [
+            {"date": "20260716", "open": 100, "high": 130, "low": 100, "close": 130, "volume": 100},
+            {"date": "20260717", "open": 130, "high": 169, "low": 130, "close": 169, "volume": 100},
+            {"date": "20260720", "open": 169, "high": 219, "low": 169, "close": 219, "volume": 100},
+        ]
+
+        adjusted = data_fetcher._adjust_price_rows_for_corporate_actions(rows)
+
+        self.assertEqual([130, 169, 219], [row["close"] for row in adjusted])
 
 
 if __name__ == "__main__":

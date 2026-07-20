@@ -56,6 +56,7 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("/api/journal/google-play-rtdn", paths)
         self.assertIn("/api/journal/admob-ssv", paths)
         self.assertIn("/api/journal/ad-reward-claim", paths)
+        self.assertIn("/api/journal/ad-reward-status", paths)
         self.assertIn("/api/journal/review-history", paths)
         self.assertIn("/api/journal/review-history/{review_id}", paths)
         self.assertIn("/api/client-events", paths)

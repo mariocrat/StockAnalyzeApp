@@ -1194,6 +1194,49 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("recorded", first["status"])
             self.assertEqual("already_recorded", second["status"])
 
+    def test_admob_reward_status_can_be_polled_without_consuming_reward(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_admob_ssv_signature = lambda raw_query: {
+                "transaction_id": "ad-status-1",
+                "user_id": "dev-user",
+                "ad_unit": "rewarded-unit-1",
+                "reward_amount": "1",
+                "reward_item": "AI_REVIEW",
+                "custom_data": "basic_review",
+            }
+            access_control.record_admob_ssv_reward("transaction_id=ad-status-1")
+
+            first = access_control.get_rewarded_ad_status(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                purpose="basic_review",
+            )
+            second = access_control.get_rewarded_ad_status(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                purpose="basic_review",
+            )
+
+            self.assertTrue(first["ready"])
+            self.assertTrue(second["ready"])
+            conn = access_control._connect_access_db()
+            try:
+                row = conn.execute(
+                    "SELECT status FROM admob_reward_events WHERE transaction_id = ?",
+                    ("ad-status-1",),
+                ).fetchone()
+                self.assertEqual("pending", row["status"])
+            finally:
+                conn.close()
+
     def test_admob_ssv_stored_fields_are_length_limited(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="development",

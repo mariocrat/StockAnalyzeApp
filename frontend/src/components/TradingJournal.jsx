@@ -223,6 +223,7 @@ export default function TradingJournal({
   const [aiReview, setAiReview] = useState(null);
   const [chartReview, setChartReview] = useState({ charts: [] });
   const [activeChartTicker, setActiveChartTicker] = useState('');
+  const [showCurrentReviewDetails, setShowCurrentReviewDetails] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiReviewType, setAiReviewType] = useState('basic');
   const [adLoading, setAdLoading] = useState(false);
@@ -518,7 +519,8 @@ export default function TradingJournal({
     setTrades(tradeRes.data || []);
     setReview(reviewRes.data || null);
     setChartReview(chartRes.data || { charts: [] });
-    setActiveChartTicker(chartRes.data?.charts?.[0]?.ticker || '');
+    setActiveChartTicker('');
+    setShowCurrentReviewDetails(false);
   };
 
   const handleDevLogin = async (provider) => {
@@ -703,6 +705,7 @@ export default function TradingJournal({
       setReviewHistory([]);
       setActiveReviewHistory(null);
       setJournalSubView('review');
+      setShowCurrentReviewDetails(false);
       if (onEntitlementsChange) onEntitlementsChange({ plan: DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free' });
       await loadEntitlements(DEV_AUTH_TOKEN);
       setMessage('로그아웃했습니다.');
@@ -738,6 +741,7 @@ export default function TradingJournal({
         setReviewHistory([]);
         setActiveReviewHistory(null);
         setJournalSubView('review');
+        setShowCurrentReviewDetails(false);
       }
       await loadDataSummary(authSession.session_token);
       setMessage(enabled ? '매매 이력 저장을 켰습니다.' : '매매 이력 저장을 껐습니다.');
@@ -839,6 +843,7 @@ export default function TradingJournal({
       setReviewHistory([]);
       setActiveReviewHistory(null);
       setJournalSubView('review');
+      setShowCurrentReviewDetails(false);
       setDataSummary(null);
       if (onEntitlementsChange) onEntitlementsChange({ plan: DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free' });
       await loadEntitlements(DEV_AUTH_TOKEN);
@@ -908,6 +913,10 @@ export default function TradingJournal({
         { headers: { ...authHeaders, 'X-Idempotency-Key': idempotencyKey } },
       );
       setAiReview(res.data || null);
+      if (res.data?.status !== 'error') {
+        setShowCurrentReviewDetails(true);
+        setActiveChartTicker(current => current || chartReview.charts?.[0]?.ticker || '');
+      }
       if (res.data?.status === 'error') {
         setMessage('AI 서버 응답을 완료하지 못했습니다. 사용한 복기 이용권은 다시 돌려드렸습니다.');
       }
@@ -974,6 +983,25 @@ export default function TradingJournal({
     return null;
   };
 
+  const getRewardedAdStatus = async (purpose) => {
+    const res = await axios.post(
+      `${apiBase}/api/journal/ad-reward-status`,
+      { purpose, entitlement_token: DEV_ENTITLEMENT_TOKEN },
+      { headers: authHeaders },
+    );
+    if (res.data?.wallet) setEntitlements(res.data.wallet);
+    return res.data || null;
+  };
+
+  const waitForRewardedAdStatus = async (purpose, attempts = 15) => {
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const status = await getRewardedAdStatus(purpose);
+      if (status?.ready) return status;
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    }
+    return null;
+  };
+
   const handleRewardedAdAdvancedTicket = async () => {
     if (!authSession?.user?.id) {
       setMessage('광고 보상은 로그인 후 받을 수 있습니다. 먼저 카카오 또는 네이버 로그인을 완료해주세요.');
@@ -1026,8 +1054,8 @@ export default function TradingJournal({
         return;
       }
       let claimed = null;
-      for (let attempt = 0; attempt < 3 && !claimed; attempt += 1) {
-        await new Promise(resolve => setTimeout(resolve, 1600));
+      for (let attempt = 0; attempt < 15 && !claimed; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
         claimed = await claimAdvancedAdProgress();
       }
       if (!claimed) {
@@ -1083,9 +1111,16 @@ export default function TradingJournal({
 
     setAdLoading(true);
     try {
-      await showRewardedReviewAd({ userId: authSession.user.id });
-      setMessage('광고 시청을 확인했습니다. 서버 보상 확인 후 일반 복기를 실행합니다.');
-      await new Promise(resolve => setTimeout(resolve, 1800));
+      const pendingReward = await getRewardedAdStatus('basic_review');
+      if (!pendingReward?.ready) {
+        await showRewardedReviewAd({ userId: authSession.user.id });
+        setMessage('광고 시청을 확인했습니다. 서버 보상을 확인하고 있습니다.');
+        const confirmedReward = await waitForRewardedAdStatus('basic_review');
+        if (!confirmedReward) {
+          setMessage('광고 시청은 완료됐지만 서버 보상 확인이 아직 도착하지 않았습니다. 잠시 후 같은 버튼을 다시 누르면 새 광고 없이 이전 보상부터 확인합니다.');
+          return;
+        }
+      }
       await loadAiReview(trades, 'basic', { adRewardToken: '' });
       await loadEntitlements();
     } catch (err) {
@@ -1112,7 +1147,7 @@ export default function TradingJournal({
         : await axios.get(`${apiBase}/api/journal/charts`, { headers: authHeaders });
       const data = res.data || { charts: [] };
       setChartReview(data);
-      if (!activeChartTicker && data.charts?.[0]?.ticker) {
+      if (showCurrentReviewDetails && !activeChartTicker && data.charts?.[0]?.ticker) {
         setActiveChartTicker(data.charts[0].ticker);
       }
     } catch {
@@ -1431,6 +1466,7 @@ export default function TradingJournal({
         setMessage('복기 기록을 이번 화면에만 추가했습니다.');
         await loadJournal(nextTrades);
         setAiReview(null);
+        setShowCurrentReviewDetails(false);
         await loadChartReview(nextTrades);
         return;
       }
@@ -1452,6 +1488,7 @@ export default function TradingJournal({
       await loadJournal();
       await loadDataSummary();
       setAiReview(null);
+      setShowCurrentReviewDetails(false);
       await loadChartReview();
     } catch {
       setMessage('저장하지 못했습니다. 입력값을 확인해주세요.');
@@ -1465,6 +1502,7 @@ export default function TradingJournal({
       const nextTrades = trades.filter(trade => trade.id !== id);
       await loadJournal(nextTrades);
       setAiReview(null);
+      setShowCurrentReviewDetails(false);
       await loadChartReview(nextTrades);
       return;
     }
@@ -1473,6 +1511,7 @@ export default function TradingJournal({
     await loadJournal();
     await loadDataSummary();
     setAiReview(null);
+    setShowCurrentReviewDetails(false);
     await loadChartReview();
   };
 
@@ -1613,7 +1652,7 @@ export default function TradingJournal({
                   </div>
                 </>
               ) : (
-                <p className="journal-privacy-note">왼쪽에서 저장된 복기를 선택하세요.</p>
+                <p className="journal-privacy-note">저장된 복기를 선택하면 상세 내용과 당시 차트를 볼 수 있습니다.</p>
               )}
             </div>
           </div>
@@ -2061,7 +2100,7 @@ export default function TradingJournal({
         )}
       </section>
 
-      <section className="journal-panel">
+      {showCurrentReviewDetails && <section className="journal-panel">
         <div className="journal-panel-title">
           <h3>매매 차트</h3>
           <span className="journal-chart-mode">
@@ -2098,7 +2137,7 @@ export default function TradingJournal({
             </div>
           ))}
         </div>
-      </section>
+      </section>}
 
       <section className="journal-panel">
         <div className="journal-panel-title journal-review-title">
@@ -2177,7 +2216,7 @@ export default function TradingJournal({
         </div>
       </section>
 
-      <section className="journal-panel">
+      {showCurrentReviewDetails && <section className="journal-panel">
         <h3>종목별 결과</h3>
         <div className="journal-symbol-results">
           {(review?.by_symbol || []).map(row => (
@@ -2196,9 +2235,9 @@ export default function TradingJournal({
             </div>
           ))}
         </div>
-      </section>
+      </section>}
 
-      <section className="journal-panel">
+      {showCurrentReviewDetails && <section className="journal-panel">
         <h3>최근 기록</h3>
         <div className="journal-table">
           {trades.map(trade => (
@@ -2211,7 +2250,7 @@ export default function TradingJournal({
             </div>
           ))}
         </div>
-      </section>
+      </section>}
         </>
       )}
     </div>

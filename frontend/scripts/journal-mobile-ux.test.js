@@ -95,6 +95,17 @@ test('general review balance distinguishes immediate free uses from rewarded-ad 
   assert.match(journalSource, /광고 보고 일반 복기/);
 });
 
+test('rewarded review waits for server-side verification without consuming it while polling', () => {
+  assert.match(journalSource, /\/api\/journal\/ad-reward-status/);
+  assert.match(journalSource, /waitForRewardedAdStatus\('basic_review'\)/);
+  assert.match(journalSource, /getRewardedAdStatus\('basic_review'\)/);
+});
+
+test('saved journal entry does not reveal stock details until a review is selected or completed', () => {
+  assert.match(journalSource, /setShowCurrentReviewDetails\(false\)/);
+  assert.match(journalSource, /showCurrentReviewDetails && <section className="journal-panel">/);
+});
+
 test('successful AI review is not replaced by a failed follow-up refresh', () => {
   assert.match(journalSource, /Promise\.allSettled\(followUpRefreshes\)/);
   assert.match(journalSource, /<AiReviewSummary value=\{aiReview\.summary\} \/>/);

@@ -11,6 +11,8 @@ from pathlib import Path
 
 
 DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache"
+THEME_RETURN_CACHE_VERSION = "v4"
+CORPORATE_ACTION_FACTORS = (2, 3, 4, 5, 10, 20, 50, 100)
 
 
 def _cache_dir() -> Path:
@@ -58,8 +60,13 @@ def _write_json_cache(name: str, payload):
             pass
 
 
-def get_cached_theme_returns(start_date: str, end_date: str):
-    cache_name = f"theme_returns_v3_{start_date}_{end_date}.json"
+def _theme_return_cache_name(start_date: str, end_date: str, period: str = "custom") -> str:
+    namespace = re.sub(r"[^a-zA-Z0-9]", "", str(period or "custom")) or "custom"
+    return f"theme_returns_{THEME_RETURN_CACHE_VERSION}_{namespace}_{start_date}_{end_date}.json"
+
+
+def get_cached_theme_returns(start_date: str, end_date: str, period: str = "custom"):
+    cache_name = _theme_return_cache_name(start_date, end_date, period)
     cached = _read_json_cache(cache_name, ttl_seconds=3600*24*30)
     if cached:
         return pd.DataFrame(cached)
@@ -67,14 +74,18 @@ def get_cached_theme_returns(start_date: str, end_date: str):
 
 
 def get_latest_cached_theme_returns(
+    period: str = "",
     min_span_days: int | None = None,
     max_span_days: int | None = None,
 ):
     candidates = []
-    for path in _cache_dir().glob("theme_returns_v3_*.json"):
-        stem = path.stem.replace("theme_returns_v3_", "")
+    prefix = f"theme_returns_{THEME_RETURN_CACHE_VERSION}_"
+    for path in _cache_dir().glob(f"{prefix}*.json"):
+        stem = path.stem.replace(prefix, "", 1)
         try:
-            start_text, end_text = stem.split("_", 1)
+            namespace, start_text, end_text = stem.rsplit("_", 2)
+            if period and namespace.lower() != str(period).lower():
+                continue
             start_dt = datetime.datetime.strptime(start_text, "%Y%m%d").date()
             end_dt = datetime.datetime.strptime(end_text, "%Y%m%d").date()
         except ValueError:
@@ -119,8 +130,44 @@ def _read_covering_close_cache(start_date: str, end_date: str):
     return None
 
 
+def _corporate_action_scale(previous_close: float, next_reference_price: float) -> float | None:
+    """Return the historical-price scale for a likely split or consolidation."""
+    if previous_close <= 0 or next_reference_price <= 0:
+        return None
+    raw_ratio = next_reference_price / previous_close
+    if 0.65 <= raw_ratio <= 1.35:
+        return None
+
+    candidates = list(CORPORATE_ACTION_FACTORS)
+    scales = candidates if raw_ratio > 1 else [1 / factor for factor in candidates]
+    best_scale = min(
+        scales,
+        key=lambda scale: abs((next_reference_price / (previous_close * scale)) - 1),
+    )
+    adjusted_ratio = next_reference_price / (previous_close * best_scale)
+    return float(best_scale) if 0.65 <= adjusted_ratio <= 1.35 else None
+
+
+def _adjust_price_rows_for_corporate_actions(rows: list[dict]) -> list[dict]:
+    """Normalize older OHLC prices to the latest share basis."""
+    adjusted = [dict(row) for row in sorted(rows, key=lambda item: item["date"])]
+    price_fields = ("open", "high", "low", "close")
+    for index in range(1, len(adjusted)):
+        previous_close = float(adjusted[index - 1].get("close") or 0)
+        reference_price = float(adjusted[index].get("open") or adjusted[index].get("close") or 0)
+        scale = _corporate_action_scale(previous_close, reference_price)
+        if scale is None:
+            continue
+        for older_index in range(index):
+            for field in price_fields:
+                value = float(adjusted[older_index].get(field) or 0)
+                if value > 0:
+                    adjusted[older_index][field] = value * scale
+    return adjusted
+
+
 def _clean_price_jumps(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove obvious split/source glitches before return calculations."""
+    """Normalize split/consolidation gaps before return calculations."""
     if df is None or df.empty or 'Close' not in df.columns:
         return pd.DataFrame()
 
@@ -135,15 +182,21 @@ def _clean_price_jumps(df: pd.DataFrame) -> pd.DataFrame:
         if col in out.columns:
             out[col] = pd.to_numeric(out[col], errors='coerce')
 
-    prev_close = out['Close'].shift(1)
-    jump = out['Close'].sub(prev_close).div(prev_close).abs() > 0.35
-    if not jump.empty:
-        jump.iloc[0] = False
-    if jump.any():
-        cols = [c for c in ['Open', 'High', 'Low', 'Close'] if c in out.columns]
-        out.loc[jump, cols] = float('nan')
-        out[cols] = out[cols].ffill()
-        out = out.dropna(subset=['Close'])
+    rows = []
+    for row_index, row in out.iterrows():
+        rows.append({
+            "date": pd.Timestamp(row_index).strftime("%Y%m%d"),
+            "open": float(row.get("Open") or 0),
+            "high": float(row.get("High") or 0),
+            "low": float(row.get("Low") or 0),
+            "close": float(row.get("Close") or 0),
+            "volume": float(row.get("Volume") or 0),
+        })
+    adjusted_rows = _adjust_price_rows_for_corporate_actions(rows)
+    for adjusted, row_index in zip(adjusted_rows, out.index):
+        for source, target in (("open", "Open"), ("high", "High"), ("low", "Low"), ("close", "Close")):
+            if target in out.columns and adjusted[source] > 0:
+                out.at[row_index, target] = adjusted[source]
     return out
 
 
@@ -389,19 +442,20 @@ def get_krx_themes():
         )
 
 
-def get_theme_returns_historical(start_date: str, end_date: str):
+def get_theme_returns_historical(start_date: str, end_date: str, period: str = "custom"):
     """
     Calculate theme returns from Naver chart close prices.
     The exact start/end cache is reused, but stale caches for other dates are
     not treated as current values.
     """
-    cache_name = f"theme_returns_v3_{start_date}_{end_date}.json"
+    cache_name = _theme_return_cache_name(start_date, end_date, period)
     cached = _read_json_cache(cache_name, ttl_seconds=3600*24*30)
     if cached:
         return pd.DataFrame(cached)
 
-    results = _calculate_theme_return_ranges({"requested": (start_date, end_date)})
-    stats = results.get("requested", pd.DataFrame())
+    calculation_key = period if period in {"1D", "1W", "1M", "1Y"} else "requested"
+    results = _calculate_theme_return_ranges({calculation_key: (start_date, end_date)})
+    stats = results.get(calculation_key, pd.DataFrame())
     if not stats.empty:
         _write_json_cache(cache_name, stats.to_dict(orient="records"))
     return stats
@@ -412,11 +466,11 @@ def warm_theme_return_caches(period_ranges: dict[str, tuple[str, str]]) -> dict[
     missing = {
         period: date_range
         for period, date_range in period_ranges.items()
-        if get_cached_theme_returns(*date_range).empty
+        if get_cached_theme_returns(*date_range, period=period).empty
     }
     if not missing:
         return {
-            period: len(get_cached_theme_returns(*date_range))
+            period: len(get_cached_theme_returns(*date_range, period=period))
             for period, date_range in period_ranges.items()
         }
 
@@ -425,9 +479,9 @@ def warm_theme_return_caches(period_ranges: dict[str, tuple[str, str]]) -> dict[
     for period, date_range in period_ranges.items():
         stats = calculated.get(period)
         if stats is not None and not stats.empty:
-            cache_name = f"theme_returns_v3_{date_range[0]}_{date_range[1]}.json"
+            cache_name = _theme_return_cache_name(date_range[0], date_range[1], period)
             _write_json_cache(cache_name, stats.to_dict(orient="records"))
-        cached = get_cached_theme_returns(*date_range)
+        cached = get_cached_theme_returns(*date_range, period=period)
         counts[period] = int(len(cached))
     return counts
 
@@ -449,7 +503,10 @@ def _calculate_theme_return_ranges(period_ranges: dict[str, tuple[str, str]]) ->
     })
     earliest_start = min(start for start, _ in period_ranges.values())
     latest_end = max(end for _, end in period_ranges.values())
-    row_re = re.compile(r'\["(\d{8})",\s*[-\d.]+,\s*[-\d.]+,\s*[-\d.]+,\s*([-\d.]+),')
+    row_re = re.compile(
+        r'\["(\d{8})"\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)'
+        r'\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)'
+    )
     headers = {'User-Agent': 'Mozilla/5.0'}
     request_state = threading.local()
 
@@ -474,15 +531,21 @@ def _calculate_theme_return_ranges(period_ranges: dict[str, tuple[str, str]]) ->
             if response.status_code != 200:
                 return ticker, []
             rows = []
-            for date_text, close_text in row_re.findall(response.text):
+            for date_text, open_text, high_text, low_text, close_text, volume_text in row_re.findall(response.text):
                 try:
-                    close = float(close_text)
+                    row = {
+                        "date": date_text,
+                        "open": float(open_text),
+                        "high": float(high_text),
+                        "low": float(low_text),
+                        "close": float(close_text),
+                        "volume": float(volume_text),
+                    }
                 except ValueError:
                     continue
-                if close > 0:
-                    rows.append((date_text, close))
-            rows.sort(key=lambda item: item[0])
-            return ticker, rows
+                if row["close"] > 0:
+                    rows.append(row)
+            return ticker, _adjust_price_rows_for_corporate_actions(rows)
         except Exception:
             return ticker, []
 
@@ -499,18 +562,20 @@ def _calculate_theme_return_ranges(period_ranges: dict[str, tuple[str, str]]) ->
             if len(close_rows) < 2:
                 continue
             for period, (start_date, end_date) in period_ranges.items():
-                period_rows = [row for row in close_rows if start_date <= row[0] <= end_date]
+                period_rows = [row for row in close_rows if start_date <= row["date"] <= end_date]
                 if len(period_rows) < 2:
                     continue
-                start_price = period_rows[0][1]
-                end_price = period_rows[-1][1]
+                if period == "1D":
+                    period_rows = period_rows[-2:]
+                start_price = period_rows[0]["close"]
+                end_price = period_rows[-1]["close"]
                 if start_price > 0:
                     returns_by_period[period][ticker] = round(
                         ((end_price - start_price) / start_price) * 100,
                         2,
                     )
-                    effective_dates[period]["starts"].append(period_rows[0][0])
-                    effective_dates[period]["ends"].append(period_rows[-1][0])
+                    effective_dates[period]["starts"].append(period_rows[0]["date"])
+                    effective_dates[period]["ends"].append(period_rows[-1]["date"])
 
     return {
         period: _build_theme_return_stats(
