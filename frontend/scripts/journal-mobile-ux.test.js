@@ -98,6 +98,7 @@ test('general review balance distinguishes immediate free uses from rewarded-ad 
 test('rewarded review waits for server-side verification without consuming it while polling', () => {
   assert.match(journalSource, /\/api\/journal\/ad-reward-status/);
   assert.match(journalSource, /waitForRewardedAdStatus\('basic_review'\)/);
+  assert.match(journalSource, /waitForRewardedAdStatus\('advanced_ticket_progress'\)/);
   assert.match(journalSource, /getRewardedAdStatus\('basic_review'\)/);
 });
 

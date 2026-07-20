@@ -1053,11 +1053,8 @@ export default function TradingJournal({
         setMessage('테스트 광고 재생을 확인했습니다. 테스트 광고는 실제 심화 복기 이용권을 지급하지 않습니다. 실제 AdMob 보상형 광고와 서버 보상 확인을 연결한 운영 앱에서 이용권이 지급됩니다.');
         return;
       }
-      let claimed = null;
-      for (let attempt = 0; attempt < 15 && !claimed; attempt += 1) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        claimed = await claimAdvancedAdProgress();
-      }
+      const confirmedReward = await waitForRewardedAdStatus('advanced_ticket_progress');
+      const claimed = confirmedReward ? await claimAdvancedAdProgress() : null;
       if (!claimed) {
         setMessage('광고 시청은 완료됐고 서버에서 보상을 확인 중입니다. 잠시 후 버튼을 다시 누르면 새 광고 없이 이전 보상부터 확인합니다.');
         return;
