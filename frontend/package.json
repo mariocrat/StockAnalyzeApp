@@ -19,6 +19,7 @@
     "test:oauth-app-return": "node --test scripts/oauth-app-return.test.js",
     "test:app-navigation": "node --test scripts/app-navigation.test.js",
     "test:ai-idempotency": "node --test scripts/ai-review-idempotency.test.js",
+    "test:ai-format": "node --test scripts/ai-review-format.test.js",
     "test:splash-loading": "node --test scripts/splash-loading-policy.test.js",
     "test:chart-layout": "node --test scripts/chart-layout.test.js",
     "test:journal-mobile-ux": "node --test scripts/journal-mobile-ux.test.js",

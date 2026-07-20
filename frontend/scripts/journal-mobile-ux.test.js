@@ -43,7 +43,8 @@ test('mobile entitlement balances remain in a compact three-column grid', () => 
 });
 
 test('advanced review shortage opens a Korean pass dialog instead of an inline AI error', () => {
-  assert.match(journalSource, /err\.response\?\.status === 402 && reviewType === 'advanced'/);
+  assert.match(journalSource, /err\.response\?\.status === 402/);
+  assert.match(journalSource, /reviewType === 'advanced' \? 'advanced' : 'basic'/);
   assert.match(journalSource, /심화 복기 이용권이 필요합니다/);
   assert.match(journalSource, /onClick=\{startAdvancedReview\}/);
   assert.match(journalSource, /showReviewPasses/);
@@ -85,4 +86,16 @@ test('general review reruns use a fresh request while rapid double taps stay loc
   assert.match(journalSource, /aiReviewInFlightRef\.current = true/);
   assert.match(journalSource, /aiReviewInFlightRef\.current = false/);
   assert.match(journalSource, /analysis_focus: analysisFocus/);
+});
+
+test('general review balance distinguishes immediate free uses from rewarded-ad capacity', () => {
+  assert.match(journalSource, /free_available_now/);
+  assert.match(journalSource, /rewarded_ad_available/);
+  assert.match(journalSource, /setReviewAccessDialog\(reviewType === 'advanced' \? 'advanced' : 'basic'\)/);
+  assert.match(journalSource, /광고 보고 일반 복기/);
+});
+
+test('successful AI review is not replaced by a failed follow-up refresh', () => {
+  assert.match(journalSource, /Promise\.allSettled\(followUpRefreshes\)/);
+  assert.match(journalSource, /<AiReviewSummary value=\{aiReview\.summary\} \/>/);
 });

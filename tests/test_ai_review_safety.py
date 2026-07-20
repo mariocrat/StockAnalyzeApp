@@ -205,6 +205,63 @@ class AiReviewSafetyTest(unittest.TestCase):
             self.assertEqual(1, calls["count"])
             self.assertEqual(4, entitlements["basic"]["signup_remaining"])
 
+    def test_two_intentional_basic_reviews_consume_two_available_free_credits(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            main, access_control, token = _load_main_with_temp_state(tmpdir)
+            os.environ["ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE"] = "10"
+            calls = {"count": 0}
+
+            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced"):
+                calls["count"] += 1
+                return {
+                    "status": "ready",
+                    "source": "openai",
+                    "review_type": "basic",
+                    "summary": f"ok-{calls['count']}",
+                }
+
+            main.build_basic_ai_review = fake_basic_review
+            batch = _basic_batch(main)
+
+            first = main.get_journal_ai_review_once(batch, authorization=token, x_idempotency_key="request-1")
+            second = main.get_journal_ai_review_once(batch, authorization=token, x_idempotency_key="request-2")
+            entitlements = access_control.get_user_entitlements(authorization=token, entitlement_token="")
+
+            self.assertEqual("ok-1", first["summary"])
+            self.assertEqual("ok-2", second["summary"])
+            self.assertEqual(2, calls["count"])
+            self.assertEqual(3, entitlements["basic"]["signup_remaining"])
+            self.assertEqual(4, entitlements["basic"]["free_available_now"])
+            self.assertEqual(4, entitlements["basic"]["rewarded_ad_available"])
+
+    def test_daily_free_balance_does_not_include_ad_only_capacity(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _, access_control, token = _load_main_with_temp_state(tmpdir)
+
+            for _ in range(6):
+                access_control.verify_ai_review_access(
+                    authorization=token,
+                    ad_reward_token="",
+                    entitlement_token="",
+                    privacy_consent=True,
+                    review_type="basic",
+                )
+
+            entitlements = access_control.get_user_entitlements(authorization=token, entitlement_token="")
+
+            self.assertEqual(0, entitlements["basic"]["free_available_now"])
+            self.assertEqual(4, entitlements["basic"]["rewarded_ad_available"])
+            with self.assertRaises(HTTPException) as blocked:
+                access_control.verify_ai_review_access(
+                    authorization=token,
+                    ad_reward_token="",
+                    entitlement_token="",
+                    privacy_consent=True,
+                    review_type="basic",
+                )
+            self.assertEqual(402, blocked.exception.status_code)
+            self.assertIn("광고", blocked.exception.detail)
+
     def test_ai_review_idempotency_key_rejects_different_payload_without_charging(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             main, access_control, token = _load_main_with_temp_state(tmpdir)

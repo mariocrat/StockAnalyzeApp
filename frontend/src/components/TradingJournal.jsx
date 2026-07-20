@@ -12,6 +12,7 @@ import { buildAiReviewIdempotencyKey } from '../utils/aiReviewIdempotency';
 import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
+import { parseAiReviewSummary } from '../utils/aiReviewFormat';
 import { toKoreanUserMessage } from '../utils/userMessage';
 
 const sideLabels = { buy: '매수', sell: '매도' };
@@ -161,7 +162,52 @@ function reviewAccessText(access) {
     return `${plan} · ${type} · ${source} · Pro ${advanced.pro_monthly_remaining || 0}회 · 광고 보상 ${advanced.weekly_reward_remaining || 0}회 · 구매 ${advanced.purchased_remaining || 0}회`;
   }
   const basic = access.quota.basic || {};
-  return `${plan} · ${type} · ${source} · 오늘 무료 ${basic.free_daily_max_remaining || 0}회 · 구매 ${basic.purchased_remaining || 0}회`;
+  if (access.plan === 'pro') {
+    return `${plan} · ${type} · ${source} · Pro ${basic.pro_monthly_remaining || 0}회 · 구매 ${basic.purchased_remaining || 0}회`;
+  }
+  const freeNow = basic.free_available_now
+    ?? ((basic.signup_remaining || 0) + (basic.free_daily_remaining || 0));
+  const adAvailable = basic.rewarded_ad_available
+    ?? Math.max(0, (basic.free_daily_max_remaining || 0) - (basic.free_daily_remaining || 0));
+  return `${plan} · ${type} · ${source} · 바로 사용 ${freeNow}회 · 광고 추가 ${adAvailable}회 · 구매 ${basic.purchased_remaining || 0}회`;
+}
+
+function AiReviewSummary({ value }) {
+  const summary = parseAiReviewSummary(value);
+  if (!summary.structured) {
+    return <p className="journal-ai-summary">{summary.text || '복기 내용이 없습니다.'}</p>;
+  }
+
+  return (
+    <div className="journal-ai-summary-structured">
+      {summary.verdict && (
+        <section className="journal-ai-summary-section verdict">
+          <strong>한 줄 총평</strong>
+          <p>{summary.verdict}</p>
+        </section>
+      )}
+      {summary.strength && (
+        <section className="journal-ai-summary-section strength">
+          <strong>잘한 점</strong>
+          <p>{summary.strength}</p>
+        </section>
+      )}
+      {summary.weakness && (
+        <section className="journal-ai-summary-section weakness">
+          <strong>아쉬운 점</strong>
+          <p>{summary.weakness}</p>
+        </section>
+      )}
+      {summary.checklist.length > 0 && (
+        <section className="journal-ai-summary-section checklist">
+          <strong>다음 매매 체크리스트</strong>
+          <ol>
+            {summary.checklist.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
+          </ol>
+        </section>
+      )}
+    </div>
+  );
 }
 
 export default function TradingJournal({
@@ -866,16 +912,14 @@ export default function TradingJournal({
         setMessage('AI 서버 응답을 완료하지 못했습니다. 사용한 복기 이용권은 다시 돌려드렸습니다.');
       }
       if (res.data?.access?.wallet) setEntitlements(res.data.access.wallet);
-      if (res.data?.review_history_id) {
-        await loadReviewHistory();
-      }
-      if (authSession?.session_token) {
-        await loadDataSummary(authSession.session_token);
-      }
+      const followUpRefreshes = [];
+      if (res.data?.review_history_id) followUpRefreshes.push(loadReviewHistory());
+      if (authSession?.session_token) followUpRefreshes.push(loadDataSummary(authSession.session_token));
+      await Promise.allSettled(followUpRefreshes);
     } catch (err) {
-      if (err.response?.status === 402 && reviewType === 'advanced') {
+      if (err.response?.status === 402) {
         setMessage('');
-        setReviewAccessDialog('advanced');
+        setReviewAccessDialog(reviewType === 'advanced' ? 'advanced' : 'basic');
         await loadEntitlements();
         return;
       }
@@ -1444,6 +1488,11 @@ export default function TradingJournal({
   const aiReadiness = readinessSections.ai || {};
   const adsPerAdvancedTicket = adPolicy.ads_per_advanced_ticket || entitlements?.advanced?.weekly_ad_views_needed || 5;
   const weeklyAdViews = entitlements?.advanced?.weekly_ad_views || 0;
+  const immediateFreeBasic = entitlements?.basic?.free_available_now
+    ?? ((entitlements?.basic?.signup_remaining || 0) + (entitlements?.basic?.free_daily_remaining || 0));
+  const rewardedBasicNeedsFreeUsage = Boolean(
+    entitlements && entitlements?.plan !== 'pro' && immediateFreeBasic > 0,
+  );
   const adPolicyText = `광고 ${adsPerAdvancedTicket}회 시청 시 주간 심화 복기 이용권 1장`;
   const adReadinessText = admobStatus.ready ? 'AdMob 보상형 광고 준비됨' : 'AdMob 광고 단위 설정 필요';
   const mobileAdStatusText = mobileAdStatus.native
@@ -1553,7 +1602,7 @@ export default function TradingJournal({
                     </button>
                   </div>
                   <JournalTradeChart chartData={savedChart} />
-                  <p className="journal-ai-summary">{savedReview?.summary || '저장된 복기 내용이 없습니다.'}</p>
+                  <AiReviewSummary value={savedReview?.summary || '저장된 복기 내용이 없습니다.'} />
                   <div className="journal-chart-review-list">
                     {savedCards.map((item, idx) => (
                       <div className="journal-ai-card" key={`${item.title || idx}-${idx}`}>
@@ -1630,6 +1679,36 @@ export default function TradingJournal({
             <div className="journal-access-actions">
               <button type="button" onClick={() => setReviewAccessDialog(null)}>닫기</button>
               <button type="button" className="primary" onClick={showReviewPasses}>이용권 확인</button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {reviewAccessDialog === 'basic' && (
+        <div className="journal-access-backdrop" role="presentation" onClick={() => setReviewAccessDialog(null)}>
+          <section
+            className="journal-access-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="basic-review-access-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <div className="journal-access-icon" aria-hidden="true"><Ticket size={22} /></div>
+            <h3 id="basic-review-access-title">바로 사용할 무료 일반 복기를 모두 사용했습니다</h3>
+            <p>광고를 보고 오늘의 추가 복기를 사용하거나, 보유한 일반 복기 이용권을 확인해 주세요.</p>
+            <div className="journal-access-actions three">
+              <button
+                type="button"
+                className="primary wide"
+                onClick={() => {
+                  setReviewAccessDialog(null);
+                  window.requestAnimationFrame(() => handleRewardedAdBasicReview());
+                }}
+              >
+                광고 보고 일반 복기
+              </button>
+              <button type="button" onClick={() => setReviewAccessDialog(null)}>닫기</button>
+              <button type="button" onClick={showReviewPasses}>이용권 확인</button>
             </div>
           </section>
         </div>
@@ -1893,7 +1972,7 @@ export default function TradingJournal({
           <span className="journal-chart-mode">{entitlements?.plan === 'pro' ? 'Pro' : '무료'}</span>
         </div>
         <div className="journal-entitlement-grid">
-          <div><span>무료 일반 복기</span><strong>{(entitlements?.basic?.signup_remaining || 0) + (entitlements?.basic?.free_daily_max_remaining || 0)}</strong></div>
+          <div><span>바로 사용 가능한 무료 일반 복기</span><strong>{entitlements?.basic?.free_available_now ?? ((entitlements?.basic?.signup_remaining || 0) + (entitlements?.basic?.free_daily_remaining || 0))}</strong></div>
           <div><span>Pro 일반 복기</span><strong>{entitlements?.basic?.pro_monthly_remaining || 0}</strong></div>
           <div><span>구매 일반 이용권</span><strong>{entitlements?.basic?.purchased_remaining || 0}</strong></div>
           <div><span>Pro 심화 복기</span><strong>{entitlements?.advanced?.pro_monthly_remaining || 0}</strong></div>
@@ -2034,9 +2113,11 @@ export default function TradingJournal({
             </button>
             <button
               className="journal-secondary"
-              disabled={aiLoading || adLoading || !trades.length || !aiConsentAccepted}
+              disabled={aiLoading || adLoading || !trades.length || !aiConsentAccepted || rewardedBasicNeedsFreeUsage}
               onClick={handleRewardedAdBasicReview}
-              title={mobileAdStatus.native ? '보상형 광고를 본 뒤 일반 복기를 실행합니다.' : '웹에서는 개발 모드 확인 또는 모바일 앱 빌드가 필요합니다.'}
+              title={rewardedBasicNeedsFreeUsage
+                ? '먼저 바로 사용 가능한 무료 일반 복기를 사용하세요.'
+                : (mobileAdStatus.native ? '보상형 광고를 본 뒤 일반 복기를 실행합니다.' : '웹에서는 개발 모드 확인 또는 모바일 앱 빌드가 필요합니다.')}
             >
               {adLoading ? '광고 확인중' : '광고 보고 일반 복기'}
             </button>
@@ -2068,7 +2149,7 @@ export default function TradingJournal({
               <div className={`journal-ai-status ${aiReview.status || 'ready'}`}>
                 {aiReview.source === 'openai' ? 'AI 분석' : '차트 기반 기본 분석'}
               </div>
-              <p className="journal-ai-summary">{aiReview.summary}</p>
+              <AiReviewSummary value={aiReview.summary} />
               {aiReview.access && (
                 <div className="journal-ai-entitlement">
                   {reviewAccessText(aiReview.access)}

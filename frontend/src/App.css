@@ -920,6 +920,10 @@ body {
   color: #fff;
 }
 
+.journal-access-actions.three .wide {
+  grid-column: 1 / -1;
+}
+
 .journal-subnav {
   display: flex;
   gap: 8px;
@@ -1665,6 +1669,57 @@ body {
   font-size: 13px;
   line-height: 1.65;
   white-space: pre-wrap;
+}
+
+.journal-ai-summary-structured {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #2b3344;
+  border-bottom: 1px solid #2b3344;
+}
+
+.journal-ai-summary-section {
+  padding: 12px 2px;
+}
+
+.journal-ai-summary-section + .journal-ai-summary-section {
+  border-top: 1px solid #252c3a;
+}
+
+.journal-ai-summary-section strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #dce7ff;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.journal-ai-summary-section.strength strong {
+  color: #72d6a0;
+}
+
+.journal-ai-summary-section.weakness strong {
+  color: #ffb36b;
+}
+
+.journal-ai-summary-section.checklist strong {
+  color: #8cb0ff;
+}
+
+.journal-ai-summary-section p,
+.journal-ai-summary-section ol {
+  margin: 0;
+  color: #d1d7e5;
+  font-size: 13px;
+  line-height: 1.72;
+}
+
+.journal-ai-summary-section ol {
+  padding-left: 22px;
+}
+
+.journal-ai-summary-section li + li {
+  margin-top: 7px;
 }
 
 .journal-ai-status {

@@ -1335,6 +1335,45 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("rewarded_ad_basic", access.source)
             self.assertEqual(3, access.quota["basic"]["free_daily_max_remaining"])
 
+    def test_pending_admob_reward_waits_until_immediate_free_credits_are_exhausted(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control._verify_admob_ssv_signature = lambda raw_query: {
+                "transaction_id": "ad-tx-wait",
+                "user_id": "dev-user",
+                "ad_unit": "rewarded-unit-1",
+                "reward_amount": "1",
+                "reward_item": "AI_REVIEW",
+                "custom_data": "basic_review",
+            }
+
+            access_control.record_admob_ssv_reward("transaction_id=ad-tx-wait")
+            access = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="basic",
+            )
+
+            self.assertEqual("signup_basic", access.source)
+            conn = access_control._connect_access_db()
+            try:
+                row = conn.execute(
+                    "SELECT status FROM admob_reward_events WHERE transaction_id = ?",
+                    ("ad-tx-wait",),
+                ).fetchone()
+                self.assertEqual("pending", row["status"])
+            finally:
+                conn.close()
+
     def test_admob_ssv_signature_requires_required_fields(self):
         with patched_env(ADMOB_REWARDED_AD_UNIT_ID=""):
             from backend.core import access_control

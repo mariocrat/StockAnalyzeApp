@@ -1335,7 +1335,7 @@ def _consume_basic(wallet: UserWallet, plan: str, ad_verified: bool) -> str:
         if wallet.purchased_basic > 0:
             wallet.purchased_basic -= 1
             return "purchased_basic"
-        raise HTTPException(status_code=402, detail="Basic review quota exhausted. Please buy review credits.")
+        raise HTTPException(status_code=402, detail="Pro 일반 복기 제공량을 모두 사용했습니다. 일반 복기 이용권을 확인해 주세요.")
 
     if wallet.basic_signup_remaining > 0:
         wallet.basic_signup_remaining -= 1
@@ -1356,7 +1356,25 @@ def _consume_basic(wallet: UserWallet, plan: str, ad_verified: bool) -> str:
     if _allow_advanced_for_basic() and wallet.purchased_advanced > 0:
         wallet.purchased_advanced -= 1
         return "purchased_advanced_as_basic"
-    raise HTTPException(status_code=402, detail="Basic review quota exhausted. Watch an ad or buy review credits.")
+    raise HTTPException(status_code=402, detail="바로 사용할 무료 일반 복기를 모두 사용했습니다. 광고를 보거나 일반 복기 이용권을 확인해 주세요.")
+
+
+def _basic_requires_ad_reward(wallet: UserWallet, plan: str) -> bool:
+    if plan == "pro":
+        return False
+
+    usage = wallet.usage
+    has_daily_free = (
+        usage.free_basic_daily_used < FREE_DAILY_BASIC_GRANT
+        and usage.free_basic_monthly_used < FREE_MONTHLY_BASIC_MAX
+    )
+    return (
+        wallet.basic_signup_remaining <= 0
+        and not has_daily_free
+        and wallet.purchased_basic <= 0
+        and usage.free_basic_daily_used < FREE_DAILY_BASIC_MAX
+        and usage.free_basic_monthly_used < FREE_MONTHLY_BASIC_MAX
+    )
 
 
 def _consume_advanced(wallet: UserWallet, plan: str) -> str:
@@ -1378,12 +1396,16 @@ def _consume_advanced(wallet: UserWallet, plan: str) -> str:
 
 def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:
     usage = wallet.usage
+    free_daily_remaining = max(0, FREE_DAILY_BASIC_GRANT - usage.free_basic_daily_used)
+    free_daily_max_remaining = max(0, FREE_DAILY_BASIC_MAX - usage.free_basic_daily_used)
     return {
         "plan": plan,
         "basic": {
             "signup_remaining": wallet.basic_signup_remaining,
-            "free_daily_remaining": max(0, FREE_DAILY_BASIC_GRANT - usage.free_basic_daily_used),
-            "free_daily_max_remaining": max(0, FREE_DAILY_BASIC_MAX - usage.free_basic_daily_used),
+            "free_daily_remaining": free_daily_remaining,
+            "free_daily_max_remaining": free_daily_max_remaining,
+            "free_available_now": wallet.basic_signup_remaining + free_daily_remaining,
+            "rewarded_ad_available": max(0, free_daily_max_remaining - free_daily_remaining) if plan != "pro" else 0,
             "free_monthly_remaining": max(0, FREE_MONTHLY_BASIC_MAX - usage.free_basic_monthly_used),
             "pro_monthly_remaining": max(0, PRO_MONTHLY_BASIC - usage.pro_basic_monthly_used) if plan == "pro" else 0,
             "purchased_remaining": wallet.purchased_basic,
@@ -1675,7 +1697,12 @@ def verify_ai_review_access(
         if normalized_type == "advanced":
             source = _consume_advanced(wallet, plan)
         else:
-            source = _consume_basic(wallet, plan, _consume_ad_reward(user_id, ad_reward_token))
+            ad_verified = (
+                _consume_ad_reward(user_id, ad_reward_token)
+                if _basic_requires_ad_reward(wallet, plan)
+                else False
+            )
+            source = _consume_basic(wallet, plan, ad_verified)
         _save_wallet(user_id, wallet)
         snapshot = _wallet_snapshot(wallet, plan)
     return AiAccessContext(
