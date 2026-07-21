@@ -339,9 +339,10 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         }])
 
         self.assertEqual("structured markdown", captured["payload"]["output_contract"]["format"])
-        self.assertIn("MA5, MA10 같은 영문 약어를 쓰지 않는다", captured["instructions"])
-        self.assertIn("1분봉의 5기간 이동평균선", captured["instructions"])
-        self.assertIn("5일 이동평균선", captured["instructions"])
+        self.assertIn("MA5, MA10, MA20처럼 띄어쓰기 없는 표준 약어", captured["instructions"])
+        self.assertIn("1분봉 차트의 MA5", captured["instructions"])
+        self.assertIn("일봉 차트의 MA20", captured["instructions"])
+        self.assertIn("'5분선'처럼", captured["instructions"])
         self.assertIn("핵심 기준 한 개", captured["instructions"])
         self.assertIn("결과와 당시 판단의 품질을 반드시 분리", captured["instructions"])
         self.assertIn("완결된 매매가 5개 미만", captured["instructions"])

@@ -41,14 +41,14 @@ test('turns an advanced markdown review into readable blocks', () => {
     'heading',
     'list',
   ]);
-  assert.equal(blocks[2].items[0], '5이평선 위에서 매도');
-  assert.equal(blocks[2].items[1], '20이평선도 상승 중');
+  assert.equal(blocks[2].items[0], 'MA5 위에서 매도');
+  assert.equal(blocks[2].items[1], 'MA20도 상승 중');
   assert.equal(blocks[5].ordered, true);
 });
 
-test('uses Korean moving-average labels in review copy', () => {
+test('uses compact MA labels in review copy', () => {
   assert.equal(
     normalizeAiReviewTerms('MA5 7,014원 > MA20 6,573원, MA 10 확인'),
-    '5이평선 7,014원 > 20이평선 6,573원, 10이평선 확인',
+    'MA5 7,014원 > MA20 6,573원, MA10 확인',
   );
 });

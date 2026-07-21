@@ -55,7 +55,7 @@ export function parseAiReviewSummary(value) {
 
 export function normalizeAiReviewTerms(value) {
   return String(value || '')
-    .replace(/\bMA\s*(5|10|20|60|120)\b/gi, '$1이평선');
+    .replace(/\bMA\s*(5|10|20|60|120)\b/gi, 'MA$1');
 }
 
 export function parseAiReviewDocument(value) {

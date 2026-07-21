@@ -899,7 +899,7 @@ const StockChart = forwardRef(({
             )}
             <div className="stock-chart-indicator-grid" aria-label="차트 지표">
               {[
-                ['MA_5', 'MA 5'], ['MA_10', 'MA 10'], ['MA_20', 'MA 20'], ['MA_60', 'MA 60'], ['MA_120', 'MA 120'],
+                ['MA_5', 'MA5'], ['MA_10', 'MA10'], ['MA_20', 'MA20'], ['MA_60', 'MA60'], ['MA_120', 'MA120'],
                 ['BB', 'BB'], ['RSI', 'RSI'], ['MACD', 'MACD'], ['STOCH', 'Stoch'], ['ICHI', '일목균형표'],
               ].map(([key, label]) => (
                 <label key={key} className={activeInds?.[key] ? 'active' : ''}>

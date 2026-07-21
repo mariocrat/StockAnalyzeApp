@@ -40,11 +40,11 @@ function loadStoredAuthSession() {
 
 // ── Indicator definitions ─────────────────────────────────────────────────
 const IND_DEFS = [
-  { key: 'MA_5',   label: 'MA 5',   color: '#e040fb' },
-  { key: 'MA_10',  label: 'MA 10',  color: '#ff9800' },
-  { key: 'MA_20',  label: 'MA 20',  color: '#f6c90e' },
-  { key: 'MA_60',  label: 'MA 60',  color: '#4fc3f7' },
-  { key: 'MA_120', label: 'MA 120', color: '#ff7043' },
+  { key: 'MA_5',   label: 'MA5',   color: '#e040fb' },
+  { key: 'MA_10',  label: 'MA10',  color: '#ff9800' },
+  { key: 'MA_20',  label: 'MA20',  color: '#f6c90e' },
+  { key: 'MA_60',  label: 'MA60',  color: '#4fc3f7' },
+  { key: 'MA_120', label: 'MA120', color: '#ff7043' },
   { key: 'BB',     label: 'BB',     color: '#b39ddb' },
   { key: 'RSI',    label: 'RSI',    color: '#26a69a' },
   { key: 'MACD',   label: 'MACD',   color: '#2962ff' },
