@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import axios from 'axios';
 import { CircleAlert, Clock3, Keyboard, Ticket, UserRound, X } from 'lucide-react';
@@ -13,6 +13,7 @@ import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
 import { parseAiReviewDocument, parseAiReviewSummary } from '../utils/aiReviewFormat';
+import { buildReviewTradeGroups, findReviewTradeGroup, reviewTradesForGroup } from '../utils/reviewTradeSelection';
 import { toKoreanUserMessage } from '../utils/userMessage';
 
 const sideLabels = { buy: '매수', sell: '매도' };
@@ -112,6 +113,12 @@ function validTradeDateTime(value) {
 function tradePeriodText(row) {
   const first = dateTimeText(row.first_trade_date);
   const last = dateTimeText(row.last_trade_date);
+  return first === last ? first : `${first} ~ ${last}`;
+}
+
+function reviewGroupPeriodText(group) {
+  const first = dateTimeText(group?.firstTradeDate);
+  const last = dateTimeText(group?.lastTradeDate);
   return first === last ? first : `${first} ~ ${last}`;
 }
 
@@ -290,6 +297,7 @@ export default function TradingJournal({
   const [reviewHistoryLoading, setReviewHistoryLoading] = useState(false);
   const [qaComparisonLoading, setQaComparisonLoading] = useState('');
   const [qaComparisonResults, setQaComparisonResults] = useState({ luna: null, terra: null });
+  const [selectedReviewGroupKey, setSelectedReviewGroupKey] = useState('');
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
   const reviewHistoryAdShownRef = useRef(false);
@@ -298,6 +306,19 @@ export default function TradingJournal({
   const aiReviewInFlightRef = useRef(false);
   const basicReviewFocusIndexRef = useRef(0);
   const setMessage = (value) => setRawMessage(toKoreanUserMessage(value));
+  const reviewTradeGroups = useMemo(() => buildReviewTradeGroups(trades), [trades]);
+  const selectedReviewGroup = reviewTradeGroups.find(group => group.key === selectedReviewGroupKey) || null;
+  const selectedReviewTrades = reviewTradesForGroup(reviewTradeGroups, selectedReviewGroupKey);
+
+  useEffect(() => {
+    if (!reviewTradeGroups.length) {
+      if (selectedReviewGroupKey) setSelectedReviewGroupKey('');
+      return;
+    }
+    if (!reviewTradeGroups.some(group => group.key === selectedReviewGroupKey)) {
+      setSelectedReviewGroupKey(reviewTradeGroups[0].key);
+    }
+  }, [reviewTradeGroups, selectedReviewGroupKey]);
 
   useEffect(() => {
     const handleBackRequest = (event) => {
@@ -502,12 +523,16 @@ export default function TradingJournal({
 
     setReviewHistoryLoading(true);
     try {
+      const restoredGroups = buildReviewTradeGroups(restoredTrades);
+      const preferredGroup = findReviewTradeGroup(restoredGroups, fallbackTrade) || restoredGroups[0];
+      const reviewTrades = preferredGroup?.trades || [];
       const [reviewRes, chartRes] = await Promise.all([
-        axios.post(`${apiBase}/api/journal/review-once`, { trades: restoredTrades }),
-        axios.post(`${apiBase}/api/journal/charts-once`, { trades: restoredTrades }),
+        axios.post(`${apiBase}/api/journal/review-once`, { trades: reviewTrades }),
+        axios.post(`${apiBase}/api/journal/charts-once`, { trades: reviewTrades }),
       ]);
       const charts = chartRes.data || { charts: [] };
       setTrades(restoredTrades);
+      setSelectedReviewGroupKey(preferredGroup?.key || '');
       setReview(reviewRes.data || null);
       setChartReview(charts);
       setActiveChartTicker(charts.charts?.[0]?.ticker || '');
@@ -515,7 +540,7 @@ export default function TradingJournal({
       setQaComparisonResults({ luna: null, terra: null });
       setShowCurrentReviewDetails(false);
       setJournalSubView('review');
-      setMessage(`당시 함께 저장된 매매 기록 ${restoredTrades.length}건을 불러왔습니다. 아래에서 AI 복기를 다시 실행할 수 있습니다.`);
+      setMessage(`당시 매매 기록 ${restoredTrades.length}건을 불러왔습니다. '${preferredGroup?.name || '선택한 종목'}' 매매를 복기 대상으로 선택했습니다.`);
     } catch (err) {
       setMessage(err.response?.data?.detail || '저장된 매매 기록을 다시 불러오지 못했습니다.');
     } finally {
@@ -945,9 +970,33 @@ export default function TradingJournal({
     setReview(reviewRes.data || null);
   };
 
+  const loadReviewContextForTrades = async (nextTrades) => {
+    if (!nextTrades.length) return;
+    try {
+      const [reviewRes, chartRes] = await Promise.all([
+        axios.post(`${apiBase}/api/journal/review-once`, { trades: nextTrades }),
+        axios.post(`${apiBase}/api/journal/charts-once`, { trades: nextTrades }),
+      ]);
+      const charts = chartRes.data || { charts: [] };
+      setReview(reviewRes.data || null);
+      setChartReview(charts);
+      setActiveChartTicker(charts.charts?.[0]?.ticker || '');
+    } catch {
+      setChartReview({ charts: [] });
+      setActiveChartTicker('');
+    }
+  };
+
+  const chooseReviewGroup = (groupKey) => {
+    setSelectedReviewGroupKey(groupKey);
+    setAiReview(null);
+    setQaComparisonResults({ luna: null, terra: null });
+    setShowCurrentReviewDetails(false);
+  };
+
   const loadAiReview = async (nextTrades = trades, reviewType = aiReviewType, options = {}) => {
     if (!nextTrades.length) {
-      setMessage('AI 분석을 하려면 먼저 매매 기록을 입력하세요.');
+      setMessage('복기할 매매를 먼저 선택해 주세요.');
       return;
     }
     if (!aiConsentAccepted) {
@@ -981,6 +1030,7 @@ export default function TradingJournal({
         },
         { headers: { ...authHeaders, 'X-Idempotency-Key': idempotencyKey } },
       );
+      await loadReviewContextForTrades(nextTrades);
       setAiReview(res.data || null);
       if (res.data?.status !== 'error') {
         setShowCurrentReviewDetails(true);
@@ -1015,6 +1065,10 @@ export default function TradingJournal({
 
   const startAdvancedReview = () => {
     setAiReviewType('advanced');
+    if (!selectedReviewTrades.length) {
+      setMessage('심화 복기할 매매를 먼저 선택해 주세요.');
+      return;
+    }
     const advanced = entitlements?.advanced;
     const availableTickets = advanced
       ? (advanced.pro_monthly_remaining || 0)
@@ -1026,7 +1080,7 @@ export default function TradingJournal({
       setReviewAccessDialog('advanced');
       return;
     }
-    loadAiReview(trades, 'advanced');
+    loadAiReview(selectedReviewTrades, 'advanced', { targetTradeId: selectedReviewGroup?.targetTradeId });
   };
 
   const runQaAdvancedComparison = async (modelVariant) => {
@@ -1035,8 +1089,8 @@ export default function TradingJournal({
       setMessage('QA 모델 비교는 카카오 또는 네이버 로그인 후 사용할 수 있습니다.');
       return;
     }
-    if (!trades.length) {
-      setMessage('비교할 매매 기록을 먼저 입력하거나 복기 보관함에서 불러오세요.');
+    if (!selectedReviewTrades.length) {
+      setMessage('비교할 매매를 먼저 선택해 주세요.');
       return;
     }
     if (!aiConsentAccepted) {
@@ -1049,7 +1103,7 @@ export default function TradingJournal({
       const res = await axios.post(
         `${apiBase}/api/journal/qa/advanced-comparison`,
         {
-          trades,
+          trades: selectedReviewTrades,
           model_variant: modelVariant,
           privacy_consent: true,
         },
@@ -1061,17 +1115,7 @@ export default function TradingJournal({
         },
       );
       setQaComparisonResults(prev => ({ ...prev, [modelVariant]: res.data || null }));
-      let currentCharts = chartReview;
-      if (!currentCharts.charts?.length) {
-        try {
-          const chartRes = await axios.post(`${apiBase}/api/journal/charts-once`, { trades });
-          currentCharts = chartRes.data || { charts: [] };
-          setChartReview(currentCharts);
-        } catch {
-          currentCharts = { charts: [] };
-        }
-      }
-      setActiveChartTicker(current => current || currentCharts.charts?.[0]?.ticker || '');
+      await loadReviewContextForTrades(selectedReviewTrades);
       setShowCurrentReviewDetails(true);
       setMessage(`${modelVariant === 'luna' ? 'Luna' : 'Terra'} 심화 복기 비교 결과를 받았습니다. 같은 버튼을 다시 눌러도 추가 API 비용 없이 저장된 결과를 보여줍니다.`);
     } catch (err) {
@@ -1202,8 +1246,8 @@ export default function TradingJournal({
   };
 
   const handleRewardedAdBasicReview = async () => {
-    if (!trades.length) {
-      setMessage('AI 분석을 하려면 먼저 매매 기록을 입력하세요.');
+    if (!selectedReviewTrades.length) {
+      setMessage('복기할 매매를 먼저 선택해 주세요.');
       return;
     }
     if (!aiConsentAccepted) {
@@ -1215,7 +1259,7 @@ export default function TradingJournal({
 
     if (!mobileAdStatus.native) {
       if (DEV_TOOLS_ENABLED) {
-        await loadAiReview(trades, 'basic');
+        await loadAiReview(selectedReviewTrades, 'basic', { targetTradeId: selectedReviewGroup?.targetTradeId });
       } else {
         setMessage('광고 시청은 Android 앱에서 사용할 수 있습니다. 웹에서는 무료 제공량 또는 구매 이용권으로 복기를 실행하세요.');
       }
@@ -1239,7 +1283,10 @@ export default function TradingJournal({
           return;
         }
       }
-      await loadAiReview(trades, 'basic', { adRewardToken: '' });
+      await loadAiReview(selectedReviewTrades, 'basic', {
+        adRewardToken: '',
+        targetTradeId: selectedReviewGroup?.targetTradeId,
+      });
       await loadEntitlements();
     } catch (err) {
       reportJournalClientEvent({
@@ -2271,19 +2318,54 @@ export default function TradingJournal({
       </section>}
 
       <section className="journal-panel">
-        <div className="journal-panel-title journal-review-title">
+        <div className="journal-panel-title">
           <h3>AI 복기</h3>
-          <div className="journal-review-actions">
+        </div>
+        <div className="journal-review-target">
+          <div className="journal-review-target-heading">
+            <strong>복기할 매매 선택</strong>
+            <span>{selectedReviewGroup ? '1개 선택됨' : '선택 필요'}</span>
+          </div>
+          {reviewTradeGroups.length ? (
+            <div className="journal-review-target-list" role="radiogroup" aria-label="복기할 매매 선택">
+              {reviewTradeGroups.map(group => (
+                <label
+                  className={group.key === selectedReviewGroupKey ? 'active' : ''}
+                  key={group.key}
+                >
+                  <input
+                    type="radio"
+                    name="review-trade-group"
+                    value={group.key}
+                    checked={group.key === selectedReviewGroupKey}
+                    onChange={() => chooseReviewGroup(group.key)}
+                  />
+                  <span>
+                    <strong>{group.name}{group.ticker ? ` (${group.ticker})` : ''}</strong>
+                    <small>{reviewGroupPeriodText(group)} · 매수 {group.buyCount}건 · 매도 {group.sellCount}건</small>
+                  </span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <p>매매 기록을 입력하거나 복기 보관함에서 불러오면 선택할 수 있습니다.</p>
+          )}
+          <p>선택한 한 매매 묶음만 차트와 함께 AI에 전달합니다.</p>
+        </div>
+        <div className="journal-review-actions">
             <button
               className="journal-secondary"
-              disabled={aiLoading || adLoading || !trades.length || !aiConsentAccepted}
-              onClick={() => { setAiReviewType('basic'); loadAiReview(trades, 'basic'); }}
+              disabled={aiLoading || adLoading || !selectedReviewTrades.length || !aiConsentAccepted}
+              onClick={() => {
+                setAiReviewType('basic');
+                loadAiReview(selectedReviewTrades, 'basic', { targetTradeId: selectedReviewGroup?.targetTradeId });
+              }}
             >
               {aiLoading && aiReviewType === 'basic' ? '분석중' : '일반 복기'}
             </button>
             <button
               className="journal-secondary"
-              disabled={aiLoading || adLoading || !trades.length || !aiConsentAccepted || rewardedBasicNeedsFreeUsage}
+              disabled={aiLoading || adLoading || !selectedReviewTrades.length || !aiConsentAccepted || rewardedBasicNeedsFreeUsage}
               onClick={handleRewardedAdBasicReview}
               title={rewardedBasicNeedsFreeUsage
                 ? '먼저 바로 사용 가능한 무료 일반 복기를 사용하세요.'
@@ -2293,12 +2375,11 @@ export default function TradingJournal({
             </button>
             <button
               className="journal-secondary"
-              disabled={aiLoading || adLoading || !trades.length || !aiConsentAccepted}
+              disabled={aiLoading || adLoading || !selectedReviewTrades.length || !aiConsentAccepted}
               onClick={startAdvancedReview}
             >
               {aiLoading && aiReviewType === 'advanced' ? '분석중' : '심화 복기'}
             </button>
-          </div>
         </div>
         <label className="journal-ai-consent">
           <input
@@ -2357,14 +2438,14 @@ export default function TradingJournal({
             <div className="qa-comparison-actions">
               <button
                 className="journal-secondary"
-                disabled={Boolean(qaComparisonLoading) || !trades.length || !aiConsentAccepted}
+                disabled={Boolean(qaComparisonLoading) || !selectedReviewTrades.length || !aiConsentAccepted}
                 onClick={() => runQaAdvancedComparison('luna')}
               >
                 {qaComparisonLoading === 'luna' ? 'Luna 분석중' : 'Luna로 비교'}
               </button>
               <button
                 className="journal-secondary"
-                disabled={Boolean(qaComparisonLoading) || !trades.length || !aiConsentAccepted}
+                disabled={Boolean(qaComparisonLoading) || !selectedReviewTrades.length || !aiConsentAccepted}
                 onClick={() => runQaAdvancedComparison('terra')}
               >
                 {qaComparisonLoading === 'terra' ? 'Terra 분석중' : 'Terra로 비교'}
@@ -2432,9 +2513,9 @@ export default function TradingJournal({
       </section>}
 
       {showCurrentReviewDetails && <section className="journal-panel">
-        <h3>최근 기록</h3>
+        <h3>선택한 매매 기록</h3>
         <div className="journal-table">
-          {trades.map(trade => (
+          {selectedReviewTrades.map(trade => (
             <div className="journal-row" key={trade.id}>
               <span>{trade.trade_date}</span>
               <span>{trade.name} <em>{trade.ticker}</em></span>

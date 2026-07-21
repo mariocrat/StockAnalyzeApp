@@ -23,6 +23,7 @@
     "test:splash-loading": "node --test scripts/splash-loading-policy.test.js",
     "test:chart-layout": "node --test scripts/chart-layout.test.js",
     "test:journal-mobile-ux": "node --test scripts/journal-mobile-ux.test.js",
+    "test:review-selection": "node --test scripts/review-trade-selection.test.js",
     "test:user-messages": "node --test scripts/user-message.test.js",
     "test:release-env": "node --test scripts/validate-release-env.test.js",
     "test:mobile-bundle": "node --test scripts/validate-mobile-bundle.test.js",

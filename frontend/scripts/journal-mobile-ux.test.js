@@ -48,6 +48,15 @@ test('saved review can restore its trade snapshot for another review', () => {
   assert.match(journalSource, /setJournalSubView\('review'\)/);
 });
 
+test('AI review sends only the explicitly selected trade episode', () => {
+  assert.match(journalSource, /복기할 매매 선택/);
+  assert.match(journalSource, /selectedReviewGroupKey/);
+  assert.match(journalSource, /selectedReviewTrades/);
+  assert.match(journalSource, /loadAiReview\(selectedReviewTrades, 'advanced'/);
+  assert.match(journalSource, /trades: selectedReviewTrades/);
+  assert.doesNotMatch(journalSource, /loadAiReview\(trades, 'advanced'/);
+});
+
 test('Luna and Terra comparison is isolated to the explicit QA build flag', () => {
   assert.match(journalSource, /VITE_QA_ADVANCED_COMPARISON/);
   assert.match(journalSource, /X-AlphaMate-QA-Comparison/);

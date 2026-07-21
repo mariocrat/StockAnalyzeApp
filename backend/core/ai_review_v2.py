@@ -229,12 +229,37 @@ def _contexts_for_trades(trades: list[dict]) -> list[dict]:
 def _trade_episode(trades: list[dict], target: dict) -> list[dict]:
     ticker = str(target.get("ticker") or "").strip()
     name = str(target.get("name") or "").strip()
-    episode = [
+    symbol_trades = [
         row for row in trades
         if (ticker and str(row.get("ticker") or "").strip() == ticker)
         or (not ticker and name and str(row.get("name") or "").strip() == name)
     ]
-    return sorted(episode, key=lambda row: (row.get("trade_date", ""), row.get("id", 0)))[-20:]
+    ordered = sorted(symbol_trades, key=lambda row: (row.get("trade_date", ""), row.get("id", 0)))
+    episodes = []
+    current = []
+    position = 0.0
+    for row in ordered:
+        if not current:
+            current = []
+            position = 0.0
+        current.append(row)
+        quantity = max(0.0, float(row.get("quantity") or 0))
+        position += quantity if row.get("side") != "sell" else -quantity
+        if row.get("side") == "sell" and position <= 0:
+            episodes.append(current)
+            current = []
+            position = 0.0
+    if current:
+        episodes.append(current)
+
+    target_id = target.get("id")
+    for episode in episodes:
+        for row in episode:
+            if target_id is not None and str(row.get("id")) == str(target_id):
+                return episode[-20:]
+            if target_id is None and row is target:
+                return episode[-20:]
+    return ordered[-20:]
 
 
 def _compact_chart_snapshot(trades: list[dict]) -> dict:
@@ -540,7 +565,7 @@ def build_advanced_ai_review(
     if not target:
         return {"status": "empty", "source": "none", "review_type": "advanced", "summary": "매매 기록을 먼저 입력하세요."}
 
-    recent = ordered[-10:]
+    recent = _trade_episode(ordered, target)
     chart_snapshots = []
     by_ticker = {}
     for trade in recent:
@@ -558,27 +583,39 @@ def build_advanced_ai_review(
         "trade_chart_snapshots": chart_snapshots,
         "output_contract": {
             "format": "structured markdown",
-            "must_cover": ["반복 실수", "손절 기준", "진입 가설", "대응 문제", "다음 매매 규칙"],
-            "sections": ["이번 매매 판단", "반복 패턴", "손절 기준", "매수·매도 대응", "다음 매매 규칙"],
+            "must_cover": ["결과와 판단 품질 분리", "진입 가설", "무효화 가격", "손절 기준", "매수·매도 대응"],
+            "sections": ["이번 매매 판단", "진입 가설과 무효화", "손절 기준", "매수·매도 대응", "다음 매매"],
             "length": "핵심 근거 중심으로 간결하게",
         },
+        "scope_policy": {
+            "rule": "recent_trades에는 사용자가 선택한 한 매매 에피소드의 체결만 들어 있다.",
+            "do_not_expand": "다른 종목이나 선택하지 않은 매매를 추측하거나 분석에 포함하지 않는다.",
+        },
     }
-    model = str(model_override or "").strip() or _env_value("OPENAI_ADVANCED_REVIEW_MODEL") or "gpt-5.6-terra"
+    model = str(model_override or "").strip() or _env_value("OPENAI_ADVANCED_REVIEW_MODEL") or "gpt-5.6-luna"
     fallback_model = (
         _env_value("OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL")
         or _env_value("OPENAI_BASIC_REVIEW_MODEL")
         or "gpt-5.4-mini"
     )
     instructions = (
-        "너는 한국 주식 매매 복기 코치다. 이번 매매와 최근 5~10건의 실제 체결·차트 스냅샷을 비교해 반복 실수, 손절 기준, "
-        "매수 가설, 매도 대응 문제를 분석한다. 메모가 없어도 체결가와 전후 봉 흐름으로 판단하고, 기록 자체를 칭찬하지 않는다. "
-        "각 판단에는 종목명, 가격, 수익률, 이동평균선 또는 전후 봉 흐름 중 구체 근거를 붙인다. 확인된 사실과 해석을 구분하고, "
-        "최고가를 사후적으로 맞혔어야 한다는 식으로 평가하지 않는다. 손절 기준은 서로 다른 대안을 여러 개 나열하기보다 이번 진입 "
-        "가설과 가장 논리적으로 연결되는 한 가지 기본 기준을 먼저 제시한다. 근거 없이 모든 종목에 적용할 고정 비율을 만들지 않는다. "
-        "MA5, MA10 같은 영문 약어는 쓰지 않는다. 1분봉이면 5분 이동평균선, 일봉이면 5일 이동평균선처럼 차트 주기에 맞는 "
-        "한국어 명칭을 쓴다. '이번 매매 판단', '반복 패턴', '손절 기준', '매수·매도 대응', '다음 매매 규칙' 순서의 마크다운 제목을 "
-        "사용하고, 각 항목은 짧은 문단과 목록으로 정리한다. 투자 추천이나 종목 추천은 금지한다. 마지막 규칙은 실제 근거가 있는 "
-        "숫자 기준만 3개 이내로 제시한다."
+        "<role>너는 한국 주식 매매 복기 코치다. 사용자가 선택한 한 매매 에피소드만 깊게 분석한다.</role>\n"
+        "<scope>payload의 recent_trades와 trade_chart_snapshots만 분석한다. 선택하지 않은 종목, 다른 날짜의 매매, 존재하지 않는 "
+        "최근 기록을 끌어오지 않는다. 체결 수가 여러 건이어도 같은 포지션의 분할 매수·매도라면 하나의 매매로 본다.</scope>\n"
+        "<judgment_rules>수익 또는 손실이라는 결과와 당시 판단의 품질을 반드시 분리한다. 매도 뒤 가격이 올랐다는 이유만으로 조기 "
+        "매도라고 단정하지 않고, 매도 시점까지 확인 가능했던 봉·거래량·이동평균선·사전 규칙만으로 평가한다. 최고가를 맞히지 못한 "
+        "것은 잘못으로 평가하지 않는다. 진입은 가설, 확인 신호, 가설이 틀렸다고 볼 무효화 가격, 실제 체결의 일치 여부 순서로 "
+        "연결한다. 손절 기준은 핵심 기준 한 개와 필요할 때만 보조 기준 한 개를 제시한다. 근거 없는 -1.5%, -2%, 잔량 30% 같은 "
+        "범용 숫자 규칙을 만들지 않는다.</judgment_rules>\n"
+        "<evidence_rules>각 판단에는 종목명, 체결 가격, 수익률, 전후 봉, 거래량 또는 이동평균선 중 실제 숫자 근거를 붙인다. 문장마다 "
+        "필요에 따라 [데이터 확인], [합리적 추론], [추가 정보 필요] 중 하나로 근거 수준을 표시한다. 메모가 없어도 차트로 판단하되 "
+        "매매 이유를 지어내지 않는다. 완결된 매매가 5개 미만이면 반복 습관이라고 단정하지 말고 이번 매매에서 보인 잠정 패턴이라고 "
+        "쓴다.</evidence_rules>\n"
+        "<terminology>MA5, MA10 같은 영문 약어를 쓰지 않는다. 1분봉에서는 '1분봉의 5기간 이동평균선', 일봉에서는 '5일 "
+        "이동평균선', 주봉에서는 '5주 이동평균선'처럼 주기와 기간을 정확히 구분한다.</terminology>\n"
+        "<output_contract>'이번 매매 판단', '진입 가설과 무효화', '손절 기준', '매수·매도 대응', '다음 매매' 순서의 마크다운 "
+        "제목을 사용한다. 같은 원인의 문제를 여러 항목에서 반복하지 않는다. 마지막 '다음 매매'에는 가장 중요한 문제 1개, 다음에 "
+        "적용할 규칙 2개, 기록이 더 필요한 정보 1개만 쓴다. 짧은 문단과 목록으로 정리하고 투자 추천이나 종목 추천은 하지 않는다.</output_contract>"
     )
     try:
         ai_text = _call_openai_review(payload, model=model, instructions=instructions)

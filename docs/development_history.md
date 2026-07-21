@@ -50,7 +50,7 @@
 ## 2026-07-15 AI review model update
 
 - Kept general reviews on `gpt-5.4-mini` for ad-supported cost efficiency.
-- Changed the advanced review default from `gpt-5.5` to `gpt-5.6-terra` to improve the quality-to-cost balance.
+- Changed the advanced review default from `gpt-5.5` to `gpt-5.6-terra`, then to prompt-constrained `gpt-5.6-luna` after limiting each review to one explicitly selected trade episode.
 - Kept both model IDs configurable through backend-only environment variables so no OpenAI credential or model setting is bundled in the Android app.
 - Added separate output-token caps for general and advanced reviews and aggregate token-usage operational events without storing prompts or API credentials.
 

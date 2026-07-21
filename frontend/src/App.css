@@ -1210,6 +1210,101 @@ body {
   justify-content: flex-end;
 }
 
+.journal-review-target {
+  margin: 10px 0 12px;
+  padding: 12px;
+  border: 1px solid #34415c;
+  border-radius: 6px;
+  background: #0f1522;
+}
+
+.journal-review-target-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.journal-review-target-heading strong {
+  color: #f2f5ff;
+  font-size: 13px;
+}
+
+.journal-review-target-heading span {
+  color: #8fb0ff;
+  font-size: 11px;
+}
+
+.journal-review-target-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.journal-review-target-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #2a3346;
+  border-radius: 6px;
+  background: #141a27;
+  cursor: pointer;
+}
+
+.journal-review-target-list label.active {
+  border-color: #477cff;
+  background: #172951;
+  box-shadow: inset 0 0 0 1px rgba(71, 124, 255, 0.25);
+}
+
+.journal-review-target-list input {
+  margin: 2px 0 0;
+  accent-color: #477cff;
+}
+
+.journal-review-target-list label > span,
+.journal-review-target-list strong,
+.journal-review-target-list small {
+  display: block;
+  min-width: 0;
+}
+
+.journal-review-target-list label > span {
+  overflow: hidden;
+}
+
+.journal-review-target-list strong {
+  overflow: hidden;
+  color: #edf3ff;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journal-review-target-list small,
+.journal-review-target > p {
+  color: #929db4;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.journal-review-target-list small {
+  margin-top: 4px;
+}
+
+.journal-review-target > p {
+  margin: 8px 0 0;
+}
+
+.journal-review-actions {
+  margin-bottom: 12px;
+}
+
 .journal-auth-box {
   display: flex;
   align-items: center;
@@ -2537,6 +2632,10 @@ body {
     display: grid;
     grid-template-columns: 1fr;
     width: 100%;
+  }
+
+  .journal-review-target-list {
+    grid-template-columns: 1fr;
   }
 
   .review-history-restore {

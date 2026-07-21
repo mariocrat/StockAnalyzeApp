@@ -287,8 +287,8 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         }])
 
         self.assertEqual("gpt-5.4-mini", basic["model"])
-        self.assertEqual("gpt-5.6-terra", advanced["model"])
-        self.assertEqual([("basic", "gpt-5.4-mini"), ("advanced", "gpt-5.6-terra")], captured)
+        self.assertEqual("gpt-5.6-luna", advanced["model"])
+        self.assertEqual([("basic", "gpt-5.4-mini"), ("advanced", "gpt-5.6-luna")], captured)
 
     def test_ai_review_model_ids_are_configurable(self):
         os.environ["OPENAI_BASIC_REVIEW_MODEL"] = "custom-basic-model"
@@ -339,10 +339,13 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         }])
 
         self.assertEqual("structured markdown", captured["payload"]["output_contract"]["format"])
-        self.assertIn("MA5, MA10 같은 영문 약어는 쓰지 않는다", captured["instructions"])
-        self.assertIn("1분봉이면 5분 이동평균선", captured["instructions"])
-        self.assertIn("일봉이면 5일 이동평균선", captured["instructions"])
-        self.assertIn("서로 다른 대안을 여러 개 나열하기보다", captured["instructions"])
+        self.assertIn("MA5, MA10 같은 영문 약어를 쓰지 않는다", captured["instructions"])
+        self.assertIn("1분봉의 5기간 이동평균선", captured["instructions"])
+        self.assertIn("5일 이동평균선", captured["instructions"])
+        self.assertIn("핵심 기준 한 개", captured["instructions"])
+        self.assertIn("결과와 당시 판단의 품질을 반드시 분리", captured["instructions"])
+        self.assertIn("완결된 매매가 5개 미만", captured["instructions"])
+        self.assertIn("[데이터 확인]", captured["instructions"])
 
     def test_advanced_review_uses_configurable_fallback_model_after_primary_failure(self):
         os.environ["OPENAI_ADVANCED_REVIEW_MODEL"] = "primary-advanced-model"
@@ -432,9 +435,33 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.assertEqual(list(range(2, 13, 2)), [trade["id"] for trade in basic_episode])
 
         advanced_history = captured["advanced"]["recent_trades"]
-        self.assertEqual(10, len(advanced_history))
-        self.assertEqual(list(range(3, 13)), [trade["id"] for trade in advanced_history])
+        self.assertEqual(6, len(advanced_history))
+        self.assertEqual({"000660"}, {trade["ticker"] for trade in advanced_history})
+        self.assertEqual(list(range(2, 13, 2)), [trade["id"] for trade in advanced_history])
         self.assertEqual(12, captured["advanced"]["target_trade"]["id"])
+
+    def test_advanced_review_targets_only_the_selected_round_trip(self):
+        captured = {}
+
+        def fake_call(payload, *, model, instructions):
+            captured.update(payload)
+            return "ok"
+
+        self.ai_review_v2._contexts_for_trades = lambda trades: []
+        self.ai_review_v2._compact_chart_snapshot = lambda trades: {}
+        self.ai_review_v2._call_openai_review = fake_call
+        trades = [
+            {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "017900", "name": "Gwangjeonja", "side": "buy", "price": 7000, "quantity": 10},
+            {"id": 2, "trade_date": "2026-07-10T09:40", "ticker": "017900", "name": "Gwangjeonja", "side": "sell", "price": 7100, "quantity": 10},
+            {"id": 3, "trade_date": "2026-07-16T09:06", "ticker": "004310", "name": "Hyundai Pharm", "side": "buy", "price": 7250, "quantity": 69},
+            {"id": 4, "trade_date": "2026-07-16T09:10", "ticker": "004310", "name": "Hyundai Pharm", "side": "sell", "price": 7430, "quantity": 69},
+        ]
+
+        self.ai_review_v2.build_advanced_ai_review(trades, target_trade_id=2)
+
+        self.assertEqual([1, 2], [trade["id"] for trade in captured["recent_trades"]])
+        self.assertEqual({"017900"}, {trade["ticker"] for trade in captured["recent_trades"]})
+        self.assertEqual(2, captured["target_trade"]["id"])
 
     def test_basic_review_anchors_verdict_and_changes_only_analysis_focus(self):
         captured = {}
