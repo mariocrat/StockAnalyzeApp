@@ -317,6 +317,33 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
 
         self.assertEqual(["custom-basic-model", "custom-advanced-model"], captured)
 
+    def test_advanced_review_requests_readable_korean_indicator_terms(self):
+        captured = {}
+
+        def fake_call(payload, *, model, instructions):
+            captured["payload"] = payload
+            captured["instructions"] = instructions
+            return "ok"
+
+        self.ai_review_v2._contexts_for_trades = lambda trades: []
+        self.ai_review_v2._compact_chart_snapshot = lambda trades: {}
+        self.ai_review_v2._call_openai_review = fake_call
+        self.ai_review_v2.build_advanced_ai_review([{
+            "id": 1,
+            "trade_date": "2026-07-16T09:06",
+            "ticker": "004310",
+            "name": "현대약품",
+            "side": "buy",
+            "price": 7250,
+            "quantity": 69,
+        }])
+
+        self.assertEqual("structured markdown", captured["payload"]["output_contract"]["format"])
+        self.assertIn("MA5, MA10 같은 영문 약어는 쓰지 않는다", captured["instructions"])
+        self.assertIn("1분봉이면 5분 이동평균선", captured["instructions"])
+        self.assertIn("일봉이면 5일 이동평균선", captured["instructions"])
+        self.assertIn("서로 다른 대안을 여러 개 나열하기보다", captured["instructions"])
+
     def test_advanced_review_uses_configurable_fallback_model_after_primary_failure(self):
         os.environ["OPENAI_ADVANCED_REVIEW_MODEL"] = "primary-advanced-model"
         os.environ["OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL"] = "fallback-advanced-model"

@@ -1734,6 +1734,30 @@ body {
   margin: 9px 0 0;
 }
 
+.qa-comparison-chart-guide {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border: 1px solid #2f3d5e;
+  border-radius: 6px;
+  background: #0d1320;
+}
+
+.qa-comparison-chart-guide span {
+  color: #aeb9d2;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.qa-comparison-chart-guide button {
+  flex: 0 0 auto;
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
 .qa-comparison-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1757,6 +1781,64 @@ body {
 
 .qa-comparison-result .journal-ai-card {
   margin-top: 9px;
+}
+
+.journal-ai-document {
+  color: #d6dceb;
+  font-size: 13px;
+  line-height: 1.72;
+}
+
+.journal-ai-document h4,
+.journal-ai-document h5 {
+  margin: 18px 0 9px;
+  letter-spacing: 0;
+  line-height: 1.4;
+}
+
+.journal-ai-document h4:first-child,
+.journal-ai-document h5:first-child {
+  margin-top: 0;
+}
+
+.journal-ai-document h4 {
+  padding: 9px 10px;
+  border-left: 3px solid #5f89ff;
+  background: #151e35;
+  color: #f2f5ff;
+  font-size: 15px;
+}
+
+.journal-ai-document h5 {
+  color: #aec4ff;
+  font-size: 13px;
+}
+
+.journal-ai-document p,
+.journal-ai-document ul,
+.journal-ai-document ol {
+  margin: 0 0 12px;
+}
+
+.journal-ai-document ul,
+.journal-ai-document ol {
+  padding-left: 21px;
+}
+
+.journal-ai-document li + li {
+  margin-top: 6px;
+}
+
+.journal-ai-document strong {
+  color: #f4f7ff;
+  font-weight: 700;
+}
+
+.journal-ai-document hr {
+  height: 1px;
+  margin: 16px 0;
+  border: 0;
+  background: #2c3650;
 }
 
 .journal-ai-summary-structured {
@@ -2464,6 +2546,20 @@ body {
 
   .qa-comparison-grid {
     grid-template-columns: 1fr;
+  }
+
+  .qa-comparison-chart-guide {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .qa-comparison-chart-guide button {
+    width: 100%;
+  }
+
+  .journal-ai-document {
+    font-size: 14px;
+    line-height: 1.76;
   }
 
   .journal-review-title {

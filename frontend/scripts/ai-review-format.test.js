@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseAiReviewSummary } from '../src/utils/aiReviewFormat.js';
+import { normalizeAiReviewTerms, parseAiReviewDocument, parseAiReviewSummary } from '../src/utils/aiReviewFormat.js';
 
 test('splits a dense general review into readable sections and checklist items', () => {
   const parsed = parseAiReviewSummary(
@@ -26,4 +26,29 @@ test('keeps legacy unstructured review text as a safe fallback', () => {
 
   assert.equal(parsed.structured, false);
   assert.equal(parsed.text, '기존 복기 내용입니다.');
+});
+
+test('turns an advanced markdown review into readable blocks', () => {
+  const blocks = parseAiReviewDocument(
+    '## 1. 반복 패턴\n\n**전량 매도**가 빨랐습니다.\n\n- MA5 위에서 매도\n- MA20도 상승 중\n\n---\n\n### 다음 규칙\n\n1. 손절가를 먼저 정합니다.',
+  );
+
+  assert.deepEqual(blocks.map(block => block.type), [
+    'heading',
+    'paragraph',
+    'list',
+    'divider',
+    'heading',
+    'list',
+  ]);
+  assert.equal(blocks[2].items[0], '5이평선 위에서 매도');
+  assert.equal(blocks[2].items[1], '20이평선도 상승 중');
+  assert.equal(blocks[5].ordered, true);
+});
+
+test('uses Korean moving-average labels in review copy', () => {
+  assert.equal(
+    normalizeAiReviewTerms('MA5 7,014원 > MA20 6,573원, MA 10 확인'),
+    '5이평선 7,014원 > 20이평선 6,573원, 10이평선 확인',
+  );
 });

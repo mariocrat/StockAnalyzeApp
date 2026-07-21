@@ -53,6 +53,9 @@ test('Luna and Terra comparison is isolated to the explicit QA build flag', () =
   assert.match(journalSource, /X-AlphaMate-QA-Comparison/);
   assert.match(journalSource, /luna-terra-v1/);
   assert.match(journalSource, /테스트 APK 전용 · 이용권 차감 없음/);
+  assert.match(journalSource, /매매 차트 보기/);
+  assert.match(journalSource, /setShowCurrentReviewDetails\(true\)/);
+  assert.match(cssSource, /\.journal-ai-document h4/);
 });
 
 test('mobile entitlement balances remain in a compact three-column grid', () => {
@@ -126,5 +129,5 @@ test('saved journal entry does not reveal stock details until a review is select
 
 test('successful AI review is not replaced by a failed follow-up refresh', () => {
   assert.match(journalSource, /Promise\.allSettled\(followUpRefreshes\)/);
-  assert.match(journalSource, /<AiReviewSummary value=\{aiReview\.summary\} \/>/);
+  assert.match(journalSource, /<AiReviewSummary value=\{aiReview\.summary\} document=\{aiReview\.review_type === 'advanced'\} \/>/);
 });

@@ -12,7 +12,7 @@ import { buildAiReviewIdempotencyKey } from '../utils/aiReviewIdempotency';
 import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
-import { parseAiReviewSummary } from '../utils/aiReviewFormat';
+import { parseAiReviewDocument, parseAiReviewSummary } from '../utils/aiReviewFormat';
 import { toKoreanUserMessage } from '../utils/userMessage';
 
 const sideLabels = { buy: '매수', sell: '매도' };
@@ -174,10 +174,42 @@ function reviewAccessText(access) {
   return `${plan} · ${type} · ${source} · 바로 사용 ${freeNow}회 · 광고 추가 ${adAvailable}회 · 구매 ${basic.purchased_remaining || 0}회`;
 }
 
-function AiReviewSummary({ value }) {
+function ReviewInlineText({ value }) {
+  return String(value || '').split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((part, index) => (
+    part.startsWith('**') && part.endsWith('**')
+      ? <strong key={`${index}-${part}`}>{part.slice(2, -2)}</strong>
+      : <span key={`${index}-${part}`}>{part}</span>
+  ));
+}
+
+function AiReviewSummary({ value, document = false }) {
   const summary = parseAiReviewSummary(value);
-  if (!summary.structured) {
-    return <p className="journal-ai-summary">{summary.text || '복기 내용이 없습니다.'}</p>;
+  if (document || !summary.structured) {
+    const blocks = parseAiReviewDocument(summary.text);
+    if (!blocks.length) return <p className="journal-ai-summary">복기 내용이 없습니다.</p>;
+    return (
+      <div className="journal-ai-document">
+        {blocks.map((block, index) => {
+          const key = `${index}-${block.type}-${block.text || ''}`;
+          if (block.type === 'heading') {
+            const Heading = block.level <= 2 ? 'h4' : 'h5';
+            return <Heading key={key}><ReviewInlineText value={block.text} /></Heading>;
+          }
+          if (block.type === 'divider') return <hr key={key} />;
+          if (block.type === 'list') {
+            const List = block.ordered ? 'ol' : 'ul';
+            return (
+              <List key={key}>
+                {block.items.map((item, itemIndex) => (
+                  <li key={`${itemIndex}-${item}`}><ReviewInlineText value={item} /></li>
+                ))}
+              </List>
+            );
+          }
+          return <p key={key}><ReviewInlineText value={block.text} /></p>;
+        })}
+      </div>
+    );
   }
 
   return (
@@ -262,6 +294,7 @@ export default function TradingJournal({
   const suppressStockSearchRef = useRef(false);
   const reviewHistoryAdShownRef = useRef(false);
   const entitlementSectionRef = useRef(null);
+  const tradeChartSectionRef = useRef(null);
   const aiReviewInFlightRef = useRef(false);
   const basicReviewFocusIndexRef = useRef(0);
   const setMessage = (value) => setRawMessage(toKoreanUserMessage(value));
@@ -1028,6 +1061,18 @@ export default function TradingJournal({
         },
       );
       setQaComparisonResults(prev => ({ ...prev, [modelVariant]: res.data || null }));
+      let currentCharts = chartReview;
+      if (!currentCharts.charts?.length) {
+        try {
+          const chartRes = await axios.post(`${apiBase}/api/journal/charts-once`, { trades });
+          currentCharts = chartRes.data || { charts: [] };
+          setChartReview(currentCharts);
+        } catch {
+          currentCharts = { charts: [] };
+        }
+      }
+      setActiveChartTicker(current => current || currentCharts.charts?.[0]?.ticker || '');
+      setShowCurrentReviewDetails(true);
       setMessage(`${modelVariant === 'luna' ? 'Luna' : 'Terra'} 심화 복기 비교 결과를 받았습니다. 같은 버튼을 다시 눌러도 추가 API 비용 없이 저장된 결과를 보여줍니다.`);
     } catch (err) {
       setMessage(err.response?.data?.detail || 'QA 심화 복기 비교를 완료하지 못했습니다.');
@@ -1724,7 +1769,10 @@ export default function TradingJournal({
                     <span>저장 당시 함께 분석한 매매 기록을 현재 복기 화면으로 불러옵니다.</span>
                   </div>
                   <JournalTradeChart chartData={savedChart} />
-                  <AiReviewSummary value={savedReview?.summary || '저장된 복기 내용이 없습니다.'} />
+                  <AiReviewSummary
+                    value={savedReview?.summary || '저장된 복기 내용이 없습니다.'}
+                    document={activeReviewHistory.review_type === 'advanced'}
+                  />
                   <div className="journal-chart-review-list">
                     {savedCards.map((item, idx) => (
                       <div className="journal-ai-card" key={`${item.title || idx}-${idx}`}>
@@ -2183,7 +2231,7 @@ export default function TradingJournal({
         )}
       </section>
 
-      {showCurrentReviewDetails && <section className="journal-panel">
+      {showCurrentReviewDetails && <section className="journal-panel" ref={tradeChartSectionRef}>
         <div className="journal-panel-title">
           <h3>매매 차트</h3>
           <span className="journal-chart-mode">
@@ -2271,7 +2319,7 @@ export default function TradingJournal({
               <div className={`journal-ai-status ${aiReview.status || 'ready'}`}>
                 {aiReview.source === 'openai' ? 'AI 분석' : '차트 기반 기본 분석'}
               </div>
-              <AiReviewSummary value={aiReview.summary} />
+              <AiReviewSummary value={aiReview.summary} document={aiReview.review_type === 'advanced'} />
               {aiReview.access && (
                 <div className="journal-ai-entitlement">
                   {reviewAccessText(aiReview.access)}
@@ -2323,6 +2371,16 @@ export default function TradingJournal({
               </button>
             </div>
             <p className="qa-comparison-cost">같은 토큰 양이라면 Luna의 API 비용은 Terra의 약 40%입니다. 실제 결과 품질을 보고 운영 모델을 결정하세요.</p>
+            <div className="qa-comparison-chart-guide">
+              <span>두 결과는 같은 매매 차트를 기준으로 분석합니다. 차트는 중복하지 않고 위의 매매 차트에 표시합니다.</span>
+              <button
+                className="journal-secondary"
+                disabled={!chartReview.charts?.length}
+                onClick={() => tradeChartSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+              >
+                매매 차트 보기
+              </button>
+            </div>
             {(qaComparisonResults.luna || qaComparisonResults.terra) && (
               <div className="qa-comparison-grid">
                 {['luna', 'terra'].map(variant => {
@@ -2332,7 +2390,7 @@ export default function TradingJournal({
                       <h4>{variant === 'luna' ? 'Luna 결과' : 'Terra 결과'}</h4>
                       {result ? (
                         <>
-                          <AiReviewSummary value={result.summary} />
+                          <AiReviewSummary value={result.summary} document />
                           {(result.chart_reviews || []).map((item, idx) => (
                             <div className="journal-ai-card" key={`${variant}-${item.title || idx}-${idx}`}>
                               <strong>{item.title}</strong>

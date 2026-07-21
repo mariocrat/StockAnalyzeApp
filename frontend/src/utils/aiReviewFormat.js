@@ -52,3 +52,72 @@ export function parseAiReviewSummary(value) {
     checklist: numberedItems(sections.checklist),
   };
 }
+
+export function normalizeAiReviewTerms(value) {
+  return String(value || '')
+    .replace(/\bMA\s*(5|10|20|60|120)\b/gi, '$1이평선');
+}
+
+export function parseAiReviewDocument(value) {
+  const text = normalizeAiReviewTerms(value).replace(/\r\n?/g, '\n').trim();
+  if (!text) return [];
+
+  const blocks = [];
+  let paragraph = [];
+  let list = null;
+
+  const flushParagraph = () => {
+    if (!paragraph.length) return;
+    blocks.push({ type: 'paragraph', text: paragraph.join(' ').trim() });
+    paragraph = [];
+  };
+  const flushList = () => {
+    if (!list) return;
+    blocks.push(list);
+    list = null;
+  };
+
+  text.split('\n').forEach(rawLine => {
+    const line = rawLine.trim();
+    if (!line) {
+      flushParagraph();
+      flushList();
+      return;
+    }
+
+    const heading = line.match(/^(#{1,4})\s+(.+)$/);
+    if (heading) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: 'heading', level: heading[1].length, text: heading[2].trim() });
+      return;
+    }
+
+    if (/^-{3,}$/.test(line)) {
+      flushParagraph();
+      flushList();
+      blocks.push({ type: 'divider' });
+      return;
+    }
+
+    const unordered = line.match(/^[-*]\s+(.+)$/);
+    const ordered = line.match(/^\d+[.)]\s+(.+)$/);
+    if (unordered || ordered) {
+      flushParagraph();
+      const orderedList = Boolean(ordered);
+      if (!list || list.ordered !== orderedList) {
+        flushList();
+        list = { type: 'list', ordered: orderedList, items: [] };
+      }
+      list.items.push((unordered?.[1] || ordered?.[1] || '').trim());
+      return;
+    }
+
+    flushList();
+    paragraph.push(line);
+  });
+
+  flushParagraph();
+  flushList();
+  return blocks;
+}
