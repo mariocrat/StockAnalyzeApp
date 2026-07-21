@@ -25,6 +25,14 @@ from core.journal import add_trade, list_trades, count_trades, delete_trade, cle
 from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
 from core.journal_chart import build_journal_charts
 from core.review_history import add_review_history, list_review_history, get_review_history, delete_review_history
+from core.qa_advanced_compare import (
+    ALLOWED_MODELS as QA_ADVANCED_MODELS,
+    COMPARISON_VERSION as QA_ADVANCED_COMPARISON_VERSION,
+    QaComparisonUnavailable,
+    begin_comparison as begin_qa_advanced_comparison,
+    complete_comparison as complete_qa_advanced_comparison,
+    release_comparison as release_qa_advanced_comparison,
+)
 from core.access_control import (
     apply_dev_purchase,
     apply_google_play_purchase,
@@ -166,6 +174,11 @@ class JournalAiReviewIn(JournalBatchIn):
     review_type: str = "basic"
     target_trade_id: Optional[int] = None
     analysis_focus: str = "balanced"
+
+
+class JournalQaAdvancedCompareIn(JournalBatchIn):
+    model_variant: str
+    privacy_consent: bool = False
 
 
 class JournalDevPurchaseIn(BaseModel):
@@ -1677,6 +1690,67 @@ def get_journal_ai_review_once(
         result["review_history_id"] = review_history_id
     _finish_ai_review_idempotency(idempotency_cache_key, result)
     return result
+
+
+@app.post("/api/journal/qa/advanced-comparison")
+def post_journal_qa_advanced_comparison(
+    batch: JournalQaAdvancedCompareIn,
+    authorization: Optional[str] = Header(default=None),
+    x_alphamate_qa_comparison: Optional[str] = Header(default=None, alias="X-AlphaMate-QA-Comparison"),
+):
+    if x_alphamate_qa_comparison != QA_ADVANCED_COMPARISON_VERSION:
+        raise HTTPException(status_code=404, detail="요청한 기능을 찾을 수 없습니다.")
+    if not batch.privacy_consent:
+        raise HTTPException(status_code=400, detail="AI 복기 분석을 위한 정보 전송 동의가 필요합니다.")
+
+    user = authenticate_session(authorization)
+    variant = str(batch.model_variant or "").strip().lower()
+    model = QA_ADVANCED_MODELS.get(variant)
+    if not model:
+        raise HTTPException(status_code=400, detail="지원하지 않는 심화 복기 비교 모델입니다.")
+    _enforce_journal_batch_limit(batch, max_trades=_ai_review_max_trades(), label="QA 심화 복기 비교")
+    trades = _journal_batch_payload(batch)
+
+    try:
+        claim = begin_qa_advanced_comparison(user_id=user["id"], model_variant=variant)
+    except QaComparisonUnavailable as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not claim["run"]:
+        cached = copy.deepcopy(claim["cached_result"] or {})
+        cached["qa_cached_result"] = True
+        return cached
+
+    capacity_acquired = False
+    try:
+        _enforce_ai_review_rate_limit(authorization)
+        _acquire_ai_review_capacity()
+        capacity_acquired = True
+        record_privacy_consent(authorization=authorization)
+        result = build_advanced_ai_review(
+            trades,
+            model_override=model,
+            allow_fallback=False,
+        )
+        if result.get("status") != "ready" or result.get("source") != "openai":
+            release_qa_advanced_comparison(user_id=user["id"], model_variant=variant)
+            raise HTTPException(status_code=502, detail="선택한 모델의 심화 복기 결과를 받지 못했습니다. 잠시 후 다시 시도해 주세요.")
+        result["qa_comparison"] = {
+            "version": QA_ADVANCED_COMPARISON_VERSION,
+            "model_variant": variant,
+            "model": model,
+            "ticket_consumed": False,
+        }
+        complete_qa_advanced_comparison(user_id=user["id"], model_variant=variant, result=result)
+        return result
+    except HTTPException:
+        release_qa_advanced_comparison(user_id=user["id"], model_variant=variant)
+        raise
+    except Exception:
+        release_qa_advanced_comparison(user_id=user["id"], model_variant=variant)
+        raise
+    finally:
+        if capacity_acquired:
+            _release_ai_review_capacity()
 
 
 @app.get("/api/journal/charts")

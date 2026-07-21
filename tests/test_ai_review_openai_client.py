@@ -345,6 +345,34 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.assertEqual("fallback-advanced-model", result["model"])
         self.assertEqual(["primary-advanced-model", "fallback-advanced-model"], captured)
 
+    def test_advanced_review_override_can_disable_fallback_for_qa_comparison(self):
+        os.environ["OPENAI_ADVANCED_REVIEW_MODEL"] = "configured-primary"
+        os.environ["OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL"] = "configured-fallback"
+        captured = []
+
+        def fake_call(payload, *, model, instructions):
+            captured.append(model)
+            raise RuntimeError("model failed")
+
+        self.ai_review_v2._call_openai_review = fake_call
+        result = self.ai_review_v2.build_advanced_ai_review(
+            [{
+                "id": 1,
+                "trade_date": "2026-07-10T09:36",
+                "ticker": "017900",
+                "name": "광전자",
+                "side": "buy",
+                "price": 6980,
+                "quantity": 10,
+            }],
+            model_override="gpt-5.6-luna",
+            allow_fallback=False,
+        )
+
+        self.assertEqual(["gpt-5.6-luna"], captured)
+        self.assertEqual("error", result["status"])
+        self.assertEqual("advanced", result["review_type"])
+
     def test_many_trades_keep_basic_episode_and_advanced_history_scopes_separate(self):
         captured = {}
 

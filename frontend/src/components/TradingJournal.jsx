@@ -25,6 +25,8 @@ const DEV_AD_REWARD_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_AD_REWA
 const DEV_ACCESS_PLAN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_ACCESS_PLAN || 'free' : 'free';
 const DEV_PRO_ENTITLEMENT_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_PRO_ENTITLEMENT_TOKEN || 'dev-pro-entitlement' : '';
 const DEV_ENTITLEMENT_TOKEN = DEV_ACCESS_PLAN === 'pro' ? DEV_PRO_ENTITLEMENT_TOKEN : '';
+const QA_ADVANCED_COMPARISON_ENABLED = import.meta.env.VITE_QA_ADVANCED_COMPARISON === 'true';
+const QA_ADVANCED_COMPARISON_VERSION = 'luna-terra-v1';
 const BASIC_REVIEW_FOCUSES = ['balanced', 'entry_timing', 'exit_timing', 'risk_control'];
 const AUTH_STORAGE_KEY = 'alphamate.devAuth.v1';
 const OAUTH_STATE_KEY = 'alphamate.oauthState.v1';
@@ -254,6 +256,8 @@ export default function TradingJournal({
   const [reviewHistory, setReviewHistory] = useState([]);
   const [activeReviewHistory, setActiveReviewHistory] = useState(null);
   const [reviewHistoryLoading, setReviewHistoryLoading] = useState(false);
+  const [qaComparisonLoading, setQaComparisonLoading] = useState('');
+  const [qaComparisonResults, setQaComparisonResults] = useState({ luna: null, terra: null });
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
   const reviewHistoryAdShownRef = useRef(false);
@@ -449,6 +453,38 @@ export default function TradingJournal({
       setMessage('복기 기록을 삭제했습니다.');
     } catch (err) {
       setMessage(err.response?.data?.detail || '복기 기록을 삭제하지 못했습니다.');
+    } finally {
+      setReviewHistoryLoading(false);
+    }
+  };
+
+  const restoreReviewHistoryTrades = async () => {
+    const storedTrades = activeReviewHistory?.recent_trades_snapshot || [];
+    const fallbackTrade = activeReviewHistory?.trade_snapshot;
+    const restoredTrades = storedTrades.length ? storedTrades : (fallbackTrade ? [fallbackTrade] : []);
+    if (!restoredTrades.length) {
+      setMessage('이 복기에는 다시 불러올 매매 기록이 남아 있지 않습니다.');
+      return;
+    }
+
+    setReviewHistoryLoading(true);
+    try {
+      const [reviewRes, chartRes] = await Promise.all([
+        axios.post(`${apiBase}/api/journal/review-once`, { trades: restoredTrades }),
+        axios.post(`${apiBase}/api/journal/charts-once`, { trades: restoredTrades }),
+      ]);
+      const charts = chartRes.data || { charts: [] };
+      setTrades(restoredTrades);
+      setReview(reviewRes.data || null);
+      setChartReview(charts);
+      setActiveChartTicker(charts.charts?.[0]?.ticker || '');
+      setAiReview(null);
+      setQaComparisonResults({ luna: null, terra: null });
+      setShowCurrentReviewDetails(false);
+      setJournalSubView('review');
+      setMessage(`당시 함께 저장된 매매 기록 ${restoredTrades.length}건을 불러왔습니다. 아래에서 AI 복기를 다시 실행할 수 있습니다.`);
+    } catch (err) {
+      setMessage(err.response?.data?.detail || '저장된 매매 기록을 다시 불러오지 못했습니다.');
     } finally {
       setReviewHistoryLoading(false);
     }
@@ -787,7 +823,7 @@ export default function TradingJournal({
         headers: { Authorization: `Bearer ${authSession.session_token}` },
       });
       const dateText = new Date().toISOString().slice(0, 10);
-      const filename = `alphamate-my-data-${dateText}.json`;
+      const filename = `AlphaMate-데이터-백업-${dateText}.json`;
       const jsonText = JSON.stringify(res.data || {}, null, 2);
       const file = typeof File === 'function'
         ? new File([jsonText], filename, { type: 'application/json;charset=utf-8' })
@@ -797,7 +833,7 @@ export default function TradingJournal({
 
       if (canShareFile) {
         await navigator.share({ title: 'AlphaMate 내 데이터', files: [file] });
-        setMessage('JSON 파일을 저장하거나 공유할 앱을 선택했습니다.');
+        setMessage(`AlphaMate 백업 파일을 보낼 곳을 선택했습니다. '내 파일' 또는 'Files'를 선택했다면 선택한 폴더에서 ${filename} 파일을 확인할 수 있습니다.`);
       } else {
         const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -808,7 +844,7 @@ export default function TradingJournal({
         link.click();
         link.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 0);
-        setMessage('JSON 형식의 내 데이터 파일을 만들었습니다.');
+        setMessage(`다운로드 폴더에 ${filename} 파일을 저장했습니다. 이 파일은 AlphaMate의 저장 기록과 이용권 정보를 보관하는 백업 파일입니다.`);
       }
     } catch (err) {
       if (err?.name === 'AbortError') {
@@ -958,6 +994,46 @@ export default function TradingJournal({
       return;
     }
     loadAiReview(trades, 'advanced');
+  };
+
+  const runQaAdvancedComparison = async (modelVariant) => {
+    if (!QA_ADVANCED_COMPARISON_ENABLED) return;
+    if (!authSession?.session_token) {
+      setMessage('QA 모델 비교는 카카오 또는 네이버 로그인 후 사용할 수 있습니다.');
+      return;
+    }
+    if (!trades.length) {
+      setMessage('비교할 매매 기록을 먼저 입력하거나 복기 보관함에서 불러오세요.');
+      return;
+    }
+    if (!aiConsentAccepted) {
+      setMessage('AI 분석을 위한 정보 전송 동의가 필요합니다.');
+      return;
+    }
+
+    setQaComparisonLoading(modelVariant);
+    try {
+      const res = await axios.post(
+        `${apiBase}/api/journal/qa/advanced-comparison`,
+        {
+          trades,
+          model_variant: modelVariant,
+          privacy_consent: true,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${authSession.session_token}`,
+            'X-AlphaMate-QA-Comparison': QA_ADVANCED_COMPARISON_VERSION,
+          },
+        },
+      );
+      setQaComparisonResults(prev => ({ ...prev, [modelVariant]: res.data || null }));
+      setMessage(`${modelVariant === 'luna' ? 'Luna' : 'Terra'} 심화 복기 비교 결과를 받았습니다. 같은 버튼을 다시 눌러도 추가 API 비용 없이 저장된 결과를 보여줍니다.`);
+    } catch (err) {
+      setMessage(err.response?.data?.detail || 'QA 심화 복기 비교를 완료하지 못했습니다.');
+    } finally {
+      setQaComparisonLoading('');
+    }
   };
 
   const showReviewPasses = () => {
@@ -1637,6 +1713,16 @@ export default function TradingJournal({
                       삭제
                     </button>
                   </div>
+                  <div className="review-history-restore">
+                    <button
+                      className="journal-secondary"
+                      disabled={reviewHistoryLoading}
+                      onClick={restoreReviewHistoryTrades}
+                    >
+                      당시 매매 묶음 불러오기
+                    </button>
+                    <span>저장 당시 함께 분석한 매매 기록을 현재 복기 화면으로 불러옵니다.</span>
+                  </div>
                   <JournalTradeChart chartData={savedChart} />
                   <AiReviewSummary value={savedReview?.summary || '저장된 복기 내용이 없습니다.'} />
                   <div className="journal-chart-review-list">
@@ -1880,7 +1966,7 @@ export default function TradingJournal({
           <div>
             <p>AI 복기는 입력한 매매 기록, 메모, 차트 요약을 서버와 AI 제공업체로 전송해 분석합니다.</p>
             <p>매매 이력 저장을 켠 계정은 AI 복기 결과와 당시 차트 스냅샷이 복기 보관함에 저장될 수 있습니다.</p>
-            <p>내 데이터 내보내기로 저장 내용을 확인할 수 있고, 계정 데이터 삭제로 현재 계정의 저장 데이터를 지울 수 있습니다.</p>
+            <p>내 데이터 내보내기는 저장 내용을 AlphaMate 백업 파일로 내려받습니다. 휴대폰에서는 공유 화면에서 내 파일 또는 Files를 선택해 원하는 폴더에 저장할 수 있습니다.</p>
             <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">
               개인정보처리방침 열기
             </a>
@@ -1910,7 +1996,7 @@ export default function TradingJournal({
               계정 데이터 삭제
             </button>
             <p className="journal-privacy-note">
-              저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 내 데이터 내보내기는 저장 기록과 이용권 현황을 파일로 내려받고, 계정 데이터 삭제는 현재 로그인 계정의 저장 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보를 함께 정리합니다.
+              저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 내 데이터 내보내기를 누른 뒤 휴대폰의 공유 화면에서 내 파일 또는 Files를 선택하면 원하는 폴더에 AlphaMate 백업 파일을 저장할 수 있습니다. PC나 웹에서는 보통 다운로드 폴더에 저장됩니다. 계정 데이터 삭제는 현재 로그인 계정의 저장 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보를 함께 정리합니다.
             </p>
           </>
         )}
@@ -2211,6 +2297,59 @@ export default function TradingJournal({
             <p>AI 차트 분석을 실행하면 매매 시점의 차트 흐름까지 함께 복기합니다.</p>
           )}
         </div>
+        {QA_ADVANCED_COMPARISON_ENABLED && (
+          <aside className="qa-comparison-panel">
+            <div className="qa-comparison-heading">
+              <div>
+                <strong>QA 심화 복기 모델 비교</strong>
+                <span>테스트 APK 전용 · 이용권 차감 없음</span>
+              </div>
+              <p>Luna와 Terra를 각각 한 번 실행해 같은 매매의 결과를 비교합니다. 완료된 결과는 다시 눌러도 추가 비용 없이 불러옵니다.</p>
+            </div>
+            <div className="qa-comparison-actions">
+              <button
+                className="journal-secondary"
+                disabled={Boolean(qaComparisonLoading) || !trades.length || !aiConsentAccepted}
+                onClick={() => runQaAdvancedComparison('luna')}
+              >
+                {qaComparisonLoading === 'luna' ? 'Luna 분석중' : 'Luna로 비교'}
+              </button>
+              <button
+                className="journal-secondary"
+                disabled={Boolean(qaComparisonLoading) || !trades.length || !aiConsentAccepted}
+                onClick={() => runQaAdvancedComparison('terra')}
+              >
+                {qaComparisonLoading === 'terra' ? 'Terra 분석중' : 'Terra로 비교'}
+              </button>
+            </div>
+            <p className="qa-comparison-cost">같은 토큰 양이라면 Luna의 API 비용은 Terra의 약 40%입니다. 실제 결과 품질을 보고 운영 모델을 결정하세요.</p>
+            {(qaComparisonResults.luna || qaComparisonResults.terra) && (
+              <div className="qa-comparison-grid">
+                {['luna', 'terra'].map(variant => {
+                  const result = qaComparisonResults[variant];
+                  return (
+                    <article className="qa-comparison-result" key={variant}>
+                      <h4>{variant === 'luna' ? 'Luna 결과' : 'Terra 결과'}</h4>
+                      {result ? (
+                        <>
+                          <AiReviewSummary value={result.summary} />
+                          {(result.chart_reviews || []).map((item, idx) => (
+                            <div className="journal-ai-card" key={`${variant}-${item.title || idx}-${idx}`}>
+                              <strong>{item.title}</strong>
+                              <p>{item.detail}</p>
+                            </div>
+                          ))}
+                        </>
+                      ) : (
+                        <p>아직 실행하지 않았습니다.</p>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </aside>
+        )}
       </section>
 
       {showCurrentReviewDetails && <section className="journal-panel">

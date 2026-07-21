@@ -83,11 +83,19 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn('$placeholderPublisher = "0000000000000000"', script)
         self.assertIn('VITE_ALPHAMATE_ENV = "development"', script)
         self.assertIn('VITE_ENABLE_DEV_TOOLS = "false"', script)
+        self.assertIn('VITE_QA_ADVANCED_COMPARISON = "true"', script)
+        self.assertIn('"luna-terra-v1"', script)
         self.assertIn("ca-app-pub-3940256099942544/1033173712", script)
         self.assertIn("ca-app-pub-3940256099942544/6300978111", script)
         self.assertIn("clean assembleDebug --rerun-tasks", script)
         self.assertIn("alphamate-admob-qa.apk", script)
         self.assertIn("Get-FileHash -Algorithm SHA256", script)
+
+    def test_advanced_comparison_is_off_in_the_release_template(self):
+        release_env = (ROOT / "frontend" / ".env.release.example").read_text(encoding="utf-8")
+
+        self.assertIn("VITE_QA_ADVANCED_COMPARISON=false", release_env)
+        self.assertNotIn("VITE_QA_ADVANCED_COMPARISON=true", release_env)
 
     def test_debug_apk_scripts_use_google_demo_ads_instead_of_placeholder_publishers(self):
         expected_ids = (

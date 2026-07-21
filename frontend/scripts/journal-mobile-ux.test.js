@@ -32,10 +32,27 @@ test('trade time supports native selection and direct numeric entry', () => {
   assert.match(journalSource, /normalizeDirectTime/);
 });
 
-test('account data export uses Android share sheet with JSON fallback download', () => {
+test('account data export uses Android share sheet and explains the backup location', () => {
   assert.match(journalSource, /navigator\.share/);
   assert.match(journalSource, /application\/json/);
   assert.match(journalSource, /link\.download = filename/);
+  assert.match(journalSource, /내 파일 또는 Files/);
+  assert.match(journalSource, /PC나 웹에서는 보통 다운로드 폴더/);
+  assert.doesNotMatch(journalSource, /JSON 형식의 내 데이터 파일/);
+});
+
+test('saved review can restore its trade snapshot for another review', () => {
+  assert.match(journalSource, /restoreReviewHistoryTrades/);
+  assert.match(journalSource, /recent_trades_snapshot/);
+  assert.match(journalSource, /당시 매매 묶음 불러오기/);
+  assert.match(journalSource, /setJournalSubView\('review'\)/);
+});
+
+test('Luna and Terra comparison is isolated to the explicit QA build flag', () => {
+  assert.match(journalSource, /VITE_QA_ADVANCED_COMPARISON/);
+  assert.match(journalSource, /X-AlphaMate-QA-Comparison/);
+  assert.match(journalSource, /luna-terra-v1/);
+  assert.match(journalSource, /테스트 APK 전용 · 이용권 차감 없음/);
 });
 
 test('mobile entitlement balances remain in a compact three-column grid', () => {

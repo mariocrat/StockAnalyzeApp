@@ -528,7 +528,13 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
     }
 
 
-def build_advanced_ai_review(trades: list[dict], target_trade_id=None) -> dict:
+def build_advanced_ai_review(
+    trades: list[dict],
+    target_trade_id=None,
+    *,
+    model_override: str = "",
+    allow_fallback: bool = True,
+) -> dict:
     ordered = sorted(trades, key=lambda row: (row.get("trade_date", ""), row.get("id", 0)))
     target = _target_trade(ordered, target_trade_id)
     if not target:
@@ -555,7 +561,7 @@ def build_advanced_ai_review(trades: list[dict], target_trade_id=None) -> dict:
             "must_cover": ["반복 실수", "손절 기준", "진입 가설", "대응 문제", "다음 매매 규칙"],
         },
     }
-    model = _env_value("OPENAI_ADVANCED_REVIEW_MODEL") or "gpt-5.6-terra"
+    model = str(model_override or "").strip() or _env_value("OPENAI_ADVANCED_REVIEW_MODEL") or "gpt-5.6-terra"
     fallback_model = (
         _env_value("OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL")
         or _env_value("OPENAI_BASIC_REVIEW_MODEL")
@@ -570,7 +576,7 @@ def build_advanced_ai_review(trades: list[dict], target_trade_id=None) -> dict:
     try:
         ai_text = _call_openai_review(payload, model=model, instructions=instructions)
     except RuntimeError:
-        if fallback_model and fallback_model != model:
+        if allow_fallback and fallback_model and fallback_model != model:
             try:
                 ai_text = _call_openai_review(payload, model=fallback_model, instructions=instructions)
                 model = fallback_model
