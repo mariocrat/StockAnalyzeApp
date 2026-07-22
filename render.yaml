@@ -29,7 +29,7 @@ services:
       - key: ALPHAMATE_PRIVACY_OPERATOR_NAME
         value: mariocrat
       - key: ALPHAMATE_PRIVACY_CONTACT_EMAIL
-        value: mariocrat@gmail.com
+        value: support@alphamate.co.kr
       - key: ALPHAMATE_PRIVACY_CONSENT_VERSION
         value: privacy-2026-07-18
       - key: ALPHAMATE_ACCOUNT_DB_PATH
