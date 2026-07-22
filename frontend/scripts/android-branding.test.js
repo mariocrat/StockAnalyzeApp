@@ -35,3 +35,15 @@ test('Android Manifest declares OAuth app return deep link for the package schem
   assert.match(manifest, /android.intent.action.VIEW/);
   assert.match(manifest, /android.intent.category.BROWSABLE/);
 });
+
+test('Android registers the native App Open ad plugin and pins Google Mobile Ads', () => {
+  const mainActivity = fs.readFileSync('android/app/src/main/java/com/mariocrat/stockanalyze/MainActivity.java', 'utf8');
+  const appOpenPlugin = fs.readFileSync('android/app/src/main/java/com/mariocrat/stockanalyze/AlphaMateAppOpenPlugin.java', 'utf8');
+  const gradle = fs.readFileSync('android/app/build.gradle', 'utf8');
+
+  assert.match(mainActivity, /registerPlugin\(AlphaMateAppOpenPlugin\.class\)/);
+  assert.match(appOpenPlugin, /@CapacitorPlugin\(name = "AlphaMateAppOpen"\)/);
+  assert.match(appOpenPlugin, /AppOpenAd\.load/);
+  assert.match(appOpenPlugin, /MAX_CACHE_AGE_MS = 4L \* 60L \* 60L \* 1000L/);
+  assert.match(gradle, /play-services-ads:24\.9\.0/);
+});

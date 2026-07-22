@@ -73,20 +73,28 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
         self.assertIn("ALPHAMATE_NO_PAUSE", batch)
         self.assertIn("if errorlevel 1", batch)
 
-    def test_admob_qa_script_uses_real_rewarded_unit_and_demo_secondary_placements(self):
+    def test_admob_qa_script_uses_every_real_ad_unit_on_registered_test_devices(self):
         script = (ROOT / "scripts" / "verify_android_admob_qa.ps1").read_text(encoding="utf-8")
 
         self.assertIn('"VITE_ADMOB_ANDROID_APP_ID"', script)
-        self.assertIn('"VITE_ADMOB_REWARDED_AD_UNIT_ID"', script)
-        self.assertIn("real AlphaMate app and rewarded ad unit IDs", script)
+        for setting_name in (
+            "VITE_ADMOB_REWARDED_AD_UNIT_ID",
+            "VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID",
+            "VITE_ADMOB_APP_OPEN_AD_UNIT_ID",
+            "VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID",
+            "VITE_ADMOB_BANNER_AD_UNIT_ID",
+        ):
+            self.assertIn(f'"{setting_name}"', script)
+        self.assertIn("Every placement uses the production unit", script)
+        self.assertIn("registered as an AdMob test device", script)
         self.assertIn('$googleDemoPublisher = "3940256099942544"', script)
         self.assertIn('$placeholderPublisher = "0000000000000000"', script)
         self.assertIn('VITE_ALPHAMATE_ENV = "development"', script)
         self.assertIn('VITE_ENABLE_DEV_TOOLS = "false"', script)
         self.assertIn('VITE_QA_ADVANCED_COMPARISON = "true"', script)
         self.assertIn('"luna-terra-v1"', script)
-        self.assertIn("ca-app-pub-3940256099942544/1033173712", script)
-        self.assertIn("ca-app-pub-3940256099942544/6300978111", script)
+        self.assertNotIn("ca-app-pub-3940256099942544/1033173712", script)
+        self.assertNotIn("ca-app-pub-3940256099942544/6300978111", script)
         self.assertIn("clean assembleDebug --rerun-tasks", script)
         self.assertIn("alphamate-admob-qa.apk", script)
         self.assertIn("Get-FileHash -Algorithm SHA256", script)
@@ -102,6 +110,7 @@ class AndroidReleaseVerificationTest(unittest.TestCase):
             "ca-app-pub-3940256099942544~3347511713",
             "ca-app-pub-3940256099942544/5224354917",
             "ca-app-pub-3940256099942544/1033173712",
+            "ca-app-pub-3940256099942544/9257395921",
             "ca-app-pub-3940256099942544/6300978111",
         )
         for script_name in ("verify_android_debug.ps1", "verify_android_oauth_debug.ps1"):

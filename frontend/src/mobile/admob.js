@@ -1,10 +1,12 @@
 import { AdMob } from '@capacitor-community/admob';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import {
+  DEFAULT_ANDROID_TEST_APP_OPEN_AD_ID,
   DEFAULT_ANDROID_TEST_BANNER_AD_ID,
   DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID,
   DEFAULT_ANDROID_TEST_REWARDED_AD_ID,
   assertBannerAdCanRun,
+  assertAppOpenAdCanRun,
   assertInterstitialAdCanRun,
   assertRewardedAdCanRun,
   createAdMobRuntimeStatus,
@@ -13,18 +15,19 @@ import {
 const APP_ENV = import.meta.env.VITE_ALPHAMATE_ENV || (import.meta.env.PROD ? 'production' : 'development');
 const REWARDED_AD_ID = import.meta.env.VITE_ADMOB_REWARDED_AD_UNIT_ID || DEFAULT_ANDROID_TEST_REWARDED_AD_ID;
 const REVIEW_HISTORY_INTERSTITIAL_AD_ID = import.meta.env.VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID || DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
-const RESUME_INTERSTITIAL_AD_ID = import.meta.env.VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID || DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
+const APP_OPEN_AD_ID = import.meta.env.VITE_ADMOB_APP_OPEN_AD_UNIT_ID || DEFAULT_ANDROID_TEST_APP_OPEN_AD_ID;
 const CHART_DETAIL_INTERSTITIAL_AD_ID = import.meta.env.VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID || DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
 const BANNER_AD_ID = import.meta.env.VITE_ADMOB_BANNER_AD_UNIT_ID || DEFAULT_ANDROID_TEST_BANNER_AD_ID;
 const USING_TEST_AD_UNIT = REWARDED_AD_ID === DEFAULT_ANDROID_TEST_REWARDED_AD_ID;
 const USING_TEST_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT = REVIEW_HISTORY_INTERSTITIAL_AD_ID === DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
-const USING_TEST_RESUME_INTERSTITIAL_AD_UNIT = RESUME_INTERSTITIAL_AD_ID === DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
+const USING_TEST_APP_OPEN_AD_UNIT = APP_OPEN_AD_ID === DEFAULT_ANDROID_TEST_APP_OPEN_AD_ID;
 const USING_TEST_CHART_DETAIL_INTERSTITIAL_AD_UNIT = CHART_DETAIL_INTERSTITIAL_AD_ID === DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID;
 const USING_TEST_INTERSTITIAL_AD_UNIT = USING_TEST_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT
-  || USING_TEST_RESUME_INTERSTITIAL_AD_UNIT
   || USING_TEST_CHART_DETAIL_INTERSTITIAL_AD_UNIT;
 const USING_TEST_BANNER_AD_UNIT = BANNER_AD_ID === DEFAULT_ANDROID_TEST_BANNER_AD_ID;
-const USING_ANY_TEST_AD_UNIT = USING_TEST_AD_UNIT || USING_TEST_INTERSTITIAL_AD_UNIT || USING_TEST_BANNER_AD_UNIT;
+const USING_ANY_TEST_AD_UNIT = USING_TEST_AD_UNIT || USING_TEST_INTERSTITIAL_AD_UNIT || USING_TEST_APP_OPEN_AD_UNIT || USING_TEST_BANNER_AD_UNIT;
+
+const AlphaMateAppOpen = registerPlugin('AlphaMateAppOpen');
 
 let initializePromise = null;
 
@@ -35,9 +38,9 @@ export function getAdMobRuntimeStatus() {
     interstitialAdId: REVIEW_HISTORY_INTERSTITIAL_AD_ID,
     interstitialAdIds: [
       REVIEW_HISTORY_INTERSTITIAL_AD_ID,
-      RESUME_INTERSTITIAL_AD_ID,
       CHART_DETAIL_INTERSTITIAL_AD_ID,
     ],
+    appOpenAdId: APP_OPEN_AD_ID,
     bannerAdId: BANNER_AD_ID,
     native: Capacitor.isNativePlatform(),
     platform: Capacitor.getPlatform(),
@@ -54,7 +57,15 @@ export async function initializeAdMob() {
     });
   }
   await initializePromise;
+  // App Open inventory is opportunistic. A load failure must not block other ads.
+  prepareResumeAppOpenAd().catch(() => {});
   return getAdMobRuntimeStatus();
+}
+
+async function prepareResumeAppOpenAd() {
+  if (!Capacitor.isNativePlatform()) return { prepared: false, reason: 'web' };
+  assertAppOpenAdCanRun({ appEnv: APP_ENV, appOpenAdId: APP_OPEN_AD_ID });
+  return AlphaMateAppOpen.prepare({ adId: APP_OPEN_AD_ID });
 }
 
 export async function showRewardedReviewAd({ userId, purpose = 'basic_review' }) {
@@ -100,8 +111,15 @@ export async function showReviewHistoryInterstitial() {
   return showInterstitialAd(REVIEW_HISTORY_INTERSTITIAL_AD_ID);
 }
 
-export async function showResumeInterstitial() {
-  return showInterstitialAd(RESUME_INTERSTITIAL_AD_ID);
+export async function showResumeAppOpenAd() {
+  if (!Capacitor.isNativePlatform()) {
+    return { skipped: true, reason: 'web' };
+  }
+  assertAppOpenAdCanRun({ appEnv: APP_ENV, appOpenAdId: APP_OPEN_AD_ID });
+  await initializeAdMob();
+  const result = await AlphaMateAppOpen.show();
+  prepareResumeAppOpenAd().catch(() => {});
+  return result;
 }
 
 export async function showChartDetailInterstitial() {

@@ -46,10 +46,11 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertNotIn("모바일 앱 SDK 연결이 필요", manual)
         self.assertNotIn("AdMob SDK, 보상형 광고 단위, SSV 콜백 URL", security)
 
-    def test_ad_display_policy_explains_resume_interstitial_instead_of_app_open_format(self):
+    def test_ad_display_policy_explains_resume_app_open_format(self):
         policy = (ROOT / "docs" / "development_history_ad_display_policy.md").read_text(encoding="utf-8")
 
-        self.assertIn("별도 App Open Ad 포맷이 아니라 앱 복귀 전면 광고로 운영한다", policy)
+        self.assertIn("App Open 광고를 1회 시도한다", policy)
+        self.assertIn("로드 후 4시간", policy)
         self.assertIn("90초 이상", policy)
         self.assertIn("10분 쿨다운", policy)
 
@@ -88,14 +89,14 @@ class PolicyDocumentationTest(unittest.TestCase):
         self.assertNotIn("Android release AAB build", checklist)
         self.assertNotIn("In-memory rate limiter safety cap", checklist)
 
-    def test_release_checklist_documents_split_interstitial_ad_units(self):
+    def test_release_checklist_documents_split_ad_units(self):
         checklist = (ROOT / "docs" / "release_preparation_checklist.md").read_text(encoding="utf-8")
 
         self.assertIn("VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID", checklist)
-        self.assertIn("VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID", checklist)
+        self.assertIn("VITE_ADMOB_APP_OPEN_AD_UNIT_ID", checklist)
         self.assertIn("VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID", checklist)
         self.assertIn("복기 보관함 진입용 전면 광고 단위", checklist)
-        self.assertIn("앱 복귀용 전면 광고 단위", checklist)
+        self.assertIn("앱 복귀용 앱 오프닝 광고 단위", checklist)
         self.assertIn("차트 자세히 보기용 전면 광고 단위", checklist)
         self.assertNotIn("전면 광고에 함께 쓰인다", checklist)
     def test_release_checklist_uses_fixed_android_package_name(self):

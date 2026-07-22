@@ -5,8 +5,8 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { ArrowLeft, ChevronDown, ChevronUp, CircleAlert, UserRound } from 'lucide-react';
 import './App.css';
 import appIcon from './assets/app-icon.png';
-import { getAdMobRuntimeStatus, removeAppBanner, showAppBanner, showChartDetailInterstitial, showResumeInterstitial } from './mobile/admob';
-import { shouldShowBannerAd, shouldShowChartDetailInterstitial, shouldShowResumeInterstitial } from './mobile/admobPolicy';
+import { getAdMobRuntimeStatus, removeAppBanner, showAppBanner, showChartDetailInterstitial, showResumeAppOpenAd } from './mobile/admob';
+import { shouldShowBannerAd, shouldShowChartDetailInterstitial, shouldShowResumeAppOpenAd } from './mobile/admobPolicy';
 import { reportClientEvent } from './utils/clientEventLog';
 import { nextRootBackAction, requestNestedBack } from './utils/appNavigation';
 import { MARKET_DOWN, MARKET_FLAT, MARKET_UP } from './theme/marketColors';
@@ -97,8 +97,8 @@ export default function App() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [appNotice, setAppNotice] = useState('');
   const backgroundedAtRef = useRef(0);
-  const lastResumeInterstitialAtRef = useRef(0);
-  const resumeInterstitialInFlightRef = useRef(false);
+  const lastResumeAppOpenAtRef = useRef(0);
+  const resumeAppOpenInFlightRef = useRef(false);
   const chartDetailOpenCountRef = useRef(0);
   const splashStartedAtRef = useRef(null);
   const [activeView, setActiveView] = useState(() => {
@@ -193,25 +193,25 @@ export default function App() {
       }
       if (
         document.visibilityState === 'visible'
-        && !resumeInterstitialInFlightRef.current
-        && shouldShowResumeInterstitial({
+        && !resumeAppOpenInFlightRef.current
+        && shouldShowResumeAppOpenAd({
           plan: adPlan,
           backgroundedAtMs: backgroundedAtRef.current,
           nowMs,
-          lastShownAtMs: lastResumeInterstitialAtRef.current,
+          lastShownAtMs: lastResumeAppOpenAtRef.current,
         })
       ) {
-        resumeInterstitialInFlightRef.current = true;
-        lastResumeInterstitialAtRef.current = nowMs;
-        showResumeInterstitial()
+        resumeAppOpenInFlightRef.current = true;
+        lastResumeAppOpenAtRef.current = nowMs;
+        showResumeAppOpenAd()
           .catch((err) => {
-            reportAdClientEvent('ad_resume_interstitial_failed', err, {
+            reportAdClientEvent('ad_resume_app_open_failed', err, {
               placement: 'resume',
               plan: adPlan,
             });
           })
           .finally(() => {
-            resumeInterstitialInFlightRef.current = false;
+            resumeAppOpenInFlightRef.current = false;
           });
       }
     };

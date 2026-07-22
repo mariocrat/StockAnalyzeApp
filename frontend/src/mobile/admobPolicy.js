@@ -1,8 +1,9 @@
 export const DEFAULT_ANDROID_TEST_REWARDED_AD_ID = 'ca-app-pub-3940256099942544/5224354917';
 export const DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID = 'ca-app-pub-3940256099942544/1033173712';
+export const DEFAULT_ANDROID_TEST_APP_OPEN_AD_ID = 'ca-app-pub-3940256099942544/9257395921';
 export const DEFAULT_ANDROID_TEST_BANNER_AD_ID = 'ca-app-pub-3940256099942544/6300978111';
-export const RESUME_INTERSTITIAL_MIN_BACKGROUND_MS = 90_000;
-export const RESUME_INTERSTITIAL_COOLDOWN_MS = 600_000;
+export const RESUME_APP_OPEN_MIN_BACKGROUND_MS = 90_000;
+export const RESUME_APP_OPEN_COOLDOWN_MS = 600_000;
 export const CHART_DETAIL_INTERSTITIAL_FREQUENCY = 3;
 
 export function isProductionAdMobMisconfigured({ appEnv, rewardedAdId }) {
@@ -17,11 +18,16 @@ export function isProductionBannerMisconfigured({ appEnv, bannerAdId }) {
   return appEnv === 'production' && bannerAdId === DEFAULT_ANDROID_TEST_BANNER_AD_ID;
 }
 
+export function isProductionAppOpenMisconfigured({ appEnv, appOpenAdId }) {
+  return appEnv === 'production' && appOpenAdId === DEFAULT_ANDROID_TEST_APP_OPEN_AD_ID;
+}
+
 export function createAdMobRuntimeStatus({
   appEnv,
   rewardedAdId,
   interstitialAdId = DEFAULT_ANDROID_TEST_INTERSTITIAL_AD_ID,
   interstitialAdIds = null,
+  appOpenAdId = DEFAULT_ANDROID_TEST_APP_OPEN_AD_ID,
   bannerAdId = DEFAULT_ANDROID_TEST_BANNER_AD_ID,
   native,
   platform,
@@ -35,18 +41,23 @@ export function createAdMobRuntimeStatus({
   const interstitialProductionMisconfigured = appEnv === 'production' && usingTestInterstitialAdUnit;
   const usingTestBannerAdUnit = bannerAdId === DEFAULT_ANDROID_TEST_BANNER_AD_ID;
   const bannerProductionMisconfigured = isProductionBannerMisconfigured({ appEnv, bannerAdId });
+  const usingTestAppOpenAdUnit = appOpenAdId === DEFAULT_ANDROID_TEST_APP_OPEN_AD_ID;
+  const appOpenProductionMisconfigured = isProductionAppOpenMisconfigured({ appEnv, appOpenAdId });
 
   return {
     native,
     platform,
     available: Boolean(native && !productionMisconfigured),
     interstitialAvailable: Boolean(native && !interstitialProductionMisconfigured),
+    appOpenAvailable: Boolean(native && !appOpenProductionMisconfigured),
     bannerAvailable: Boolean(native && !bannerProductionMisconfigured),
     usingTestAdUnit,
     usingTestInterstitialAdUnit,
+    usingTestAppOpenAdUnit,
     usingTestBannerAdUnit,
     productionMisconfigured,
     interstitialProductionMisconfigured,
+    appOpenProductionMisconfigured,
     bannerProductionMisconfigured,
   };
 }
@@ -72,6 +83,12 @@ export function assertBannerAdCanRun({ appEnv, bannerAdId }) {
   }
 }
 
+export function assertAppOpenAdCanRun({ appEnv, appOpenAdId }) {
+  if (isProductionAppOpenMisconfigured({ appEnv, appOpenAdId })) {
+    throw new Error('Production AdMob app open ad unit is not configured.');
+  }
+}
+
 export function isAdFreePlan(plan) {
   return plan === 'pro';
 }
@@ -81,13 +98,13 @@ export function shouldShowBannerAd({ plan, native }) {
   return Boolean(native);
 }
 
-export function shouldShowResumeInterstitial({
+export function shouldShowResumeAppOpenAd({
   plan,
   backgroundedAtMs,
   nowMs,
   lastShownAtMs = 0,
-  minBackgroundMs = RESUME_INTERSTITIAL_MIN_BACKGROUND_MS,
-  cooldownMs = RESUME_INTERSTITIAL_COOLDOWN_MS,
+  minBackgroundMs = RESUME_APP_OPEN_MIN_BACKGROUND_MS,
+  cooldownMs = RESUME_APP_OPEN_COOLDOWN_MS,
 }) {
   if (isAdFreePlan(plan)) return false;
   if (!backgroundedAtMs || !nowMs) return false;

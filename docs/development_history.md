@@ -1,5 +1,13 @@
 # AlphaMate Development History
 
+## 2026-07-22 production AdMob placement completion
+
+- Connected the production AdMob units for the bottom banner, review archive interstitial, chart-detail interstitial, and resume placement.
+- Replaced the resume interstitial implementation with the Android App Open format, keeping the existing 90-second background threshold, 10-minute cooldown, Pro ad-free rule, and no-ad first launch.
+- Added opportunistic App Open preloading with Google's four-hour cache limit so a failed preload cannot block other ad formats or app startup.
+- Added release validation and registered-test-device QA coverage for all five production ad units.
+- Published the configured privacy operator and contact email through the Render Blueprint without storing API secrets in source control.
+
 ## 2026-07-19 trade-specific general review consistency
 
 - Changed intentional general-review reruns to create a new analysis request instead of replaying the prior one-minute cached response, while retaining a synchronous in-flight lock against rapid duplicate taps and duplicate quota deductions.

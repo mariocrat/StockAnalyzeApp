@@ -9,8 +9,8 @@ class AppAdDisplayWiringTest(unittest.TestCase):
         app = (ROOT / "frontend" / "src" / "App.jsx").read_text(encoding="utf-8")
         stock_chart = (ROOT / "frontend" / "src" / "components" / "StockChart.jsx").read_text(encoding="utf-8")
 
-        self.assertIn("showResumeInterstitial", app)
-        self.assertIn("shouldShowResumeInterstitial", app)
+        self.assertIn("showResumeAppOpenAd", app)
+        self.assertIn("shouldShowResumeAppOpenAd", app)
         self.assertIn("document.addEventListener('visibilitychange'", app)
         self.assertIn("showChartDetailInterstitial", app)
         self.assertIn("shouldShowChartDetailInterstitial", app)
@@ -35,7 +35,7 @@ class AppAdDisplayWiringTest(unittest.TestCase):
 
         self.assertIn("reportClientEvent", app)
         self.assertIn("reportAdClientEvent", app)
-        self.assertIn("ad_resume_interstitial_failed", app)
+        self.assertIn("ad_resume_app_open_failed", app)
         self.assertIn("ad_banner_show_failed", app)
         self.assertIn("ad_banner_remove_failed", app)
         self.assertIn("ad_chart_detail_interstitial_failed", app)

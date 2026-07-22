@@ -23,7 +23,7 @@ function validReleaseEnv(overrides = {}) {
     VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-1234567890123456~1234567890',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-1234567890123456/9876543210',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-1234567890123456/1234567890',
-    VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-1234567890123456/3333333333',
+    VITE_ADMOB_APP_OPEN_AD_UNIT_ID: 'ca-app-pub-1234567890123456/3333333333',
     VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-1234567890123456/4444444444',
     VITE_ADMOB_BANNER_AD_UNIT_ID: 'ca-app-pub-1234567890123456/2222222222',
     VITE_GOOGLE_PLAY_PACKAGE_NAME: 'com.mariocrat.stockanalyze',
@@ -45,7 +45,7 @@ test('rejects localhost API and enabled dev tools for release builds', () => {
     VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-3940256099942544~3347511713',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-3940256099942544/5224354917',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-3940256099942544/1033173712',
-    VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-3940256099942544/1033173712',
+    VITE_ADMOB_APP_OPEN_AD_UNIT_ID: 'ca-app-pub-3940256099942544/9257395921',
     VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-3940256099942544/1033173712',
     VITE_ADMOB_BANNER_AD_UNIT_ID: 'ca-app-pub-3940256099942544/6300978111',
     VITE_GOOGLE_PLAY_PACKAGE_NAME: '',
@@ -69,7 +69,7 @@ test('rejects placeholder release URLs and AdMob ad unit IDs', () => {
     VITE_ADMOB_ANDROID_APP_ID: 'ca-app-pub-0000000000000000~0000000000',
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-0000000000000000/0000000000',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/1111111111',
-    VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/1111111111',
+    VITE_ADMOB_APP_OPEN_AD_UNIT_ID: 'ca-app-pub-0000000000000000/1111111111',
     VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/1111111111',
     VITE_ADMOB_BANNER_AD_UNIT_ID: 'ca-app-pub-0000000000000000/1111111111',
   }));
@@ -97,7 +97,7 @@ test('rejects all-zero AdMob publisher placeholder ad unit IDs even when unit di
   const result = validateReleaseEnv(validReleaseEnv({
     VITE_ADMOB_REWARDED_AD_UNIT_ID: 'ca-app-pub-0000000000000000/2222222222',
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/3333333333',
-    VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/4444444444',
+    VITE_ADMOB_APP_OPEN_AD_UNIT_ID: 'ca-app-pub-0000000000000000/4444444444',
     VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID: 'ca-app-pub-0000000000000000/5555555555',
     VITE_ADMOB_BANNER_AD_UNIT_ID: 'ca-app-pub-0000000000000000/6666666666',
   }));
@@ -105,7 +105,7 @@ test('rejects all-zero AdMob publisher placeholder ad unit IDs even when unit di
   assert.equal(result.ok, false);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REWARDED_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID/);
-  assert.match(result.errors.join('\n'), /VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_APP_OPEN_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_BANNER_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /placeholder/);
@@ -124,7 +124,7 @@ test('rejects duplicate production AdMob ad unit IDs across placements', () => {
   const result = validateReleaseEnv(validReleaseEnv({
     VITE_ADMOB_REWARDED_AD_UNIT_ID: duplicateAdUnitId,
     VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID: duplicateAdUnitId,
-    VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID: duplicateAdUnitId,
+    VITE_ADMOB_APP_OPEN_AD_UNIT_ID: duplicateAdUnitId,
     VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID: duplicateAdUnitId,
     VITE_ADMOB_BANNER_AD_UNIT_ID: duplicateAdUnitId,
   }));
@@ -169,14 +169,14 @@ test('rejects release package name that differs from fixed Android app identity'
   assert.equal(result.ok, false);
   assert.match(result.errors.join('\n'), /VITE_GOOGLE_PLAY_PACKAGE_NAME must be com\.mariocrat\.stockanalyze/);
 });
-test('requires separate production interstitial ad unit IDs for each placement', () => {
+test('requires separate production ad unit IDs for app open and interstitial placements', () => {
   const result = validateReleaseEnv(validReleaseEnv({
-    VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID: '',
+    VITE_ADMOB_APP_OPEN_AD_UNIT_ID: '',
     VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID: '',
   }));
 
   assert.equal(result.ok, false);
-  assert.match(result.errors.join('\n'), /VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID/);
+  assert.match(result.errors.join('\n'), /VITE_ADMOB_APP_OPEN_AD_UNIT_ID/);
   assert.match(result.errors.join('\n'), /VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID/);
 });
 
@@ -264,7 +264,7 @@ test('frontend env example documents release check settings', () => {
     'VITE_ADMOB_ANDROID_APP_ID',
     'VITE_ADMOB_REWARDED_AD_UNIT_ID',
     'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID',
-    'VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID',
+    'VITE_ADMOB_APP_OPEN_AD_UNIT_ID',
     'VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID',
     'VITE_ADMOB_BANNER_AD_UNIT_ID',
     'VITE_GOOGLE_PLAY_PACKAGE_NAME',

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const GOOGLE_ANDROID_TEST_REWARDED_AD_ID = 'ca-app-pub-3940256099942544/5224354917';
 const GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID = 'ca-app-pub-3940256099942544/1033173712';
+const GOOGLE_ANDROID_TEST_APP_OPEN_AD_ID = 'ca-app-pub-3940256099942544/9257395921';
 const GOOGLE_ANDROID_TEST_BANNER_AD_ID = 'ca-app-pub-3940256099942544/6300978111';
 const GOOGLE_ANDROID_TEST_APP_ID = 'ca-app-pub-3940256099942544~3347511713';
 const EXPECTED_RELEASE_PACKAGE_NAME = 'com.mariocrat.stockanalyze';
@@ -175,7 +176,7 @@ export function validateReleaseEnv(env) {
   const androidAdMobAppId = envValue(env, 'VITE_ADMOB_ANDROID_APP_ID');
   const rewardedAdUnitId = envValue(env, 'VITE_ADMOB_REWARDED_AD_UNIT_ID');
   const reviewHistoryInterstitialAdUnitId = envValue(env, 'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID');
-  const resumeInterstitialAdUnitId = envValue(env, 'VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID');
+  const appOpenAdUnitId = envValue(env, 'VITE_ADMOB_APP_OPEN_AD_UNIT_ID');
   const chartDetailInterstitialAdUnitId = envValue(env, 'VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID');
   const bannerAdUnitId = envValue(env, 'VITE_ADMOB_BANNER_AD_UNIT_ID');
   const packageName = envValue(env, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');
@@ -204,13 +205,13 @@ export function validateReleaseEnv(env) {
     GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID,
     errors,
   );
-  validateAdUnitId(resumeInterstitialAdUnitId, 'VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID', GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID, errors);
+  validateAdUnitId(appOpenAdUnitId, 'VITE_ADMOB_APP_OPEN_AD_UNIT_ID', GOOGLE_ANDROID_TEST_APP_OPEN_AD_ID, errors);
   validateAdUnitId(chartDetailInterstitialAdUnitId, 'VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID', GOOGLE_ANDROID_TEST_INTERSTITIAL_AD_ID, errors);
   validateAdUnitId(bannerAdUnitId, 'VITE_ADMOB_BANNER_AD_UNIT_ID', GOOGLE_ANDROID_TEST_BANNER_AD_ID, errors);
   validateDistinctAdUnitIds([
     ['VITE_ADMOB_REWARDED_AD_UNIT_ID', rewardedAdUnitId],
     ['VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID', reviewHistoryInterstitialAdUnitId],
-    ['VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID', resumeInterstitialAdUnitId],
+    ['VITE_ADMOB_APP_OPEN_AD_UNIT_ID', appOpenAdUnitId],
     ['VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID', chartDetailInterstitialAdUnitId],
     ['VITE_ADMOB_BANNER_AD_UNIT_ID', bannerAdUnitId],
   ], errors);
@@ -266,7 +267,7 @@ function ownerFrontendNextAction(error) {
     ['VITE_API_BASE', 'API 서버 주소를 운영 HTTPS 주소로 바꾸기'],
     ['VITE_ADMOB_REWARDED_AD_UNIT_ID', 'AdMob 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
     ['VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID', '복기 보관함 전면 광고 단위를 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
-    ['VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID', '앱 복귀 전면 광고 단위를 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
+    ['VITE_ADMOB_APP_OPEN_AD_UNIT_ID', '앱 복귀용 앱 오프닝 광고 단위를 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
     ['VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID', '차트 자세히 보기 전면 광고 단위를 운영 광고 단위로 바꾸기', 'https://apps.admob.com/'],
     ['VITE_KAKAO_REST_API_KEY', '카카오 REST API Key를 앱 공개 설정에 넣기', 'https://developers.kakao.com/console/app'],
     ['VITE_KAKAO_REDIRECT_URI', '카카오 Redirect URI를 실제 운영 주소로 바꾸기', 'https://developers.kakao.com/console/app'],
@@ -308,8 +309,8 @@ function ownerFrontendRequiredInputs(errors) {
   if (errors.some((error) => error.includes('VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID'))) {
     inputs.push('AdMob 복기 보관함 전면 광고 단위 ID');
   }
-  if (errors.some((error) => error.includes('VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID'))) {
-    inputs.push('AdMob 앱 복귀 전면 광고 단위 ID');
+  if (errors.some((error) => error.includes('VITE_ADMOB_APP_OPEN_AD_UNIT_ID'))) {
+    inputs.push('AdMob 앱 복귀용 앱 오프닝 광고 단위 ID');
   }
   if (errors.some((error) => error.includes('VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID'))) {
     inputs.push('AdMob 차트 자세히 보기 전면 광고 단위 ID');
@@ -349,7 +350,7 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
   const admobReady = !hasError(result, 'VITE_ADMOB_ANDROID_APP_ID')
     && !hasError(result, 'VITE_ADMOB_REWARDED_AD_UNIT_ID')
     && !hasError(result, 'VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID')
-    && !hasError(result, 'VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID')
+    && !hasError(result, 'VITE_ADMOB_APP_OPEN_AD_UNIT_ID')
     && !hasError(result, 'VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID')
     && !hasError(result, 'VITE_ADMOB_BANNER_AD_UNIT_ID');
   const packageReady = !hasError(result, 'VITE_GOOGLE_PLAY_PACKAGE_NAME');

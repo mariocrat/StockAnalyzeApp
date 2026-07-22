@@ -26,6 +26,10 @@ services:
         value: https://alphamate.co.kr,https://localhost,capacitor://localhost
       - key: ALPHAMATE_PRIVACY_POLICY_URL
         value: https://api.alphamate.co.kr/privacy
+      - key: ALPHAMATE_PRIVACY_OPERATOR_NAME
+        value: mariocrat
+      - key: ALPHAMATE_PRIVACY_CONTACT_EMAIL
+        value: mariocrat@gmail.com
       - key: ALPHAMATE_PRIVACY_CONSENT_VERSION
         value: privacy-2026-07-18
       - key: ALPHAMATE_ACCOUNT_DB_PATH

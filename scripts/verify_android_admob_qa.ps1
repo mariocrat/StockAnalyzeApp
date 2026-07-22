@@ -65,6 +65,10 @@ $allowedNames = @(
     "VITE_GOOGLE_PLAY_PACKAGE_NAME",
     "VITE_ADMOB_ANDROID_APP_ID",
     "VITE_ADMOB_REWARDED_AD_UNIT_ID",
+    "VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID",
+    "VITE_ADMOB_APP_OPEN_AD_UNIT_ID",
+    "VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID",
+    "VITE_ADMOB_BANNER_AD_UNIT_ID",
     "VITE_QA_ADVANCED_COMPARISON",
     "ALPHAMATE_ANDROID_APP_NAME",
     "ALPHAMATE_ANDROID_VERSION_CODE",
@@ -78,7 +82,11 @@ $requiredNames = @(
     "VITE_NAVER_REDIRECT_URI",
     "VITE_GOOGLE_PLAY_PACKAGE_NAME",
     "VITE_ADMOB_ANDROID_APP_ID",
-    "VITE_ADMOB_REWARDED_AD_UNIT_ID"
+    "VITE_ADMOB_REWARDED_AD_UNIT_ID",
+    "VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID",
+    "VITE_ADMOB_APP_OPEN_AD_UNIT_ID",
+    "VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID",
+    "VITE_ADMOB_BANNER_AD_UNIT_ID"
 )
 
 Test-RequiredPath -Path $frontend -MissingMessage "Frontend folder was not found."
@@ -97,16 +105,29 @@ if (-not $publicValues["VITE_API_BASE"].StartsWith("https://")) {
 }
 
 $admobAppId = $publicValues["VITE_ADMOB_ANDROID_APP_ID"]
-$rewardedAdId = $publicValues["VITE_ADMOB_REWARDED_AD_UNIT_ID"]
 if ($admobAppId -notmatch '^ca-app-pub-\d{16}~\d{10}$') {
     throw "VITE_ADMOB_ANDROID_APP_ID is not a valid Android AdMob app ID."
 }
-if ($rewardedAdId -notmatch '^ca-app-pub-\d{16}/\d{10}$') {
-    throw "VITE_ADMOB_REWARDED_AD_UNIT_ID is not a valid rewarded ad unit ID."
+$adUnitNames = @(
+    "VITE_ADMOB_REWARDED_AD_UNIT_ID",
+    "VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID",
+    "VITE_ADMOB_APP_OPEN_AD_UNIT_ID",
+    "VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID",
+    "VITE_ADMOB_BANNER_AD_UNIT_ID"
+)
+foreach ($name in $adUnitNames) {
+    if ($publicValues[$name] -notmatch '^ca-app-pub-\d{16}/\d{10}$') {
+        throw "$name is not a valid AdMob ad unit ID."
+    }
 }
 foreach ($blockedPublisher in @($googleDemoPublisher, $placeholderPublisher)) {
-    if ($admobAppId.Contains($blockedPublisher) -or $rewardedAdId.Contains($blockedPublisher)) {
-        throw "The AdMob QA APK requires the real AlphaMate app and rewarded ad unit IDs."
+    if ($admobAppId.Contains($blockedPublisher)) {
+        throw "The AdMob QA APK requires the real AlphaMate app ID."
+    }
+    foreach ($name in $adUnitNames) {
+        if ($publicValues[$name].Contains($blockedPublisher)) {
+            throw "The AdMob QA APK requires the real AlphaMate ad unit ID: $name"
+        }
     }
 }
 
@@ -114,12 +135,6 @@ $qaValues = @{
     VITE_ALPHAMATE_ENV = "development"
     VITE_ENABLE_DEV_TOOLS = "false"
     VITE_QA_ADVANCED_COMPARISON = "true"
-    VITE_ADMOB_ANDROID_APP_ID = $admobAppId
-    VITE_ADMOB_REWARDED_AD_UNIT_ID = $rewardedAdId
-    VITE_ADMOB_REVIEW_HISTORY_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
-    VITE_ADMOB_RESUME_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
-    VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
-    VITE_ADMOB_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
 }
 $managedNames = @($allowedNames + $qaValues.Keys | Select-Object -Unique)
 $oldValues = @{}
@@ -136,7 +151,7 @@ try {
     foreach ($name in $publicValues.Keys) {
         [Environment]::SetEnvironmentVariable($name, $publicValues[$name], "Process")
     }
-    # The real rewarded unit exercises SSV. Other placements stay on Google's demo units.
+    # Every placement uses the production unit so format and placement wiring are exercised.
     # AdMob must list the phone as a test device before this QA APK is used.
     foreach ($name in $qaValues.Keys) {
         [Environment]::SetEnvironmentVariable($name, $qaValues[$name], "Process")
@@ -159,8 +174,10 @@ try {
     if (-not ($distFiles | Select-String -SimpleMatch $publicValues["VITE_API_BASE"] -Quiet)) {
         throw "Built web assets do not contain the configured production API URL."
     }
-    if (-not ($distFiles | Select-String -SimpleMatch $rewardedAdId -Quiet)) {
-        throw "Built web assets do not contain the configured AlphaMate rewarded ad unit ID."
+    foreach ($name in $adUnitNames) {
+        if (-not ($distFiles | Select-String -SimpleMatch $publicValues[$name] -Quiet)) {
+            throw "Built web assets do not contain the configured AlphaMate ad unit ID: $name"
+        }
     }
     if (-not ($distFiles | Select-String -SimpleMatch "luna-terra-v1" -Quiet)) {
         throw "Built web assets do not contain the QA advanced comparison feature."
