@@ -1,5 +1,12 @@
 # AlphaMate Development History
 
+## 2026-07-23 personal operator identity alignment
+
+- Kept `AlphaMate` as the public app and developer brand while identifying the non-business service operator and privacy officer by the confirmed legal name.
+- Replaced the privacy-policy operator nickname with `김건희` and retained `support@alphamate.co.kr` as the public privacy contact.
+- Left the fixed Android package name, OAuth app scheme, GitHub account, and other technical `mariocrat` identifiers unchanged.
+- Added regression coverage for the public operator, privacy officer, support email, and account-deletion page.
+
 ## 2026-07-22 production AdMob placement completion
 
 - Connected the production AdMob units for the bottom banner, review archive interstitial, chart-detail interstitial, and resume placement.

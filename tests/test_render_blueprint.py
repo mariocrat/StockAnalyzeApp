@@ -77,6 +77,15 @@ class RenderBlueprintTest(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertIn(value, text)
 
+    def test_render_blueprint_publishes_confirmed_privacy_contact(self):
+        text = RENDER.read_text(encoding="utf-8")
+
+        self.assertRegex(text, r"key: ALPHAMATE_PRIVACY_OPERATOR_NAME\n\s+value: 김건희")
+        self.assertRegex(
+            text,
+            r"key: ALPHAMATE_PRIVACY_CONTACT_EMAIL\n\s+value: support@alphamate\.co\.kr",
+        )
+
     def test_env_example_mentions_render_blueprint_without_real_secrets(self):
         text = (ROOT / ".env.example").read_text(encoding="utf-8")
 

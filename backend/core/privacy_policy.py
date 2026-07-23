@@ -3,7 +3,7 @@ import html
 from .env import env_value
 
 
-POLICY_EFFECTIVE_DATE = "2026-07-18"
+POLICY_EFFECTIVE_DATE = "2026-07-23"
 
 
 def _operator_name() -> str:
@@ -61,7 +61,8 @@ def privacy_policy_html() -> str:
 <body>
 <main>
   <h1>AlphaMate 개인정보처리방침</h1>
-  <p class="meta">시행일: {POLICY_EFFECTIVE_DATE} · 개인정보처리자: {operator}</p>
+  <p class="meta">시행일: {POLICY_EFFECTIVE_DATE}<br>서비스명: AlphaMate<br>개인정보처리자 및 운영자: {operator}</p>
+  <p>AlphaMate(이하 “서비스”)는 개인 개발자 {operator}(이하 “운영자”)가 운영합니다.</p>
   <p class="notice">AlphaMate는 매매 기록과 AI 복기 데이터를 사용자가 선택한 기능을 제공하는 범위에서만 처리합니다. AI 복기는 투자 판단을 대신하지 않으며, 사용자는 계정/데이터 관리에서 저장 기록을 확인·내보내기·삭제할 수 있습니다.</p>
 
   <h2>1. 처리하는 개인정보와 수집 방법</h2>
@@ -139,7 +140,7 @@ def privacy_policy_html() -> str:
   <p>AI 복기와 차트 분석은 과거 기록을 정리하는 참고 정보이며 투자 권유, 수익 보장 또는 전문 금융 자문이 아닙니다. AI 결과에는 오류가 있을 수 있으므로 최종 투자 판단과 책임은 사용자에게 있습니다.</p>
 
   <h2>11. 개인정보 보호 문의</h2>
-  <p>개인정보 보호책임자: {operator}<br>개인정보 열람·정정·삭제·처리정지 및 고충 처리 연락처: {contact}</p>
+  <p>개인정보 보호책임자<br>- 성명: {operator}<br>- 개인정보 열람·정정·삭제·처리정지 및 고충 처리 연락처: {contact}</p>
 
   <h2>12. 방침 변경</h2>
   <p>처리 항목, 외부 업체 또는 보유 기간이 달라지는 경우 시행 전에 앱 또는 이 페이지를 통해 변경 내용을 알립니다. 중요한 변경은 필요한 경우 다시 동의를 받습니다.</p>

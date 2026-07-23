@@ -233,7 +233,7 @@ ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-...
 
 - [ ] 개인정보처리방침 페이지를 만든다.
 - [ ] HTTPS 공개 URL로 배포한다.
-- [ ] 실제 운영자명 또는 사업자명과 사용 가능한 개인정보 문의 이메일을 공개한다.
+- [x] 개인 운영자 실명 `김건희`와 개인정보 문의 이메일 `support@alphamate.co.kr`을 공개한다.
 - [ ] 앱을 열 수 없는 사용자도 접근할 수 있는 `/account-deletion` 계정 삭제 안내를 확인한다.
 - [ ] 앱 내 개인정보/AI 이용 안내와 내용이 어긋나지 않는지 확인한다.
 - [ ] Play Store Data safety 문항을 작성한다.
@@ -244,7 +244,7 @@ ADMOB_REWARDED_AD_UNIT_ID=ca-app-pub-...
 
 ```env
 ALPHAMATE_PRIVACY_POLICY_URL=https://alphamate.co.kr/privacy
-ALPHAMATE_PRIVACY_OPERATOR_NAME=실제 운영자명 또는 사업자명
+ALPHAMATE_PRIVACY_OPERATOR_NAME=김건희
 ALPHAMATE_PRIVACY_CONTACT_EMAIL=support@alphamate.co.kr
 ALPHAMATE_PRIVACY_CONSENT_VERSION=privacy-2026-07-18
 ```

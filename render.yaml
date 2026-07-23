@@ -27,7 +27,7 @@ services:
       - key: ALPHAMATE_PRIVACY_POLICY_URL
         value: https://api.alphamate.co.kr/privacy
       - key: ALPHAMATE_PRIVACY_OPERATOR_NAME
-        value: mariocrat
+        value: 김건희
       - key: ALPHAMATE_PRIVACY_CONTACT_EMAIL
         value: support@alphamate.co.kr
       - key: ALPHAMATE_PRIVACY_CONSENT_VERSION
