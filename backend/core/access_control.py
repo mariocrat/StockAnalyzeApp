@@ -77,6 +77,7 @@ class UsageBucket:
 class UserWallet:
     basic_signup_remaining: int = FREE_SIGNUP_BASIC_CREDITS
     purchased_basic: int = 0
+    signup_advanced_remaining: int = 0
     weekly_advanced: int = 0
     purchased_advanced: int = 0
     usage: UsageBucket = field(default_factory=UsageBucket)
@@ -140,6 +141,7 @@ def _connect_access_db():
             user_id TEXT PRIMARY KEY,
             basic_signup_remaining INTEGER NOT NULL DEFAULT 5,
             purchased_basic INTEGER NOT NULL DEFAULT 0,
+            signup_advanced_remaining INTEGER NOT NULL DEFAULT 0,
             weekly_advanced INTEGER NOT NULL DEFAULT 0,
             purchased_advanced INTEGER NOT NULL DEFAULT 0,
             date_key TEXT NOT NULL DEFAULT '',
@@ -152,6 +154,24 @@ def _connect_access_db():
             weekly_ad_views INTEGER NOT NULL DEFAULT 0,
             weekly_advanced_granted INTEGER NOT NULL DEFAULT 0,
             updated_at TEXT NOT NULL
+        )
+        """
+    )
+    wallet_columns = {
+        str(row["name"])
+        for row in conn.execute("PRAGMA table_info(access_wallets)").fetchall()
+    }
+    if "signup_advanced_remaining" not in wallet_columns:
+        conn.execute(
+            "ALTER TABLE access_wallets ADD COLUMN signup_advanced_remaining INTEGER NOT NULL DEFAULT 0"
+        )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS access_grants (
+            user_id TEXT NOT NULL,
+            grant_key TEXT NOT NULL,
+            granted_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, grant_key)
         )
         """
     )
@@ -225,6 +245,7 @@ def _wallet_from_row(row) -> UserWallet:
     return UserWallet(
         basic_signup_remaining=int(row["basic_signup_remaining"]),
         purchased_basic=int(row["purchased_basic"]),
+        signup_advanced_remaining=int(row["signup_advanced_remaining"]),
         weekly_advanced=int(row["weekly_advanced"]),
         purchased_advanced=int(row["purchased_advanced"]),
         usage=usage,
@@ -252,6 +273,7 @@ def _write_wallet(conn, user_id: str, wallet: UserWallet):
             user_id,
             basic_signup_remaining,
             purchased_basic,
+            signup_advanced_remaining,
             weekly_advanced,
             purchased_advanced,
             date_key,
@@ -264,12 +286,13 @@ def _write_wallet(conn, user_id: str, wallet: UserWallet):
             weekly_ad_views,
             weekly_advanced_granted,
             updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             user_id,
             wallet.basic_signup_remaining,
             wallet.purchased_basic,
+            wallet.signup_advanced_remaining,
             wallet.weekly_advanced,
             wallet.purchased_advanced,
             usage.date_key,
@@ -295,6 +318,38 @@ def _save_wallet(user_id: str, wallet: UserWallet):
         conn.close()
 
 
+def grant_first_login_advanced_review(user_id: str) -> bool:
+    normalized_user_id = str(user_id or "").strip()
+    if not normalized_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required.")
+
+    with _WALLET_LOCK:
+        conn = _connect_access_db()
+        try:
+            granted_at = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+            inserted = conn.execute(
+                """
+                INSERT OR IGNORE INTO access_grants (user_id, grant_key, granted_at)
+                VALUES (?, 'oauth_first_login_advanced_v1', ?)
+                """,
+                (normalized_user_id, granted_at),
+            )
+            if inserted.rowcount == 0:
+                return False
+
+            row = conn.execute(
+                "SELECT * FROM access_wallets WHERE user_id = ?",
+                (normalized_user_id,),
+            ).fetchone()
+            wallet = _wallet_from_row(row)
+            wallet.signup_advanced_remaining += 1
+            _write_wallet(conn, normalized_user_id, wallet)
+            conn.commit()
+            return True
+        finally:
+            conn.close()
+
+
 def delete_user_access_data(user_id: str) -> dict:
     user_id = str(user_id or "").strip()
     if not user_id:
@@ -305,6 +360,7 @@ def delete_user_access_data(user_id: str) -> dict:
             deleted = {}
             for table, key in (
                 ("access_wallets", "deleted_wallets"),
+                ("access_grants", "deleted_access_grants"),
                 ("google_play_purchases", "deleted_google_play_purchases"),
                 ("google_play_subscriptions", "deleted_google_play_subscriptions"),
                 ("admob_reward_events", "deleted_admob_rewards"),
@@ -1399,6 +1455,9 @@ def _consume_advanced(wallet: UserWallet, plan: str) -> str:
     if plan == "pro" and usage.pro_advanced_monthly_used < PRO_MONTHLY_ADVANCED:
         usage.pro_advanced_monthly_used += 1
         return "pro_monthly_advanced"
+    if wallet.signup_advanced_remaining > 0:
+        wallet.signup_advanced_remaining -= 1
+        return "signup_advanced"
     if wallet.weekly_advanced > 0:
         wallet.weekly_advanced -= 1
         return "weekly_ad_advanced"
@@ -1407,7 +1466,7 @@ def _consume_advanced(wallet: UserWallet, plan: str) -> str:
         return "purchased_advanced"
     raise HTTPException(
         status_code=402,
-        detail="심화 복기 이용권이 필요합니다. Pro 제공량, 광고 보상 심화 복기 이용권 또는 구매한 심화 복기 이용권을 확인해주세요.",
+        detail="심화 복기 이용권이 필요합니다. 첫 로그인 체험권, Pro 제공량, 광고 보상 또는 구매한 심화 복기 이용권을 확인해주세요.",
     )
 
 
@@ -1428,6 +1487,7 @@ def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:
             "purchased_remaining": wallet.purchased_basic,
         },
         "advanced": {
+            "signup_remaining": wallet.signup_advanced_remaining,
             "pro_monthly_remaining": max(0, PRO_MONTHLY_ADVANCED - usage.pro_advanced_monthly_used) if plan == "pro" else 0,
             "weekly_reward_remaining": wallet.weekly_advanced,
             "weekly_ad_views": usage.weekly_ad_views,
@@ -1785,6 +1845,8 @@ def refund_ai_review_access(access: AiAccessContext) -> dict:
             usage.pro_basic_monthly_used = max(0, usage.pro_basic_monthly_used - 1)
         elif source == "pro_monthly_advanced":
             usage.pro_advanced_monthly_used = max(0, usage.pro_advanced_monthly_used - 1)
+        elif source == "signup_advanced":
+            wallet.signup_advanced_remaining += 1
         elif source == "weekly_ad_advanced":
             wallet.weekly_advanced += 1
         elif source == "purchased_advanced":

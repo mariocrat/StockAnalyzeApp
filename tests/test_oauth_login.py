@@ -47,10 +47,12 @@ class OAuthLoginTest(unittest.TestCase):
     def test_kakao_access_token_profile_creates_alphamate_session(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
 
-            from backend.core import account_store, oauth_login
+            from backend.core import access_control, account_store, oauth_login
 
             account_store = importlib.reload(account_store)
+            access_control = importlib.reload(access_control)
             oauth_login = importlib.reload(oauth_login)
 
             def fake_request_json(url, token):
@@ -75,10 +77,26 @@ class OAuthLoginTest(unittest.TestCase):
             self.assertEqual("카카오 사용자", session["user"]["display_name"])
             self.assertEqual("kakao", session["user"]["identities"][0]["provider"])
             self.assertEqual("123456789", session["user"]["identities"][0]["provider_user_id"])
+            entitlements = access_control.get_user_entitlements(
+                authorization=f"Bearer {session['session_token']}",
+                entitlement_token="",
+            )
+            self.assertEqual(1, entitlements["advanced"]["signup_remaining"])
+
+            second_session = oauth_login.login_oauth_provider(
+                provider="kakao",
+                access_token="kakao-access-token",
+            )
+            second_entitlements = access_control.get_user_entitlements(
+                authorization=f"Bearer {second_session['session_token']}",
+                entitlement_token="",
+            )
+            self.assertEqual(1, second_entitlements["advanced"]["signup_remaining"])
 
     def test_naver_access_token_profile_creates_alphamate_session(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
 
             from backend.core import account_store, oauth_login
 
@@ -119,6 +137,7 @@ class OAuthLoginTest(unittest.TestCase):
     def test_kakao_authorization_code_is_exchanged_before_login(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
             os.environ["KAKAO_CLIENT_ID"] = "kakao-client-id"
             os.environ["KAKAO_CLIENT_SECRET"] = "kakao-client-secret"
 
@@ -159,6 +178,7 @@ class OAuthLoginTest(unittest.TestCase):
     def test_naver_authorization_code_is_exchanged_before_login(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
             os.environ["NAVER_CLIENT_ID"] = "naver-client-id"
             os.environ["NAVER_CLIENT_SECRET"] = "naver-client-secret"
 
@@ -203,6 +223,7 @@ class OAuthLoginTest(unittest.TestCase):
     def test_oauth_code_login_requires_provider_configuration(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
             os.environ.pop("KAKAO_CLIENT_ID", None)
 
             from backend.core import oauth_login

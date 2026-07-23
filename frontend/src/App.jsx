@@ -15,6 +15,7 @@ import { toKoreanUserMessage } from './utils/userMessage';
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
 const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
 const APP_ENV = import.meta.env.VITE_ALPHAMATE_ENV || (import.meta.env.PROD ? 'production' : 'development');
+const CHART_DETAIL_AD_FREQUENCY = APP_ENV === 'production' ? 3 : 1;
 const DEV_TOOLS_ENABLED = APP_ENV !== 'production' && import.meta.env.VITE_ENABLE_DEV_TOOLS !== 'false';
 const DEV_ACCESS_PLAN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_ACCESS_PLAN || 'free' : 'free';
 const DEV_AUTH_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_AUTH_TOKEN || 'dev-token' : '';
@@ -677,7 +678,11 @@ export default function App() {
   const handleChartDetailAd = useCallback(async () => {
     const detailOpenCount = chartDetailOpenCountRef.current + 1;
     chartDetailOpenCountRef.current = detailOpenCount;
-    if (!shouldShowChartDetailInterstitial({ plan: adPlan, detailOpenCount })) return;
+    if (!shouldShowChartDetailInterstitial({
+      plan: adPlan,
+      detailOpenCount,
+      frequency: CHART_DETAIL_AD_FREQUENCY,
+    })) return;
     try {
       await showChartDetailInterstitial();
     } catch (err) {

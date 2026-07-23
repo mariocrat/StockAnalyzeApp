@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import {
   DEFAULT_ANDROID_TEST_APP_OPEN_AD_ID,
@@ -15,6 +16,8 @@ import {
   shouldShowChartDetailInterstitial,
   shouldShowResumeAppOpenAd,
 } from '../src/mobile/admobPolicy.js';
+
+const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 
 test('blocks the Google rewarded test ad unit in production', () => {
   const status = createAdMobRuntimeStatus({
@@ -182,6 +185,11 @@ test('shows chart detail interstitial every third entry for free users', () => {
   assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 2 }), false);
   assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 3 }), true);
   assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 6 }), true);
+});
+
+test('QA builds show the chart detail test ad on first entry while production keeps its cooldown', () => {
+  assert.match(appSource, /APP_ENV === 'production' \? 3 : 1/);
+  assert.match(appSource, /frequency: CHART_DETAIL_AD_FREQUENCY/);
 });
 
 test('checks every interstitial placement before reporting production readiness', () => {

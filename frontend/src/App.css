@@ -1757,6 +1757,63 @@ body {
   gap: 10px;
 }
 
+.journal-review-chart-block {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #35415c;
+}
+
+.journal-ai-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  padding: 14px;
+  border: 1px solid #416cc8;
+  border-radius: 6px;
+  background: #14203a;
+}
+
+.journal-ai-loading-spinner {
+  flex: 0 0 auto;
+  width: 25px;
+  height: 25px;
+  border: 3px solid rgba(120, 158, 255, 0.28);
+  border-top-color: #79a0ff;
+  border-radius: 50%;
+  animation: journal-ai-spin 0.8s linear infinite;
+}
+
+.journal-ai-loading strong,
+.journal-ai-loading p {
+  display: block;
+  margin: 0;
+}
+
+.journal-ai-loading strong {
+  color: #f2f6ff;
+  font-size: 14px;
+}
+
+.journal-ai-loading p {
+  margin-top: 4px;
+  color: #b8c5df;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+@keyframes journal-ai-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .journal-ai-loading-spinner {
+    animation-duration: 1.8s;
+  }
+}
+
 .journal-ai-review > p,
 .journal-ai-summary {
   margin: 0;

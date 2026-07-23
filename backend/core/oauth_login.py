@@ -7,8 +7,10 @@ from urllib.parse import urlencode, urlparse
 
 try:
     from core.account_store import _env_value, login_provider_identity
+    from core.access_control import grant_first_login_advanced_review
 except ModuleNotFoundError:
     from backend.core.account_store import _env_value, login_provider_identity
+    from backend.core.access_control import grant_first_login_advanced_review
 
 
 KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"
@@ -146,7 +148,9 @@ def login_oauth_provider(*, provider: str, access_token: str) -> dict:
     else:
         raise HTTPException(status_code=400, detail="Unsupported login provider.")
 
-    return login_provider_identity(**profile)
+    session = login_provider_identity(**profile)
+    grant_first_login_advanced_review(session["user"]["id"])
+    return session
 
 
 def _configured_redirect_uri(provider: str, redirect_uri: str) -> str:

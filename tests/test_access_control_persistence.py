@@ -8,6 +8,33 @@ from fastapi import HTTPException
 
 
 class AccessControlPersistenceTest(unittest.TestCase):
+    def test_first_oauth_login_advanced_ticket_is_granted_only_once(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(os.environ, {
+            "ALPHAMATE_ACCESS_DB_PATH": os.path.join(tmpdir, "access.sqlite3"),
+            "ALPHAMATE_ALLOW_DEV_ACCESS": "true",
+        }):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            self.assertTrue(access_control.grant_first_login_advanced_review("dev-user"))
+            self.assertFalse(access_control.grant_first_login_advanced_review("dev-user"))
+
+            entitlements = access_control.get_user_entitlements(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+            )
+            self.assertEqual(1, entitlements["advanced"]["signup_remaining"])
+
+            access = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="advanced",
+            )
+            self.assertEqual("signup_advanced", access.source)
+            self.assertEqual(0, access.quota["advanced"]["signup_remaining"])
+
     def test_advanced_review_without_ticket_returns_korean_guidance(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "access.sqlite3")

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import axios from 'axios';
 import { CircleAlert, Clock3, Keyboard, Ticket, UserRound, X } from 'lucide-react';
 import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
@@ -49,6 +51,7 @@ const REVIEW_PRODUCTS = [
 const chartIntervalLabel = { '1m': '1분봉', '3m': '3분봉', '1d': '일봉', '1wk': '주봉' };
 const reviewSourceLabels = {
   signup_basic: '가입 축하 제공량',
+  signup_advanced: '첫 로그인 체험 이용권',
   free_daily_basic: '무료 일일 제공량',
   rewarded_ad_basic: '광고 보상 제공량',
   pro_monthly_basic: 'Pro 월 제공량',
@@ -168,7 +171,7 @@ function reviewAccessText(access) {
   const source = reviewSourceLabels[access.source] || access.source || '제공량';
   if (access.review_type === 'advanced') {
     const advanced = access.quota.advanced || {};
-    return `${plan} · ${type} · ${source} · Pro ${advanced.pro_monthly_remaining || 0}회 · 광고 보상 ${advanced.weekly_reward_remaining || 0}회 · 구매 ${advanced.purchased_remaining || 0}회`;
+    return `${plan} · ${type} · ${source} · 첫 로그인 체험 ${advanced.signup_remaining || 0}회 · Pro ${advanced.pro_monthly_remaining || 0}회 · 광고 보상 ${advanced.weekly_reward_remaining || 0}회 · 구매 ${advanced.purchased_remaining || 0}회`;
   }
   const basic = access.quota.basic || {};
   if (access.plan === 'pro') {
@@ -181,8 +184,15 @@ function reviewAccessText(access) {
   return `${plan} · ${type} · ${source} · 바로 사용 ${freeNow}회 · 광고 추가 ${adAvailable}회 · 구매 ${basic.purchased_remaining || 0}회`;
 }
 
+function reviewDisplayText(value) {
+  return String(value || '')
+    .replace(/\[(?:데이터 확인|합리적 추론)\]/g, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 function ReviewInlineText({ value }) {
-  return String(value || '').split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((part, index) => (
+  return reviewDisplayText(value).split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((part, index) => (
     part.startsWith('**') && part.endsWith('**')
       ? <strong key={`${index}-${part}`}>{part.slice(2, -2)}</strong>
       : <span key={`${index}-${part}`}>{part}</span>
@@ -224,26 +234,26 @@ function AiReviewSummary({ value, document = false }) {
       {summary.verdict && (
         <section className="journal-ai-summary-section verdict">
           <strong>한 줄 총평</strong>
-          <p>{summary.verdict}</p>
+          <p>{reviewDisplayText(summary.verdict)}</p>
         </section>
       )}
       {summary.strength && (
         <section className="journal-ai-summary-section strength">
           <strong>잘한 점</strong>
-          <p>{summary.strength}</p>
+          <p>{reviewDisplayText(summary.strength)}</p>
         </section>
       )}
       {summary.weakness && (
         <section className="journal-ai-summary-section weakness">
           <strong>아쉬운 점</strong>
-          <p>{summary.weakness}</p>
+          <p>{reviewDisplayText(summary.weakness)}</p>
         </section>
       )}
       {summary.checklist.length > 0 && (
         <section className="journal-ai-summary-section checklist">
           <strong>다음 매매 체크리스트</strong>
           <ol>
-            {summary.checklist.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
+            {summary.checklist.map((item, index) => <li key={`${index}-${item}`}>{reviewDisplayText(item)}</li>)}
           </ol>
         </section>
       )}
@@ -647,7 +657,7 @@ export default function TradingJournal({
     }
   };
 
-  const handleOAuthStart = (provider) => {
+  const handleOAuthStart = async (provider) => {
     if (!oauthConfigured(provider)) {
       setMessage(`${provider === 'kakao' ? '카카오' : '네이버'} 로그인 설정값이 아직 없습니다.`);
       return;
@@ -671,7 +681,20 @@ export default function TradingJournal({
     authUrl.searchParams.set('client_id', provider === 'kakao' ? KAKAO_REST_API_KEY : NAVER_CLIENT_ID);
     authUrl.searchParams.set('redirect_uri', redirectUri);
     authUrl.searchParams.set('state', state);
-    window.location.href = authUrl.toString();
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await Browser.open({ url: authUrl.toString() });
+        return;
+      } catch (err) {
+        reportJournalClientEvent({
+          eventType: 'oauth_browser_open_failed',
+          level: 'warning',
+          message: err?.message || 'OAuth browser open failed.',
+          details: { provider },
+        });
+      }
+    }
+    window.location.assign(authUrl.toString());
   };
 
   const finishOAuthLogin = async ({ provider, code, state, redirectUri }) => {
@@ -1072,6 +1095,7 @@ export default function TradingJournal({
     const advanced = entitlements?.advanced;
     const availableTickets = advanced
       ? (advanced.pro_monthly_remaining || 0)
+        + (advanced.signup_remaining || 0)
         + (advanced.weekly_reward_remaining || 0)
         + (advanced.purchased_remaining || 0)
       : null;
@@ -1358,13 +1382,17 @@ export default function TradingJournal({
     let listener = null;
     let active = true;
     CapacitorApp.addListener('appUrlOpen', ({ url }) => {
-      handleOAuthAppReturn(url);
+      if (handleOAuthAppReturn(url)) {
+        Browser.close().catch(() => {});
+      }
     }).then(handle => {
       listener = handle;
     }).catch(() => {});
     CapacitorApp.getLaunchUrl()
       .then(result => {
-        if (active && result?.url) handleOAuthAppReturn(result.url);
+        if (active && result?.url && handleOAuthAppReturn(result.url)) {
+          Browser.close().catch(() => {});
+        }
       })
       .catch(() => {});
     return () => {
@@ -1823,8 +1851,8 @@ export default function TradingJournal({
                   <div className="journal-chart-review-list">
                     {savedCards.map((item, idx) => (
                       <div className="journal-ai-card" key={`${item.title || idx}-${idx}`}>
-                        <strong>{item.title}</strong>
-                        <p>{item.detail}</p>
+                        <strong>{reviewDisplayText(item.title)}</strong>
+                        <p>{reviewDisplayText(item.detail)}</p>
                       </div>
                     ))}
                   </div>
@@ -1892,7 +1920,7 @@ export default function TradingJournal({
           >
             <div className="journal-access-icon" aria-hidden="true"><Ticket size={22} /></div>
             <h3 id="advanced-review-access-title">심화 복기 이용권이 필요합니다</h3>
-            <p>심화 복기는 Pro 월 제공량, 광고 보상 심화 복기 이용권 또는 구매한 심화 복기 이용권 1장을 사용합니다.</p>
+            <p>심화 복기는 첫 로그인 체험권, Pro 월 제공량, 광고 보상 또는 구매한 심화 복기 이용권 1장을 사용합니다.</p>
             <div className="journal-access-actions">
               <button type="button" onClick={() => setReviewAccessDialog(null)}>닫기</button>
               <button type="button" className="primary" onClick={showReviewPasses}>이용권 확인</button>
@@ -2193,6 +2221,7 @@ export default function TradingJournal({
           <div><span>Pro 일반 복기</span><strong>{entitlements?.basic?.pro_monthly_remaining || 0}</strong></div>
           <div><span>구매 일반 이용권</span><strong>{entitlements?.basic?.purchased_remaining || 0}</strong></div>
           <div><span>Pro 심화 복기</span><strong>{entitlements?.advanced?.pro_monthly_remaining || 0}</strong></div>
+          <div><span>첫 로그인 체험 심화 복기</span><strong>{entitlements?.advanced?.signup_remaining || 0}</strong></div>
           <div><span>광고 보상 심화 복기 이용권</span><strong>{entitlements?.advanced?.weekly_reward_remaining || 0}</strong></div>
           <div><span>구매 심화 복기 이용권</span><strong>{entitlements?.advanced?.purchased_remaining || 0}</strong></div>
         </div>
@@ -2278,45 +2307,6 @@ export default function TradingJournal({
         )}
       </section>
 
-      {showCurrentReviewDetails && <section className="journal-panel" ref={tradeChartSectionRef}>
-        <div className="journal-panel-title">
-          <h3>매매 차트</h3>
-          <span className="journal-chart-mode">
-            {chartIntervalLabel[activeTradeChart?.interval] || (activeTradeChart?.timeframe === 'intraday' ? '분봉' : activeTradeChart?.timeframe === 'weekly' ? '주봉' : '일봉')}
-            {activeTradeChart?.period_label ? ` · ${activeTradeChart.period_label}` : ''}
-          </span>
-        </div>
-        {chartReview.charts?.length > 1 && (
-          <div className="journal-chart-tabs">
-            {chartReview.charts.map(chart => (
-              <button
-                key={chart.ticker}
-                className={chart.ticker === activeTradeChart?.ticker ? 'active' : ''}
-                onClick={() => setActiveChartTicker(chart.ticker)}
-              >
-                {chart.name}
-              </button>
-            ))}
-          </div>
-        )}
-        <JournalTradeChart chartData={activeTradeChart} />
-        <div className="journal-chart-review-list">
-          {(activeTradeChart?.reviews || []).map((item, idx) => (
-            <div className="journal-ai-card" key={`${item.title || idx}-${idx}`}>
-              <strong>{item.title}</strong>
-              <p>{item.detail}</p>
-              {item.metrics && (
-                <div className="journal-ai-metrics">
-                  {item.metrics.price_vs_close_pct != null && <span>체결/종가 {item.metrics.price_vs_close_pct}%</span>}
-                  {item.metrics.after_5_bars != null && <span>이후 5봉 {item.metrics.after_5_bars}%</span>}
-                  {item.metrics.after_later_bars != null && <span>이후 흐름 {item.metrics.after_later_bars}%</span>}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </section>}
-
       <section className="journal-panel">
         <div className="journal-panel-title">
           <h3>AI 복기</h3>
@@ -2352,6 +2342,46 @@ export default function TradingJournal({
           )}
           <p>선택한 한 매매 묶음만 차트와 함께 AI에 전달합니다.</p>
         </div>
+        {showCurrentReviewDetails && (
+          <div className="journal-review-chart-block" ref={tradeChartSectionRef}>
+            <div className="journal-panel-title">
+              <h3>선택한 매매 차트</h3>
+              <span className="journal-chart-mode">
+                {chartIntervalLabel[activeTradeChart?.interval] || (activeTradeChart?.timeframe === 'intraday' ? '분봉' : activeTradeChart?.timeframe === 'weekly' ? '주봉' : '일봉')}
+                {activeTradeChart?.period_label ? ` · ${activeTradeChart.period_label}` : ''}
+              </span>
+            </div>
+            {chartReview.charts?.length > 1 && (
+              <div className="journal-chart-tabs">
+                {chartReview.charts.map(chart => (
+                  <button
+                    key={chart.ticker}
+                    className={chart.ticker === activeTradeChart?.ticker ? 'active' : ''}
+                    onClick={() => setActiveChartTicker(chart.ticker)}
+                  >
+                    {chart.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            <JournalTradeChart chartData={activeTradeChart} />
+            <div className="journal-chart-review-list">
+              {(activeTradeChart?.reviews || []).map((item, idx) => (
+                <div className="journal-ai-card" key={`${item.title || idx}-${idx}`}>
+                  <strong>{reviewDisplayText(item.title)}</strong>
+                  <p>{reviewDisplayText(item.detail)}</p>
+                  {item.metrics && (
+                    <div className="journal-ai-metrics">
+                      {item.metrics.price_vs_close_pct != null && <span>체결/종가 {item.metrics.price_vs_close_pct}%</span>}
+                      {item.metrics.after_5_bars != null && <span>이후 5봉 {item.metrics.after_5_bars}%</span>}
+                      {item.metrics.after_later_bars != null && <span>이후 흐름 {item.metrics.after_later_bars}%</span>}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="journal-review-actions">
             <button
               className="journal-secondary"
@@ -2394,7 +2424,13 @@ export default function TradingJournal({
         </div>
         <div className="journal-ai-review">
           {aiLoading ? (
-            <p>매매 시점 차트 데이터를 읽고 있습니다.</p>
+            <div className="journal-ai-loading" role="status" aria-live="polite">
+              <span className="journal-ai-loading-spinner" aria-hidden="true" />
+              <div>
+                <strong>AI 복기 분석 중</strong>
+                <p>선택한 매매의 체결 기록과 당시 차트 흐름을 함께 확인하고 있습니다.</p>
+              </div>
+            </div>
           ) : aiReview ? (
             <>
               <div className={`journal-ai-status ${aiReview.status || 'ready'}`}>
@@ -2408,8 +2444,8 @@ export default function TradingJournal({
               )}
               {(aiReview.chart_reviews || []).map((item, idx) => (
                 <div className="journal-ai-card" key={`${item.title || idx}-${idx}`}>
-                  <strong>{item.title}</strong>
-                  <p>{item.detail}</p>
+                  <strong>{reviewDisplayText(item.title)}</strong>
+                  <p>{reviewDisplayText(item.detail)}</p>
                   {item.metrics && (
                     <div className="journal-ai-metrics">
                       {item.metrics.rsi14 != null && <span>RSI {item.metrics.rsi14}</span>}
@@ -2451,6 +2487,15 @@ export default function TradingJournal({
                 {qaComparisonLoading === 'terra' ? 'Terra 분석중' : 'Terra로 비교'}
               </button>
             </div>
+            {qaComparisonLoading && (
+              <div className="journal-ai-loading" role="status" aria-live="polite">
+                <span className="journal-ai-loading-spinner" aria-hidden="true" />
+                <div>
+                  <strong>심화 복기 비교 분석 중</strong>
+                  <p>선택한 매매와 당시 차트를 {qaComparisonLoading === 'luna' ? 'Luna' : 'Terra'} 모델로 확인하고 있습니다.</p>
+                </div>
+              </div>
+            )}
             <p className="qa-comparison-cost">같은 토큰 양이라면 Luna의 API 비용은 Terra의 약 40%입니다. 실제 결과 품질을 보고 운영 모델을 결정하세요.</p>
             <div className="qa-comparison-chart-guide">
               <span>두 결과는 같은 매매 차트를 기준으로 분석합니다. 차트는 중복하지 않고 위의 매매 차트에 표시합니다.</span>
@@ -2474,8 +2519,8 @@ export default function TradingJournal({
                           <AiReviewSummary value={result.summary} document />
                           {(result.chart_reviews || []).map((item, idx) => (
                             <div className="journal-ai-card" key={`${variant}-${item.title || idx}-${idx}`}>
-                              <strong>{item.title}</strong>
-                              <p>{item.detail}</p>
+                              <strong>{reviewDisplayText(item.title)}</strong>
+                              <p>{reviewDisplayText(item.detail)}</p>
                             </div>
                           ))}
                         </>
