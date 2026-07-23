@@ -17,6 +17,16 @@ def load_module():
 
 
 class AndroidUploadKeyGenerationTest(unittest.TestCase):
+    def test_default_pkcs12_passwords_match(self):
+        module = load_module()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            values = module.default_android_signing_values(Path(temp_dir))
+
+        self.assertEqual(
+            values["ALPHAMATE_ANDROID_KEYSTORE_PASSWORD"],
+            values["ALPHAMATE_ANDROID_KEY_PASSWORD"],
+        )
+
     def test_fills_empty_frontend_release_signing_values_without_overwriting_existing_values(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as temp_dir:

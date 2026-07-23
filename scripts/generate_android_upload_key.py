@@ -29,11 +29,12 @@ def _secret_token() -> str:
 def default_android_signing_values(root: Path | str) -> dict[str, str]:
     root = Path(root)
     keystore_path = root / "release-private" / "android" / "alphamate-upload.jks"
+    signing_password = _secret_token()
     return {
         "ALPHAMATE_ANDROID_KEYSTORE_FILE": str(keystore_path).replace("\\", "/"),
-        "ALPHAMATE_ANDROID_KEYSTORE_PASSWORD": _secret_token(),
+        "ALPHAMATE_ANDROID_KEYSTORE_PASSWORD": signing_password,
         "ALPHAMATE_ANDROID_KEY_ALIAS": "alphamate-upload",
-        "ALPHAMATE_ANDROID_KEY_PASSWORD": _secret_token(),
+        "ALPHAMATE_ANDROID_KEY_PASSWORD": signing_password,
     }
 
 
