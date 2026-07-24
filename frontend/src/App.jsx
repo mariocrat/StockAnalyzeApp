@@ -95,6 +95,7 @@ export default function App() {
   const [splashExiting, setSplashExiting] = useState(false);
   const [adPlan, setAdPlan] = useState(DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free');
   const [bannerReserved, setBannerReserved] = useState(false);
+  const [textInputFocused, setTextInputFocused] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [appNotice, setAppNotice] = useState('');
   const backgroundedAtRef = useRef(0);
@@ -224,8 +225,26 @@ export default function App() {
   }, [adPlan, reportAdClientEvent]);
 
   useEffect(() => {
+    const editableSelector = 'input, textarea, select, [contenteditable="true"]';
+    const updateFocusedState = () => {
+      window.requestAnimationFrame(() => {
+        setTextInputFocused(Boolean(document.activeElement?.matches?.(editableSelector)));
+      });
+    };
+
+    document.addEventListener('focusin', updateFocusedState);
+    document.addEventListener('focusout', updateFocusedState);
+    return () => {
+      document.removeEventListener('focusin', updateFocusedState);
+      document.removeEventListener('focusout', updateFocusedState);
+    };
+  }, []);
+
+  useEffect(() => {
     const status = getAdMobRuntimeStatus();
-    const shouldShow = !showSplash && shouldShowBannerAd({ plan: adPlan, native: status.native });
+    const shouldShow = !showSplash
+      && !textInputFocused
+      && shouldShowBannerAd({ plan: adPlan, native: status.native });
     if (!shouldShow) {
       setBannerReserved(false);
       removeAppBanner().catch((err) => {
@@ -264,7 +283,7 @@ export default function App() {
         });
       });
     };
-  }, [adPlan, showSplash, reportAdClientEvent]);
+  }, [adPlan, showSplash, textInputFocused, reportAdClientEvent]);
 
   // ── Theme state ──────────────────────────────────────────────────────
   const [themes,          setThemes]         = useState([]);

@@ -1236,10 +1236,34 @@ body {
   font-size: 11px;
 }
 
+.journal-review-target-selected {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #477cff;
+  border-radius: 6px;
+  background: #172951;
+  color: #edf3ff;
+}
+
+.journal-review-target-selected small {
+  color: #aab6ce;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.journal-review-target-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 9px;
+}
+
 .journal-review-target-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 7px;
+  margin-top: 9px;
   max-height: 220px;
   overflow-y: auto;
 }
@@ -2692,6 +2716,10 @@ body {
   }
 
   .journal-review-target-list {
+    grid-template-columns: 1fr;
+  }
+
+  .journal-review-target-actions {
     grid-template-columns: 1fr;
   }
 

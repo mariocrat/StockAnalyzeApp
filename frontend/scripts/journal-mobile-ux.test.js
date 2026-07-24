@@ -147,16 +147,25 @@ test('AI review loading is prominent and selected chart follows trade selection'
   assert.match(journalSource, /심화 복기 비교 분석 중/);
 
   const selectionIndex = journalSource.indexOf('복기할 매매 선택');
-  const chartIndex = journalSource.indexOf('선택한 매매 차트');
   const actionIndex = journalSource.indexOf('journal-review-actions');
+  const chartRenderIndex = journalSource.lastIndexOf('renderSelectedTradeChart()');
   assert.ok(selectionIndex >= 0);
-  assert.ok(chartIndex > selectionIndex);
-  assert.ok(actionIndex > chartIndex);
+  assert.ok(actionIndex > selectionIndex);
+  assert.ok(chartRenderIndex > actionIndex);
 });
 
-test('review output removes internal evidence labels and shows the first-login trial pass', () => {
+test('review output removes internal evidence labels and hides consumed one-time trial balances', () => {
   assert.match(journalSource, /replace\(\/\\\[\(\?:데이터 확인\|합리적 추론\)\\\]\/g, ''\)/);
   assert.match(journalSource, /signup_advanced: '첫 로그인 체험 이용권'/);
   assert.match(journalSource, /advanced\.signup_remaining/);
-  assert.match(journalSource, /첫 로그인 체험 심화 복기/);
+  assert.doesNotMatch(journalSource, />첫 로그인 체험 심화 복기</);
+});
+
+test('review picker starts closed and QA requests carry the selected target trade id', () => {
+  assert.match(journalSource, /reviewTargetPickerOpen/);
+  assert.match(journalSource, /현재 기록에서 선택/);
+  assert.match(journalSource, /복기 보관함에서 선택/);
+  assert.match(journalSource, /target_trade_id: selectedReviewGroup\?\.targetTradeId \|\| null/);
+  assert.doesNotMatch(journalSource, /setSelectedReviewGroupKey\(reviewTradeGroups\[0\]\.key\)/);
+  assert.doesNotMatch(journalSource, /className="journal-advice"/);
 });

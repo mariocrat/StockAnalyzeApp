@@ -35,6 +35,35 @@ class QaAdvancedComparisonStoreTest(unittest.TestCase):
         self.assertEqual("luna result", replay["cached_result"]["summary"])
         self.assertTrue(terra["run"])
 
+    def test_same_model_runs_again_for_a_different_selected_trade(self):
+        first = self.store.begin_comparison(
+            user_id="user-a",
+            model_variant="luna",
+            request_scope="trade-004310",
+        )
+        self.assertTrue(first["run"])
+        self.store.complete_comparison(
+            user_id="user-a",
+            model_variant="luna",
+            request_scope="trade-004310",
+            result={"summary": "hyundai result"},
+        )
+
+        replay = self.store.begin_comparison(
+            user_id="user-a",
+            model_variant="luna",
+            request_scope="trade-004310",
+        )
+        another_trade = self.store.begin_comparison(
+            user_id="user-a",
+            model_variant="luna",
+            request_scope="trade-017900",
+        )
+
+        self.assertFalse(replay["run"])
+        self.assertEqual("hyundai result", replay["cached_result"]["summary"])
+        self.assertTrue(another_trade["run"])
+
     def test_comparison_is_reserved_for_the_first_test_account(self):
         self.store.begin_comparison(user_id="user-a", model_variant="luna")
 
@@ -84,7 +113,9 @@ class QaAdvancedComparisonEndpointTest(unittest.TestCase):
         return self.main.JournalQaAdvancedCompareIn(
             privacy_consent=True,
             model_variant=variant,
+            target_trade_id=41,
             trades=[self.main.JournalTradeIn(
+                id=41,
                 trade_date="2026-07-10T09:36",
                 ticker="017900",
                 name="광전자",
@@ -103,8 +134,13 @@ class QaAdvancedComparisonEndpointTest(unittest.TestCase):
         authorization = f"Bearer {session['session_token']}"
         calls = []
 
-        def fake_review(trades, *, model_override="", allow_fallback=True):
-            calls.append((model_override, allow_fallback))
+        def fake_review(trades, *, target_trade_id=None, model_override="", allow_fallback=True):
+            calls.append((
+                model_override,
+                allow_fallback,
+                target_trade_id,
+                [trade["ticker"] for trade in trades],
+            ))
             return {
                 "status": "ready",
                 "source": "openai",
@@ -126,7 +162,7 @@ class QaAdvancedComparisonEndpointTest(unittest.TestCase):
             x_alphamate_qa_comparison="luna-terra-v1",
         )
 
-        self.assertEqual([("gpt-5.6-luna", False)], calls)
+        self.assertEqual([("gpt-5.6-luna", False, 41, ["017900"])], calls)
         self.assertFalse(first["qa_comparison"]["ticket_consumed"])
         self.assertTrue(replay["qa_cached_result"])
 

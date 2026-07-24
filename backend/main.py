@@ -151,6 +151,7 @@ def _saved_journal_analysis_max_trades() -> int:
 
 
 class JournalTradeIn(BaseModel):
+    id: Optional[int] = None
     trade_date: str
     ticker: str = ""
     name: str
@@ -179,6 +180,7 @@ class JournalAiReviewIn(JournalBatchIn):
 class JournalQaAdvancedCompareIn(JournalBatchIn):
     model_variant: str
     privacy_consent: bool = False
+    target_trade_id: Optional[int] = None
 
 
 class JournalDevPurchaseIn(BaseModel):
@@ -241,9 +243,26 @@ class ClientEventIn(BaseModel):
 
 def _journal_batch_payload(batch: JournalBatchIn) -> list[dict]:
     try:
-        return [normalize_trade(trade.model_dump()) for trade in batch.trades]
+        normalized_trades = []
+        for trade in batch.trades:
+            payload = trade.model_dump()
+            normalized = normalize_trade(payload)
+            if payload.get("id") is not None:
+                normalized["id"] = payload["id"]
+            normalized_trades.append(normalized)
+        return normalized_trades
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def _qa_comparison_request_scope(trades: list[dict], target_trade_id: Optional[int]) -> str:
+    raw = json.dumps(
+        {"trades": trades, "target_trade_id": target_trade_id},
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
 
 
 def _add_journal_trade(payload: dict, *, user_id: str = "") -> dict:
@@ -1710,9 +1729,14 @@ def post_journal_qa_advanced_comparison(
         raise HTTPException(status_code=400, detail="지원하지 않는 심화 복기 비교 모델입니다.")
     _enforce_journal_batch_limit(batch, max_trades=_ai_review_max_trades(), label="QA 심화 복기 비교")
     trades = _journal_batch_payload(batch)
+    request_scope = _qa_comparison_request_scope(trades, batch.target_trade_id)
 
     try:
-        claim = begin_qa_advanced_comparison(user_id=user["id"], model_variant=variant)
+        claim = begin_qa_advanced_comparison(
+            user_id=user["id"],
+            model_variant=variant,
+            request_scope=request_scope,
+        )
     except QaComparisonUnavailable as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     if not claim["run"]:
@@ -1728,11 +1752,16 @@ def post_journal_qa_advanced_comparison(
         record_privacy_consent(authorization=authorization)
         result = build_advanced_ai_review(
             trades,
+            target_trade_id=batch.target_trade_id,
             model_override=model,
             allow_fallback=False,
         )
         if result.get("status") != "ready" or result.get("source") != "openai":
-            release_qa_advanced_comparison(user_id=user["id"], model_variant=variant)
+            release_qa_advanced_comparison(
+                user_id=user["id"],
+                model_variant=variant,
+                request_scope=request_scope,
+            )
             raise HTTPException(status_code=502, detail="선택한 모델의 심화 복기 결과를 받지 못했습니다. 잠시 후 다시 시도해 주세요.")
         result["qa_comparison"] = {
             "version": QA_ADVANCED_COMPARISON_VERSION,
@@ -1740,13 +1769,26 @@ def post_journal_qa_advanced_comparison(
             "model": model,
             "ticket_consumed": False,
         }
-        complete_qa_advanced_comparison(user_id=user["id"], model_variant=variant, result=result)
+        complete_qa_advanced_comparison(
+            user_id=user["id"],
+            model_variant=variant,
+            result=result,
+            request_scope=request_scope,
+        )
         return result
     except HTTPException:
-        release_qa_advanced_comparison(user_id=user["id"], model_variant=variant)
+        release_qa_advanced_comparison(
+            user_id=user["id"],
+            model_variant=variant,
+            request_scope=request_scope,
+        )
         raise
     except Exception:
-        release_qa_advanced_comparison(user_id=user["id"], model_variant=variant)
+        release_qa_advanced_comparison(
+            user_id=user["id"],
+            model_variant=variant,
+            request_scope=request_scope,
+        )
         raise
     finally:
         if capacity_acquired:

@@ -61,10 +61,17 @@ def _connect():
     return conn
 
 
-def begin_comparison(*, user_id: str, model_variant: str) -> dict:
+def _comparison_keys(model_variant: str, request_scope: str = "") -> tuple[str, str]:
     variant = str(model_variant or "").strip().lower()
     if variant not in ALLOWED_MODELS:
         raise ValueError("지원하지 않는 심화 복기 비교 모델입니다.")
+    scope = str(request_scope or "").strip()
+    storage_variant = f"{variant}:{scope}" if scope else variant
+    return variant, storage_variant
+
+
+def begin_comparison(*, user_id: str, model_variant: str, request_scope: str = "") -> dict:
+    _, storage_variant = _comparison_keys(model_variant, request_scope)
 
     now = _now()
     conn = _connect()
@@ -88,7 +95,7 @@ def begin_comparison(*, user_id: str, model_variant: str) -> dict:
             FROM qa_advanced_comparison_runs
             WHERE version = ? AND model_variant = ?
             """,
-            (COMPARISON_VERSION, variant),
+            (COMPARISON_VERSION, storage_variant),
         ).fetchone()
         if row and row["status"] == "completed":
             conn.commit()
@@ -117,7 +124,7 @@ def begin_comparison(*, user_id: str, model_variant: str) -> dict:
                 started_at = excluded.started_at,
                 completed_at = ''
             """,
-            (COMPARISON_VERSION, variant, str(user_id), now.isoformat(timespec="seconds")),
+            (COMPARISON_VERSION, storage_variant, str(user_id), now.isoformat(timespec="seconds")),
         )
         conn.commit()
         return {"run": True, "cached_result": None}
@@ -128,8 +135,8 @@ def begin_comparison(*, user_id: str, model_variant: str) -> dict:
         conn.close()
 
 
-def complete_comparison(*, user_id: str, model_variant: str, result: dict):
-    variant = str(model_variant or "").strip().lower()
+def complete_comparison(*, user_id: str, model_variant: str, result: dict, request_scope: str = ""):
+    _, storage_variant = _comparison_keys(model_variant, request_scope)
     conn = _connect()
     try:
         conn.execute(
@@ -142,7 +149,7 @@ def complete_comparison(*, user_id: str, model_variant: str, result: dict):
                 json.dumps(result or {}, ensure_ascii=False),
                 _now().isoformat(timespec="seconds"),
                 COMPARISON_VERSION,
-                variant,
+                storage_variant,
                 str(user_id),
             ),
         )
@@ -151,8 +158,8 @@ def complete_comparison(*, user_id: str, model_variant: str, result: dict):
         conn.close()
 
 
-def release_comparison(*, user_id: str, model_variant: str):
-    variant = str(model_variant or "").strip().lower()
+def release_comparison(*, user_id: str, model_variant: str, request_scope: str = ""):
+    _, storage_variant = _comparison_keys(model_variant, request_scope)
     conn = _connect()
     try:
         conn.execute(
@@ -160,7 +167,7 @@ def release_comparison(*, user_id: str, model_variant: str):
             DELETE FROM qa_advanced_comparison_runs
             WHERE version = ? AND model_variant = ? AND user_id = ? AND status = 'running'
             """,
-            (COMPARISON_VERSION, variant, str(user_id)),
+            (COMPARISON_VERSION, storage_variant, str(user_id)),
         )
         conn.commit()
     finally:

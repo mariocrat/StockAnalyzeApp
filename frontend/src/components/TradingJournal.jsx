@@ -171,7 +171,7 @@ function reviewAccessText(access) {
   const source = reviewSourceLabels[access.source] || access.source || '제공량';
   if (access.review_type === 'advanced') {
     const advanced = access.quota.advanced || {};
-    return `${plan} · ${type} · ${source} · 첫 로그인 체험 ${advanced.signup_remaining || 0}회 · Pro ${advanced.pro_monthly_remaining || 0}회 · 광고 보상 ${advanced.weekly_reward_remaining || 0}회 · 구매 ${advanced.purchased_remaining || 0}회`;
+    return `${plan} · ${type} · ${source} · Pro ${advanced.pro_monthly_remaining || 0}회 · 광고 보상 ${advanced.weekly_reward_remaining || 0}회 · 구매 ${advanced.purchased_remaining || 0}회`;
   }
   const basic = access.quota.basic || {};
   if (access.plan === 'pro') {
@@ -308,6 +308,7 @@ export default function TradingJournal({
   const [qaComparisonLoading, setQaComparisonLoading] = useState('');
   const [qaComparisonResults, setQaComparisonResults] = useState({ luna: null, terra: null });
   const [selectedReviewGroupKey, setSelectedReviewGroupKey] = useState('');
+  const [reviewTargetPickerOpen, setReviewTargetPickerOpen] = useState(false);
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
   const reviewHistoryAdShownRef = useRef(false);
@@ -325,8 +326,8 @@ export default function TradingJournal({
       if (selectedReviewGroupKey) setSelectedReviewGroupKey('');
       return;
     }
-    if (!reviewTradeGroups.some(group => group.key === selectedReviewGroupKey)) {
-      setSelectedReviewGroupKey(reviewTradeGroups[0].key);
+    if (selectedReviewGroupKey && !reviewTradeGroups.some(group => group.key === selectedReviewGroupKey)) {
+      setSelectedReviewGroupKey('');
     }
   }, [reviewTradeGroups, selectedReviewGroupKey]);
 
@@ -543,6 +544,7 @@ export default function TradingJournal({
       const charts = chartRes.data || { charts: [] };
       setTrades(restoredTrades);
       setSelectedReviewGroupKey(preferredGroup?.key || '');
+      setReviewTargetPickerOpen(false);
       setReview(reviewRes.data || null);
       setChartReview(charts);
       setActiveChartTicker(charts.charts?.[0]?.ticker || '');
@@ -1012,6 +1014,7 @@ export default function TradingJournal({
 
   const chooseReviewGroup = (groupKey) => {
     setSelectedReviewGroupKey(groupKey);
+    setReviewTargetPickerOpen(false);
     setAiReview(null);
     setQaComparisonResults({ luna: null, terra: null });
     setShowCurrentReviewDetails(false);
@@ -1057,7 +1060,6 @@ export default function TradingJournal({
       setAiReview(res.data || null);
       if (res.data?.status !== 'error') {
         setShowCurrentReviewDetails(true);
-        setActiveChartTicker(current => current || chartReview.charts?.[0]?.ticker || '');
       }
       if (res.data?.status === 'error') {
         setMessage('AI 서버 응답을 완료하지 못했습니다. 사용한 복기 이용권은 다시 돌려드렸습니다.');
@@ -1130,6 +1132,7 @@ export default function TradingJournal({
           trades: selectedReviewTrades,
           model_variant: modelVariant,
           privacy_consent: true,
+          target_trade_id: selectedReviewGroup?.targetTradeId || null,
         },
         {
           headers: {
@@ -1710,6 +1713,35 @@ export default function TradingJournal({
 
   const activeTradeChart = (chartReview.charts || []).find(chart => chart.ticker === activeChartTicker)
     || chartReview.charts?.[0];
+  const renderSelectedTradeChart = () => {
+    if (!activeTradeChart) return null;
+
+    return (
+      <div className="journal-review-chart-block" ref={tradeChartSectionRef}>
+        <div className="journal-panel-title">
+          <h3>선택한 매매 차트</h3>
+          <span className="journal-chart-mode">
+            {chartIntervalLabel[activeTradeChart.interval] || (activeTradeChart.timeframe === 'intraday' ? '분봉' : activeTradeChart.timeframe === 'weekly' ? '주봉' : '일봉')}
+            {activeTradeChart.period_label ? ` · ${activeTradeChart.period_label}` : ''}
+          </span>
+        </div>
+        {chartReview.charts?.length > 1 && (
+          <div className="journal-chart-tabs">
+            {chartReview.charts.map(chart => (
+              <button
+                key={chart.ticker}
+                className={chart.ticker === activeTradeChart.ticker ? 'active' : ''}
+                onClick={() => setActiveChartTicker(chart.ticker)}
+              >
+                {chart.name}
+              </button>
+            ))}
+          </div>
+        )}
+        <JournalTradeChart chartData={activeTradeChart} />
+      </div>
+    );
+  };
   const adPolicy = productCatalog?.settings?.ad_policy || entitlements?.settings?.ad_policy || {};
   const readinessSections = appReadiness?.sections || {};
   const dataStorageReadiness = readinessSections.data_storage || {};
@@ -2221,7 +2253,6 @@ export default function TradingJournal({
           <div><span>Pro 일반 복기</span><strong>{entitlements?.basic?.pro_monthly_remaining || 0}</strong></div>
           <div><span>구매 일반 이용권</span><strong>{entitlements?.basic?.purchased_remaining || 0}</strong></div>
           <div><span>Pro 심화 복기</span><strong>{entitlements?.advanced?.pro_monthly_remaining || 0}</strong></div>
-          <div><span>첫 로그인 체험 심화 복기</span><strong>{entitlements?.advanced?.signup_remaining || 0}</strong></div>
           <div><span>광고 보상 심화 복기 이용권</span><strong>{entitlements?.advanced?.weekly_reward_remaining || 0}</strong></div>
           <div><span>구매 심화 복기 이용권</span><strong>{entitlements?.advanced?.purchased_remaining || 0}</strong></div>
         </div>
@@ -2316,7 +2347,28 @@ export default function TradingJournal({
             <strong>복기할 매매 선택</strong>
             <span>{selectedReviewGroup ? '1개 선택됨' : '선택 필요'}</span>
           </div>
-          {reviewTradeGroups.length ? (
+          {selectedReviewGroup ? (
+            <div className="journal-review-target-selected">
+              <strong>{selectedReviewGroup.name}{selectedReviewGroup.ticker ? ` (${selectedReviewGroup.ticker})` : ''}</strong>
+              <small>{reviewGroupPeriodText(selectedReviewGroup)} · 매수 {selectedReviewGroup.buyCount}건 · 매도 {selectedReviewGroup.sellCount}건</small>
+            </div>
+          ) : (
+            <p>현재 기록 또는 복기 보관함에서 복기할 매매를 선택해 주세요.</p>
+          )}
+          <div className="journal-review-target-actions">
+            <button
+              type="button"
+              className="journal-secondary"
+              disabled={!reviewTradeGroups.length}
+              onClick={() => setReviewTargetPickerOpen(current => !current)}
+            >
+              현재 기록에서 선택
+            </button>
+            <button type="button" className="journal-secondary" onClick={enterReviewHistory}>
+              복기 보관함에서 선택
+            </button>
+          </div>
+          {reviewTargetPickerOpen && reviewTradeGroups.length ? (
             <div className="journal-review-target-list" role="radiogroup" aria-label="복기할 매매 선택">
               {reviewTradeGroups.map(group => (
                 <label
@@ -2337,51 +2389,9 @@ export default function TradingJournal({
                 </label>
               ))}
             </div>
-          ) : (
-            <p>매매 기록을 입력하거나 복기 보관함에서 불러오면 선택할 수 있습니다.</p>
-          )}
+          ) : null}
           <p>선택한 한 매매 묶음만 차트와 함께 AI에 전달합니다.</p>
         </div>
-        {showCurrentReviewDetails && (
-          <div className="journal-review-chart-block" ref={tradeChartSectionRef}>
-            <div className="journal-panel-title">
-              <h3>선택한 매매 차트</h3>
-              <span className="journal-chart-mode">
-                {chartIntervalLabel[activeTradeChart?.interval] || (activeTradeChart?.timeframe === 'intraday' ? '분봉' : activeTradeChart?.timeframe === 'weekly' ? '주봉' : '일봉')}
-                {activeTradeChart?.period_label ? ` · ${activeTradeChart.period_label}` : ''}
-              </span>
-            </div>
-            {chartReview.charts?.length > 1 && (
-              <div className="journal-chart-tabs">
-                {chartReview.charts.map(chart => (
-                  <button
-                    key={chart.ticker}
-                    className={chart.ticker === activeTradeChart?.ticker ? 'active' : ''}
-                    onClick={() => setActiveChartTicker(chart.ticker)}
-                  >
-                    {chart.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            <JournalTradeChart chartData={activeTradeChart} />
-            <div className="journal-chart-review-list">
-              {(activeTradeChart?.reviews || []).map((item, idx) => (
-                <div className="journal-ai-card" key={`${item.title || idx}-${idx}`}>
-                  <strong>{reviewDisplayText(item.title)}</strong>
-                  <p>{reviewDisplayText(item.detail)}</p>
-                  {item.metrics && (
-                    <div className="journal-ai-metrics">
-                      {item.metrics.price_vs_close_pct != null && <span>체결/종가 {item.metrics.price_vs_close_pct}%</span>}
-                      {item.metrics.after_5_bars != null && <span>이후 5봉 {item.metrics.after_5_bars}%</span>}
-                      {item.metrics.after_later_bars != null && <span>이후 흐름 {item.metrics.after_later_bars}%</span>}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
         <div className="journal-review-actions">
             <button
               className="journal-secondary"
@@ -2419,9 +2429,6 @@ export default function TradingJournal({
           />
           <span>AI 분석을 위해 입력한 매매 기록과 차트 정보가 서버 및 AI 제공업체로 전송되는 것에 동의합니다.</span>
         </label>
-        <div className="journal-advice">
-          {(review?.advice || []).map((item, idx) => <p key={idx}>{item}</p>)}
-        </div>
         <div className="journal-ai-review">
           {aiLoading ? (
             <div className="journal-ai-loading" role="status" aria-live="polite">
@@ -2458,10 +2465,9 @@ export default function TradingJournal({
                 </div>
               ))}
             </>
-          ) : (
-            <p>AI 차트 분석을 실행하면 매매 시점의 차트 흐름까지 함께 복기합니다.</p>
-          )}
+          ) : null}
         </div>
+        {showCurrentReviewDetails && aiReview && renderSelectedTradeChart()}
         {QA_ADVANCED_COMPARISON_ENABLED && (
           <aside className="qa-comparison-panel">
             <div className="qa-comparison-heading">
@@ -2498,7 +2504,7 @@ export default function TradingJournal({
             )}
             <p className="qa-comparison-cost">같은 토큰 양이라면 Luna의 API 비용은 Terra의 약 40%입니다. 실제 결과 품질을 보고 운영 모델을 결정하세요.</p>
             <div className="qa-comparison-chart-guide">
-              <span>두 결과는 같은 매매 차트를 기준으로 분석합니다. 차트는 중복하지 않고 위의 매매 차트에 표시합니다.</span>
+              <span>두 결과는 같은 매매 차트를 기준으로 분석합니다. 차트는 분석 결과 바로 아래에 한 번만 표시합니다.</span>
               <button
                 className="journal-secondary"
                 disabled={!chartReview.charts?.length}
@@ -2534,12 +2540,18 @@ export default function TradingJournal({
             )}
           </aside>
         )}
+        {showCurrentReviewDetails
+          && !aiReview
+          && (qaComparisonResults.luna || qaComparisonResults.terra)
+          && renderSelectedTradeChart()}
       </section>
 
       {showCurrentReviewDetails && <section className="journal-panel">
         <h3>종목별 결과</h3>
         <div className="journal-symbol-results">
-          {(review?.by_symbol || []).map(row => (
+          {(review?.by_symbol || [])
+            .filter(row => !selectedReviewGroup?.ticker || row.ticker === selectedReviewGroup.ticker)
+            .map(row => (
             <div className="journal-symbol-result" key={row.ticker || row.name}>
               <div className="journal-symbol-result-title"><strong>{row.name}</strong>{row.ticker && <span>{row.ticker}</span>}<em>{row.trade_count || 0}건</em></div>
               <div className="journal-symbol-result-grid">
