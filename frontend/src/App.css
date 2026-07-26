@@ -1252,11 +1252,49 @@ body {
   line-height: 1.45;
 }
 
-.journal-review-target-actions {
+.journal-review-target-filters {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(120px, 0.8fr));
   gap: 7px;
   margin-top: 9px;
+}
+
+.journal-review-target-filters > input,
+.journal-review-target-filters label {
+  min-width: 0;
+}
+
+.journal-review-target-filters label {
+  display: grid;
+  gap: 4px;
+  color: #8995ad;
+  font-size: 11px;
+}
+
+.journal-review-target-filters input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid #2a3346;
+  border-radius: 6px;
+  background: #141a27;
+  color: #eef3ff;
+}
+
+.journal-review-target-results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  color: #dce5f8;
+  font-size: 12px;
+}
+
+.journal-review-target-results-head span {
+  color: #8995ad;
+  font-size: 11px;
 }
 
 .journal-review-target-list {
@@ -2719,8 +2757,12 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .journal-review-target-actions {
-    grid-template-columns: 1fr;
+  .journal-review-target-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .journal-review-target-query {
+    grid-column: 1 / -1;
   }
 
   .review-history-restore {

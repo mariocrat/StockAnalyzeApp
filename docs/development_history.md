@@ -826,3 +826,13 @@
 - Changed Android mobile builds to use `.env.release` through `vite build --mode release` before Capacitor synchronization.
 - Added a bundle validator and regression tests that fail the build when the Android web bundle targets the local development API or omits the configured production API.
 - Rebuilt the debug APK and verified that it contains `https://api.alphamate.co.kr`, contains no `127.0.0.1:8002` API reference, and passes the Android build.
+
+## 2026-07-26 Account-Safe Review Selection and Mobile Ad Recovery
+
+- Reset all journal, chart, review, and selection state before loading a newly authenticated account so records from the previous Kakao, Naver, or development session cannot remain on screen.
+- Replaced the archive-based AI review picker with the five most recent trade groups plus stock-name, stock-code, and date-range search.
+- Changed archive restore to load only the selected trade episode instead of restoring the entire historical snapshot.
+- Added a throttled review-archive interstitial policy for free users: first entry and then every third entry, with a two-minute cooldown; Pro users remain ad-free.
+- Reworked the entitlement grid into free, Pro, and purchased columns with basic review on the first row and advanced review on the second row, and shortened the free-pass labels.
+- Switched banner keyboard handling to Android viewport-size detection so the banner hides while the keyboard is open and returns immediately when the keyboard closes, even if the input remains focused.
+- Added regression coverage for account resets, recent-trade filtering, selected-only restore, archive-ad frequency, and keyboard-aware banner behavior.

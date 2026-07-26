@@ -91,3 +91,27 @@ export function findReviewTradeGroup(groups = [], targetTrade = null) {
 export function reviewTradesForGroup(groups = [], groupKey = '') {
   return groups.find(group => group.key === groupKey)?.trades || [];
 }
+
+export function filterReviewTradeGroups(
+  groups = [],
+  { query = '', from = '', to = '', limit = 5 } = {},
+) {
+  const normalizedQuery = String(query).trim().toLowerCase().replace(/\s+/g, '');
+  const hasFilters = Boolean(normalizedQuery || from || to);
+  const filtered = groups.filter(group => {
+    const searchText = `${group?.name || ''}${group?.ticker || ''}`
+      .toLowerCase()
+      .replace(/\s+/g, '');
+    if (normalizedQuery && !searchText.includes(normalizedQuery)) return false;
+
+    const startDate = String(group?.firstTradeDate || '').slice(0, 10);
+    const endDate = String(group?.lastTradeDate || group?.firstTradeDate || '').slice(0, 10);
+    if (from && endDate && endDate < from) return false;
+    if (to && startDate && startDate > to) return false;
+    return true;
+  });
+
+  return hasFilters
+    ? filtered
+    : filtered.slice(0, Math.max(0, Number(limit) || 5));
+}

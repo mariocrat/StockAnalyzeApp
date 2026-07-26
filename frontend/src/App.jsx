@@ -225,18 +225,50 @@ export default function App() {
   }, [adPlan, reportAdClientEvent]);
 
   useEffect(() => {
-    const editableSelector = 'input, textarea, select, [contenteditable="true"]';
-    const updateFocusedState = () => {
-      window.requestAnimationFrame(() => {
-        setTextInputFocused(Boolean(document.activeElement?.matches?.(editableSelector)));
+    const editableSelector = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]), textarea, select, [contenteditable="true"]';
+    const viewport = window.visualViewport;
+    let baselineHeight = viewport?.height || window.innerHeight;
+    let frameId = 0;
+    let settleTimer = 0;
+
+    const syncKeyboardState = () => {
+      window.cancelAnimationFrame(frameId);
+      frameId = window.requestAnimationFrame(() => {
+        const currentHeight = viewport?.height || window.innerHeight;
+        if (currentHeight > baselineHeight) baselineHeight = currentHeight;
+        const keyboardOpen = Boolean(viewport && baselineHeight - currentHeight > 120);
+        const fallbackFocused = !viewport
+          && Boolean(document.activeElement?.matches?.(editableSelector));
+        setTextInputFocused(keyboardOpen || fallbackFocused);
       });
     };
+    const handleFocusIn = (event) => {
+      if (!event.target?.matches?.(editableSelector)) return;
+      setTextInputFocused(true);
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(syncKeyboardState, 300);
+    };
+    const handleFocusOut = () => {
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(syncKeyboardState, 50);
+    };
+    const handleOrientationChange = () => {
+      baselineHeight = viewport?.height || window.innerHeight;
+      window.clearTimeout(settleTimer);
+      settleTimer = window.setTimeout(syncKeyboardState, 400);
+    };
 
-    document.addEventListener('focusin', updateFocusedState);
-    document.addEventListener('focusout', updateFocusedState);
+    document.addEventListener('focusin', handleFocusIn);
+    document.addEventListener('focusout', handleFocusOut);
+    viewport?.addEventListener('resize', syncKeyboardState);
+    window.addEventListener('orientationchange', handleOrientationChange);
     return () => {
-      document.removeEventListener('focusin', updateFocusedState);
-      document.removeEventListener('focusout', updateFocusedState);
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(settleTimer);
+      document.removeEventListener('focusin', handleFocusIn);
+      document.removeEventListener('focusout', handleFocusOut);
+      viewport?.removeEventListener('resize', syncKeyboardState);
+      window.removeEventListener('orientationchange', handleOrientationChange);
     };
   }, []);
 

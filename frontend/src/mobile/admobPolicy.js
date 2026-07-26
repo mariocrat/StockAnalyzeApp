@@ -5,6 +5,8 @@ export const DEFAULT_ANDROID_TEST_BANNER_AD_ID = 'ca-app-pub-3940256099942544/63
 export const RESUME_APP_OPEN_MIN_BACKGROUND_MS = 90_000;
 export const RESUME_APP_OPEN_COOLDOWN_MS = 600_000;
 export const CHART_DETAIL_INTERSTITIAL_FREQUENCY = 3;
+export const REVIEW_HISTORY_INTERSTITIAL_FREQUENCY = 3;
+export const REVIEW_HISTORY_INTERSTITIAL_COOLDOWN_MS = 120_000;
 
 export function isProductionAdMobMisconfigured({ appEnv, rewardedAdId }) {
   return appEnv === 'production' && rewardedAdId === DEFAULT_ANDROID_TEST_REWARDED_AD_ID;
@@ -121,4 +123,18 @@ export function shouldShowChartDetailInterstitial({
   if (isAdFreePlan(plan)) return false;
   if (!Number.isFinite(detailOpenCount) || detailOpenCount < 1) return false;
   return detailOpenCount % frequency === 0;
+}
+
+export function shouldShowReviewHistoryInterstitial({
+  plan,
+  entryCount,
+  lastShownAtMs = 0,
+  nowMs = Date.now(),
+  frequency = REVIEW_HISTORY_INTERSTITIAL_FREQUENCY,
+  cooldownMs = REVIEW_HISTORY_INTERSTITIAL_COOLDOWN_MS,
+}) {
+  if (isAdFreePlan(plan)) return false;
+  if (!Number.isFinite(entryCount) || entryCount < 1) return false;
+  if (lastShownAtMs && nowMs - lastShownAtMs < cooldownMs) return false;
+  return entryCount === 1 || (entryCount - 1) % frequency === 0;
 }

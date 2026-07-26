@@ -14,6 +14,7 @@ import {
   createAdMobRuntimeStatus,
   shouldShowBannerAd,
   shouldShowChartDetailInterstitial,
+  shouldShowReviewHistoryInterstitial,
   shouldShowResumeAppOpenAd,
 } from '../src/mobile/admobPolicy.js';
 
@@ -185,6 +186,28 @@ test('shows chart detail interstitial every third entry for free users', () => {
   assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 2 }), false);
   assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 3 }), true);
   assert.equal(shouldShowChartDetailInterstitial({ plan: 'free', detailOpenCount: 6 }), true);
+});
+
+test('shows the review archive interstitial on first entry and then every third entry', () => {
+  const base = {
+    plan: 'free',
+    nowMs: 300_000,
+    lastShownAtMs: 0,
+  };
+  assert.equal(shouldShowReviewHistoryInterstitial({ ...base, entryCount: 1 }), true);
+  assert.equal(shouldShowReviewHistoryInterstitial({ ...base, entryCount: 2 }), false);
+  assert.equal(shouldShowReviewHistoryInterstitial({ ...base, entryCount: 3 }), false);
+  assert.equal(shouldShowReviewHistoryInterstitial({ ...base, entryCount: 4 }), true);
+  assert.equal(shouldShowReviewHistoryInterstitial({
+    ...base,
+    entryCount: 4,
+    lastShownAtMs: 250_000,
+  }), false);
+  assert.equal(shouldShowReviewHistoryInterstitial({
+    ...base,
+    plan: 'pro',
+    entryCount: 4,
+  }), false);
 });
 
 test('QA builds show the chart detail test ad on first entry while production keeps its cooldown', () => {

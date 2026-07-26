@@ -8,6 +8,7 @@ import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
 import { getAdMobRuntimeStatus, initializeAdMob, showReviewHistoryInterstitial, showRewardedReviewAd } from '../mobile/admob';
+import { shouldShowReviewHistoryInterstitial } from '../mobile/admobPolicy';
 import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct, recoverGooglePlayPurchases } from '../mobile/billing';
 import { shouldFinishGooglePlayTransaction } from '../mobile/billingPolicy';
 import { buildAiReviewIdempotencyKey } from '../utils/aiReviewIdempotency';
@@ -15,7 +16,12 @@ import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
 import { parseAiReviewDocument, parseAiReviewSummary } from '../utils/aiReviewFormat';
-import { buildReviewTradeGroups, findReviewTradeGroup, reviewTradesForGroup } from '../utils/reviewTradeSelection';
+import {
+  buildReviewTradeGroups,
+  filterReviewTradeGroups,
+  findReviewTradeGroup,
+  reviewTradesForGroup,
+} from '../utils/reviewTradeSelection';
 import { toKoreanUserMessage } from '../utils/userMessage';
 
 const sideLabels = { buy: '매수', sell: '매도' };
@@ -33,6 +39,8 @@ const QA_ADVANCED_COMPARISON_VERSION = 'luna-terra-v1';
 const BASIC_REVIEW_FOCUSES = ['balanced', 'entry_timing', 'exit_timing', 'risk_control'];
 const AUTH_STORAGE_KEY = 'alphamate.devAuth.v1';
 const OAUTH_STATE_KEY = 'alphamate.oauthState.v1';
+const REVIEW_HISTORY_AD_ENTRY_COUNT_KEY = 'alphamate.reviewHistoryAdEntryCount.v1';
+const REVIEW_HISTORY_AD_LAST_SHOWN_KEY = 'alphamate.reviewHistoryAdLastShownAt.v1';
 const KAKAO_REST_API_KEY = import.meta.env.VITE_KAKAO_REST_API_KEY || '';
 const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_CLIENT_ID || '';
 const KAKAO_REDIRECT_URI = import.meta.env.VITE_KAKAO_REDIRECT_URI || '';
@@ -51,12 +59,12 @@ const REVIEW_PRODUCTS = [
 const chartIntervalLabel = { '1m': '1분봉', '3m': '3분봉', '1d': '일봉', '1wk': '주봉' };
 const reviewSourceLabels = {
   signup_basic: '가입 축하 제공량',
-  signup_advanced: '첫 로그인 체험 이용권',
+  signup_advanced: '무료 심화 복기권',
   free_daily_basic: '무료 일일 제공량',
   rewarded_ad_basic: '광고 보상 제공량',
   pro_monthly_basic: 'Pro 월 제공량',
   pro_monthly_advanced: 'Pro 심화 복기 제공량',
-  weekly_ad_advanced: '광고 보상 심화 복기 이용권',
+  weekly_ad_advanced: '무료 심화 복기권',
   purchased_basic: '구매한 일반 복기 이용권',
   purchased_advanced: '구매한 심화 복기 이용권',
   purchased_advanced_as_basic: '심화 복기 이용권 전환 사용',
@@ -308,10 +316,11 @@ export default function TradingJournal({
   const [qaComparisonLoading, setQaComparisonLoading] = useState('');
   const [qaComparisonResults, setQaComparisonResults] = useState({ luna: null, terra: null });
   const [selectedReviewGroupKey, setSelectedReviewGroupKey] = useState('');
-  const [reviewTargetPickerOpen, setReviewTargetPickerOpen] = useState(false);
+  const [reviewTargetQuery, setReviewTargetQuery] = useState('');
+  const [reviewTargetFrom, setReviewTargetFrom] = useState('');
+  const [reviewTargetTo, setReviewTargetTo] = useState('');
   const stockSearchSeq = useRef(0);
   const suppressStockSearchRef = useRef(false);
-  const reviewHistoryAdShownRef = useRef(false);
   const entitlementSectionRef = useRef(null);
   const tradeChartSectionRef = useRef(null);
   const aiReviewInFlightRef = useRef(false);
@@ -320,6 +329,16 @@ export default function TradingJournal({
   const reviewTradeGroups = useMemo(() => buildReviewTradeGroups(trades), [trades]);
   const selectedReviewGroup = reviewTradeGroups.find(group => group.key === selectedReviewGroupKey) || null;
   const selectedReviewTrades = reviewTradesForGroup(reviewTradeGroups, selectedReviewGroupKey);
+  const reviewTargetFiltered = Boolean(reviewTargetQuery.trim() || reviewTargetFrom || reviewTargetTo);
+  const visibleReviewTradeGroups = useMemo(
+    () => filterReviewTradeGroups(reviewTradeGroups, {
+      query: reviewTargetQuery,
+      from: reviewTargetFrom,
+      to: reviewTargetTo,
+      limit: 5,
+    }),
+    [reviewTargetFrom, reviewTargetQuery, reviewTargetTo, reviewTradeGroups],
+  );
 
   useEffect(() => {
     if (!reviewTradeGroups.length) {
@@ -526,25 +545,33 @@ export default function TradingJournal({
   const restoreReviewHistoryTrades = async () => {
     const storedTrades = activeReviewHistory?.recent_trades_snapshot || [];
     const fallbackTrade = activeReviewHistory?.trade_snapshot;
-    const restoredTrades = storedTrades.length ? storedTrades : (fallbackTrade ? [fallbackTrade] : []);
-    if (!restoredTrades.length) {
+    const candidateTrades = storedTrades.length ? storedTrades : (fallbackTrade ? [fallbackTrade] : []);
+    if (!candidateTrades.length) {
       setMessage('이 복기에는 다시 불러올 매매 기록이 남아 있지 않습니다.');
       return;
     }
 
     setReviewHistoryLoading(true);
     try {
-      const restoredGroups = buildReviewTradeGroups(restoredTrades);
+      const restoredGroups = buildReviewTradeGroups(candidateTrades);
       const preferredGroup = findReviewTradeGroup(restoredGroups, fallbackTrade) || restoredGroups[0];
       const reviewTrades = preferredGroup?.trades || [];
+      if (!reviewTrades.length) {
+        setMessage('선택한 복기에서 다시 불러올 매매 기록을 찾지 못했습니다.');
+        return;
+      }
+      await maybeShowReviewHistoryInterstitial();
       const [reviewRes, chartRes] = await Promise.all([
         axios.post(`${apiBase}/api/journal/review-once`, { trades: reviewTrades }),
         axios.post(`${apiBase}/api/journal/charts-once`, { trades: reviewTrades }),
       ]);
       const charts = chartRes.data || { charts: [] };
-      setTrades(restoredTrades);
-      setSelectedReviewGroupKey(preferredGroup?.key || '');
-      setReviewTargetPickerOpen(false);
+      const selectedGroupKey = buildReviewTradeGroups(reviewTrades)[0]?.key || '';
+      setTrades(reviewTrades);
+      setSelectedReviewGroupKey(selectedGroupKey);
+      setReviewTargetQuery('');
+      setReviewTargetFrom('');
+      setReviewTargetTo('');
       setReview(reviewRes.data || null);
       setChartReview(charts);
       setActiveChartTicker(charts.charts?.[0]?.ticker || '');
@@ -552,7 +579,7 @@ export default function TradingJournal({
       setQaComparisonResults({ luna: null, terra: null });
       setShowCurrentReviewDetails(false);
       setJournalSubView('review');
-      setMessage(`당시 매매 기록 ${restoredTrades.length}건을 불러왔습니다. '${preferredGroup?.name || '선택한 종목'}' 매매를 복기 대상으로 선택했습니다.`);
+      setMessage(`'${preferredGroup?.name || '선택한 종목'}' 매매 기록 ${reviewTrades.length}건을 불러왔습니다.`);
     } catch (err) {
       setMessage(err.response?.data?.detail || '저장된 매매 기록을 다시 불러오지 못했습니다.');
     } finally {
@@ -560,29 +587,39 @@ export default function TradingJournal({
     }
   };
 
-  const enterReviewHistory = async () => {
-    if (
-      authSession?.user?.journal_storage_enabled
-      && entitlements?.plan !== 'pro'
-      && !reviewHistoryAdShownRef.current
-    ) {
-      reviewHistoryAdShownRef.current = true;
-      try {
-        await showReviewHistoryInterstitial();
-      } catch (err) {
-        reportJournalClientEvent({
-          eventType: 'review_history_interstitial_failed',
-          level: 'warning',
-          message: err?.message || 'Review history interstitial failed.',
-          details: {
-            native: getAdMobRuntimeStatus().native,
-            plan: entitlements?.plan || 'free',
-            userId: authSession?.user?.id,
-          },
-        });
-        // Ad failures should not block access to saved user data.
-      }
+  const maybeShowReviewHistoryInterstitial = async () => {
+    if (!authSession?.user?.journal_storage_enabled) return;
+    const entryCount = Number(sessionStorage.getItem(REVIEW_HISTORY_AD_ENTRY_COUNT_KEY) || 0) + 1;
+    const lastShownAtMs = Number(sessionStorage.getItem(REVIEW_HISTORY_AD_LAST_SHOWN_KEY) || 0);
+    const nowMs = Date.now();
+    sessionStorage.setItem(REVIEW_HISTORY_AD_ENTRY_COUNT_KEY, String(entryCount));
+    if (!shouldShowReviewHistoryInterstitial({
+      plan: entitlements?.plan || 'free',
+      entryCount,
+      lastShownAtMs,
+      nowMs,
+    })) return;
+
+    try {
+      await showReviewHistoryInterstitial();
+      sessionStorage.setItem(REVIEW_HISTORY_AD_LAST_SHOWN_KEY, String(nowMs));
+    } catch (err) {
+      reportJournalClientEvent({
+        eventType: 'review_history_interstitial_failed',
+        level: 'warning',
+        message: err?.message || 'Review history interstitial failed.',
+        details: {
+          native: getAdMobRuntimeStatus().native,
+          plan: entitlements?.plan || 'free',
+          userId: authSession?.user?.id,
+        },
+      });
+      // Ad failures should not block access to saved user data.
     }
+  };
+
+  const enterReviewHistory = async () => {
+    await maybeShowReviewHistoryInterstitial();
     setJournalSubView('history');
     await loadReviewHistory();
   };
@@ -629,6 +666,23 @@ export default function TradingJournal({
     setShowCurrentReviewDetails(false);
   };
 
+  const resetJournalWorkspace = () => {
+    setTrades([]);
+    setReview(null);
+    setAiReview(null);
+    setChartReview({ charts: [] });
+    setActiveChartTicker('');
+    setShowCurrentReviewDetails(false);
+    setQaComparisonResults({ luna: null, terra: null });
+    setSelectedReviewGroupKey('');
+    setReviewTargetQuery('');
+    setReviewTargetFrom('');
+    setReviewTargetTo('');
+    setReviewHistory([]);
+    setActiveReviewHistory(null);
+    setJournalSubView('review');
+  };
+
   const handleDevLogin = async (provider) => {
     if (!DEV_TOOLS_ENABLED) {
       setMessage('배포 모드에서는 실제 로그인 연결이 필요합니다.');
@@ -646,6 +700,7 @@ export default function TradingJournal({
       const session = res.data || null;
       setAuthSession(session);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      resetJournalWorkspace();
       await loadEntitlements(session?.session_token || '');
       await loadDataSummary(session?.session_token || '');
       if (session?.user?.journal_storage_enabled && session?.session_token) {
@@ -711,6 +766,7 @@ export default function TradingJournal({
       setAuthSession(session);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
       localStorage.removeItem(OAUTH_STATE_KEY);
+      resetJournalWorkspace();
       await loadEntitlements(session?.session_token || '');
       await loadDataSummary(session?.session_token || '');
       if (session?.user?.journal_storage_enabled && session?.session_token) {
@@ -765,6 +821,7 @@ export default function TradingJournal({
       setAuthSession(session);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
       localStorage.removeItem(OAUTH_STATE_KEY);
+      resetJournalWorkspace();
       await loadEntitlements(session?.session_token || '');
       await loadDataSummary(session?.session_token || '');
       if (session?.user?.journal_storage_enabled && session?.session_token) {
@@ -821,10 +878,7 @@ export default function TradingJournal({
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setAuthSession(null);
       setDataSummary(null);
-      setReviewHistory([]);
-      setActiveReviewHistory(null);
-      setJournalSubView('review');
-      setShowCurrentReviewDetails(false);
+      resetJournalWorkspace();
       if (onEntitlementsChange) onEntitlementsChange({ plan: DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free' });
       await loadEntitlements(DEV_AUTH_TOKEN);
       setMessage('로그아웃했습니다.');
@@ -853,14 +907,7 @@ export default function TradingJournal({
       if (enabled) {
         await loadPersistedJournal(authSession.session_token);
       } else {
-        setTrades([]);
-        setReview(null);
-        setChartReview({ charts: [] });
-        setActiveChartTicker('');
-        setReviewHistory([]);
-        setActiveReviewHistory(null);
-        setJournalSubView('review');
-        setShowCurrentReviewDetails(false);
+        resetJournalWorkspace();
       }
       await loadDataSummary(authSession.session_token);
       setMessage(enabled ? '매매 이력 저장을 켰습니다.' : '매매 이력 저장을 껐습니다.');
@@ -1014,7 +1061,6 @@ export default function TradingJournal({
 
   const chooseReviewGroup = (groupKey) => {
     setSelectedReviewGroupKey(groupKey);
-    setReviewTargetPickerOpen(false);
     setAiReview(null);
     setQaComparisonResults({ luna: null, terra: null });
     setShowCurrentReviewDetails(false);
@@ -1204,7 +1250,7 @@ export default function TradingJournal({
       return;
     }
     if ((entitlements?.advanced?.weekly_reward_remaining || 0) > 0) {
-      setMessage('이미 광고 보상 심화 복기 이용권 1장을 보유하고 있습니다.');
+      setMessage('이미 무료 심화 복기권 1장을 보유하고 있습니다.');
       return;
     }
 
@@ -1213,7 +1259,7 @@ export default function TradingJournal({
       const delayedReward = await claimAdvancedAdProgress();
       if (delayedReward) {
         if (delayedReward.ad_reward.blocked_reason === 'ticket_already_held') {
-          setMessage('이미 광고 보상 심화 복기 이용권 1장을 보유하고 있습니다.');
+          setMessage('이미 무료 심화 복기권 1장을 보유하고 있습니다.');
           return;
         }
         if (delayedReward.ad_reward.blocked_reason === 'pro_no_ads') {
@@ -1221,7 +1267,7 @@ export default function TradingJournal({
           return;
         }
         const granted = delayedReward.ad_reward.advanced_ticket_granted;
-        setMessage(granted ? '광고 보상 심화 복기 이용권 1장이 지급되었습니다.' : '이전 광고 시청이 반영되었습니다.');
+        setMessage(granted ? '무료 심화 복기권 1장이 지급되었습니다.' : '이전 광고 시청이 반영되었습니다.');
         return;
       }
 
@@ -1232,7 +1278,7 @@ export default function TradingJournal({
         }
         const devReward = await claimAdvancedAdProgress(DEV_AD_REWARD_TOKEN);
         setMessage(devReward?.ad_reward?.advanced_ticket_granted
-          ? '광고 보상 심화 복기 이용권 1장이 지급되었습니다.'
+          ? '무료 심화 복기권 1장이 지급되었습니다.'
           : '테스트 광고 시청이 주간 횟수에 반영되었습니다.');
         return;
       }
@@ -1252,7 +1298,7 @@ export default function TradingJournal({
         return;
       }
       setMessage(claimed.ad_reward.advanced_ticket_granted
-        ? '광고 보상 심화 복기 이용권 1장이 지급되었습니다.'
+        ? '무료 심화 복기권 1장이 지급되었습니다.'
         : '광고 시청이 주간 횟수에 반영되었습니다.');
     } catch (err) {
       reportJournalClientEvent({
@@ -1871,9 +1917,9 @@ export default function TradingJournal({
                       disabled={reviewHistoryLoading}
                       onClick={restoreReviewHistoryTrades}
                     >
-                      당시 매매 묶음 불러오기
+                      이 매매 다시 복기
                     </button>
-                    <span>저장 당시 함께 분석한 매매 기록을 현재 복기 화면으로 불러옵니다.</span>
+                    <span>선택한 종목의 매매 기록만 현재 복기 화면으로 불러옵니다.</span>
                   </div>
                   <JournalTradeChart chartData={savedChart} />
                   <AiReviewSummary
@@ -1952,7 +1998,7 @@ export default function TradingJournal({
           >
             <div className="journal-access-icon" aria-hidden="true"><Ticket size={22} /></div>
             <h3 id="advanced-review-access-title">심화 복기 이용권이 필요합니다</h3>
-            <p>심화 복기는 첫 로그인 체험권, Pro 월 제공량, 광고 보상 또는 구매한 심화 복기 이용권 1장을 사용합니다.</p>
+            <p>심화 복기는 무료 심화 복기권, Pro 월 제공량 또는 구매한 심화 복기권 1장을 사용합니다.</p>
             <div className="journal-access-actions">
               <button type="button" onClick={() => setReviewAccessDialog(null)}>닫기</button>
               <button type="button" className="primary" onClick={showReviewPasses}>이용권 확인</button>
@@ -2249,12 +2295,12 @@ export default function TradingJournal({
           <span className="journal-chart-mode">{entitlements?.plan === 'pro' ? 'Pro' : '무료'}</span>
         </div>
         <div className="journal-entitlement-grid">
-          <div><span>바로 사용 가능한 무료 일반 복기</span><strong>{entitlements?.basic?.free_available_now ?? ((entitlements?.basic?.signup_remaining || 0) + (entitlements?.basic?.free_daily_remaining || 0))}</strong></div>
+          <div><span>무료 일반 복기</span><strong>{entitlements?.basic?.free_available_now ?? ((entitlements?.basic?.signup_remaining || 0) + (entitlements?.basic?.free_daily_remaining || 0))}</strong></div>
           <div><span>Pro 일반 복기</span><strong>{entitlements?.basic?.pro_monthly_remaining || 0}</strong></div>
-          <div><span>구매 일반 이용권</span><strong>{entitlements?.basic?.purchased_remaining || 0}</strong></div>
+          <div><span>구매 일반 복기권</span><strong>{entitlements?.basic?.purchased_remaining || 0}</strong></div>
+          <div><span>무료 심화 복기권</span><strong>{(entitlements?.advanced?.signup_remaining || 0) + (entitlements?.advanced?.weekly_reward_remaining || 0)}</strong></div>
           <div><span>Pro 심화 복기</span><strong>{entitlements?.advanced?.pro_monthly_remaining || 0}</strong></div>
-          <div><span>광고 보상 심화 복기 이용권</span><strong>{entitlements?.advanced?.weekly_reward_remaining || 0}</strong></div>
-          <div><span>구매 심화 복기 이용권</span><strong>{entitlements?.advanced?.purchased_remaining || 0}</strong></div>
+          <div><span>구매 심화 복기권</span><strong>{entitlements?.advanced?.purchased_remaining || 0}</strong></div>
         </div>
         <div className="journal-ad-policy">
           <div>
@@ -2269,11 +2315,11 @@ export default function TradingJournal({
             >
               {adLoading
                 ? '광고 보상 확인 중'
-                : entitlements?.plan === 'pro'
+                  : entitlements?.plan === 'pro'
                   ? 'Pro는 광고 없이 이용'
                   : (entitlements?.advanced?.weekly_reward_remaining || 0) > 0
-                    ? '심화 복기 이용권 보유 중'
-                    : '광고 보고 심화 복기 이용권 받기'}
+                    ? '무료 심화 복기권 보유 중'
+                    : '광고 보고 무료 심화 복기권 받기'}
             </button>
           </div>
           {DEV_TOOLS_ENABLED && (
@@ -2353,24 +2399,32 @@ export default function TradingJournal({
               <small>{reviewGroupPeriodText(selectedReviewGroup)} · 매수 {selectedReviewGroup.buyCount}건 · 매도 {selectedReviewGroup.sellCount}건</small>
             </div>
           ) : (
-            <p>현재 기록 또는 복기 보관함에서 복기할 매매를 선택해 주세요.</p>
+            <p>최근 매매에서 복기할 매매를 선택해 주세요.</p>
           )}
-          <div className="journal-review-target-actions">
-            <button
-              type="button"
-              className="journal-secondary"
-              disabled={!reviewTradeGroups.length}
-              onClick={() => setReviewTargetPickerOpen(current => !current)}
-            >
-              현재 기록에서 선택
-            </button>
-            <button type="button" className="journal-secondary" onClick={enterReviewHistory}>
-              복기 보관함에서 선택
-            </button>
+          <div className="journal-review-target-filters">
+            <input
+              className="journal-review-target-query"
+              value={reviewTargetQuery}
+              onChange={event => setReviewTargetQuery(event.target.value)}
+              placeholder="종목명 또는 코드 검색"
+              aria-label="복기할 매매 종목명 또는 코드 검색"
+            />
+            <label>
+              <span>시작일</span>
+              <input type="date" value={reviewTargetFrom} onChange={event => setReviewTargetFrom(event.target.value)} />
+            </label>
+            <label>
+              <span>종료일</span>
+              <input type="date" value={reviewTargetTo} onChange={event => setReviewTargetTo(event.target.value)} />
+            </label>
           </div>
-          {reviewTargetPickerOpen && reviewTradeGroups.length ? (
+          <div className="journal-review-target-results-head">
+            <strong>{reviewTargetFiltered ? '검색 결과' : '최근 매매'}</strong>
+            <span>{visibleReviewTradeGroups.length}건</span>
+          </div>
+          {visibleReviewTradeGroups.length ? (
             <div className="journal-review-target-list" role="radiogroup" aria-label="복기할 매매 선택">
-              {reviewTradeGroups.map(group => (
+              {visibleReviewTradeGroups.map(group => (
                 <label
                   className={group.key === selectedReviewGroupKey ? 'active' : ''}
                   key={group.key}
@@ -2389,7 +2443,12 @@ export default function TradingJournal({
                 </label>
               ))}
             </div>
-          ) : null}
+          ) : (
+            <p>조건에 맞는 매매 기록이 없습니다. 먼저 매매 기록을 저장해 주세요.</p>
+          )}
+          {!reviewTargetFiltered && reviewTradeGroups.length > 5 && (
+            <p>최근 5건만 보여드립니다. 이전 기록은 종목명, 코드 또는 기간으로 검색하세요.</p>
+          )}
           <p>선택한 한 매매 묶음만 차트와 함께 AI에 전달합니다.</p>
         </div>
         <div className="journal-review-actions">
@@ -2408,7 +2467,7 @@ export default function TradingJournal({
               disabled={aiLoading || adLoading || !selectedReviewTrades.length || !aiConsentAccepted || rewardedBasicNeedsFreeUsage}
               onClick={handleRewardedAdBasicReview}
               title={rewardedBasicNeedsFreeUsage
-                ? '먼저 바로 사용 가능한 무료 일반 복기를 사용하세요.'
+                ? '먼저 무료 일반 복기를 사용하세요.'
                 : (mobileAdStatus.native ? '보상형 광고를 본 뒤 일반 복기를 실행합니다.' : '웹에서는 개발 모드 확인 또는 모바일 앱 빌드가 필요합니다.')}
             >
               {adLoading ? '광고 확인중' : '광고 보고 일반 복기'}

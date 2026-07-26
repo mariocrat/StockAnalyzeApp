@@ -41,10 +41,11 @@ test('account data export uses Android share sheet and explains the backup locat
   assert.doesNotMatch(journalSource, /JSON 형식의 내 데이터 파일/);
 });
 
-test('saved review can restore its trade snapshot for another review', () => {
+test('saved review can restore only its selected trade episode for another review', () => {
   assert.match(journalSource, /restoreReviewHistoryTrades/);
   assert.match(journalSource, /recent_trades_snapshot/);
-  assert.match(journalSource, /당시 매매 묶음 불러오기/);
+  assert.match(journalSource, /reviewTradesForGroup/);
+  assert.match(journalSource, /preferredGroup\?\.trades/);
   assert.match(journalSource, /setJournalSubView\('review'\)/);
 });
 
@@ -89,11 +90,9 @@ test('journal notices use a Korean popup and never render raw messages inline', 
 
 test('advanced review terminology and rewarded-ad ticket action are user-facing', () => {
   assert.doesNotMatch(journalSource, /심층/);
-  assert.match(journalSource, /광고 보상 심화 복기 이용권/);
+  assert.match(journalSource, /signup_advanced: '무료 심화 복기권'/);
   assert.match(journalSource, /handleRewardedAdAdvancedTicket/);
-  assert.match(journalSource, /광고 보고 심화 복기 이용권 받기/);
   assert.match(journalSource, /\/api\/journal\/ad-reward-claim/);
-  assert.match(journalSource, /테스트 광고는 실제 심화 복기 이용권을 지급하지 않습니다/);
   assert.match(journalSource, /\/privacy/);
 });
 
@@ -156,16 +155,33 @@ test('AI review loading is prominent and selected chart follows trade selection'
 
 test('review output removes internal evidence labels and hides consumed one-time trial balances', () => {
   assert.match(journalSource, /replace\(\/\\\[\(\?:데이터 확인\|합리적 추론\)\\\]\/g, ''\)/);
-  assert.match(journalSource, /signup_advanced: '첫 로그인 체험 이용권'/);
+  assert.match(journalSource, /signup_advanced: '무료 심화 복기권'/);
   assert.match(journalSource, /advanced\.signup_remaining/);
-  assert.doesNotMatch(journalSource, />첫 로그인 체험 심화 복기</);
 });
 
-test('review picker starts closed and QA requests carry the selected target trade id', () => {
-  assert.match(journalSource, /reviewTargetPickerOpen/);
-  assert.match(journalSource, /현재 기록에서 선택/);
-  assert.match(journalSource, /복기 보관함에서 선택/);
+test('review picker shows recent trades, supports search, and QA requests carry the target trade id', () => {
+  assert.match(journalSource, /filterReviewTradeGroups/);
+  assert.match(journalSource, /reviewTargetQuery/);
+  assert.match(journalSource, /reviewTargetFrom/);
+  assert.match(journalSource, /reviewTargetTo/);
+  assert.match(journalSource, /visibleReviewTradeGroups/);
   assert.match(journalSource, /target_trade_id: selectedReviewGroup\?\.targetTradeId \|\| null/);
   assert.doesNotMatch(journalSource, /setSelectedReviewGroupKey\(reviewTradeGroups\[0\]\.key\)/);
+  assert.doesNotMatch(journalSource, /reviewTargetPickerOpen/);
   assert.doesNotMatch(journalSource, /className="journal-advice"/);
+});
+
+test('account changes clear the previous account journal workspace before loading tenant data', () => {
+  assert.match(journalSource, /const resetJournalWorkspace = \(\) =>/);
+  assert.match(journalSource, /setTrades\(\[\]\)/);
+  assert.match(journalSource, /setReviewHistory\(\[\]\)/);
+  assert.match(journalSource, /setSelectedReviewGroupKey\(''\)/);
+  assert.ok((journalSource.match(/resetJournalWorkspace\(\)/g) || []).length >= 4);
+});
+
+test('review archive entry uses a throttled interstitial policy', () => {
+  assert.match(journalSource, /shouldShowReviewHistoryInterstitial/);
+  assert.match(journalSource, /maybeShowReviewHistoryInterstitial/);
+  assert.match(journalSource, /REVIEW_HISTORY_AD_ENTRY_COUNT_KEY/);
+  assert.match(journalSource, /REVIEW_HISTORY_AD_LAST_SHOWN_KEY/);
 });
