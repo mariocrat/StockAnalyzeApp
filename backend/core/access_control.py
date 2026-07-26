@@ -20,14 +20,14 @@ except ModuleNotFoundError:
 
 PRODUCTS = {
     "basic_review_30": {"kind": "basic", "quantity": 30, "price_krw": 2900},
-    "basic_review_100": {"kind": "basic", "quantity": 100, "price_krw": 6900},
-    "advanced_review_5": {"kind": "advanced", "quantity": 5, "price_krw": 2900},
-    "advanced_review_10": {"kind": "advanced", "quantity": 10, "price_krw": 4900},
+    "basic_review_50": {"kind": "basic", "quantity": 50, "price_krw": 4900},
+    "advanced_review_5": {"kind": "advanced", "quantity": 5, "price_krw": 3900},
+    "advanced_review_10": {"kind": "advanced", "quantity": 10, "price_krw": 5900},
 }
 
 SUBSCRIPTIONS = {
-    "pro_monthly_launch": {"kind": "pro", "monthly_basic": 150, "monthly_advanced": 5, "price_krw": 3900},
-    "pro_monthly": {"kind": "pro", "monthly_basic": 150, "monthly_advanced": 5, "price_krw": 4900},
+    "pro_monthly_launch": {"kind": "pro", "monthly_basic": 50, "monthly_advanced": 15, "price_krw": 5900},
+    "pro_monthly": {"kind": "pro", "monthly_basic": 50, "monthly_advanced": 15, "price_krw": 7900},
 }
 
 FREE_SIGNUP_BASIC_CREDITS = 5
@@ -39,8 +39,8 @@ ADS_PER_ADVANCED_TICKET_MAX = 20
 FREE_WEEKLY_ADVANCED_MAX = 1
 ADVANCED_TICKET_HOLD_MAX = 1
 
-PRO_MONTHLY_BASIC = 150
-PRO_MONTHLY_ADVANCED = 5
+PRO_MONTHLY_BASIC = 50
+PRO_MONTHLY_ADVANCED = 15
 ADMOB_SSV_KEY_URL = "https://www.gstatic.com/admob/reward/verifier-keys.json"
 ADMOB_SSV_KEY_CACHE_SECONDS = 60 * 60 * 24
 GOOGLE_PLAY_SERVICE_ACCOUNT_REQUIRED_FIELDS = {

@@ -114,8 +114,8 @@ services:
         sync: false
       - key: GOOGLE_PLAY_BASIC_REVIEW_30_ID
         value: basic_review_30
-      - key: GOOGLE_PLAY_BASIC_REVIEW_100_ID
-        value: basic_review_100
+      - key: GOOGLE_PLAY_BASIC_REVIEW_50_ID
+        value: basic_review_50
       - key: GOOGLE_PLAY_ADVANCED_REVIEW_5_ID
         value: advanced_review_5
       - key: GOOGLE_PLAY_ADVANCED_REVIEW_10_ID

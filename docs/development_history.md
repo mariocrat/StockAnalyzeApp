@@ -464,7 +464,7 @@
 - `POST /api/journal/google-play-purchase`가 Pro 월 구독 상품도 처리하도록 확장했다.
 - Google Play `purchases.subscriptionsv2.get` 응답의 구독 상태, 상품 ID, 만료 시간을 확인해 활성 구독일 때만 Pro 플랜으로 저장한다.
 - Pro 구독 토큰 원문은 저장하지 않고 SHA-256 해시만 저장한다.
-- 활성 Pro 구독 사용자는 별도 개발용 entitlement token 없이 월 일반 복기 150회, 심층 복기 5회 제공량을 우선 사용한다.
+- 활성 Pro 구독 사용자는 별도 개발용 entitlement token 없이 월 일반 복기 50회, 심화 복기 15회 제공량을 우선 사용한다.
 - 같은 구독 토큰이 만료/비활성 상태로 다시 검증되면 그 상태도 저장해 기존 Pro 권한이 계속 유지되지 않게 했다.
 
 ### Google Play RTDN 알림 수신
@@ -612,7 +612,7 @@
 ### Google Play 상품 ID 배포 준비 검사
 
 - `ALPHAMATE_ENV=production`에서는 Google Play 상품 ID 매핑 환경변수가 모두 설정되어야 `google_play.ready`가 true가 되도록 바꿨다.
-- 필요한 상품 ID 환경변수는 `GOOGLE_PLAY_BASIC_REVIEW_30_ID`, `GOOGLE_PLAY_BASIC_REVIEW_100_ID`, `GOOGLE_PLAY_ADVANCED_REVIEW_5_ID`, `GOOGLE_PLAY_ADVANCED_REVIEW_10_ID`, `GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID`, `GOOGLE_PLAY_PRO_MONTHLY_ID`다.
+- 필요한 상품 ID 환경변수는 `GOOGLE_PLAY_BASIC_REVIEW_30_ID`, `GOOGLE_PLAY_BASIC_REVIEW_50_ID`, `GOOGLE_PLAY_ADVANCED_REVIEW_5_ID`, `GOOGLE_PLAY_ADVANCED_REVIEW_10_ID`, `GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID`, `GOOGLE_PLAY_PRO_MONTHLY_ID`다.
 - 개발 모드에서는 기존처럼 내부 상품 ID 기본값을 쓸 수 있게 유지했다.
 - `/api/app/readiness`와 `/api/journal/products` 응답에서 누락된 상품 ID 설정을 확인할 수 있다.
 

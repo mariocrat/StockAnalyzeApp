@@ -58,7 +58,12 @@ class PolicyDocumentationTest(unittest.TestCase):
         plan = (ROOT / "docs" / "ai_review_monetization_plan.md").read_text(encoding="utf-8")
 
         self.assertIn("일반 복기권 30회", plan)
+        self.assertIn("일반 복기권 50회", plan)
         self.assertIn("심화 복기 이용권 10회", plan)
+        self.assertIn("출시 이벤트 가격: 월 5,900원", plan)
+        self.assertIn("정상 가격: 월 7,900원", plan)
+        self.assertIn("월 제공량: 일반 복기 50회, 심화 복기 15회", plan)
+        self.assertNotIn("일반 복기권 100회", plan)
         self.assertIn("일반 복기", plan)
         self.assertIn("심화 복기", plan)
         self.assertNotIn("�", plan)

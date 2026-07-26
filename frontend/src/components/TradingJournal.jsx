@@ -52,9 +52,9 @@ const DEV_LOGIN_PROFILES = {
 };
 const REVIEW_PRODUCTS = [
   ['basic_review_30', '일반 복기 이용권 30회', '2,900원'],
-  ['basic_review_100', '일반 복기 이용권 100회', '6,900원'],
-  ['advanced_review_5', '심화 복기 이용권 5회', '2,900원'],
-  ['advanced_review_10', '심화 복기 이용권 10회', '4,900원'],
+  ['basic_review_50', '일반 복기 이용권 50회', '4,900원'],
+  ['advanced_review_5', '심화 복기 이용권 5회', '3,900원'],
+  ['advanced_review_10', '심화 복기 이용권 10회', '5,900원'],
 ];
 const chartIntervalLabel = { '1m': '1분봉', '3m': '3분봉', '1d': '일봉', '1wk': '주봉' };
 const reviewSourceLabels = {

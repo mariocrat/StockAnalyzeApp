@@ -248,6 +248,27 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertFalse(catalog["settings"]["ad_policy"]["force_rewarded_ad_chain"])
             self.assertNotIn("fake-private-key", str(catalog))
 
+    def test_product_catalog_matches_current_review_offers(self):
+        from backend.core import access_control
+
+        access_control = importlib.reload(access_control)
+        catalog = access_control.get_product_catalog()
+
+        self.assertNotIn("basic_review_100", catalog["consumables"])
+        self.assertEqual(30, catalog["consumables"]["basic_review_30"]["quantity"])
+        self.assertEqual(2900, catalog["consumables"]["basic_review_30"]["price_krw"])
+        self.assertEqual(50, catalog["consumables"]["basic_review_50"]["quantity"])
+        self.assertEqual(4900, catalog["consumables"]["basic_review_50"]["price_krw"])
+        self.assertEqual(5, catalog["consumables"]["advanced_review_5"]["quantity"])
+        self.assertEqual(3900, catalog["consumables"]["advanced_review_5"]["price_krw"])
+        self.assertEqual(10, catalog["consumables"]["advanced_review_10"]["quantity"])
+        self.assertEqual(5900, catalog["consumables"]["advanced_review_10"]["price_krw"])
+
+        launch = catalog["subscriptions"]["pro_monthly_launch"]
+        regular = catalog["subscriptions"]["pro_monthly"]
+        self.assertEqual((50, 15, 5900), (launch["monthly_basic"], launch["monthly_advanced"], launch["price_krw"]))
+        self.assertEqual((50, 15, 7900), (regular["monthly_basic"], regular["monthly_advanced"], regular["price_krw"]))
+
     def test_ad_policy_caps_ads_per_advanced_ticket_setting(self):
         with patched_env(ALPHAMATE_ADS_PER_ADVANCED_TICKET="999999"):
             from backend.core import access_control
@@ -305,7 +326,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_BASIC_REVIEW_30_ID=None,
-            GOOGLE_PLAY_BASIC_REVIEW_100_ID=None,
+            GOOGLE_PLAY_BASIC_REVIEW_50_ID=None,
             GOOGLE_PLAY_ADVANCED_REVIEW_5_ID=None,
             GOOGLE_PLAY_ADVANCED_REVIEW_10_ID=None,
             GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID=None,
@@ -334,7 +355,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.duplicate",
-            GOOGLE_PLAY_BASIC_REVIEW_100_ID="alphamate.duplicate",
+            GOOGLE_PLAY_BASIC_REVIEW_50_ID="alphamate.duplicate",
             GOOGLE_PLAY_ADVANCED_REVIEW_5_ID="alphamate.advanced.5",
             GOOGLE_PLAY_ADVANCED_REVIEW_10_ID="alphamate.advanced.10",
             GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
@@ -358,7 +379,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
-            GOOGLE_PLAY_BASIC_REVIEW_100_ID="alphamate.basic.100",
+            GOOGLE_PLAY_BASIC_REVIEW_50_ID="alphamate.basic.50",
             GOOGLE_PLAY_ADVANCED_REVIEW_5_ID="alphamate.advanced.5",
             GOOGLE_PLAY_ADVANCED_REVIEW_10_ID="alphamate.advanced.10",
             GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
@@ -382,7 +403,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
-            GOOGLE_PLAY_BASIC_REVIEW_100_ID="alphamate.basic.100",
+            GOOGLE_PLAY_BASIC_REVIEW_50_ID="alphamate.basic.50",
             GOOGLE_PLAY_ADVANCED_REVIEW_5_ID="alphamate.advanced.5",
             GOOGLE_PLAY_ADVANCED_REVIEW_10_ID="alphamate.advanced.10",
             GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
@@ -694,8 +715,8 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("pro", result["plan"])
             self.assertEqual("active", result["purchase"]["status"])
             self.assertEqual("pro", entitlements["plan"])
-            self.assertEqual(150, entitlements["basic"]["pro_monthly_remaining"])
-            self.assertEqual(5, entitlements["advanced"]["pro_monthly_remaining"])
+            self.assertEqual(50, entitlements["basic"]["pro_monthly_remaining"])
+            self.assertEqual(15, entitlements["advanced"]["pro_monthly_remaining"])
 
     def test_google_play_subscription_stored_fields_are_length_limited(self):
         long_product_id = "alphamate.pro." + ("p" * 500)
@@ -937,7 +958,7 @@ class BillingReadinessTest(unittest.TestCase):
 
             self.assertEqual("pro", access.plan)
             self.assertEqual("pro_monthly_advanced", access.source)
-            self.assertEqual(4, access.quota["advanced"]["pro_monthly_remaining"])
+            self.assertEqual(14, access.quota["advanced"]["pro_monthly_remaining"])
 
     def test_inactive_subscription_refresh_disables_previous_pro_plan(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
