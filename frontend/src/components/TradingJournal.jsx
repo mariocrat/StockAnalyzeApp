@@ -52,7 +52,7 @@ const DEV_LOGIN_PROFILES = {
 };
 const REVIEW_PRODUCTS = [
   ['basic_review_30', '일반 복기 이용권 30회', '2,900원'],
-  ['basic_review_50', '일반 복기 이용권 50회', '4,900원'],
+  ['basic_review_50', '일반 복기 이용권 50회', '4,500원'],
   ['advanced_review_5', '심화 복기 이용권 5회', '3,900원'],
   ['advanced_review_10', '심화 복기 이용권 10회', '5,900원'],
 ];

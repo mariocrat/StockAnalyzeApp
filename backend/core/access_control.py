@@ -20,7 +20,7 @@ except ModuleNotFoundError:
 
 PRODUCTS = {
     "basic_review_30": {"kind": "basic", "quantity": 30, "price_krw": 2900},
-    "basic_review_50": {"kind": "basic", "quantity": 50, "price_krw": 4900},
+    "basic_review_50": {"kind": "basic", "quantity": 50, "price_krw": 4500},
     "advanced_review_5": {"kind": "advanced", "quantity": 5, "price_krw": 3900},
     "advanced_review_10": {"kind": "advanced", "quantity": 10, "price_krw": 5900},
 }

@@ -258,7 +258,7 @@ class BillingReadinessTest(unittest.TestCase):
         self.assertEqual(30, catalog["consumables"]["basic_review_30"]["quantity"])
         self.assertEqual(2900, catalog["consumables"]["basic_review_30"]["price_krw"])
         self.assertEqual(50, catalog["consumables"]["basic_review_50"]["quantity"])
-        self.assertEqual(4900, catalog["consumables"]["basic_review_50"]["price_krw"])
+        self.assertEqual(4500, catalog["consumables"]["basic_review_50"]["price_krw"])
         self.assertEqual(5, catalog["consumables"]["advanced_review_5"]["quantity"])
         self.assertEqual(3900, catalog["consumables"]["advanced_review_5"]["price_krw"])
         self.assertEqual(10, catalog["consumables"]["advanced_review_10"]["quantity"])
