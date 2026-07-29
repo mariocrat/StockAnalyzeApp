@@ -232,7 +232,7 @@ class AiReviewSafetyTest(unittest.TestCase):
             self.assertEqual(2, calls["count"])
             self.assertEqual(3, entitlements["basic"]["signup_remaining"])
             self.assertEqual(4, entitlements["basic"]["free_available_now"])
-            self.assertEqual(4, entitlements["basic"]["rewarded_ad_available"])
+            self.assertEqual(2, entitlements["basic"]["rewarded_ad_available"])
 
     def test_daily_free_balance_does_not_include_ad_only_capacity(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -250,7 +250,7 @@ class AiReviewSafetyTest(unittest.TestCase):
             entitlements = access_control.get_user_entitlements(authorization=token, entitlement_token="")
 
             self.assertEqual(0, entitlements["basic"]["free_available_now"])
-            self.assertEqual(4, entitlements["basic"]["rewarded_ad_available"])
+            self.assertEqual(2, entitlements["basic"]["rewarded_ad_available"])
             with self.assertRaises(HTTPException) as blocked:
                 access_control.verify_ai_review_access(
                     authorization=token,

@@ -464,7 +464,7 @@
 - `POST /api/journal/google-play-purchase`가 Pro 월 구독 상품도 처리하도록 확장했다.
 - Google Play `purchases.subscriptionsv2.get` 응답의 구독 상태, 상품 ID, 만료 시간을 확인해 활성 구독일 때만 Pro 플랜으로 저장한다.
 - Pro 구독 토큰 원문은 저장하지 않고 SHA-256 해시만 저장한다.
-- 활성 Pro 구독 사용자는 별도 개발용 entitlement token 없이 월 일반 복기 50회, 심화 복기 15회 제공량을 우선 사용한다.
+- 활성 Pro 구독 사용자는 별도 개발용 entitlement token 없이 월 일반 복기 35회, 심화 복기 15회 제공량을 우선 사용한다.
 - 같은 구독 토큰이 만료/비활성 상태로 다시 검증되면 그 상태도 저장해 기존 Pro 권한이 계속 유지되지 않게 했다.
 
 ### Google Play RTDN 알림 수신
@@ -836,3 +836,12 @@
 - Reworked the entitlement grid into free, Pro, and purchased columns with basic review on the first row and advanced review on the second row, and shortened the free-pass labels.
 - Switched banner keyboard handling to Android viewport-size detection so the banner hides while the keyboard is open and returns immediately when the keyboard closes, even if the input remains focused.
 - Added regression coverage for account resets, recent-trade filtering, selected-only restore, archive-ad frequency, and keyboard-aware banner behavior.
+
+## 2026-07-29 Review Quota, Expiry, and AI Safety Policy
+
+- Set the free basic-review policy to one daily grant plus at most two rewarded-ad reviews per day, with all free basic usage capped at 30 reviews per calendar month.
+- Count rewarded ads used for basic reviews toward the weekly five-ad advanced-review reward while allowing only one weekly advanced reward grant.
+- Expire unused weekly advanced reward tickets and weekly ad progress every Monday at 00:00 KST; signup credits, first-login trial tickets, and purchased passes do not expire.
+- Changed the Pro monthly allowance to 35 basic reviews and 15 advanced reviews.
+- Added Korean reset and expiry guidance to the pass screen for daily, weekly, monthly, and non-expiring balances.
+- Hardened both AI review prompts and output validation so historical trade facts may be discussed, but future buy or sell prices, dates, times, and actionable conditions are never recommended.

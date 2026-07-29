@@ -266,8 +266,8 @@ class BillingReadinessTest(unittest.TestCase):
 
         launch = catalog["subscriptions"]["pro_monthly_launch"]
         regular = catalog["subscriptions"]["pro_monthly"]
-        self.assertEqual((50, 15, 5900), (launch["monthly_basic"], launch["monthly_advanced"], launch["price_krw"]))
-        self.assertEqual((50, 15, 7900), (regular["monthly_basic"], regular["monthly_advanced"], regular["price_krw"]))
+        self.assertEqual((35, 15, 5900), (launch["monthly_basic"], launch["monthly_advanced"], launch["price_krw"]))
+        self.assertEqual((35, 15, 7900), (regular["monthly_basic"], regular["monthly_advanced"], regular["price_krw"]))
 
     def test_ad_policy_caps_ads_per_advanced_ticket_setting(self):
         with patched_env(ALPHAMATE_ADS_PER_ADVANCED_TICKET="999999"):
@@ -465,6 +465,12 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("rewarded_ad_basic", second.source)
             self.assertEqual(1, second.quota["advanced"]["weekly_reward_remaining"])
             self.assertEqual(0, second.quota["advanced"]["weekly_ad_views_needed"])
+
+            refunded = access_control.refund_ai_review_access(second)
+
+            self.assertEqual(1, refunded["advanced"]["weekly_reward_remaining"])
+            self.assertEqual(2, refunded["advanced"]["weekly_ad_views"])
+            self.assertEqual(0, refunded["advanced"]["weekly_ad_views_needed"])
 
     def test_google_play_purchase_code_does_not_claim_subscription_verification_is_missing(self):
         code = (ROOT / "backend" / "core" / "access_control.py").read_text(encoding="utf-8")
@@ -715,7 +721,7 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("pro", result["plan"])
             self.assertEqual("active", result["purchase"]["status"])
             self.assertEqual("pro", entitlements["plan"])
-            self.assertEqual(50, entitlements["basic"]["pro_monthly_remaining"])
+            self.assertEqual(35, entitlements["basic"]["pro_monthly_remaining"])
             self.assertEqual(15, entitlements["advanced"]["pro_monthly_remaining"])
 
     def test_google_play_subscription_stored_fields_are_length_limited(self):
@@ -1397,7 +1403,7 @@ class BillingReadinessTest(unittest.TestCase):
             )
 
             self.assertEqual("rewarded_ad_basic", access.source)
-            self.assertEqual(3, access.quota["basic"]["free_daily_max_remaining"])
+            self.assertEqual(1, access.quota["basic"]["free_daily_max_remaining"])
 
     def test_pending_admob_reward_waits_until_immediate_free_credits_are_exhausted(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(

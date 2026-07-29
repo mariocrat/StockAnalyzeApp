@@ -90,6 +90,28 @@ class AccessControlPersistenceTest(unittest.TestCase):
             self.assertEqual("ticket_already_held", blocked["ad_reward"]["blocked_reason"])
             self.assertEqual(second["advanced"]["weekly_ad_views"], blocked["advanced"]["weekly_ad_views"])
 
+            access = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="advanced",
+            )
+            after_use = access_control.claim_rewarded_ad_progress(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                ad_reward_token="dev-ad-reward",
+            )
+
+            self.assertEqual("weekly_ad_advanced", access.source)
+            self.assertFalse(after_use["ad_reward"]["claimed"])
+            self.assertEqual(
+                "weekly_reward_already_granted",
+                after_use["ad_reward"]["blocked_reason"],
+            )
+            self.assertEqual(1, after_use["advanced"]["weekly_advanced_granted"])
+            self.assertEqual(second["advanced"]["weekly_ad_views"], after_use["advanced"]["weekly_ad_views"])
+
     def test_purchased_advanced_credits_survive_module_reload(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "access.sqlite3")

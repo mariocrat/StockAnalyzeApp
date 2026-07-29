@@ -9,6 +9,7 @@ import threading
 from dataclasses import dataclass, field
 from pathlib import Path
 from urllib.parse import parse_qsl, unquote
+from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 
@@ -26,21 +27,22 @@ PRODUCTS = {
 }
 
 SUBSCRIPTIONS = {
-    "pro_monthly_launch": {"kind": "pro", "monthly_basic": 50, "monthly_advanced": 15, "price_krw": 5900},
-    "pro_monthly": {"kind": "pro", "monthly_basic": 50, "monthly_advanced": 15, "price_krw": 7900},
+    "pro_monthly_launch": {"kind": "pro", "monthly_basic": 35, "monthly_advanced": 15, "price_krw": 5900},
+    "pro_monthly": {"kind": "pro", "monthly_basic": 35, "monthly_advanced": 15, "price_krw": 7900},
 }
 
 FREE_SIGNUP_BASIC_CREDITS = 5
 FREE_DAILY_BASIC_GRANT = 1
-FREE_DAILY_BASIC_MAX = 5
-FREE_MONTHLY_BASIC_MAX = 50
+FREE_REWARDED_BASIC_DAILY_MAX = 2
+FREE_MONTHLY_BASIC_MAX = 30
 FREE_ADS_PER_ADVANCED_TICKET = 5
 ADS_PER_ADVANCED_TICKET_MAX = 20
 FREE_WEEKLY_ADVANCED_MAX = 1
 ADVANCED_TICKET_HOLD_MAX = 1
 
-PRO_MONTHLY_BASIC = 50
+PRO_MONTHLY_BASIC = 35
 PRO_MONTHLY_ADVANCED = 15
+KST = ZoneInfo("Asia/Seoul")
 ADMOB_SSV_KEY_URL = "https://www.gstatic.com/admob/reward/verifier-keys.json"
 ADMOB_SSV_KEY_CACHE_SECONDS = 60 * 60 * 24
 GOOGLE_PLAY_SERVICE_ACCOUNT_REQUIRED_FIELDS = {
@@ -66,6 +68,7 @@ class UsageBucket:
     month_key: str = ""
     week_key: str = ""
     free_basic_daily_used: int = 0
+    rewarded_basic_daily_used: int = 0
     free_basic_monthly_used: int = 0
     pro_basic_monthly_used: int = 0
     pro_advanced_monthly_used: int = 0
@@ -148,6 +151,7 @@ def _connect_access_db():
             month_key TEXT NOT NULL DEFAULT '',
             week_key TEXT NOT NULL DEFAULT '',
             free_basic_daily_used INTEGER NOT NULL DEFAULT 0,
+            rewarded_basic_daily_used INTEGER NOT NULL DEFAULT 0,
             free_basic_monthly_used INTEGER NOT NULL DEFAULT 0,
             pro_basic_monthly_used INTEGER NOT NULL DEFAULT 0,
             pro_advanced_monthly_used INTEGER NOT NULL DEFAULT 0,
@@ -164,6 +168,10 @@ def _connect_access_db():
     if "signup_advanced_remaining" not in wallet_columns:
         conn.execute(
             "ALTER TABLE access_wallets ADD COLUMN signup_advanced_remaining INTEGER NOT NULL DEFAULT 0"
+        )
+    if "rewarded_basic_daily_used" not in wallet_columns:
+        conn.execute(
+            "ALTER TABLE access_wallets ADD COLUMN rewarded_basic_daily_used INTEGER NOT NULL DEFAULT 0"
         )
     conn.execute(
         """
@@ -236,6 +244,7 @@ def _wallet_from_row(row) -> UserWallet:
         month_key=row["month_key"],
         week_key=row["week_key"],
         free_basic_daily_used=int(row["free_basic_daily_used"]),
+        rewarded_basic_daily_used=int(row["rewarded_basic_daily_used"]),
         free_basic_monthly_used=int(row["free_basic_monthly_used"]),
         pro_basic_monthly_used=int(row["pro_basic_monthly_used"]),
         pro_advanced_monthly_used=int(row["pro_advanced_monthly_used"]),
@@ -280,13 +289,14 @@ def _write_wallet(conn, user_id: str, wallet: UserWallet):
             month_key,
             week_key,
             free_basic_daily_used,
+            rewarded_basic_daily_used,
             free_basic_monthly_used,
             pro_basic_monthly_used,
             pro_advanced_monthly_used,
             weekly_ad_views,
             weekly_advanced_granted,
             updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             user_id,
@@ -299,6 +309,7 @@ def _write_wallet(conn, user_id: str, wallet: UserWallet):
             usage.month_key,
             usage.week_key,
             usage.free_basic_daily_used,
+            usage.rewarded_basic_daily_used,
             usage.free_basic_monthly_used,
             usage.pro_basic_monthly_used,
             usage.pro_advanced_monthly_used,
@@ -408,6 +419,7 @@ def _env_int(name: str, default: int, minimum: int = 0, maximum: int | None = No
 def _ad_policy() -> dict:
     return {
         "basic_reviews_per_rewarded_ad": 1,
+        "rewarded_basic_daily_max": FREE_REWARDED_BASIC_DAILY_MAX,
         "ads_per_advanced_ticket": _env_int(
             "ALPHAMATE_ADS_PER_ADVANCED_TICKET",
             FREE_ADS_PER_ADVANCED_TICKET,
@@ -1253,6 +1265,12 @@ def get_product_catalog() -> dict:
         "settings": {
             "allow_advanced_ticket_for_basic": _allow_advanced_for_basic(),
             "ad_policy": _ad_policy(),
+            "free_policy": {
+                "daily_basic": FREE_DAILY_BASIC_GRANT,
+                "rewarded_basic_daily_max": FREE_REWARDED_BASIC_DAILY_MAX,
+                "monthly_basic_max": FREE_MONTHLY_BASIC_MAX,
+                "weekly_advanced_max": FREE_WEEKLY_ADVANCED_MAX,
+            },
         },
     }
 
@@ -1264,13 +1282,34 @@ def _bearer_token(authorization: str | None) -> str:
     return text
 
 
+def _now_kst() -> datetime.datetime:
+    return datetime.datetime.now(tz=KST)
+
+
 def _today_keys():
-    today = datetime.date.today()
+    today = _now_kst().date()
     return (
         today.isoformat(),
         today.strftime("%Y-%m"),
         f"{today.isocalendar().year}-W{today.isocalendar().week:02d}",
     )
+
+
+def _reset_deadlines() -> dict:
+    now = _now_kst()
+    today = now.date()
+    next_day = today + datetime.timedelta(days=1)
+    next_month = (today.replace(day=28) + datetime.timedelta(days=4)).replace(day=1)
+    next_monday = today + datetime.timedelta(days=7 - today.weekday())
+
+    def midnight(value: datetime.date) -> str:
+        return datetime.datetime.combine(value, datetime.time.min, tzinfo=KST).isoformat(timespec="minutes")
+
+    return {
+        "daily": midnight(next_day),
+        "weekly": midnight(next_monday),
+        "monthly": midnight(next_month),
+    }
 
 
 def _wallet_for(user_id: str) -> UserWallet:
@@ -1280,6 +1319,7 @@ def _wallet_for(user_id: str) -> UserWallet:
     if usage.date_key != date_key:
         usage.date_key = date_key
         usage.free_basic_daily_used = 0
+        usage.rewarded_basic_daily_used = 0
     if usage.month_key != month_key:
         usage.month_key = month_key
         usage.free_basic_monthly_used = 0
@@ -1420,11 +1460,16 @@ def _consume_basic(wallet: UserWallet, plan: str, ad_verified: bool) -> str:
     if wallet.purchased_basic > 0:
         wallet.purchased_basic -= 1
         return "purchased_basic"
-    if ad_verified and usage.free_basic_daily_used < FREE_DAILY_BASIC_MAX and usage.free_basic_monthly_used < FREE_MONTHLY_BASIC_MAX:
-        usage.free_basic_daily_used += 1
+    if (
+        ad_verified
+        and usage.rewarded_basic_daily_used < FREE_REWARDED_BASIC_DAILY_MAX
+        and usage.free_basic_monthly_used < FREE_MONTHLY_BASIC_MAX
+    ):
+        usage.rewarded_basic_daily_used += 1
         usage.free_basic_monthly_used += 1
-        usage.weekly_ad_views += 1
-        _grant_weekly_advanced_if_earned(wallet)
+        if usage.weekly_advanced_granted < FREE_WEEKLY_ADVANCED_MAX:
+            usage.weekly_ad_views += 1
+            _grant_weekly_advanced_if_earned(wallet)
         return "rewarded_ad_basic"
     if _allow_advanced_for_basic() and wallet.purchased_advanced > 0:
         wallet.purchased_advanced -= 1
@@ -1445,7 +1490,7 @@ def _basic_requires_ad_reward(wallet: UserWallet, plan: str) -> bool:
         wallet.basic_signup_remaining <= 0
         and not has_daily_free
         and wallet.purchased_basic <= 0
-        and usage.free_basic_daily_used < FREE_DAILY_BASIC_MAX
+        and usage.rewarded_basic_daily_used < FREE_REWARDED_BASIC_DAILY_MAX
         and usage.free_basic_monthly_used < FREE_MONTHLY_BASIC_MAX
     )
 
@@ -1473,16 +1518,22 @@ def _consume_advanced(wallet: UserWallet, plan: str) -> str:
 def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:
     usage = wallet.usage
     free_daily_remaining = max(0, FREE_DAILY_BASIC_GRANT - usage.free_basic_daily_used)
-    free_daily_max_remaining = max(0, FREE_DAILY_BASIC_MAX - usage.free_basic_daily_used)
+    rewarded_daily_remaining = max(
+        0,
+        FREE_REWARDED_BASIC_DAILY_MAX - usage.rewarded_basic_daily_used,
+    )
+    deadlines = _reset_deadlines()
     return {
         "plan": plan,
         "basic": {
             "signup_remaining": wallet.basic_signup_remaining,
             "free_daily_remaining": free_daily_remaining,
-            "free_daily_max_remaining": free_daily_max_remaining,
+            "free_daily_max_remaining": free_daily_remaining + rewarded_daily_remaining,
             "free_available_now": wallet.basic_signup_remaining + free_daily_remaining,
-            "rewarded_ad_available": max(0, free_daily_max_remaining - free_daily_remaining) if plan != "pro" else 0,
+            "rewarded_ad_available": rewarded_daily_remaining if plan != "pro" else 0,
+            "rewarded_ad_daily_remaining": rewarded_daily_remaining if plan != "pro" else 0,
             "free_monthly_remaining": max(0, FREE_MONTHLY_BASIC_MAX - usage.free_basic_monthly_used),
+            "free_monthly_limit": FREE_MONTHLY_BASIC_MAX,
             "pro_monthly_remaining": max(0, PRO_MONTHLY_BASIC - usage.pro_basic_monthly_used) if plan == "pro" else 0,
             "purchased_remaining": wallet.purchased_basic,
         },
@@ -1490,6 +1541,7 @@ def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:
             "signup_remaining": wallet.signup_advanced_remaining,
             "pro_monthly_remaining": max(0, PRO_MONTHLY_ADVANCED - usage.pro_advanced_monthly_used) if plan == "pro" else 0,
             "weekly_reward_remaining": wallet.weekly_advanced,
+            "weekly_advanced_granted": usage.weekly_advanced_granted,
             "weekly_ad_views": usage.weekly_ad_views,
             "weekly_ad_views_needed": max(0, _ad_policy()["ads_per_advanced_ticket"] - usage.weekly_ad_views),
             "purchased_remaining": wallet.purchased_advanced,
@@ -1499,6 +1551,22 @@ def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:
         "settings": {
             "allow_advanced_ticket_for_basic": _allow_advanced_for_basic(),
             "ad_policy": _ad_policy(),
+            "free_policy": {
+                "daily_basic": FREE_DAILY_BASIC_GRANT,
+                "rewarded_basic_daily_max": FREE_REWARDED_BASIC_DAILY_MAX,
+                "monthly_basic_max": FREE_MONTHLY_BASIC_MAX,
+                "weekly_advanced_max": FREE_WEEKLY_ADVANCED_MAX,
+            },
+        },
+        "validity": {
+            "timezone": "Asia/Seoul",
+            "daily_reset_at": deadlines["daily"],
+            "weekly_reset_at": deadlines["weekly"],
+            "monthly_reset_at": deadlines["monthly"],
+            "signup_pass_expires_at": None,
+            "purchased_pass_expires_at": None,
+            "weekly_reward_expires_at": deadlines["weekly"],
+            "pro_allowance_resets_at": deadlines["monthly"],
         },
     }
 
@@ -1555,6 +1623,9 @@ def claim_rewarded_ad_progress(
         elif wallet.weekly_advanced >= 1:
             verified = False
             reward_blocked_reason = "ticket_already_held"
+        elif wallet.usage.weekly_advanced_granted >= FREE_WEEKLY_ADVANCED_MAX:
+            verified = False
+            reward_blocked_reason = "weekly_reward_already_granted"
         else:
             verified = _verify_ad(ad_reward_token) or _consume_pending_admob_reward(
                 user_id,
@@ -1834,9 +1905,10 @@ def refund_ai_review_access(access: AiAccessContext) -> dict:
             usage.free_basic_daily_used = max(0, usage.free_basic_daily_used - 1)
             usage.free_basic_monthly_used = max(0, usage.free_basic_monthly_used - 1)
         elif source == "rewarded_ad_basic":
-            usage.free_basic_daily_used = max(0, usage.free_basic_daily_used - 1)
+            usage.rewarded_basic_daily_used = max(0, usage.rewarded_basic_daily_used - 1)
             usage.free_basic_monthly_used = max(0, usage.free_basic_monthly_used - 1)
-            usage.weekly_ad_views = max(0, usage.weekly_ad_views - 1)
+            if usage.weekly_advanced_granted < FREE_WEEKLY_ADVANCED_MAX:
+                usage.weekly_ad_views = max(0, usage.weekly_ad_views - 1)
         elif source == "purchased_basic":
             wallet.purchased_basic += 1
         elif source == "purchased_advanced_as_basic":

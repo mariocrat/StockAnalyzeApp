@@ -1658,6 +1658,39 @@ body {
   font-size: 16px;
 }
 
+.journal-pass-validity {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.journal-pass-validity > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.6fr) minmax(220px, 1.4fr);
+  gap: 4px 14px;
+  padding: 10px;
+  background: #10141f;
+  border: 1px solid #252b38;
+  border-radius: 6px;
+}
+
+.journal-pass-validity span {
+  color: #8c93a3;
+  font-size: 11px;
+}
+
+.journal-pass-validity strong {
+  color: #f2f5ff;
+  font-size: 12px;
+}
+
+.journal-pass-validity em {
+  grid-column: 2;
+  color: #8c93a3;
+  font-size: 11px;
+  font-style: normal;
+}
+
 .journal-ad-policy {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2832,6 +2865,14 @@ body {
 
   .journal-entitlement-grid strong {
     font-size: 15px;
+  }
+
+  .journal-pass-validity > div {
+    grid-template-columns: 1fr;
+  }
+
+  .journal-pass-validity em {
+    grid-column: auto;
   }
 
   .journal-product-list {

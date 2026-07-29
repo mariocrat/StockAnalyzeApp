@@ -343,10 +343,37 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.assertIn("1분봉 차트의 MA5", captured["instructions"])
         self.assertIn("일봉 차트의 MA20", captured["instructions"])
         self.assertIn("'5분선'처럼", captured["instructions"])
-        self.assertIn("핵심 기준 한 개", captured["instructions"])
         self.assertIn("결과와 당시 판단의 품질을 반드시 분리", captured["instructions"])
         self.assertIn("완결된 매매가 5개 미만", captured["instructions"])
-        self.assertIn("[데이터 확인]", captured["instructions"])
+        self.assertIn(
+            "향후 특정 종목, 가격, 시각, 날짜 또는 조건에서 매수하거나 매도하라고",
+            captured["instructions"],
+        )
+        self.assertIn(
+            "새로운 가격·시간·비율·조건을 만들어 지시하지 않는다",
+            captured["instructions"],
+        )
+        self.assertIn(
+            "[데이터 확인], [합리적 추론] 같은 내부 분류 표시는 출력하지 않는다",
+            captured["instructions"],
+        )
+
+    def test_trade_guidance_validator_blocks_future_actionable_advice(self):
+        self.assertTrue(
+            self.ai_review_v2._contains_prohibited_trade_guidance(
+                "다음에는 80,000원 돌파 시 매수하세요."
+            )
+        )
+        self.assertTrue(
+            self.ai_review_v2._contains_prohibited_trade_guidance(
+                "오후 2시에 전량 매도하는 것을 권장합니다."
+            )
+        )
+        self.assertFalse(
+            self.ai_review_v2._contains_prohibited_trade_guidance(
+                "이번 매매에서는 오전 9시 10분에 7,430원으로 매도했습니다."
+            )
+        )
 
     def test_advanced_review_uses_configurable_fallback_model_after_primary_failure(self):
         os.environ["OPENAI_ADVANCED_REVIEW_MODEL"] = "primary-advanced-model"

@@ -1,5 +1,6 @@
 import datetime
 import json
+import re
 import time
 import urllib.error
 import urllib.request
@@ -21,6 +22,26 @@ BASIC_REVIEW_FOCUS_LABELS = {
     "exit_timing": "매도 뒤 5개 봉과 청산 효율을 우선 점검",
     "risk_control": "분할 체결, 평균 체결가, 손실 제한 기준을 우선 점검",
 }
+AI_REVIEW_SAFETY_RULES = (
+    "<safety_rules>이 서비스는 과거 매매 의사결정의 복기만 제공한다. "
+    "과거 실제 체결 가격과 시각은 사실 확인을 위해 언급할 수 있다. "
+    "향후 특정 종목, 가격, 시각, 날짜 또는 조건에서 매수하거나 매도하라고 권유, 추천, 지시 또는 암시하지 않는다. "
+    "'X원에 매수 또는 매도', 'N시에 매수 또는 매도', '돌파 시 매수', '이탈 시 매도' 같은 실행 가능한 신호와 "
+    "목표가, 추천 매수가, 추천 매도가를 만들지 않는다. 대신 당시 근거, 가설의 일관성, "
+    "위험 관리 기록 여부와 사후 확인 질문만 제시한다.</safety_rules>\n"
+)
+_PROHIBITED_TRADE_GUIDANCE_PATTERNS = (
+    re.compile(r"(목표가|추천\s*매수가|추천\s*매도가|매수\s*추천|매도\s*추천)"),
+    re.compile(r"(돌파|이탈|도달|하회|상회)\s*(?:하면|시|할\s*때).{0,30}(매수|매도|진입|청산|손절)"),
+    re.compile(r"\d[\d,]*(?:원|시|분).{0,30}(매수|매도|진입|청산|손절).{0,24}(권장|추천|해야|하세요|하십시오|정하|설정|두세요)"),
+    re.compile(r"(손절가|청산가|진입가).{0,20}\d[\d,]*(?:원|%)"),
+    re.compile(r"-?\d+(?:\.\d+)?%.{0,24}(손절|청산|매수|매도).{0,20}(권장|추천|해야|하세요|정하|설정)"),
+)
+
+
+def _contains_prohibited_trade_guidance(text: str) -> bool:
+    normalized = str(text or "")
+    return any(pattern.search(normalized) for pattern in _PROHIBITED_TRADE_GUIDANCE_PATTERNS)
 
 
 def _env_int(name: str, default: int, minimum: int, maximum: int | None = None) -> int:
@@ -393,36 +414,29 @@ def _basic_evaluation_anchor(trades: list[dict], chart_snapshot: dict) -> dict:
 
 
 def _basic_checklist_items(trades: list[dict], chart_snapshot: dict) -> list[str]:
-    buy_average = _weighted_average(trades, "buy")
-    sell_average = _weighted_average(trades, "sell")
     buy_count = sum(1 for row in trades if row.get("side") == "buy")
     buy_observation = _observation_for_side(trades, chart_snapshot, "buy")
     sell_observation = _observation_for_side(trades, chart_snapshot, "sell")
     buy_after_five = _safe_float((buy_observation.get("metrics") or {}).get("after_5_bars"))
     sell_after_five = _safe_float((sell_observation.get("metrics") or {}).get("after_5_bars"))
 
-    if buy_average is not None:
-        first = f"평균 매수가 {buy_average:,.0f}원을 기준으로 무효화 가격과 허용 손실액을 체결 전에 함께 적기"
-    else:
-        first = "첫 체결 전에 무효화 가격과 허용 손실액을 숫자로 함께 적기"
+    first = "이번 매수 전에 진입 이유와 가설이 틀렸다고 판단할 기준을 기록했는지 확인하기"
 
     if buy_after_five is not None:
         second = (
             f"이번 매수 뒤 5개 봉 수익률 {buy_after_five:+.2f}%를 기준으로 "
-            "5번째 봉에서 가설 유지 또는 철회 여부를 기록하기"
+            "실제 흐름이 처음 가설과 일치했는지 기록하기"
         )
     else:
-        second = f"이번 {max(1, buy_count)}회 매수 체결마다 분할 진입 목적과 중단 조건을 한 줄씩 남기기"
+        second = f"이번 {max(1, buy_count)}회 매수 체결마다 분할 진입의 목적이 서로 달랐는지 확인하기"
 
-    if sell_average is not None and sell_after_five is not None:
+    if sell_after_five is not None:
         third = (
-            f"평균 매도가 {sell_average:,.0f}원 이후 5개 봉 수익률 {sell_after_five:+.2f}%를 "
-            "다음 복기에서도 같은 기준으로 비교하기"
+            f"이번 매도 뒤 5개 봉 수익률 {sell_after_five:+.2f}%와 비교해 "
+            "매도 이유가 사전에 정한 기준과 일치했는지 기록하기"
         )
-    elif sell_average is not None:
-        third = f"평균 매도가 {sell_average:,.0f}원 뒤 같은 시간 단위의 5개 봉 흐름을 확인해 청산 효율을 비교하기"
     else:
-        third = "매도 체결 전 일부 청산과 전량 청산 조건을 각각 숫자로 정하기"
+        third = "이번 매도 이유가 매매 중의 불안감인지 사전에 정한 기준인지 구분해 기록하기"
     return [first, second, third]
 
 
@@ -478,7 +492,7 @@ def _fallback_advanced_text(trades: list[dict], chart_snapshots: list[dict]) -> 
         f"최근 패턴: {len(trades)}건, 실현손익 {float(summary.get('realized_pnl') or 0):+,.0f}원, 승률 {float(summary.get('win_rate_pct') or 0):.1f}%입니다.\n"
         f"반복 문제: {repeated_issue}\n"
         f"손실 관리: {loss_text}. 미청산 종목은 {len(open_positions)}개입니다.\n"
-        "다음 규칙: 첫 매수 전에 손절 가격과 최대 손실액을 숫자로 정하고, 추가 매수는 첫 체결 뒤 최소 3개 봉에서 저점이 높아질 때만 검토하며, 매도 후 5개 봉 흐름과 비교해 청산이 너무 빨랐는지 점검하세요."
+        "다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요."
     )
 
 
@@ -516,7 +530,8 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
     }
     model = _env_value("OPENAI_BASIC_REVIEW_MODEL") or _env_value("OPENAI_MODEL") or "gpt-5.4-mini"
     instructions = (
-        "<role>너는 한국 주식 매매 복기 코치다. 같은 종목의 여러 분할 체결은 하나의 매매 에피소드로 평가한다.</role>\n"
+        AI_REVIEW_SAFETY_RULES
+        + "<role>너는 한국 주식 매매 복기 코치다. 같은 종목의 여러 분할 체결은 하나의 매매 에피소드로 평가한다.</role>\n"
         "<evidence_rules>evaluation_anchor와 trade_chart_snapshot의 실제 봉, 매수·매도 마커, 평균 체결가, "
         "실현손익을 우선 근거로 사용한다. 메모가 없어도 가격과 차트로 평가하고, 기록을 남긴 사실 자체를 칭찬하지 않는다. "
         "서로 다른 숫자 근거를 2개 이상 포함하며 근거가 없으면 추측하지 않는다.</evidence_rules>\n"
@@ -540,6 +555,8 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
             "chart_snapshot": chart_snapshot,
             "chart_reviews": chart_snapshot.get("rule_based_observations") or [],
         }
+    if _contains_prohibited_trade_guidance(ai_text):
+        ai_text = ""
 
     return {
         "status": "ready" if ai_text else "missing_key",
@@ -583,8 +600,8 @@ def build_advanced_ai_review(
         "trade_chart_snapshots": chart_snapshots,
         "output_contract": {
             "format": "structured markdown",
-            "must_cover": ["결과와 판단 품질 분리", "진입 가설", "무효화 가격", "손절 기준", "매수·매도 대응"],
-            "sections": ["이번 매매 판단", "진입 가설과 무효화", "손절 기준", "매수·매도 대응", "다음 매매"],
+            "must_cover": ["결과와 판단 품질 분리", "진입 가설", "당시 위험 관리", "매수·매도 대응"],
+            "sections": ["이번 매매 판단", "진입 가설 검토", "위험 관리 검토", "매수·매도 대응", "다음 복기 질문"],
             "length": "핵심 근거 중심으로 간결하게",
         },
         "scope_policy": {
@@ -599,24 +616,25 @@ def build_advanced_ai_review(
         or "gpt-5.4-mini"
     )
     instructions = (
-        "<role>너는 한국 주식 매매 복기 코치다. 사용자가 선택한 한 매매 에피소드만 깊게 분석한다.</role>\n"
+        AI_REVIEW_SAFETY_RULES
+        + "<role>너는 한국 주식 매매 복기 코치다. 사용자가 선택한 한 매매 에피소드만 깊게 분석한다.</role>\n"
         "<scope>payload의 recent_trades와 trade_chart_snapshots만 분석한다. 선택하지 않은 종목, 다른 날짜의 매매, 존재하지 않는 "
         "최근 기록을 끌어오지 않는다. 체결 수가 여러 건이어도 같은 포지션의 분할 매수·매도라면 하나의 매매로 본다.</scope>\n"
         "<judgment_rules>수익 또는 손실이라는 결과와 당시 판단의 품질을 반드시 분리한다. 매도 뒤 가격이 올랐다는 이유만으로 조기 "
         "매도라고 단정하지 않고, 매도 시점까지 확인 가능했던 봉·거래량·이동평균선·사전 규칙만으로 평가한다. 최고가를 맞히지 못한 "
-        "것은 잘못으로 평가하지 않는다. 진입은 가설, 확인 신호, 가설이 틀렸다고 볼 무효화 가격, 실제 체결의 일치 여부 순서로 "
-        "연결한다. 손절 기준은 핵심 기준 한 개와 필요할 때만 보조 기준 한 개를 제시한다. 근거 없는 -1.5%, -2%, 잔량 30% 같은 "
-        "범용 숫자 규칙을 만들지 않는다.</judgment_rules>\n"
+        "것은 잘못으로 평가하지 않는다. 진입은 당시 가설, 확인 신호, 실제 체결의 일치 여부 순서로 연결한다. 위험 관리는 사용자가 "
+        "사전에 기준을 기록했는지와 실제 행동이 그 기준과 일치했는지만 평가하고, 새로운 가격·시간·비율·조건을 만들어 지시하지 않는다."
+        "</judgment_rules>\n"
         "<evidence_rules>각 판단에는 종목명, 체결 가격, 수익률, 전후 봉, 거래량 또는 이동평균선 중 실제 숫자 근거를 붙인다. 문장마다 "
-        "필요에 따라 [데이터 확인], [합리적 추론], [추가 정보 필요] 중 하나로 근거 수준을 표시한다. 메모가 없어도 차트로 판단하되 "
-        "매매 이유를 지어내지 않는다. 완결된 매매가 5개 미만이면 반복 습관이라고 단정하지 말고 이번 매매에서 보인 잠정 패턴이라고 "
-        "쓴다.</evidence_rules>\n"
+        "과거 사실과 해석을 자연스러운 한국어로 구분한다. [데이터 확인], [합리적 추론] 같은 내부 분류 표시는 출력하지 않는다. "
+        "메모가 없어도 차트로 판단하되 매매 이유를 지어내지 않는다. 완결된 매매가 5개 미만이면 반복 습관이라고 단정하지 말고 이번 "
+        "매매에서 보인 잠정 패턴이라고 쓴다.</evidence_rules>\n"
         "<terminology>이동평균선은 MA5, MA10, MA20처럼 띄어쓰기 없는 표준 약어로 쓴다. 같은 답변에서 처음 언급할 때만 "
         "'1분봉 차트의 MA5', '일봉 차트의 MA20'처럼 차트 주기를 함께 적고, 이후에는 MA5처럼 간결하게 쓴다. '5분선'처럼 "
         "차트 주기와 이동평균 기간을 혼동할 수 있는 표현은 쓰지 않는다.</terminology>\n"
-        "<output_contract>'이번 매매 판단', '진입 가설과 무효화', '손절 기준', '매수·매도 대응', '다음 매매' 순서의 마크다운 "
-        "제목을 사용한다. 같은 원인의 문제를 여러 항목에서 반복하지 않는다. 마지막 '다음 매매'에는 가장 중요한 문제 1개, 다음에 "
-        "적용할 규칙 2개, 기록이 더 필요한 정보 1개만 쓴다. 짧은 문단과 목록으로 정리하고 투자 추천이나 종목 추천은 하지 않는다.</output_contract>"
+        "<output_contract>'이번 매매 판단', '진입 가설 검토', '위험 관리 검토', '매수·매도 대응', '다음 복기 질문' 순서의 마크다운 "
+        "제목을 사용한다. 같은 원인의 문제를 여러 항목에서 반복하지 않는다. 마지막에는 사용자가 과거 판단을 되짚을 질문 3개만 쓴다. "
+        "미래의 특정 가격·시각·날짜·조건에 따른 매수·매도·손절·청산 지시를 쓰지 않는다.</output_contract>"
     )
     try:
         ai_text = _call_openai_review(payload, model=model, instructions=instructions)
@@ -629,6 +647,8 @@ def build_advanced_ai_review(
                 ai_text = ""
         else:
             ai_text = ""
+        if _contains_prohibited_trade_guidance(ai_text):
+            ai_text = ""
         if not ai_text:
             return {
                 "status": "error",
@@ -639,6 +659,8 @@ def build_advanced_ai_review(
                 "chart_snapshots": chart_snapshots,
                 "chart_reviews": [item for snapshot in chart_snapshots for item in (snapshot.get("rule_based_observations") or [])],
             }
+    if _contains_prohibited_trade_guidance(ai_text):
+        ai_text = ""
 
     return {
         "status": "ready" if ai_text else "missing_key",

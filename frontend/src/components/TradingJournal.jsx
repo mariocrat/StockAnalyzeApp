@@ -96,6 +96,21 @@ function localDateText(date = new Date()) {
   return new Date(date.getTime() - offset).toISOString().slice(0, 10);
 }
 
+function formatKoreanDeadline(value) {
+  if (!value) return '만료 없음';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+}
+
 function tradeDatePart(value) {
   return String(value || '').split('T')[0] || '';
 }
@@ -1249,6 +1264,10 @@ export default function TradingJournal({
       setMessage('Pro 이용자는 월 제공되는 심화 복기 이용권을 광고 없이 사용할 수 있습니다.');
       return;
     }
+    if ((entitlements?.advanced?.weekly_advanced_granted || 0) >= 1) {
+      setMessage('이번 주 무료 심화 복기권은 이미 지급되었습니다. 다음 주 월요일 00:00부터 다시 광고를 적립할 수 있습니다.');
+      return;
+    }
     if ((entitlements?.advanced?.weekly_reward_remaining || 0) > 0) {
       setMessage('이미 무료 심화 복기권 1장을 보유하고 있습니다.');
       return;
@@ -1264,6 +1283,10 @@ export default function TradingJournal({
         }
         if (delayedReward.ad_reward.blocked_reason === 'pro_no_ads') {
           setMessage('Pro 이용자는 월 제공되는 심화 복기 이용권을 광고 없이 사용할 수 있습니다.');
+          return;
+        }
+        if (delayedReward.ad_reward.blocked_reason === 'weekly_reward_already_granted') {
+          setMessage('이번 주 무료 심화 복기권은 이미 지급되었습니다. 다음 주 월요일 00:00부터 다시 광고를 적립할 수 있습니다.');
           return;
         }
         const granted = delayedReward.ad_reward.advanced_ticket_granted;
@@ -1803,7 +1826,15 @@ export default function TradingJournal({
   const rewardedBasicNeedsFreeUsage = Boolean(
     entitlements && entitlements?.plan !== 'pro' && immediateFreeBasic > 0,
   );
-  const adPolicyText = `광고 ${adsPerAdvancedTicket}회 시청 시 주간 심화 복기 이용권 1장`;
+  const validity = entitlements?.validity || {};
+  const freePolicy = entitlements?.settings?.free_policy || {};
+  const dailyResetText = formatKoreanDeadline(validity.daily_reset_at);
+  const weeklyResetText = formatKoreanDeadline(validity.weekly_reset_at);
+  const monthlyResetText = formatKoreanDeadline(validity.monthly_reset_at);
+  const monthlyBasicMax = Number(freePolicy.monthly_basic_max || 30);
+  const rewardedBasicDailyMax = Number(freePolicy.rewarded_basic_daily_max || 2);
+  const weeklyRewardAlreadyGranted = Number(entitlements?.advanced?.weekly_advanced_granted || 0) >= 1;
+  const adPolicyText = `일반 복기용 광고를 포함해 광고 ${adsPerAdvancedTicket}회 시청 시 무료 심화 복기권 1장`;
   const adReadinessText = admobStatus.ready ? 'AdMob 보상형 광고 준비됨' : 'AdMob 광고 단위 설정 필요';
   const mobileAdStatusText = mobileAdStatus.native
     ? mobileAdStatus.productionMisconfigured
@@ -2302,6 +2333,28 @@ export default function TradingJournal({
           <div><span>Pro 심화 복기</span><strong>{entitlements?.advanced?.pro_monthly_remaining || 0}</strong></div>
           <div><span>구매 심화 복기권</span><strong>{entitlements?.advanced?.purchased_remaining || 0}</strong></div>
         </div>
+        <div className="journal-pass-validity">
+          <div>
+            <span>무료 일반 복기</span>
+            <strong>기본 1회/일 · 광고 추가 {rewardedBasicDailyMax}회/일 · 월 {monthlyBasicMax}회 한도</strong>
+            <em>{dailyResetText} 일일 초기화 · {monthlyResetText} 월간 초기화</em>
+          </div>
+          <div>
+            <span>무료 심화 복기권</span>
+            <strong>{adPolicyText}</strong>
+            <em>미사용 이용권과 광고 진행은 {weeklyResetText}에 초기화</em>
+          </div>
+          <div>
+            <span>Pro 월 제공량</span>
+            <strong>일반 35회 · 심화 15회</strong>
+            <em>{monthlyResetText}에 초기화</em>
+          </div>
+          <div>
+            <span>가입·구매 이용권</span>
+            <strong>가입 체험권 및 별도 구매권</strong>
+            <em>만료 없음</em>
+          </div>
+        </div>
         <div className="journal-ad-policy">
           <div>
             <span>광고 보상 정책</span>
@@ -2310,13 +2363,15 @@ export default function TradingJournal({
             <button
               type="button"
               className="journal-ad-reward-button"
-              disabled={adLoading || entitlements?.plan === 'pro' || (entitlements?.advanced?.weekly_reward_remaining || 0) > 0}
+              disabled={adLoading || entitlements?.plan === 'pro' || weeklyRewardAlreadyGranted || (entitlements?.advanced?.weekly_reward_remaining || 0) > 0}
               onClick={handleRewardedAdAdvancedTicket}
             >
               {adLoading
                 ? '광고 보상 확인 중'
                   : entitlements?.plan === 'pro'
                   ? 'Pro는 광고 없이 이용'
+                  : weeklyRewardAlreadyGranted
+                    ? '이번 주 무료 심화 복기권 지급 완료'
                   : (entitlements?.advanced?.weekly_reward_remaining || 0) > 0
                     ? '무료 심화 복기권 보유 중'
                     : '광고 보고 무료 심화 복기권 받기'}
