@@ -427,7 +427,7 @@ class BillingReadinessTest(unittest.TestCase):
                 catalog["google_play"]["missing_server_settings"],
             )
 
-    def test_ad_reward_advanced_threshold_is_configurable(self):
+    def test_basic_and_advanced_rewarded_ad_progress_are_separate(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ENV="development",
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
@@ -463,14 +463,32 @@ class BillingReadinessTest(unittest.TestCase):
 
             self.assertEqual("rewarded_ad_basic", first.source)
             self.assertEqual("rewarded_ad_basic", second.source)
-            self.assertEqual(1, second.quota["advanced"]["weekly_reward_remaining"])
-            self.assertEqual(0, second.quota["advanced"]["weekly_ad_views_needed"])
+            self.assertEqual(0, second.quota["advanced"]["weekly_reward_remaining"])
+            self.assertEqual(0, second.quota["advanced"]["weekly_ad_views"])
+            self.assertEqual(2, second.quota["advanced"]["weekly_ad_views_needed"])
 
             refunded = access_control.refund_ai_review_access(second)
 
-            self.assertEqual(1, refunded["advanced"]["weekly_reward_remaining"])
-            self.assertEqual(2, refunded["advanced"]["weekly_ad_views"])
-            self.assertEqual(0, refunded["advanced"]["weekly_ad_views_needed"])
+            self.assertEqual(0, refunded["advanced"]["weekly_reward_remaining"])
+            self.assertEqual(0, refunded["advanced"]["weekly_ad_views"])
+            self.assertEqual(2, refunded["advanced"]["weekly_ad_views_needed"])
+
+            advanced_first = access_control.claim_rewarded_ad_progress(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                ad_reward_token="dev-ad-reward",
+            )
+            advanced_second = access_control.claim_rewarded_ad_progress(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                ad_reward_token="dev-ad-reward",
+            )
+
+            self.assertEqual(1, advanced_first["advanced"]["weekly_ad_views"])
+            self.assertFalse(advanced_first["ad_reward"]["advanced_ticket_granted"])
+            self.assertEqual(2, advanced_second["advanced"]["weekly_ad_views"])
+            self.assertTrue(advanced_second["ad_reward"]["advanced_ticket_granted"])
+            self.assertEqual(1, advanced_second["advanced"]["weekly_reward_remaining"])
 
     def test_google_play_purchase_code_does_not_claim_subscription_verification_is_missing(self):
         code = (ROOT / "backend" / "core" / "access_control.py").read_text(encoding="utf-8")

@@ -1834,7 +1834,7 @@ export default function TradingJournal({
   const monthlyBasicMax = Number(freePolicy.monthly_basic_max || 30);
   const rewardedBasicDailyMax = Number(freePolicy.rewarded_basic_daily_max || 2);
   const weeklyRewardAlreadyGranted = Number(entitlements?.advanced?.weekly_advanced_granted || 0) >= 1;
-  const adPolicyText = `일반 복기용 광고를 포함해 광고 ${adsPerAdvancedTicket}회 시청 시 무료 심화 복기권 1장`;
+  const adPolicyText = `심화 복기권 받기 광고 ${adsPerAdvancedTicket}회 시청 시 무료 심화 복기권 1장`;
   const adReadinessText = admobStatus.ready ? 'AdMob 보상형 광고 준비됨' : 'AdMob 광고 단위 설정 필요';
   const mobileAdStatusText = mobileAdStatus.native
     ? mobileAdStatus.productionMisconfigured

@@ -840,7 +840,7 @@
 ## 2026-07-29 Review Quota, Expiry, and AI Safety Policy
 
 - Set the free basic-review policy to one daily grant plus at most two rewarded-ad reviews per day, with all free basic usage capped at 30 reviews per calendar month.
-- Count rewarded ads used for basic reviews toward the weekly five-ad advanced-review reward while allowing only one weekly advanced reward grant.
+- Keep basic-review rewarded ads separate from the weekly advanced-review reward: basic ads affect only the basic daily/monthly caps, while only ads started from the advanced-ticket action count toward the weekly five-ad reward.
 - Expire unused weekly advanced reward tickets and weekly ad progress every Monday at 00:00 KST; signup credits, first-login trial tickets, and purchased passes do not expire.
 - Changed the Pro monthly allowance to 35 basic reviews and 15 advanced reviews.
 - Added Korean reset and expiry guidance to the pass screen for daily, weekly, monthly, and non-expiring balances.

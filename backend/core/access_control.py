@@ -1467,9 +1467,6 @@ def _consume_basic(wallet: UserWallet, plan: str, ad_verified: bool) -> str:
     ):
         usage.rewarded_basic_daily_used += 1
         usage.free_basic_monthly_used += 1
-        if usage.weekly_advanced_granted < FREE_WEEKLY_ADVANCED_MAX:
-            usage.weekly_ad_views += 1
-            _grant_weekly_advanced_if_earned(wallet)
         return "rewarded_ad_basic"
     if _allow_advanced_for_basic() and wallet.purchased_advanced > 0:
         wallet.purchased_advanced -= 1
@@ -1907,8 +1904,6 @@ def refund_ai_review_access(access: AiAccessContext) -> dict:
         elif source == "rewarded_ad_basic":
             usage.rewarded_basic_daily_used = max(0, usage.rewarded_basic_daily_used - 1)
             usage.free_basic_monthly_used = max(0, usage.free_basic_monthly_used - 1)
-            if usage.weekly_advanced_granted < FREE_WEEKLY_ADVANCED_MAX:
-                usage.weekly_ad_views = max(0, usage.weekly_ad_views - 1)
         elif source == "purchased_basic":
             wallet.purchased_basic += 1
         elif source == "purchased_advanced_as_basic":
