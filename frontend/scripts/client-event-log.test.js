@@ -18,7 +18,7 @@ test('buildClientEventPayload redacts secret-like details before sending', () =>
     message: 'Purchase failed',
     path: '/journal',
     details: {
-      productId: 'basic_review_30',
+      productId: 'basic_review_15',
       purchaseToken: 'secret-purchase-token',
       nested: {
         authorization: 'Bearer secret-session-token',
@@ -29,7 +29,7 @@ test('buildClientEventPayload redacts secret-like details before sending', () =>
 
   const payloadText = JSON.stringify(payload);
   assert.equal(payload.event_type, 'google_play_purchase_failed');
-  assert.equal(payload.details.productId, 'basic_review_30');
+  assert.equal(payload.details.productId, 'basic_review_15');
   assert.equal(payload.details.nested.safe, 'visible');
   assert.doesNotMatch(payloadText, /secret-purchase-token/);
   assert.doesNotMatch(payloadText, /secret-session-token/);

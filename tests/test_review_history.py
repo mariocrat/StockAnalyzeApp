@@ -23,7 +23,7 @@ class ReviewHistoryStoreTest(unittest.TestCase):
                 trade_snapshot={"id": 7, "ticker": "005930", "name": "삼성전자"},
                 recent_trades_snapshot=[{"id": 7}],
                 chart_snapshot={"charts": [{"ticker": "005930"}]},
-                ai_review={"summary": "심층 복기 요약"},
+                ai_review={"summary": "심화 복기 요약"},
                 access_snapshot={"source": "purchased_advanced"},
                 model="gpt-5.5",
                 source="openai",
@@ -51,7 +51,7 @@ class ReviewHistoryStoreTest(unittest.TestCase):
             self.assertEqual(first["id"], rows[0]["id"])
             self.assertEqual("advanced", rows[0]["review_type"])
             self.assertEqual("삼성전자", detail["name"])
-            self.assertEqual("심층 복기 요약", detail["ai_review"]["summary"])
+            self.assertEqual("심화 복기 요약", detail["ai_review"]["summary"])
             self.assertEqual({"charts": [{"ticker": "005930"}]}, detail["chart_snapshot"])
             self.assertIsNone(review_history.get_review_history(first["id"], user_id="user-b"))
 
@@ -114,7 +114,7 @@ class ReviewHistoryStoreTest(unittest.TestCase):
             access_control.apply_dev_purchase(
                 authorization=token,
                 entitlement_token="",
-                product_id="advanced_review_5",
+                product_id="advanced_review_10",
             )
             batch = main.JournalAiReviewIn(
                 privacy_consent=True,

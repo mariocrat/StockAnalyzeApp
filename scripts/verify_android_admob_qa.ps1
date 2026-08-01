@@ -69,7 +69,6 @@ $allowedNames = @(
     "VITE_ADMOB_APP_OPEN_AD_UNIT_ID",
     "VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID",
     "VITE_ADMOB_BANNER_AD_UNIT_ID",
-    "VITE_QA_ADVANCED_COMPARISON",
     "ALPHAMATE_ANDROID_APP_NAME",
     "ALPHAMATE_ANDROID_VERSION_CODE",
     "ALPHAMATE_ANDROID_VERSION_NAME"
@@ -134,7 +133,6 @@ foreach ($blockedPublisher in @($googleDemoPublisher, $placeholderPublisher)) {
 $qaValues = @{
     VITE_ALPHAMATE_ENV = "development"
     VITE_ENABLE_DEV_TOOLS = "false"
-    VITE_QA_ADVANCED_COMPARISON = "true"
 }
 $managedNames = @($allowedNames + $qaValues.Keys | Select-Object -Unique)
 $oldValues = @{}
@@ -178,9 +176,6 @@ try {
         if (-not ($distFiles | Select-String -SimpleMatch $publicValues[$name] -Quiet)) {
             throw "Built web assets do not contain the configured AlphaMate ad unit ID: $name"
         }
-    }
-    if (-not ($distFiles | Select-String -SimpleMatch "luna-terra-v1" -Quiet)) {
-        throw "Built web assets do not contain the QA advanced comparison feature."
     }
     $secretNames = @("NAVER_CLIENT_SECRET", "KAKAO_CLIENT_SECRET", "OPENAI_API_KEY", "ALPHAMATE_OPENAI_API_KEY")
     $secretValues = Read-AllowedEnvFile -Path $backendReleaseEnv -AllowedNames $secretNames

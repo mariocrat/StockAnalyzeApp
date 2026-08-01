@@ -54,18 +54,9 @@ test('AI review sends only the explicitly selected trade episode', () => {
   assert.match(journalSource, /selectedReviewGroupKey/);
   assert.match(journalSource, /selectedReviewTrades/);
   assert.match(journalSource, /loadAiReview\(selectedReviewTrades, 'advanced'/);
-  assert.match(journalSource, /trades: selectedReviewTrades/);
+  assert.match(journalSource, /const loadAiReview = async \(nextTrades = trades/);
+  assert.match(journalSource, /trades: nextTrades/);
   assert.doesNotMatch(journalSource, /loadAiReview\(trades, 'advanced'/);
-});
-
-test('Luna and Terra comparison is isolated to the explicit QA build flag', () => {
-  assert.match(journalSource, /VITE_QA_ADVANCED_COMPARISON/);
-  assert.match(journalSource, /X-AlphaMate-QA-Comparison/);
-  assert.match(journalSource, /luna-terra-v1/);
-  assert.match(journalSource, /테스트 APK 전용 · 이용권 차감 없음/);
-  assert.match(journalSource, /매매 차트 보기/);
-  assert.match(journalSource, /setShowCurrentReviewDetails\(true\)/);
-  assert.match(cssSource, /\.journal-ai-document h4/);
 });
 
 test('mobile entitlement balances remain in a compact three-column grid', () => {
@@ -75,7 +66,7 @@ test('mobile entitlement balances remain in a compact three-column grid', () => 
 test('advanced review shortage opens a Korean pass dialog instead of an inline AI error', () => {
   assert.match(journalSource, /err\.response\?\.status === 402/);
   assert.match(journalSource, /reviewType === 'advanced' \? 'advanced' : 'basic'/);
-  assert.match(journalSource, /심화 복기 이용권이 필요합니다/);
+  assert.match(journalSource, /심화 복기권이 필요합니다/);
   assert.match(journalSource, /onClick=\{startAdvancedReview\}/);
   assert.match(journalSource, /showReviewPasses/);
 });
@@ -143,7 +134,7 @@ test('successful AI review is not replaced by a failed follow-up refresh', () =>
 test('AI review loading is prominent and selected chart follows trade selection', () => {
   assert.match(journalSource, /className="journal-ai-loading" role="status" aria-live="polite"/);
   assert.match(journalSource, /AI 복기 분석 중/);
-  assert.match(journalSource, /심화 복기 비교 분석 중/);
+  assert.doesNotMatch(journalSource, /심화 복기 비교 분석 중/);
 
   const selectionIndex = journalSource.indexOf('복기할 매매 선택');
   const actionIndex = journalSource.indexOf('journal-review-actions');
@@ -165,7 +156,8 @@ test('review picker shows recent trades, supports search, and QA requests carry 
   assert.match(journalSource, /reviewTargetFrom/);
   assert.match(journalSource, /reviewTargetTo/);
   assert.match(journalSource, /visibleReviewTradeGroups/);
-  assert.match(journalSource, /target_trade_id: selectedReviewGroup\?\.targetTradeId \|\| null/);
+  assert.match(journalSource, /target_trade_id: options\.targetTradeId \|\| null/);
+  assert.match(journalSource, /targetTradeId: selectedReviewGroup\?\.targetTradeId/);
   assert.doesNotMatch(journalSource, /setSelectedReviewGroupKey\(reviewTradeGroups\[0\]\.key\)/);
   assert.doesNotMatch(journalSource, /reviewTargetPickerOpen/);
   assert.doesNotMatch(journalSource, /className="journal-advice"/);

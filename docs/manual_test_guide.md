@@ -82,7 +82,7 @@ root `.env` 또는 backend `.env`:
 3. `일반 복기`를 실행합니다.
 4. 결과가 한 줄 총평, 잘한 점, 아쉬운 점, 다음 체크리스트 3개 중심으로 짧게 나오는지 확인합니다.
 5. `심화 복기`를 실행합니다.
-6. 심화 복기 이용권이 없으면 구매 또는 광고 보상 안내가 나오는지 확인합니다.
+6. 심화 복기권이 없으면 구매 또는 광고 보상 안내가 나오는지 확인합니다.
 
 ## 6. 개발 데이터 초기화
 
@@ -138,19 +138,18 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/app/readiness
 - 응답에는 API Key, client secret, Google 서비스 계정 JSON 원문이 포함되면 안 됩니다.
 
 1. backend가 켜진 상태에서 `http://127.0.0.1:8002/api/journal/products`를 엽니다.
-2. `consumables`에 일반/심화 복기 이용권 상품이 보이는지 확인합니다.
+2. `consumables`에 일반/심화 복기권 상품이 보이는지 확인합니다.
 3. `subscriptions`에 Pro 월 구독 상품이 보이는지 확인합니다.
 4. `google_play.missing_server_settings`에 빠진 서버 설정이 표시되는지 확인합니다.
-5. Android 앱에서는 이용권 구매 버튼이 Google Play Billing SDK를 열고, 구매 token을 `POST /api/journal/google-play-purchase`로 보내 서버 검증을 요청합니다.
+5. Android 앱에서는 복기권 구매 버튼이 Google Play Billing SDK를 열고, 구매 token을 `POST /api/journal/google-play-purchase`로 보내 서버 검증을 요청합니다.
 6. Google Play 구매 요청 endpoint는 실제 Google Play purchase token이 검증된 경우에만 복기권을 지급합니다.
 
 운영 모드에서 필요한 Google Play 상품 ID 환경변수:
 
-- `GOOGLE_PLAY_BASIC_REVIEW_30_ID`
-- `GOOGLE_PLAY_BASIC_REVIEW_50_ID`
-- `GOOGLE_PLAY_ADVANCED_REVIEW_5_ID`
+- `GOOGLE_PLAY_BASIC_REVIEW_15_ID`
+- `GOOGLE_PLAY_BASIC_REVIEW_25_ID`
 - `GOOGLE_PLAY_ADVANCED_REVIEW_10_ID`
-- `GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID`
+- `GOOGLE_PLAY_ADVANCED_REVIEW_20_ID`
 - `GOOGLE_PLAY_PRO_MONTHLY_ID`
 
 정상 결과:
@@ -191,7 +190,7 @@ Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8002/api/app/readiness
 
 광고 정책 설정:
 
-- `ALPHAMATE_ADS_PER_ADVANCED_TICKET=5`: 광고 5회 시청 시 주간 심화 복기 이용권 1장 지급
+- `ALPHAMATE_ADS_PER_ADVANCED_TICKET=5`: 광고 5회 시청 시 주간 무료 심화 복기권 1장 지급
 - `ALPHAMATE_FORCE_REWARDED_AD_CHAIN=false`: 여러 보상형 광고를 연속으로 강제하지 않음
 - `GET /api/journal/products`에서 `admob.ready`, `settings.ad_policy` 값을 확인할 수 있습니다.
 

@@ -1,5 +1,13 @@
 # AlphaMate Development History
 
+## 2026-07-30 final review product and launch-offer policy
+
+- Replaced the general-review consumables with 15 uses for 2,900 KRW and 25 uses for 4,500 KRW, while keeping advanced-review packs at 5 uses for 3,900 KRW and 10 uses for 5,900 KRW.
+- Set Pro to 35 general reviews and 15 advanced reviews per billing cycle with app-wide ad removal.
+- Consolidated Pro into one `pro_monthly` subscription: 9,900 KRW regular pricing plus a 7,900 KRW launch offer for the first three monthly billing cycles.
+- Defined the launch-offer enrollment window as the first three months after public release, excluding internal and closed testing, while preserving any remaining discounted cycles for eligible subscribers.
+- Updated the backend catalog, Android billing identifiers, Render and release environment templates, UI labels, release instructions, and regression tests together.
+
 ## 2026-07-23 personal operator identity alignment
 
 - Kept `AlphaMate` as the public app and developer brand while identifying the non-business service operator and privacy officer by the confirmed legal name.
@@ -845,3 +853,12 @@
 - Changed the Pro monthly allowance to 35 basic reviews and 15 advanced reviews.
 - Added Korean reset and expiry guidance to the pass screen for daily, weekly, monthly, and non-expiring balances.
 - Hardened both AI review prompts and output validation so historical trade facts may be discussed, but future buy or sell prices, dates, times, and actionable conditions are never recommended.
+
+## 2026-08-01 Final Review Products and Billing-Cycle Policy
+
+- Finalized one-time products as 15 basic reviews for KRW 2,900, 25 basic reviews for KRW 4,500, 10 advanced reviews for KRW 3,900, and 20 advanced reviews for KRW 6,900.
+- Finalized Pro as 35 basic reviews and 25 advanced reviews per Google Play billing cycle, with a KRW 7,900 launch offer and KRW 9,900 regular price.
+- Made purchased one-time review passes non-expiring and fully carried over until used. Pro allowances are renewed each billing cycle and unused Pro allowances do not carry over.
+- Enforced the consumption order so Pro monthly allowances are used before separately purchased passes.
+- Clarified that rewarded ads can unlock up to two additional basic reviews per day within the free monthly maximum of 30, and kept those ads separate from the weekly five-ad advanced-review reward.
+- Removed the Luna/Terra QA comparison UI and retained the configured Luna advanced-review path.

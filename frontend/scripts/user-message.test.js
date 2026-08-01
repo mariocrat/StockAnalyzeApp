@@ -37,7 +37,7 @@ test('replaces unknown English errors with a safe Korean fallback', () => {
 test('localizes advanced review access errors', () => {
   const message = toKoreanUserMessage('Advanced review ticket required.');
 
-  assert.equal(message, '심화 복기 이용권이 필요합니다. 이용권을 확인해 주세요.');
+  assert.equal(message, '심화 복기권이 필요합니다. 보유 복기권을 확인해 주세요.');
 });
 
 test('keeps deliberate Korean debug guidance even when it names AdMob', () => {

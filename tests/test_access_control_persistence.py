@@ -54,7 +54,7 @@ class AccessControlPersistenceTest(unittest.TestCase):
                 )
 
             self.assertEqual(402, raised.exception.status_code)
-            self.assertIn("심화 복기 이용권이 필요합니다", raised.exception.detail)
+            self.assertIn("심화 복기권이 필요합니다", raised.exception.detail)
 
     def test_rewarded_ads_can_be_claimed_toward_advanced_ticket(self):
         with tempfile.TemporaryDirectory() as tmpdir, patch.dict(os.environ, {
@@ -124,7 +124,7 @@ class AccessControlPersistenceTest(unittest.TestCase):
             access_control.apply_dev_purchase(
                 authorization="Bearer dev-token",
                 entitlement_token="",
-                product_id="advanced_review_5",
+                product_id="advanced_review_10",
             )
             access_control.verify_ai_review_access(
                 authorization="Bearer dev-token",
@@ -140,7 +140,8 @@ class AccessControlPersistenceTest(unittest.TestCase):
                 entitlement_token="",
             )
 
-            self.assertEqual(4, entitlements["advanced"]["purchased_remaining"])
+            self.assertEqual(9, entitlements["advanced"]["purchased_remaining"])
+            self.assertIsNone(entitlements["validity"]["purchased_pass_expires_at"])
 
 
 if __name__ == "__main__":

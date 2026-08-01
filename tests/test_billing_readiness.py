@@ -227,7 +227,7 @@ class BillingReadinessTest(unittest.TestCase):
         with patched_env(
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
-            GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
+            GOOGLE_PLAY_BASIC_REVIEW_15_ID="alphamate.basic.15",
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
             ALPHAMATE_ADS_PER_ADVANCED_TICKET="3",
             ALPHAMATE_FORCE_REWARDED_AD_CHAIN="false",
@@ -237,7 +237,7 @@ class BillingReadinessTest(unittest.TestCase):
             access_control = importlib.reload(access_control)
             catalog = access_control.get_product_catalog()
 
-            self.assertEqual("alphamate.basic.30", catalog["consumables"]["basic_review_30"]["google_play_product_id"])
+            self.assertEqual("alphamate.basic.15", catalog["consumables"]["basic_review_15"]["google_play_product_id"])
             self.assertTrue(catalog["google_play"]["ready"])
             self.assertTrue(catalog["google_play"]["service_account_configured"])
             self.assertTrue(catalog["admob"]["ready"])
@@ -255,19 +255,27 @@ class BillingReadinessTest(unittest.TestCase):
         catalog = access_control.get_product_catalog()
 
         self.assertNotIn("basic_review_100", catalog["consumables"])
-        self.assertEqual(30, catalog["consumables"]["basic_review_30"]["quantity"])
-        self.assertEqual(2900, catalog["consumables"]["basic_review_30"]["price_krw"])
-        self.assertEqual(50, catalog["consumables"]["basic_review_50"]["quantity"])
-        self.assertEqual(4500, catalog["consumables"]["basic_review_50"]["price_krw"])
-        self.assertEqual(5, catalog["consumables"]["advanced_review_5"]["quantity"])
-        self.assertEqual(3900, catalog["consumables"]["advanced_review_5"]["price_krw"])
+        self.assertEqual(15, catalog["consumables"]["basic_review_15"]["quantity"])
+        self.assertEqual(2900, catalog["consumables"]["basic_review_15"]["price_krw"])
+        self.assertEqual(25, catalog["consumables"]["basic_review_25"]["quantity"])
+        self.assertEqual(4500, catalog["consumables"]["basic_review_25"]["price_krw"])
+        self.assertNotIn("advanced_review_5", catalog["consumables"])
         self.assertEqual(10, catalog["consumables"]["advanced_review_10"]["quantity"])
-        self.assertEqual(5900, catalog["consumables"]["advanced_review_10"]["price_krw"])
+        self.assertEqual(3900, catalog["consumables"]["advanced_review_10"]["price_krw"])
+        self.assertEqual(20, catalog["consumables"]["advanced_review_20"]["quantity"])
+        self.assertEqual(6900, catalog["consumables"]["advanced_review_20"]["price_krw"])
 
-        launch = catalog["subscriptions"]["pro_monthly_launch"]
-        regular = catalog["subscriptions"]["pro_monthly"]
-        self.assertEqual((35, 15, 5900), (launch["monthly_basic"], launch["monthly_advanced"], launch["price_krw"]))
-        self.assertEqual((35, 15, 7900), (regular["monthly_basic"], regular["monthly_advanced"], regular["price_krw"]))
+        pro = catalog["subscriptions"]["pro_monthly"]
+        self.assertEqual((35, 25, 9900), (pro["monthly_basic"], pro["monthly_advanced"], pro["price_krw"]))
+        self.assertEqual(
+            {
+                "price_krw": 7900,
+                "enrollment_window_months": 3,
+                "discounted_billing_cycles": 3,
+                "starts_from": "public_release",
+            },
+            pro["launch_offer"],
+        )
 
     def test_ad_policy_caps_ads_per_advanced_ticket_setting(self):
         with patched_env(ALPHAMATE_ADS_PER_ADVANCED_TICKET="999999"):
@@ -325,11 +333,10 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ENV="production",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
-            GOOGLE_PLAY_BASIC_REVIEW_30_ID=None,
-            GOOGLE_PLAY_BASIC_REVIEW_50_ID=None,
-            GOOGLE_PLAY_ADVANCED_REVIEW_5_ID=None,
+            GOOGLE_PLAY_BASIC_REVIEW_15_ID=None,
+            GOOGLE_PLAY_BASIC_REVIEW_25_ID=None,
             GOOGLE_PLAY_ADVANCED_REVIEW_10_ID=None,
-            GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID=None,
+            GOOGLE_PLAY_ADVANCED_REVIEW_20_ID=None,
             GOOGLE_PLAY_PRO_MONTHLY_ID=None,
         ):
             from backend.core import access_control
@@ -339,7 +346,7 @@ class BillingReadinessTest(unittest.TestCase):
 
             self.assertFalse(catalog["google_play"]["ready"])
             self.assertIn(
-                "GOOGLE_PLAY_BASIC_REVIEW_30_ID",
+                "GOOGLE_PLAY_BASIC_REVIEW_15_ID",
                 catalog["google_play"]["missing_server_settings"],
             )
             self.assertIn(
@@ -354,11 +361,10 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ENV="production",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
-            GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.duplicate",
-            GOOGLE_PLAY_BASIC_REVIEW_50_ID="alphamate.duplicate",
-            GOOGLE_PLAY_ADVANCED_REVIEW_5_ID="alphamate.advanced.5",
+            GOOGLE_PLAY_BASIC_REVIEW_15_ID="alphamate.duplicate",
+            GOOGLE_PLAY_BASIC_REVIEW_25_ID="alphamate.duplicate",
             GOOGLE_PLAY_ADVANCED_REVIEW_10_ID="alphamate.advanced.10",
-            GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
+            GOOGLE_PLAY_ADVANCED_REVIEW_20_ID="alphamate.advanced.20",
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-token-with-at-least-32-characters",
         ):
@@ -378,11 +384,10 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ENV="production",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
-            GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
-            GOOGLE_PLAY_BASIC_REVIEW_50_ID="alphamate.basic.50",
-            GOOGLE_PLAY_ADVANCED_REVIEW_5_ID="alphamate.advanced.5",
+            GOOGLE_PLAY_BASIC_REVIEW_15_ID="alphamate.basic.15",
+            GOOGLE_PLAY_BASIC_REVIEW_25_ID="alphamate.basic.25",
             GOOGLE_PLAY_ADVANCED_REVIEW_10_ID="alphamate.advanced.10",
-            GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
+            GOOGLE_PLAY_ADVANCED_REVIEW_20_ID="alphamate.advanced.20",
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="short-rtdn-token",
         ):
@@ -402,11 +407,10 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ENV="production",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
-            GOOGLE_PLAY_BASIC_REVIEW_30_ID="alphamate.basic.30",
-            GOOGLE_PLAY_BASIC_REVIEW_50_ID="alphamate.basic.50",
-            GOOGLE_PLAY_ADVANCED_REVIEW_5_ID="alphamate.advanced.5",
+            GOOGLE_PLAY_BASIC_REVIEW_15_ID="alphamate.basic.15",
+            GOOGLE_PLAY_BASIC_REVIEW_25_ID="alphamate.basic.25",
             GOOGLE_PLAY_ADVANCED_REVIEW_10_ID="alphamate.advanced.10",
-            GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID="alphamate.pro.launch",
+            GOOGLE_PLAY_ADVANCED_REVIEW_20_ID="alphamate.advanced.20",
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-token-with-at-least-32-characters",
             GOOGLE_PLAY_RTDN_OIDC_AUDIENCE="https://your-api.example.com/api/journal/google-play-rtdn",
@@ -490,6 +494,39 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertTrue(advanced_second["ad_reward"]["advanced_ticket_granted"])
             self.assertEqual(1, advanced_second["advanced"]["weekly_reward_remaining"])
 
+    def test_basic_rewarded_ad_does_not_consume_purchased_pass(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            for _ in range(6):
+                access_control.verify_ai_review_access(
+                    authorization="Bearer dev-token",
+                    ad_reward_token="",
+                    entitlement_token="",
+                    privacy_consent=True,
+                    review_type="basic",
+                )
+
+            wallet = access_control._wallet_for("dev-user", "free")
+            wallet.purchased_basic = 15
+            access_control._save_wallet("dev-user", wallet)
+
+            access = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="dev-ad-reward",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="basic",
+            )
+
+            self.assertEqual("rewarded_ad_basic", access.source)
+            self.assertEqual(15, access.quota["basic"]["purchased_remaining"])
+
     def test_google_play_purchase_code_does_not_claim_subscription_verification_is_missing(self):
         code = (ROOT / "backend" / "core" / "access_control.py").read_text(encoding="utf-8")
 
@@ -511,7 +548,7 @@ class BillingReadinessTest(unittest.TestCase):
             with self.assertRaises(HTTPException) as raised:
                 access_control.apply_google_play_purchase(
                     authorization="Bearer dev-token",
-                    product_id="basic_review_30",
+                    product_id="basic_review_15",
                     purchase_token="purchase-token",
                 )
 
@@ -531,7 +568,7 @@ class BillingReadinessTest(unittest.TestCase):
             with self.assertRaises(HTTPException) as raised:
                 access_control.apply_google_play_purchase(
                     authorization="Bearer dev-token",
-                    product_id="basic_review_30",
+                    product_id="basic_review_15",
                     purchase_token="purchase-token",
                     package_name="com.alphamate.app",
                 )
@@ -570,19 +607,19 @@ class BillingReadinessTest(unittest.TestCase):
 
             first = access_control.apply_google_play_purchase(
                 authorization="Bearer dev-token",
-                product_id="basic_review_30",
+                product_id="basic_review_15",
                 purchase_token="purchase-token",
                 package_name="com.alphamate.app",
             )
             second = access_control.apply_google_play_purchase(
                 authorization="Bearer dev-token",
-                product_id="basic_review_30",
+                product_id="basic_review_15",
                 purchase_token="purchase-token",
                 package_name="com.alphamate.app",
             )
 
-            self.assertEqual(30, first["basic"]["purchased_remaining"])
-            self.assertEqual(30, second["basic"]["purchased_remaining"])
+            self.assertEqual(15, first["basic"]["purchased_remaining"])
+            self.assertEqual(15, second["basic"]["purchased_remaining"])
             self.assertEqual("applied", first["purchase"]["status"])
             self.assertEqual("already_applied", second["purchase"]["status"])
             self.assertEqual(1, len(consumed))
@@ -596,7 +633,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
-            GOOGLE_PLAY_BASIC_REVIEW_30_ID=long_product_id,
+            GOOGLE_PLAY_BASIC_REVIEW_15_ID=long_product_id,
         ):
             from backend.core import access_control
 
@@ -612,7 +649,7 @@ class BillingReadinessTest(unittest.TestCase):
 
             access_control.apply_google_play_purchase(
                 authorization="Bearer dev-token",
-                product_id="basic_review_30",
+                product_id="basic_review_15",
                 purchase_token="purchase-token",
                 package_name="com.alphamate.app",
             )
@@ -659,19 +696,19 @@ class BillingReadinessTest(unittest.TestCase):
 
             first = access_control.apply_google_play_purchase(
                 authorization="Bearer dev-token",
-                product_id="basic_review_30",
+                product_id="basic_review_15",
                 purchase_token="purchase-token",
                 package_name="com.alphamate.app",
             )
             second = access_control.apply_google_play_purchase(
                 authorization="Bearer dev-token",
-                product_id="basic_review_30",
+                product_id="basic_review_15",
                 purchase_token="purchase-token",
                 package_name="com.alphamate.app",
             )
 
-            self.assertEqual(30, first["basic"]["purchased_remaining"])
-            self.assertEqual(30, second["basic"]["purchased_remaining"])
+            self.assertEqual(15, first["basic"]["purchased_remaining"])
+            self.assertEqual(15, second["basic"]["purchased_remaining"])
             self.assertEqual("consume_pending", first["purchase"]["status"])
             self.assertEqual("consume_completed", second["purchase"]["status"])
             self.assertEqual(2, len(consumed))
@@ -696,7 +733,7 @@ class BillingReadinessTest(unittest.TestCase):
             with self.assertRaises(HTTPException) as raised:
                 access_control.apply_google_play_purchase(
                     authorization="Bearer dev-token",
-                    product_id="basic_review_30",
+                    product_id="basic_review_15",
                     purchase_token="purchase-token",
                     package_name="com.alphamate.app",
                 )
@@ -740,7 +777,7 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("active", result["purchase"]["status"])
             self.assertEqual("pro", entitlements["plan"])
             self.assertEqual(35, entitlements["basic"]["pro_monthly_remaining"])
-            self.assertEqual(15, entitlements["advanced"]["pro_monthly_remaining"])
+            self.assertEqual(25, entitlements["advanced"]["pro_monthly_remaining"])
 
     def test_google_play_subscription_stored_fields_are_length_limited(self):
         long_product_id = "alphamate.pro." + ("p" * 500)
@@ -982,7 +1019,125 @@ class BillingReadinessTest(unittest.TestCase):
 
             self.assertEqual("pro", access.plan)
             self.assertEqual("pro_monthly_advanced", access.source)
-            self.assertEqual(14, access.quota["advanced"]["pro_monthly_remaining"])
+            self.assertEqual(24, access.quota["advanced"]["pro_monthly_remaining"])
+
+    def test_pro_advanced_quota_is_consumed_before_purchased_pass(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_10",
+            )
+            access_control._verify_google_play_subscription = lambda **kwargs: {
+                "package_name": "com.alphamate.app",
+                "product_id": "pro_monthly",
+                "subscription_state": "SUBSCRIPTION_STATE_ACTIVE",
+                "expiry_time": "2099-01-01T00:00:00Z",
+                "latest_order_id": "GPA.pro.priority",
+                "auto_renewing": True,
+            }
+            access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="pro_monthly",
+                purchase_token="subscription-priority-token",
+                package_name="com.alphamate.app",
+            )
+
+            for _ in range(25):
+                access = access_control.verify_ai_review_access(
+                    authorization="Bearer dev-token",
+                    ad_reward_token="",
+                    entitlement_token="",
+                    privacy_consent=True,
+                    review_type="advanced",
+                )
+                self.assertEqual("pro_monthly_advanced", access.source)
+
+            before_purchased_use = access_control.get_user_entitlements(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+            )
+            self.assertEqual(0, before_purchased_use["advanced"]["pro_monthly_remaining"])
+            self.assertEqual(10, before_purchased_use["advanced"]["purchased_remaining"])
+
+            purchased_access = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="advanced",
+            )
+            self.assertEqual("purchased_advanced", purchased_access.source)
+            self.assertEqual(9, purchased_access.quota["advanced"]["purchased_remaining"])
+
+    def test_pro_billing_cycle_renewal_preserves_purchased_passes(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_10",
+            )
+            subscription = {
+                "subscription_state": "SUBSCRIPTION_STATE_ACTIVE",
+                "expiry_time": "2099-01-01T00:00:00Z",
+                "latest_order_id": "GPA.pro.cycle.1",
+                "auto_renewing": True,
+            }
+
+            def fake_verify(**kwargs):
+                return {
+                    "package_name": "com.alphamate.app",
+                    "product_id": "pro_monthly",
+                    **subscription,
+                }
+
+            access_control._verify_google_play_subscription = fake_verify
+            access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="pro_monthly",
+                purchase_token="subscription-renewal-token",
+                package_name="com.alphamate.app",
+            )
+            access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="advanced",
+            )
+
+            subscription.update({
+                "expiry_time": "2099-02-01T00:00:00Z",
+                "latest_order_id": "GPA.pro.cycle.2",
+            })
+            renewed = access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="pro_monthly",
+                purchase_token="subscription-renewal-token",
+                package_name="com.alphamate.app",
+            )
+
+            self.assertEqual(25, renewed["advanced"]["pro_monthly_remaining"])
+            self.assertEqual(10, renewed["advanced"]["purchased_remaining"])
+            self.assertIsNone(renewed["validity"]["purchased_pass_expires_at"])
 
     def test_inactive_subscription_refresh_disables_previous_pro_plan(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(

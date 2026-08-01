@@ -34,8 +34,6 @@ const DEV_AD_REWARD_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_AD_REWA
 const DEV_ACCESS_PLAN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_ACCESS_PLAN || 'free' : 'free';
 const DEV_PRO_ENTITLEMENT_TOKEN = DEV_TOOLS_ENABLED ? import.meta.env.VITE_DEV_PRO_ENTITLEMENT_TOKEN || 'dev-pro-entitlement' : '';
 const DEV_ENTITLEMENT_TOKEN = DEV_ACCESS_PLAN === 'pro' ? DEV_PRO_ENTITLEMENT_TOKEN : '';
-const QA_ADVANCED_COMPARISON_ENABLED = import.meta.env.VITE_QA_ADVANCED_COMPARISON === 'true';
-const QA_ADVANCED_COMPARISON_VERSION = 'luna-terra-v1';
 const BASIC_REVIEW_FOCUSES = ['balanced', 'entry_timing', 'exit_timing', 'risk_control'];
 const AUTH_STORAGE_KEY = 'alphamate.devAuth.v1';
 const OAUTH_STATE_KEY = 'alphamate.oauthState.v1';
@@ -51,23 +49,28 @@ const DEV_LOGIN_PROFILES = {
   naver: { label: '네이버', provider_user_id: 'dev-naver-user', display_name: '네이버 테스트' },
 };
 const REVIEW_PRODUCTS = [
-  ['basic_review_30', '일반 복기 이용권 30회', '2,900원'],
-  ['basic_review_50', '일반 복기 이용권 50회', '4,500원'],
-  ['advanced_review_5', '심화 복기 이용권 5회', '3,900원'],
-  ['advanced_review_10', '심화 복기 이용권 10회', '5,900원'],
+  ['basic_review_15', '일반 복기권 15회', '2,900원'],
+  ['basic_review_25', '일반 복기권 25회', '4,500원'],
+  ['advanced_review_10', '심화 복기권 10회', '3,900원'],
+  ['advanced_review_20', '심화 복기권 20회', '6,900원'],
+];
+const PRO_PRODUCT = [
+  'pro_monthly',
+  'Pro 월 구독 · 일반 35회 + 심화 25회 · 광고 제거',
+  '출시 혜택 대상은 첫 3개월 월 7,900원 · 이후 월 9,900원',
 ];
 const chartIntervalLabel = { '1m': '1분봉', '3m': '3분봉', '1d': '일봉', '1wk': '주봉' };
 const reviewSourceLabels = {
-  signup_basic: '가입 축하 제공량',
+  signup_basic: '가입 축하 일반 복기권',
   signup_advanced: '무료 심화 복기권',
-  free_daily_basic: '무료 일일 제공량',
-  rewarded_ad_basic: '광고 보상 제공량',
-  pro_monthly_basic: 'Pro 월 제공량',
-  pro_monthly_advanced: 'Pro 심화 복기 제공량',
+  free_daily_basic: '무료 일반 복기권',
+  rewarded_ad_basic: '광고 보상 일반 복기권',
+  pro_monthly_basic: 'Pro 일반 복기권',
+  pro_monthly_advanced: 'Pro 심화 복기권',
   weekly_ad_advanced: '무료 심화 복기권',
-  purchased_basic: '구매한 일반 복기 이용권',
-  purchased_advanced: '구매한 심화 복기 이용권',
-  purchased_advanced_as_basic: '심화 복기 이용권 전환 사용',
+  purchased_basic: '구매 일반 복기권',
+  purchased_advanced: '구매 심화 복기권',
+  purchased_advanced_as_basic: '심화 복기권 전환 사용',
 };
 
 const emptyForm = {
@@ -328,8 +331,6 @@ export default function TradingJournal({
   const [reviewHistory, setReviewHistory] = useState([]);
   const [activeReviewHistory, setActiveReviewHistory] = useState(null);
   const [reviewHistoryLoading, setReviewHistoryLoading] = useState(false);
-  const [qaComparisonLoading, setQaComparisonLoading] = useState('');
-  const [qaComparisonResults, setQaComparisonResults] = useState({ luna: null, terra: null });
   const [selectedReviewGroupKey, setSelectedReviewGroupKey] = useState('');
   const [reviewTargetQuery, setReviewTargetQuery] = useState('');
   const [reviewTargetFrom, setReviewTargetFrom] = useState('');
@@ -591,7 +592,6 @@ export default function TradingJournal({
       setChartReview(charts);
       setActiveChartTicker(charts.charts?.[0]?.ticker || '');
       setAiReview(null);
-      setQaComparisonResults({ luna: null, terra: null });
       setShowCurrentReviewDetails(false);
       setJournalSubView('review');
       setMessage(`'${preferredGroup?.name || '선택한 종목'}' 매매 기록 ${reviewTrades.length}건을 불러왔습니다.`);
@@ -688,7 +688,6 @@ export default function TradingJournal({
     setChartReview({ charts: [] });
     setActiveChartTicker('');
     setShowCurrentReviewDetails(false);
-    setQaComparisonResults({ luna: null, terra: null });
     setSelectedReviewGroupKey('');
     setReviewTargetQuery('');
     setReviewTargetFrom('');
@@ -1077,7 +1076,6 @@ export default function TradingJournal({
   const chooseReviewGroup = (groupKey) => {
     setSelectedReviewGroupKey(groupKey);
     setAiReview(null);
-    setQaComparisonResults({ luna: null, terra: null });
     setShowCurrentReviewDetails(false);
   };
 
@@ -1123,7 +1121,7 @@ export default function TradingJournal({
         setShowCurrentReviewDetails(true);
       }
       if (res.data?.status === 'error') {
-        setMessage('AI 서버 응답을 완료하지 못했습니다. 사용한 복기 이용권은 다시 돌려드렸습니다.');
+      setMessage('AI 서버 응답을 완료하지 못했습니다. 사용한 복기권은 다시 돌려드렸습니다.');
       }
       if (res.data?.access?.wallet) setEntitlements(res.data.access.wallet);
       const followUpRefreshes = [];
@@ -1168,49 +1166,6 @@ export default function TradingJournal({
       return;
     }
     loadAiReview(selectedReviewTrades, 'advanced', { targetTradeId: selectedReviewGroup?.targetTradeId });
-  };
-
-  const runQaAdvancedComparison = async (modelVariant) => {
-    if (!QA_ADVANCED_COMPARISON_ENABLED) return;
-    if (!authSession?.session_token) {
-      setMessage('QA 모델 비교는 카카오 또는 네이버 로그인 후 사용할 수 있습니다.');
-      return;
-    }
-    if (!selectedReviewTrades.length) {
-      setMessage('비교할 매매를 먼저 선택해 주세요.');
-      return;
-    }
-    if (!aiConsentAccepted) {
-      setMessage('AI 분석을 위한 정보 전송 동의가 필요합니다.');
-      return;
-    }
-
-    setQaComparisonLoading(modelVariant);
-    try {
-      const res = await axios.post(
-        `${apiBase}/api/journal/qa/advanced-comparison`,
-        {
-          trades: selectedReviewTrades,
-          model_variant: modelVariant,
-          privacy_consent: true,
-          target_trade_id: selectedReviewGroup?.targetTradeId || null,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${authSession.session_token}`,
-            'X-AlphaMate-QA-Comparison': QA_ADVANCED_COMPARISON_VERSION,
-          },
-        },
-      );
-      setQaComparisonResults(prev => ({ ...prev, [modelVariant]: res.data || null }));
-      await loadReviewContextForTrades(selectedReviewTrades);
-      setShowCurrentReviewDetails(true);
-      setMessage(`${modelVariant === 'luna' ? 'Luna' : 'Terra'} 심화 복기 비교 결과를 받았습니다. 같은 버튼을 다시 눌러도 추가 API 비용 없이 저장된 결과를 보여줍니다.`);
-    } catch (err) {
-      setMessage(err.response?.data?.detail || 'QA 심화 복기 비교를 완료하지 못했습니다.');
-    } finally {
-      setQaComparisonLoading('');
-    }
   };
 
   const showReviewPasses = () => {
@@ -1261,7 +1216,7 @@ export default function TradingJournal({
       return;
     }
     if (entitlements?.plan === 'pro') {
-      setMessage('Pro 이용자는 월 제공되는 심화 복기 이용권을 광고 없이 사용할 수 있습니다.');
+      setMessage('Pro 이용자는 월 제공되는 심화 복기권을 광고 없이 사용할 수 있습니다.');
       return;
     }
     if ((entitlements?.advanced?.weekly_advanced_granted || 0) >= 1) {
@@ -1282,7 +1237,7 @@ export default function TradingJournal({
           return;
         }
         if (delayedReward.ad_reward.blocked_reason === 'pro_no_ads') {
-          setMessage('Pro 이용자는 월 제공되는 심화 복기 이용권을 광고 없이 사용할 수 있습니다.');
+          setMessage('Pro 이용자는 월 제공되는 심화 복기권을 광고 없이 사용할 수 있습니다.');
           return;
         }
         if (delayedReward.ad_reward.blocked_reason === 'weekly_reward_already_granted') {
@@ -1311,7 +1266,7 @@ export default function TradingJournal({
         purpose: 'advanced_ticket_progress',
       });
       if (mobileAdStatus.usingTestAdUnit) {
-        setMessage('테스트 광고 재생을 확인했습니다. 테스트 광고는 실제 심화 복기 이용권을 지급하지 않습니다. 실제 AdMob 보상형 광고와 서버 보상 확인을 연결한 운영 앱에서 이용권이 지급됩니다.');
+        setMessage('테스트 광고 재생을 확인했습니다. 테스트 광고는 실제 심화 복기권을 지급하지 않습니다. 실제 AdMob 보상형 광고와 서버 보상 확인을 연결한 운영 앱에서 복기권이 지급됩니다.');
         return;
       }
       const confirmedReward = await waitForRewardedAdStatus('advanced_ticket_progress');
@@ -1357,7 +1312,7 @@ export default function TradingJournal({
       if (DEV_TOOLS_ENABLED) {
         await loadAiReview(selectedReviewTrades, 'basic', { targetTradeId: selectedReviewGroup?.targetTradeId });
       } else {
-        setMessage('광고 시청은 Android 앱에서 사용할 수 있습니다. 웹에서는 무료 제공량 또는 구매 이용권으로 복기를 실행하세요.');
+        setMessage('광고 시청은 Android 앱에서 사용할 수 있습니다. 웹에서는 무료 제공량 또는 구매 복기권으로 복기를 실행하세요.');
       }
       return;
     }
@@ -1601,7 +1556,7 @@ export default function TradingJournal({
       return;
     }
     if (!authSession?.session_token || !authSession?.user?.id) {
-      setMessage('이용권 구매는 로그인 후 사용할 수 있습니다.');
+      setMessage('복기권 구매는 로그인 후 사용할 수 있습니다.');
       return;
     }
 
@@ -1627,9 +1582,9 @@ export default function TradingJournal({
         await purchase.transaction?.finish?.();
       }
       if (res.data?.purchase?.status === 'consume_pending') {
-        setMessage('이용권은 반영됐습니다. Google Play 확정 처리는 다음 구매 확인 때 다시 시도됩니다.');
+        setMessage('복기권은 반영됐습니다. Google Play 확정 처리는 다음 구매 확인 때 다시 시도됩니다.');
       } else {
-        setMessage('Google Play 구매가 서버에서 검증되어 이용권에 반영됐습니다.');
+        setMessage('Google Play 구매가 서버에서 검증되어 복기권에 반영됐습니다.');
       }
     } catch (err) {
       reportJournalClientEvent({
@@ -1831,6 +1786,9 @@ export default function TradingJournal({
   const dailyResetText = formatKoreanDeadline(validity.daily_reset_at);
   const weeklyResetText = formatKoreanDeadline(validity.weekly_reset_at);
   const monthlyResetText = formatKoreanDeadline(validity.monthly_reset_at);
+  const proAllowanceResetText = validity.pro_allowance_resets_at
+    ? formatKoreanDeadline(validity.pro_allowance_resets_at)
+    : '';
   const monthlyBasicMax = Number(freePolicy.monthly_basic_max || 30);
   const rewardedBasicDailyMax = Number(freePolicy.rewarded_basic_daily_max || 2);
   const weeklyRewardAlreadyGranted = Number(entitlements?.advanced?.weekly_advanced_granted || 0) >= 1;
@@ -2028,11 +1986,11 @@ export default function TradingJournal({
             onClick={event => event.stopPropagation()}
           >
             <div className="journal-access-icon" aria-hidden="true"><Ticket size={22} /></div>
-            <h3 id="advanced-review-access-title">심화 복기 이용권이 필요합니다</h3>
+            <h3 id="advanced-review-access-title">심화 복기권이 필요합니다</h3>
             <p>심화 복기는 무료 심화 복기권, Pro 월 제공량 또는 구매한 심화 복기권 1장을 사용합니다.</p>
             <div className="journal-access-actions">
               <button type="button" onClick={() => setReviewAccessDialog(null)}>닫기</button>
-              <button type="button" className="primary" onClick={showReviewPasses}>이용권 확인</button>
+              <button type="button" className="primary" onClick={showReviewPasses}>복기권 확인</button>
             </div>
           </section>
         </div>
@@ -2048,8 +2006,8 @@ export default function TradingJournal({
             onClick={event => event.stopPropagation()}
           >
             <div className="journal-access-icon" aria-hidden="true"><Ticket size={22} /></div>
-            <h3 id="basic-review-access-title">바로 사용할 무료 일반 복기를 모두 사용했습니다</h3>
-            <p>광고를 보고 오늘의 추가 복기를 사용하거나, 보유한 일반 복기 이용권을 확인해 주세요.</p>
+                <h3 id="basic-review-access-title">무료 일반 복기권을 모두 사용했습니다</h3>
+                <p>광고를 보고 오늘의 추가 일반 복기권을 사용하거나, 보유한 일반 복기권을 확인해 주세요.</p>
             <div className="journal-access-actions three">
               <button
                 type="button"
@@ -2062,7 +2020,7 @@ export default function TradingJournal({
                 광고 보고 일반 복기
               </button>
               <button type="button" onClick={() => setReviewAccessDialog(null)}>닫기</button>
-              <button type="button" onClick={showReviewPasses}>이용권 확인</button>
+              <button type="button" onClick={showReviewPasses}>복기권 확인</button>
             </div>
           </section>
         </div>
@@ -2322,39 +2280,51 @@ export default function TradingJournal({
 
       <section className="journal-panel" ref={entitlementSectionRef}>
         <div className="journal-panel-title">
-          <h3>이용권</h3>
+          <h3>복기권</h3>
           <span className="journal-chart-mode">{entitlements?.plan === 'pro' ? 'Pro' : '무료'}</span>
         </div>
         <div className="journal-entitlement-grid">
-          <div><span>무료 일반 복기</span><strong>{entitlements?.basic?.free_available_now ?? ((entitlements?.basic?.signup_remaining || 0) + (entitlements?.basic?.free_daily_remaining || 0))}</strong></div>
-          <div><span>Pro 일반 복기</span><strong>{entitlements?.basic?.pro_monthly_remaining || 0}</strong></div>
+          <div><span>무료 일반 복기권</span><strong>{entitlements?.basic?.free_available_now ?? ((entitlements?.basic?.signup_remaining || 0) + (entitlements?.basic?.free_daily_remaining || 0))}</strong></div>
+          <div><span>Pro 일반 복기권</span><strong>{entitlements?.basic?.pro_monthly_remaining || 0}</strong></div>
           <div><span>구매 일반 복기권</span><strong>{entitlements?.basic?.purchased_remaining || 0}</strong></div>
           <div><span>무료 심화 복기권</span><strong>{(entitlements?.advanced?.signup_remaining || 0) + (entitlements?.advanced?.weekly_reward_remaining || 0)}</strong></div>
-          <div><span>Pro 심화 복기</span><strong>{entitlements?.advanced?.pro_monthly_remaining || 0}</strong></div>
+          <div><span>Pro 심화 복기권</span><strong>{entitlements?.advanced?.pro_monthly_remaining || 0}</strong></div>
           <div><span>구매 심화 복기권</span><strong>{entitlements?.advanced?.purchased_remaining || 0}</strong></div>
         </div>
-        <div className="journal-pass-validity">
-          <div>
-            <span>무료 일반 복기</span>
-            <strong>기본 1회/일 · 광고 추가 {rewardedBasicDailyMax}회/일 · 월 {monthlyBasicMax}회 한도</strong>
-            <em>{dailyResetText} 일일 초기화 · {monthlyResetText} 월간 초기화</em>
+        <details className="journal-pass-guide">
+          <summary>복기권 이용 기간 안내</summary>
+          <div className="journal-pass-guide-list">
+            <div className="journal-pass-guide-item">
+              <strong>무료 일반 복기권</strong>
+              <span>광고 시청으로 오늘 최대 {rewardedBasicDailyMax}회를 추가 이용할 수 있으며, 무료 일반 복기는 월 최대 {monthlyBasicMax}회까지 제공됩니다.</span>
+              <em>{dailyResetText} 일일 한도 · {monthlyResetText} 월간 한도 초기화</em>
+            </div>
+            <div className="journal-pass-guide-item">
+              <strong>무료 심화 복기권</strong>
+              <span>{adPolicyText}</span>
+              <em>미사용 복기권과 광고 진행은 {weeklyResetText}에 초기화</em>
+            </div>
+            <div className="journal-pass-guide-item">
+              <strong>Pro 월 제공 복기권</strong>
+              <span>결제 주기마다 일반 35회·심화 25회가 새로 지급되며, 남은 월 제공량은 다음 결제 주기로 이월되지 않습니다.</span>
+              <em>
+                {proAllowanceResetText
+                  ? `현재 제공량 사용 기한: ${proAllowanceResetText}`
+                  : 'Google Play 결제 갱신일에 남은 월 제공량이 소멸되고 새 제공량이 지급됩니다.'}
+              </em>
+            </div>
+            <div className="journal-pass-guide-item">
+              <strong>구매 복기권</strong>
+              <span>구매한 일반·심화 복기권은 남은 횟수가 이월되며, 유효기간 없이 필요할 때 사용할 수 있습니다.</span>
+              <em>Pro 이용자는 월 제공량을 먼저 사용한 뒤 구매 복기권을 사용합니다.</em>
+            </div>
+            <div className="journal-pass-guide-item">
+              <strong>가입 체험 복기권</strong>
+              <span>가입 시 받은 체험 복기권은 사용하기 전까지 유지됩니다.</span>
+              <em>별도로 구매한 복기권과 구분해 표시합니다.</em>
+            </div>
           </div>
-          <div>
-            <span>무료 심화 복기권</span>
-            <strong>{adPolicyText}</strong>
-            <em>미사용 이용권과 광고 진행은 {weeklyResetText}에 초기화</em>
-          </div>
-          <div>
-            <span>Pro 월 제공량</span>
-            <strong>일반 35회 · 심화 15회</strong>
-            <em>{monthlyResetText}에 초기화</em>
-          </div>
-          <div>
-            <span>가입·구매 이용권</span>
-            <strong>가입 체험권 및 별도 구매권</strong>
-            <em>만료 없음</em>
-          </div>
-        </div>
+        </details>
         <div className="journal-ad-policy">
           <div>
             <span>광고 보상 정책</span>
@@ -2412,6 +2382,15 @@ export default function TradingJournal({
         )}
         {DEV_TOOLS_ENABLED || billingStatus.native ? (
           <div className="journal-product-list">
+            <button
+              className="journal-secondary journal-product-pro"
+              disabled={Boolean(purchaseLoadingId)}
+              onClick={() => purchaseProduct(PRO_PRODUCT[0])}
+            >
+              {purchaseLoadingId === PRO_PRODUCT[0]
+                ? '구독 확인중'
+                : `${PRO_PRODUCT[1]} · ${PRO_PRODUCT[2]}`}
+            </button>
             {REVIEW_PRODUCTS.map(([id, label, price]) => (
               <button
                 key={id}
@@ -2434,7 +2413,7 @@ export default function TradingJournal({
           </div>
         ) : (
           <p className="journal-privacy-note">
-            배포 모드에서는 Google Play 결제 검증이 연결된 뒤 이용권 구매가 표시됩니다.
+            배포 모드에서는 Google Play 결제 검증이 연결된 뒤 복기권 구매가 표시됩니다.
           </p>
         )}
       </section>
@@ -2582,82 +2561,6 @@ export default function TradingJournal({
           ) : null}
         </div>
         {showCurrentReviewDetails && aiReview && renderSelectedTradeChart()}
-        {QA_ADVANCED_COMPARISON_ENABLED && (
-          <aside className="qa-comparison-panel">
-            <div className="qa-comparison-heading">
-              <div>
-                <strong>QA 심화 복기 모델 비교</strong>
-                <span>테스트 APK 전용 · 이용권 차감 없음</span>
-              </div>
-              <p>Luna와 Terra를 각각 한 번 실행해 같은 매매의 결과를 비교합니다. 완료된 결과는 다시 눌러도 추가 비용 없이 불러옵니다.</p>
-            </div>
-            <div className="qa-comparison-actions">
-              <button
-                className="journal-secondary"
-                disabled={Boolean(qaComparisonLoading) || !selectedReviewTrades.length || !aiConsentAccepted}
-                onClick={() => runQaAdvancedComparison('luna')}
-              >
-                {qaComparisonLoading === 'luna' ? 'Luna 분석중' : 'Luna로 비교'}
-              </button>
-              <button
-                className="journal-secondary"
-                disabled={Boolean(qaComparisonLoading) || !selectedReviewTrades.length || !aiConsentAccepted}
-                onClick={() => runQaAdvancedComparison('terra')}
-              >
-                {qaComparisonLoading === 'terra' ? 'Terra 분석중' : 'Terra로 비교'}
-              </button>
-            </div>
-            {qaComparisonLoading && (
-              <div className="journal-ai-loading" role="status" aria-live="polite">
-                <span className="journal-ai-loading-spinner" aria-hidden="true" />
-                <div>
-                  <strong>심화 복기 비교 분석 중</strong>
-                  <p>선택한 매매와 당시 차트를 {qaComparisonLoading === 'luna' ? 'Luna' : 'Terra'} 모델로 확인하고 있습니다.</p>
-                </div>
-              </div>
-            )}
-            <p className="qa-comparison-cost">같은 토큰 양이라면 Luna의 API 비용은 Terra의 약 40%입니다. 실제 결과 품질을 보고 운영 모델을 결정하세요.</p>
-            <div className="qa-comparison-chart-guide">
-              <span>두 결과는 같은 매매 차트를 기준으로 분석합니다. 차트는 분석 결과 바로 아래에 한 번만 표시합니다.</span>
-              <button
-                className="journal-secondary"
-                disabled={!chartReview.charts?.length}
-                onClick={() => tradeChartSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              >
-                매매 차트 보기
-              </button>
-            </div>
-            {(qaComparisonResults.luna || qaComparisonResults.terra) && (
-              <div className="qa-comparison-grid">
-                {['luna', 'terra'].map(variant => {
-                  const result = qaComparisonResults[variant];
-                  return (
-                    <article className="qa-comparison-result" key={variant}>
-                      <h4>{variant === 'luna' ? 'Luna 결과' : 'Terra 결과'}</h4>
-                      {result ? (
-                        <>
-                          <AiReviewSummary value={result.summary} document />
-                          {(result.chart_reviews || []).map((item, idx) => (
-                            <div className="journal-ai-card" key={`${variant}-${item.title || idx}-${idx}`}>
-                              <strong>{reviewDisplayText(item.title)}</strong>
-                              <p>{reviewDisplayText(item.detail)}</p>
-                            </div>
-                          ))}
-                        </>
-                      ) : (
-                        <p>아직 실행하지 않았습니다.</p>
-                      )}
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </aside>
-        )}
-        {showCurrentReviewDetails
-          && !aiReview
-          && (qaComparisonResults.luna || qaComparisonResults.terra)
-          && renderSelectedTradeChart()}
       </section>
 
       {showCurrentReviewDetails && <section className="journal-panel">

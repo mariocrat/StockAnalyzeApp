@@ -11,7 +11,7 @@
 ## 권장 흐름
 
 1. 사용자가 앱에서 매매 기록을 입력한다.
-2. 사용자가 일반 복기 또는 심층 복기를 실행한다.
+2. 사용자가 일반 복기 또는 심화 복기를 실행한다.
 3. 무료 사용자는 필요 시 앱에서 보상형 광고를 본다.
 4. 앱은 로그인 세션, 광고 보상 토큰, 매매 기록, 개인정보/매매 기록 전송 동의 여부를 서버로 보낸다.
 5. 서버는 사용자 인증, 광고 보상 검증, 이용권 차감, 요청 제한, 비용 제한을 확인한다.
@@ -99,7 +99,7 @@ frontend에는 `VITE_*` 공개 설정만 들어가야 한다. OpenAI API Key, �
 
 ## 이용권/구독 보안 상태
 
-- AI 복기 이용권은 SQLite-backed entitlement wallet으로 관리한다.
+- AI 복기권은 SQLite-backed entitlement wallet으로 관리한다.
 - `ALPHAMATE_ACCESS_DB_PATH`는 운영에서 백업 가능한 서버 볼륨 또는 관리형 DB 경로로 분리해야 한다.
 - Google Play 소모성 상품은 purchase token을 서버에서 검증하고, token 원문은 저장하지 않고 SHA-256 hash만 저장한다.
 - Pro 구독은 `purchases.subscriptionsv2.get`으로 구독 token을 검증하고, 활성 상태와 만료 시간 기준으로만 Pro 권한을 부여한다.

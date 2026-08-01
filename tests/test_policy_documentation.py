@@ -57,16 +57,23 @@ class PolicyDocumentationTest(unittest.TestCase):
     def test_ai_monetization_plan_uses_clean_korean_labels(self):
         plan = (ROOT / "docs" / "ai_review_monetization_plan.md").read_text(encoding="utf-8")
 
-        self.assertIn("일반 복기권 30회", plan)
-        self.assertIn("일반 복기권 50회", plan)
-        self.assertIn("심화 복기 이용권 10회", plan)
-        self.assertIn("출시 이벤트 가격: 월 5,900원", plan)
-        self.assertIn("정상 가격: 월 7,900원", plan)
-        self.assertIn("월 제공량: 일반 복기 35회, 심화 복기 15회", plan)
-        self.assertIn("광고 일반 복기 최대 2회", plan)
-        self.assertIn("월 무료 일반 복기 최대 30회", plan)
+        self.assertIn("일반 복기권 15회", plan)
+        self.assertIn("일반 복기권 25회", plan)
+        self.assertIn("심화 복기권 10회", plan)
+        self.assertIn("심화 복기권 20회", plan)
+        self.assertIn("출시 이벤트 가격: 월 7,900원", plan)
+        self.assertIn("정상 가격: 월 9,900원", plan)
+        self.assertIn("결제 주기별 제공량: 일반 복기권 35회, 심화 복기권 25회", plan)
+        self.assertIn("공개 출시일로부터 3개월", plan)
+        self.assertIn("첫 3회 월 결제", plan)
+        self.assertIn(
+            "광고 시청으로 오늘 최대 2회를 추가 이용할 수 있으며, 무료 일반 복기는 월 최대 30회까지 제공됩니다.",
+            plan,
+        )
         self.assertIn("매주 월요일 00:00", plan)
-        self.assertIn("구매 이용권: 만료 없음", plan)
+        self.assertIn("구매 복기권: 만료 없음. 미사용 횟수는 계속 이월한다.", plan)
+        self.assertIn("남은 Pro 월 제공량은 다음 결제 주기로 이월하지 않는다", plan)
+        self.assertIn("반드시 Pro 결제 주기 제공량을 먼저 사용", plan)
         self.assertNotIn("일반 복기권 100회", plan)
         self.assertIn("일반 복기", plan)
         self.assertIn("심화 복기", plan)

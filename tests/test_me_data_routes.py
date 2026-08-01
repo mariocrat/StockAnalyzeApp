@@ -145,7 +145,7 @@ class MeDataRoutesTest(unittest.TestCase):
             access_control.apply_dev_purchase(
                 authorization=token,
                 entitlement_token="",
-                product_id="basic_review_30",
+                product_id="basic_review_15",
             )
             account_store.record_privacy_consent(authorization=token, version="ai-review-privacy-export")
             review_history.add_review_history(
@@ -165,7 +165,7 @@ class MeDataRoutesTest(unittest.TestCase):
             self.assertEqual(user_id, exported["user"]["id"])
             self.assertEqual(1, len(exported["saved_trades"]))
             self.assertEqual("005930", exported["saved_trades"][0]["ticker"])
-            self.assertEqual(30, exported["entitlements"]["basic"]["purchased_remaining"])
+            self.assertEqual(15, exported["entitlements"]["basic"]["purchased_remaining"])
             self.assertEqual(1, len(exported["review_history"]))
             self.assertEqual("stored advanced review", exported["review_history"][0]["ai_review"]["summary"])
             self.assertTrue(exported["server_keeps_ai_review_history"])

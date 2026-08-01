@@ -23,7 +23,7 @@ test('builds Google Play recovery candidates from local receipts without duplica
   const candidates = buildGooglePlayRecoveryCandidates({
     productCatalog: {
       consumables: {
-        basic_review_30: { google_play_product_id: 'play.basic.30' },
+        basic_review_15: { google_play_product_id: 'play.basic.15' },
       },
       subscriptions: {
         pro_monthly: { google_play_product_id: 'play.pro.monthly' },
@@ -32,11 +32,11 @@ test('builds Google Play recovery candidates from local receipts without duplica
     localReceipts: [
       {
         purchaseToken: 'token-a',
-        transactions: [{ products: [{ id: 'play.basic.30' }] }],
+        transactions: [{ products: [{ id: 'play.basic.15' }] }],
       },
       {
         purchaseToken: 'token-a',
-        transactions: [{ products: [{ id: 'play.basic.30' }] }],
+        transactions: [{ products: [{ id: 'play.basic.15' }] }],
       },
       {
         purchaseToken: 'token-b',
@@ -50,7 +50,7 @@ test('builds Google Play recovery candidates from local receipts without duplica
   });
 
   assert.deepEqual(candidates, [
-    { localProductId: 'basic_review_30', purchaseToken: 'token-a' },
+    { localProductId: 'basic_review_15', purchaseToken: 'token-a' },
     { localProductId: 'pro_monthly', purchaseToken: 'token-b' },
   ]);
 });

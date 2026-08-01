@@ -87,7 +87,7 @@ class AccountStoreTest(unittest.TestCase):
             access_control.apply_dev_purchase(
                 authorization=f"Bearer {kakao['session_token']}",
                 entitlement_token="",
-                product_id="advanced_review_5",
+                product_id="advanced_review_10",
             )
 
             kakao_entitlements = access_control.get_user_entitlements(
@@ -99,7 +99,7 @@ class AccountStoreTest(unittest.TestCase):
                 entitlement_token="",
             )
 
-            self.assertEqual(5, kakao_entitlements["advanced"]["purchased_remaining"])
+            self.assertEqual(10, kakao_entitlements["advanced"]["purchased_remaining"])
             self.assertEqual(0, naver_entitlements["advanced"]["purchased_remaining"])
 
     def test_journal_storage_setting_can_be_changed_for_session_user(self):
@@ -232,7 +232,7 @@ class AccountStoreTest(unittest.TestCase):
             access_control.apply_dev_purchase(
                 authorization=token,
                 entitlement_token="",
-                product_id="advanced_review_5",
+                product_id="advanced_review_10",
             )
             access_control._verify_admob_ssv_signature = lambda raw_query: {
                 "transaction_id": "delete-ad-1",

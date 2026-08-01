@@ -114,7 +114,7 @@ class ProductionDevGuardsTest(unittest.TestCase):
                 access_control.apply_dev_purchase(
                     authorization=f"Bearer {session['session_token']}",
                     entitlement_token="",
-                    product_id="advanced_review_5",
+                    product_id="advanced_review_10",
                 )
             self.assertEqual(403, dev_purchase_error.exception.status_code)
 

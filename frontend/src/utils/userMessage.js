@@ -7,7 +7,7 @@ const MESSAGE_RULES = [
   },
   {
     pattern: /advanced review ticket|required.*advanced|advanced.*ticket/i,
-    message: '심화 복기 이용권이 필요합니다. 이용권을 확인해 주세요.',
+    message: '심화 복기권이 필요합니다. 보유 복기권을 확인해 주세요.',
   },
   {
     pattern: /google play|billing|purchase|product.*not found/i,

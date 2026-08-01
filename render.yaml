@@ -112,16 +112,14 @@ services:
         value: com.mariocrat.stockanalyze
       - key: GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
         sync: false
-      - key: GOOGLE_PLAY_BASIC_REVIEW_30_ID
-        value: basic_review_30
-      - key: GOOGLE_PLAY_BASIC_REVIEW_50_ID
-        value: basic_review_50
-      - key: GOOGLE_PLAY_ADVANCED_REVIEW_5_ID
-        value: advanced_review_5
+      - key: GOOGLE_PLAY_BASIC_REVIEW_15_ID
+        value: basic_review_15
+      - key: GOOGLE_PLAY_BASIC_REVIEW_25_ID
+        value: basic_review_25
       - key: GOOGLE_PLAY_ADVANCED_REVIEW_10_ID
         value: advanced_review_10
-      - key: GOOGLE_PLAY_PRO_MONTHLY_LAUNCH_ID
-        value: pro_monthly_launch
+      - key: GOOGLE_PLAY_ADVANCED_REVIEW_20_ID
+        value: advanced_review_20
       - key: GOOGLE_PLAY_PRO_MONTHLY_ID
         value: pro_monthly
       - key: GOOGLE_PLAY_RTDN_SHARED_TOKEN

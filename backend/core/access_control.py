@@ -19,16 +19,33 @@ except ModuleNotFoundError:
     from backend.core.env import env_value
 
 
+PRO_MONTHLY_BASIC = 35
+PRO_MONTHLY_ADVANCED = 25
+PRO_LAUNCH_PRICE_KRW = 7900
+PRO_REGULAR_PRICE_KRW = 9900
+PRO_LAUNCH_ENROLLMENT_MONTHS = 3
+PRO_LAUNCH_DISCOUNTED_BILLING_CYCLES = 3
+
 PRODUCTS = {
-    "basic_review_30": {"kind": "basic", "quantity": 30, "price_krw": 2900},
-    "basic_review_50": {"kind": "basic", "quantity": 50, "price_krw": 4500},
-    "advanced_review_5": {"kind": "advanced", "quantity": 5, "price_krw": 3900},
-    "advanced_review_10": {"kind": "advanced", "quantity": 10, "price_krw": 5900},
+    "basic_review_15": {"kind": "basic", "quantity": 15, "price_krw": 2900},
+    "basic_review_25": {"kind": "basic", "quantity": 25, "price_krw": 4500},
+    "advanced_review_10": {"kind": "advanced", "quantity": 10, "price_krw": 3900},
+    "advanced_review_20": {"kind": "advanced", "quantity": 20, "price_krw": 6900},
 }
 
 SUBSCRIPTIONS = {
-    "pro_monthly_launch": {"kind": "pro", "monthly_basic": 35, "monthly_advanced": 15, "price_krw": 5900},
-    "pro_monthly": {"kind": "pro", "monthly_basic": 35, "monthly_advanced": 15, "price_krw": 7900},
+    "pro_monthly": {
+        "kind": "pro",
+        "monthly_basic": PRO_MONTHLY_BASIC,
+        "monthly_advanced": PRO_MONTHLY_ADVANCED,
+        "price_krw": PRO_REGULAR_PRICE_KRW,
+        "launch_offer": {
+            "price_krw": PRO_LAUNCH_PRICE_KRW,
+            "enrollment_window_months": PRO_LAUNCH_ENROLLMENT_MONTHS,
+            "discounted_billing_cycles": PRO_LAUNCH_DISCOUNTED_BILLING_CYCLES,
+            "starts_from": "public_release",
+        },
+    },
 }
 
 FREE_SIGNUP_BASIC_CREDITS = 5
@@ -40,8 +57,6 @@ ADS_PER_ADVANCED_TICKET_MAX = 20
 FREE_WEEKLY_ADVANCED_MAX = 1
 ADVANCED_TICKET_HOLD_MAX = 1
 
-PRO_MONTHLY_BASIC = 35
-PRO_MONTHLY_ADVANCED = 15
 KST = ZoneInfo("Asia/Seoul")
 ADMOB_SSV_KEY_URL = "https://www.gstatic.com/admob/reward/verifier-keys.json"
 ADMOB_SSV_KEY_CACHE_SECONDS = 60 * 60 * 24
@@ -66,6 +81,7 @@ PLACEHOLDER_EMAIL_PARTS = ("your-project", "example.com")
 class UsageBucket:
     date_key: str = ""
     month_key: str = ""
+    pro_cycle_key: str = ""
     week_key: str = ""
     free_basic_daily_used: int = 0
     rewarded_basic_daily_used: int = 0
@@ -149,6 +165,7 @@ def _connect_access_db():
             purchased_advanced INTEGER NOT NULL DEFAULT 0,
             date_key TEXT NOT NULL DEFAULT '',
             month_key TEXT NOT NULL DEFAULT '',
+            pro_cycle_key TEXT NOT NULL DEFAULT '',
             week_key TEXT NOT NULL DEFAULT '',
             free_basic_daily_used INTEGER NOT NULL DEFAULT 0,
             rewarded_basic_daily_used INTEGER NOT NULL DEFAULT 0,
@@ -172,6 +189,10 @@ def _connect_access_db():
     if "rewarded_basic_daily_used" not in wallet_columns:
         conn.execute(
             "ALTER TABLE access_wallets ADD COLUMN rewarded_basic_daily_used INTEGER NOT NULL DEFAULT 0"
+        )
+    if "pro_cycle_key" not in wallet_columns:
+        conn.execute(
+            "ALTER TABLE access_wallets ADD COLUMN pro_cycle_key TEXT NOT NULL DEFAULT ''"
         )
     conn.execute(
         """
@@ -242,6 +263,7 @@ def _wallet_from_row(row) -> UserWallet:
     usage = UsageBucket(
         date_key=row["date_key"],
         month_key=row["month_key"],
+        pro_cycle_key=row["pro_cycle_key"],
         week_key=row["week_key"],
         free_basic_daily_used=int(row["free_basic_daily_used"]),
         rewarded_basic_daily_used=int(row["rewarded_basic_daily_used"]),
@@ -287,6 +309,7 @@ def _write_wallet(conn, user_id: str, wallet: UserWallet):
             purchased_advanced,
             date_key,
             month_key,
+            pro_cycle_key,
             week_key,
             free_basic_daily_used,
             rewarded_basic_daily_used,
@@ -296,7 +319,7 @@ def _write_wallet(conn, user_id: str, wallet: UserWallet):
             weekly_ad_views,
             weekly_advanced_granted,
             updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             user_id,
@@ -307,6 +330,7 @@ def _write_wallet(conn, user_id: str, wallet: UserWallet):
             wallet.purchased_advanced,
             usage.date_key,
             usage.month_key,
+            usage.pro_cycle_key,
             usage.week_key,
             usage.free_basic_daily_used,
             usage.rewarded_basic_daily_used,
@@ -1312,7 +1336,25 @@ def _reset_deadlines() -> dict:
     }
 
 
-def _wallet_for(user_id: str) -> UserWallet:
+def _pro_allowance_cycle(user_id: str, plan: str) -> tuple[str, str | None]:
+    if plan != "pro":
+        return "", None
+
+    subscription = _load_google_subscription(user_id)
+    if subscription and _subscription_is_active(
+        status=subscription["status"],
+        expiry_time=subscription["expiry_time"],
+    ):
+        expiry_time = str(subscription["expiry_time"] or "")
+        return f"play:{expiry_time}", expiry_time
+
+    # Development Pro access has no Play billing period, so keep a monthly
+    # fallback without affecting production subscriptions.
+    _, month_key, _ = _today_keys()
+    return f"dev:{month_key}", _reset_deadlines()["monthly"]
+
+
+def _wallet_for(user_id: str, plan: str = "free") -> UserWallet:
     wallet = _load_wallet(user_id)
     date_key, month_key, week_key = _today_keys()
     usage = wallet.usage
@@ -1323,6 +1365,14 @@ def _wallet_for(user_id: str) -> UserWallet:
     if usage.month_key != month_key:
         usage.month_key = month_key
         usage.free_basic_monthly_used = 0
+    if plan == "pro":
+        pro_cycle_key, _ = _pro_allowance_cycle(user_id, plan)
+        if usage.pro_cycle_key != pro_cycle_key:
+            usage.pro_cycle_key = pro_cycle_key
+            usage.pro_basic_monthly_used = 0
+            usage.pro_advanced_monthly_used = 0
+    elif usage.pro_cycle_key:
+        usage.pro_cycle_key = ""
         usage.pro_basic_monthly_used = 0
         usage.pro_advanced_monthly_used = 0
     if usage.week_key != week_key:
@@ -1448,7 +1498,10 @@ def _consume_basic(wallet: UserWallet, plan: str, ad_verified: bool) -> str:
         if wallet.purchased_basic > 0:
             wallet.purchased_basic -= 1
             return "purchased_basic"
-        raise HTTPException(status_code=402, detail="Pro 일반 복기 제공량을 모두 사용했습니다. 일반 복기 이용권을 확인해 주세요.")
+        raise HTTPException(
+            status_code=402,
+            detail="Pro 일반 복기권을 모두 사용했습니다. 구매한 일반 복기권을 확인해 주세요.",
+        )
 
     if wallet.basic_signup_remaining > 0:
         wallet.basic_signup_remaining -= 1
@@ -1457,9 +1510,6 @@ def _consume_basic(wallet: UserWallet, plan: str, ad_verified: bool) -> str:
         usage.free_basic_daily_used += 1
         usage.free_basic_monthly_used += 1
         return "free_daily_basic"
-    if wallet.purchased_basic > 0:
-        wallet.purchased_basic -= 1
-        return "purchased_basic"
     if (
         ad_verified
         and usage.rewarded_basic_daily_used < FREE_REWARDED_BASIC_DAILY_MAX
@@ -1468,13 +1518,19 @@ def _consume_basic(wallet: UserWallet, plan: str, ad_verified: bool) -> str:
         usage.rewarded_basic_daily_used += 1
         usage.free_basic_monthly_used += 1
         return "rewarded_ad_basic"
+    if wallet.purchased_basic > 0:
+        wallet.purchased_basic -= 1
+        return "purchased_basic"
     if _allow_advanced_for_basic() and wallet.purchased_advanced > 0:
         wallet.purchased_advanced -= 1
         return "purchased_advanced_as_basic"
-    raise HTTPException(status_code=402, detail="바로 사용할 무료 일반 복기를 모두 사용했습니다. 광고를 보거나 일반 복기 이용권을 확인해 주세요.")
+    raise HTTPException(
+        status_code=402,
+        detail="무료 일반 복기권을 모두 사용했습니다. 광고를 보거나 일반 복기권을 확인해 주세요.",
+    )
 
 
-def _basic_requires_ad_reward(wallet: UserWallet, plan: str) -> bool:
+def _basic_can_use_ad_reward(wallet: UserWallet, plan: str) -> bool:
     if plan == "pro":
         return False
 
@@ -1486,7 +1542,6 @@ def _basic_requires_ad_reward(wallet: UserWallet, plan: str) -> bool:
     return (
         wallet.basic_signup_remaining <= 0
         and not has_daily_free
-        and wallet.purchased_basic <= 0
         and usage.rewarded_basic_daily_used < FREE_REWARDED_BASIC_DAILY_MAX
         and usage.free_basic_monthly_used < FREE_MONTHLY_BASIC_MAX
     )
@@ -1494,9 +1549,13 @@ def _basic_requires_ad_reward(wallet: UserWallet, plan: str) -> bool:
 
 def _consume_advanced(wallet: UserWallet, plan: str) -> str:
     usage = wallet.usage
-    if plan == "pro" and usage.pro_advanced_monthly_used < PRO_MONTHLY_ADVANCED:
-        usage.pro_advanced_monthly_used += 1
-        return "pro_monthly_advanced"
+    if plan == "pro":
+        if usage.pro_advanced_monthly_used < PRO_MONTHLY_ADVANCED:
+            usage.pro_advanced_monthly_used += 1
+            return "pro_monthly_advanced"
+        if wallet.purchased_advanced > 0:
+            wallet.purchased_advanced -= 1
+            return "purchased_advanced"
     if wallet.signup_advanced_remaining > 0:
         wallet.signup_advanced_remaining -= 1
         return "signup_advanced"
@@ -1508,11 +1567,11 @@ def _consume_advanced(wallet: UserWallet, plan: str) -> str:
         return "purchased_advanced"
     raise HTTPException(
         status_code=402,
-        detail="심화 복기 이용권이 필요합니다. 첫 로그인 체험권, Pro 제공량, 광고 보상 또는 구매한 심화 복기 이용권을 확인해주세요.",
+        detail="심화 복기권이 필요합니다. 첫 로그인 체험권, Pro 제공량, 광고 보상 또는 구매한 심화 복기권을 확인해 주세요.",
     )
 
 
-def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:
+def _wallet_snapshot(wallet: UserWallet, plan: str, user_id: str) -> dict:
     usage = wallet.usage
     free_daily_remaining = max(0, FREE_DAILY_BASIC_GRANT - usage.free_basic_daily_used)
     rewarded_daily_remaining = max(
@@ -1520,6 +1579,7 @@ def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:
         FREE_REWARDED_BASIC_DAILY_MAX - usage.rewarded_basic_daily_used,
     )
     deadlines = _reset_deadlines()
+    _, pro_allowance_resets_at = _pro_allowance_cycle(user_id, plan)
     return {
         "plan": plan,
         "basic": {
@@ -1563,7 +1623,7 @@ def _wallet_snapshot(wallet: UserWallet, plan: str) -> dict:
             "signup_pass_expires_at": None,
             "purchased_pass_expires_at": None,
             "weekly_reward_expires_at": deadlines["weekly"],
-            "pro_allowance_resets_at": deadlines["monthly"],
+            "pro_allowance_resets_at": pro_allowance_resets_at,
         },
     }
 
@@ -1572,9 +1632,9 @@ def get_user_entitlements(*, authorization: str | None, entitlement_token: str |
     user_id, auth_mode = _authenticate(authorization)
     plan = _plan_for(user_id, entitlement_token)
     with _WALLET_LOCK:
-        wallet = _wallet_for(user_id)
+        wallet = _wallet_for(user_id, plan)
         _save_wallet(user_id, wallet)
-        data = _wallet_snapshot(wallet, plan)
+        data = _wallet_snapshot(wallet, plan, user_id)
     data["user"] = {"id": user_id, "auth_mode": auth_mode}
     return data
 
@@ -1591,9 +1651,9 @@ def get_rewarded_ad_status(
     user_id, auth_mode = _authenticate(authorization)
     plan = _plan_for(user_id, entitlement_token)
     with _WALLET_LOCK:
-        wallet = _wallet_for(user_id)
+        wallet = _wallet_for(user_id, plan)
         _save_wallet(user_id, wallet)
-        snapshot = _wallet_snapshot(wallet, plan)
+        snapshot = _wallet_snapshot(wallet, plan, user_id)
     return {
         "ready": _has_pending_admob_reward(user_id, custom_data=normalized_purpose),
         "purpose": normalized_purpose,
@@ -1611,7 +1671,7 @@ def claim_rewarded_ad_progress(
     user_id, auth_mode = _authenticate(authorization)
     plan = _plan_for(user_id, entitlement_token)
     with _WALLET_LOCK:
-        wallet = _wallet_for(user_id)
+        wallet = _wallet_for(user_id, plan)
         before = wallet.weekly_advanced
         reward_blocked_reason = ""
         if plan == "pro":
@@ -1632,7 +1692,7 @@ def claim_rewarded_ad_progress(
             wallet.usage.weekly_ad_views += 1
             _grant_weekly_advanced_if_earned(wallet)
             _save_wallet(user_id, wallet)
-        snapshot = _wallet_snapshot(wallet, plan)
+        snapshot = _wallet_snapshot(wallet, plan, user_id)
     snapshot["user"] = {"id": user_id, "auth_mode": auth_mode}
     snapshot["ad_reward"] = {
         "claimed": verified,
@@ -1650,14 +1710,14 @@ def apply_dev_purchase(*, authorization: str | None, entitlement_token: str | No
     user_id, _ = _authenticate(authorization)
     plan = _plan_for(user_id, entitlement_token)
     with _WALLET_LOCK:
-        wallet = _wallet_for(user_id)
+        wallet = _wallet_for(user_id, plan)
         product = PRODUCTS[product_id]
         if product["kind"] == "basic":
             wallet.purchased_basic += product["quantity"]
         else:
             wallet.purchased_advanced += product["quantity"]
         _save_wallet(user_id, wallet)
-        return _wallet_snapshot(wallet, plan)
+        return _wallet_snapshot(wallet, plan, user_id)
 
 
 def apply_google_play_purchase(
@@ -1735,8 +1795,9 @@ def apply_google_play_purchase(
             latest_order_id=str(verification.get("latest_order_id") or ""),
         )
         with _WALLET_LOCK:
-            wallet = _wallet_for(user_id)
-            snapshot = _wallet_snapshot(wallet, "pro")
+            wallet = _wallet_for(user_id, "pro")
+            _save_wallet(user_id, wallet)
+            snapshot = _wallet_snapshot(wallet, "pro", user_id)
         snapshot["purchase"] = {
             "status": "active",
             "product_id": product_id,
@@ -1748,7 +1809,7 @@ def apply_google_play_purchase(
         return snapshot
 
     with _WALLET_LOCK:
-        wallet = _wallet_for(user_id)
+        wallet = _wallet_for(user_id, plan)
         existing = _load_google_purchase(token_hash)
         if existing:
             purchase_status = "already_applied"
@@ -1764,7 +1825,7 @@ def apply_google_play_purchase(
                     purchase_status = "consume_completed"
                 else:
                     purchase_status = "consume_pending"
-            snapshot = _wallet_snapshot(wallet, plan)
+            snapshot = _wallet_snapshot(wallet, plan, user_id)
             snapshot["purchase"] = {
                 "status": purchase_status,
                 "product_id": existing["local_product_id"],
@@ -1788,7 +1849,7 @@ def apply_google_play_purchase(
 
     product = PRODUCTS[product_id]
     with _WALLET_LOCK:
-        wallet = _wallet_for(user_id)
+        wallet = _wallet_for(user_id, plan)
         existing = _load_google_purchase(token_hash)
         if existing:
             purchase_status = "already_applied"
@@ -1804,7 +1865,7 @@ def apply_google_play_purchase(
                     purchase_status = "consume_completed"
                 else:
                     purchase_status = "consume_pending"
-            snapshot = _wallet_snapshot(wallet, plan)
+            snapshot = _wallet_snapshot(wallet, plan, user_id)
             snapshot["purchase"] = {
                 "status": purchase_status,
                 "product_id": existing["local_product_id"],
@@ -1827,7 +1888,7 @@ def apply_google_play_purchase(
             order_id=str(verification.get("order_id") or ""),
             status="consume_pending",
         )
-        snapshot = _wallet_snapshot(wallet, plan)
+        snapshot = _wallet_snapshot(wallet, plan, user_id)
 
     consumed = _consume_google_play_product(
         package_name=normalized_package,
@@ -1861,18 +1922,18 @@ def verify_ai_review_access(
     plan = _plan_for(user_id, entitlement_token)
     normalized_type = "advanced" if review_type == "advanced" else "basic"
     with _WALLET_LOCK:
-        wallet = _wallet_for(user_id)
+        wallet = _wallet_for(user_id, plan)
         if normalized_type == "advanced":
             source = _consume_advanced(wallet, plan)
         else:
             ad_verified = (
                 _consume_ad_reward(user_id, ad_reward_token)
-                if _basic_requires_ad_reward(wallet, plan)
+                if _basic_can_use_ad_reward(wallet, plan)
                 else False
             )
             source = _consume_basic(wallet, plan, ad_verified)
         _save_wallet(user_id, wallet)
-        snapshot = _wallet_snapshot(wallet, plan)
+        snapshot = _wallet_snapshot(wallet, plan, user_id)
     return AiAccessContext(
         user_id=user_id,
         auth_mode=auth_mode,
@@ -1892,7 +1953,7 @@ def refund_ai_review_access(access: AiAccessContext) -> dict:
         raise HTTPException(status_code=400, detail="AI review access context is required.")
 
     with _WALLET_LOCK:
-        wallet = _wallet_for(access.user_id)
+        wallet = _wallet_for(access.user_id, access.plan)
         usage = wallet.usage
         source = str(access.source or "")
 
@@ -1919,7 +1980,7 @@ def refund_ai_review_access(access: AiAccessContext) -> dict:
         elif source == "purchased_advanced":
             wallet.purchased_advanced += 1
         else:
-            return _wallet_snapshot(wallet, access.plan)
+            return _wallet_snapshot(wallet, access.plan, access.user_id)
 
         _save_wallet(access.user_id, wallet)
-        return _wallet_snapshot(wallet, access.plan)
+        return _wallet_snapshot(wallet, access.plan, access.user_id)

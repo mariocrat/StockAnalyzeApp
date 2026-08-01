@@ -3,11 +3,10 @@ import { buildGooglePlayRecoveryCandidates } from './billingPolicy';
 
 const APP_ENV = import.meta.env.VITE_ALPHAMATE_ENV || (import.meta.env.PROD ? 'production' : 'development');
 const PRODUCT_KIND = {
-  basic_review_30: 'consumable',
-  basic_review_50: 'consumable',
-  advanced_review_5: 'consumable',
+  basic_review_15: 'consumable',
+  basic_review_25: 'consumable',
   advanced_review_10: 'consumable',
-  pro_monthly_launch: 'subscription',
+  advanced_review_20: 'consumable',
   pro_monthly: 'subscription',
 };
 

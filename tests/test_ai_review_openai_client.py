@@ -184,7 +184,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.ai_review_v2.urllib.request.urlopen = lambda req, timeout: Response(body)
         result = self.ai_review_v2._call_openai_review(
             {"review_type": "advanced", "private_trade_note": "must-not-be-logged"},
-            model="gpt-5.6-terra",
+            model="gpt-5.6-luna",
             instructions="test",
         )
 
