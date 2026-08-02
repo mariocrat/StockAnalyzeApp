@@ -30,6 +30,59 @@
 
 `ALPHAMATE_ADMIN_TOKEN`과 `GOOGLE_PLAY_RTDN_SHARED_TOKEN`은 Blueprint에서 `generateValue: true`로 설정되어 Render가 랜덤 값을 만들 수 있게 했습니다.
 
+Google Play 결제 운영에는 아래 값도 확인합니다.
+
+- `GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze`
+- `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`: 내려받은 JSON 파일의 내용을 한 줄 값으로 저장
+- `GOOGLE_PLAY_RTDN_SHARED_TOKEN`: 32자 이상의 랜덤 비밀값
+- `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE=https://api.alphamate.co.kr/api/journal/google-play-rtdn`
+- `GOOGLE_PLAY_RTDN_OIDC_EMAIL=alphamate-rtdn-push@alphamate-504303.iam.gserviceaccount.com`
+
+## Google Play 실시간 결제 알림 설정
+
+이 설정은 구독 취소·갱신·결제 실패를 앱을 다시 열기 전에도 서버가 알 수 있게 합니다. 알림 내용만으로 권한을 바꾸지 않고, 서버가 Google Play Developer API를 다시 조회해 실제 상태와 만료 시각을 확인합니다.
+
+### 1. Google Cloud에서 알림 통로 만들기
+
+1. Google Cloud Console에서 프로젝트 `alphamate-504303`을 선택합니다.
+2. **API 및 서비스 > 라이브러리**에서 `Google Play Android Developer API`를 검색해 **사용**을 누릅니다.
+3. **IAM 및 관리자 > 서비스 계정 > 서비스 계정 만들기**를 누릅니다.
+4. 이름을 `alphamate-rtdn-push`로 입력하고 만듭니다.
+5. **Pub/Sub > 주제 > 주제 만들기**를 누르고 ID를 `alphamate-play-rtdn`으로 만듭니다.
+6. 만든 주제의 **권한**에서 `google-play-developer-notifications@system.gserviceaccount.com`을 추가하고 역할은 **Pub/Sub 게시자**로 선택합니다.
+7. **Pub/Sub > 구독 > 구독 만들기**를 누릅니다.
+8. 구독 ID는 `alphamate-play-rtdn-push`, 주제는 `alphamate-play-rtdn`, 전송 유형은 **푸시**를 선택합니다.
+9. 엔드포인트는 아래처럼 입력합니다. 마지막 값은 Render의 `GOOGLE_PLAY_RTDN_SHARED_TOKEN`과 반드시 같아야 합니다.
+
+```text
+https://api.alphamate.co.kr/api/journal/google-play-rtdn?verification_token=Render와_같은_공유_토큰
+```
+
+10. **인증 사용**을 켜고 서비스 계정은 `alphamate-rtdn-push@alphamate-504303.iam.gserviceaccount.com`을 선택합니다.
+11. 대상(Audience)은 `https://api.alphamate.co.kr/api/journal/google-play-rtdn`으로 입력합니다. 이 값에는 `verification_token`을 붙이지 않습니다.
+12. Google Cloud의 **IAM**에서 Pub/Sub 서비스 에이전트 `service-프로젝트번호@gcp-sa-pubsub.iam.gserviceaccount.com`에 **서비스 계정 토큰 생성자** 역할을 줍니다. 프로젝트 번호는 Cloud Console의 프로젝트 정보에서 확인합니다.
+
+### 2. Play Console에 주제 연결하기
+
+1. Play Console에서 **AlphaMate > 수익 창출 > 수익 창출 설정**으로 이동합니다.
+2. **실시간 개발자 알림**에서 아래 주제 이름을 입력합니다.
+
+```text
+projects/alphamate-504303/topics/alphamate-play-rtdn
+```
+
+3. 테스트 알림을 전송하고 오류가 없으면 **저장**을 누릅니다.
+
+### 3. Render 값 확인하기
+
+1. Render에서 **alphamate-api > Environment**를 엽니다.
+2. `GOOGLE_PLAY_RTDN_SHARED_TOKEN`이 Pub/Sub push URL의 `verification_token`과 같은지 확인합니다.
+3. `GOOGLE_PLAY_RTDN_OIDC_EMAIL`에 push 서비스 계정 이메일을 넣습니다.
+4. `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE`에 쿼리 문자열 없는 callback 주소를 넣습니다.
+5. **Save Changes** 후 배포가 끝날 때까지 기다립니다.
+
+구독 취소는 즉시 Pro를 끊지 않습니다. 서버는 Google Play가 반환하는 실제 `expiryTime`까지 혜택을 유지하고, 그 시각이 지난 뒤에만 비활성화합니다. 월간 상품도 달력상 고정 30일이 아니라 Google Play의 결제 주기를 따릅니다.
+
 ## SQLite 저장 위치
 
 Render Persistent Disk는 `/var/data/alphamate`에 붙습니다. 모든 SQLite DB는 이 디스크 아래를 사용합니다.

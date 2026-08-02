@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Header, Request
+from fastapi import FastAPI, Header, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
@@ -1592,12 +1592,13 @@ def post_journal_google_play_rtdn(
     payload: GooglePlayRtdnIn,
     request: Request,
     x_alphamate_rtdn_token: Optional[str] = Header(default=None, alias="X-AlphaMate-RTDN-Token"),
+    verification_token: Optional[str] = Query(default=None),
     authorization: Optional[str] = Header(default=None),
 ):
     _enforce_callback_rate_limit("google-play-rtdn", _request_client_key(request))
     return handle_google_play_rtdn(
         pubsub_payload=payload.model_dump(),
-        shared_token=x_alphamate_rtdn_token,
+        shared_token=x_alphamate_rtdn_token or verification_token,
         authorization=authorization,
     )
 

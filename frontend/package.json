@@ -29,7 +29,7 @@
     "test:mobile-bundle": "node --test scripts/validate-mobile-bundle.test.js",
     "mobile:build": "vite build --mode release && node scripts/validate-mobile-bundle.js && npx cap sync android",
     "mobile:release:check": "npm run release:report && npm run mobile:build",
-    "mobile:release:aab": "npm run mobile:release:check && cd android && gradlew.bat bundleRelease",
+    "mobile:release:aab": "npm run mobile:release:check && cd android && gradlew.bat bundleRelease --no-daemon",
     "mobile:add:android": "npx cap add android",
     "mobile:open:android": "npx cap open android",
     "mobile:sync": "npx cap sync android"

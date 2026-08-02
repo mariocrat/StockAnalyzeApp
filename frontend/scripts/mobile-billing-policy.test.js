@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildGooglePlayRecoveryCandidates,
+  selectGooglePlayOffer,
   shouldFinishGooglePlayTransaction,
 } from '../src/mobile/billingPolicy.js';
 
@@ -53,4 +54,41 @@ test('builds Google Play recovery candidates from local receipts without duplica
     { localProductId: 'basic_review_15', purchaseToken: 'token-a' },
     { localProductId: 'pro_monthly', purchaseToken: 'token-b' },
   ]);
+});
+
+test('selects the configured Pro launch offer even when it is not first', () => {
+  const offer = selectGooglePlayOffer({
+    storeProduct: {
+      offers: [
+        { id: 'pro_monthly@monthly' },
+        { id: 'pro_monthly@monthly@launch_7900_3m' },
+      ],
+    },
+    productConfig: {
+      google_play_product_id: 'pro_monthly',
+      google_play_base_plan_id: 'monthly',
+      google_play_offer_id: 'launch_7900_3m',
+    },
+    localProductId: 'pro_monthly',
+  });
+
+  assert.equal(offer?.id, 'pro_monthly@monthly@launch_7900_3m');
+});
+
+test('falls back to the normal Pro base plan when the launch offer is unavailable', () => {
+  const offer = selectGooglePlayOffer({
+    storeProduct: { offers: [{ id: 'pro_monthly@monthly' }] },
+    localProductId: 'pro_monthly',
+  });
+
+  assert.equal(offer?.id, 'pro_monthly@monthly');
+});
+
+test('keeps the first Google Play offer for one-time products', () => {
+  const offer = selectGooglePlayOffer({
+    storeProduct: { offers: [{ id: 'basic_review_15' }] },
+    localProductId: 'basic_review_15',
+  });
+
+  assert.equal(offer?.id, 'basic_review_15');
 });

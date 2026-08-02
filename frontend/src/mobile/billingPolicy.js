@@ -46,3 +46,20 @@ export function buildGooglePlayRecoveryCandidates({ productCatalog, localReceipt
 
   return candidates;
 }
+
+export function selectGooglePlayOffer({ storeProduct, productConfig = {}, localProductId }) {
+  const offers = Array.isArray(storeProduct?.offers) ? storeProduct.offers : [];
+  if (offers.length === 0) return null;
+
+  if (localProductId !== 'pro_monthly') {
+    return offers[0];
+  }
+
+  const googleProductId = productConfig.google_play_product_id || localProductId;
+  const basePlanId = productConfig.google_play_base_plan_id || 'monthly';
+  const launchOfferId = productConfig.google_play_offer_id || 'launch_7900_3m';
+
+  return offers.find(offer => offer?.id === `${googleProductId}@${basePlanId}@${launchOfferId}`)
+    || offers.find(offer => offer?.id === `${googleProductId}@${basePlanId}`)
+    || offers[0];
+}

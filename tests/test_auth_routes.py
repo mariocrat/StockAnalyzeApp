@@ -64,6 +64,14 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("/api/admin/operational-events/summary", paths)
         self.assertIn("/api/admin/operational-events/retention", paths)
 
+        rtdn_operation = main.app.openapi()["paths"]["/api/journal/google-play-rtdn"]["post"]
+        rtdn_query_parameters = {
+            parameter["name"]
+            for parameter in rtdn_operation.get("parameters", [])
+            if parameter.get("in") == "query"
+        }
+        self.assertIn("verification_token", rtdn_query_parameters)
+
     def test_auth_rate_limit_rejects_excessive_login_requests(self):
         backend_dir = os.path.join(os.getcwd(), "backend")
         if backend_dir not in sys.path:

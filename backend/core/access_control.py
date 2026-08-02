@@ -25,6 +25,8 @@ PRO_LAUNCH_PRICE_KRW = 7900
 PRO_REGULAR_PRICE_KRW = 9900
 PRO_LAUNCH_ENROLLMENT_MONTHS = 3
 PRO_LAUNCH_DISCOUNTED_BILLING_CYCLES = 3
+GOOGLE_PLAY_PRO_BASE_PLAN_ID = "monthly"
+GOOGLE_PLAY_PRO_LAUNCH_OFFER_ID = "launch_7900_3m"
 
 PRODUCTS = {
     "basic_review_15": {"kind": "basic", "quantity": 15, "price_krw": 2900},
@@ -39,6 +41,8 @@ SUBSCRIPTIONS = {
         "monthly_basic": PRO_MONTHLY_BASIC,
         "monthly_advanced": PRO_MONTHLY_ADVANCED,
         "price_krw": PRO_REGULAR_PRICE_KRW,
+        "google_play_base_plan_id": GOOGLE_PLAY_PRO_BASE_PLAN_ID,
+        "google_play_offer_id": GOOGLE_PLAY_PRO_LAUNCH_OFFER_ID,
         "launch_offer": {
             "price_krw": PRO_LAUNCH_PRICE_KRW,
             "enrollment_window_months": PRO_LAUNCH_ENROLLMENT_MONTHS,
@@ -1346,7 +1350,9 @@ def _pro_allowance_cycle(user_id: str, plan: str) -> tuple[str, str | None]:
         expiry_time=subscription["expiry_time"],
     ):
         expiry_time = str(subscription["expiry_time"] or "")
-        return f"play:{expiry_time}", expiry_time
+        latest_order_id = str(subscription["latest_order_id"] or "").strip()
+        cycle_marker = latest_order_id or expiry_time
+        return f"play:{cycle_marker}", expiry_time
 
     # Development Pro access has no Play billing period, so keep a monthly
     # fallback without affecting production subscriptions.

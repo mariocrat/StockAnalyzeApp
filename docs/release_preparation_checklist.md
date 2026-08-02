@@ -181,6 +181,10 @@ Pro는 Google Play Console에 `pro_monthly` 구독 상품 하나로 구성한다
 - [ ] 결제 주기 갱신 시 Pro 일반 복기권 35회와 심화 복기권 25회가 새로 지급되는지 확인한다.
 - [ ] 남은 Pro 월 제공량은 이월되지 않고, 별도로 구매한 복기권은 만료 없이 유지되는지 확인한다.
 - [ ] Pro 제공량을 먼저 차감하고 모두 소진한 뒤 구매 복기권을 차감하는지 확인한다.
+- [ ] 사용자가 구독을 취소해도 Google Play의 실제 `expiryTime`까지 Pro 혜택이 유지되는지 확인한다.
+- [ ] `expiryTime`이 지난 취소·만료 구독과 결제 보류 상태에서는 Pro 혜택이 중단되는지 확인한다.
+
+월 구독 기간은 앱이 임의로 30일을 더해 계산하지 않는다. Google Play가 결제 상태와 함께 반환하는 실제 `expiryTime`을 유효기간의 기준으로 사용한다. 사용자가 자동 갱신을 취소해도 이미 결제한 기간의 `expiryTime`까지는 Pro 제공량과 광고 제거를 유지하고, 다음 결제는 발생하지 않는다.
 
 ### Google Play Developer API
 
@@ -189,13 +193,16 @@ Pro는 Google Play Console에 `pro_monthly` 구독 상품 하나로 구성한다
 - [ ] 서비스 계정 JSON을 서버 Secret으로 넣는다.
 - [ ] 서버가 Google Play 구매 토큰을 검증할 수 있게 설정한다.
 - [ ] RTDN 알림을 받을 Pub/Sub push URL을 준비한다.
+- [ ] 취소·갱신·결제 실패 알림을 받은 뒤 서버가 Google Play Developer API를 다시 조회하는지 확인한다.
 
 환경변수 예시:
 
 ```env
 GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze
-GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=/secure-secrets/google-play-service-account.json
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={Render에_넣은_서비스_계정_JSON_한_줄}
 GOOGLE_PLAY_RTDN_SHARED_TOKEN=긴_랜덤_토큰
+GOOGLE_PLAY_RTDN_OIDC_AUDIENCE=https://api.alphamate.co.kr/api/journal/google-play-rtdn
+GOOGLE_PLAY_RTDN_OIDC_EMAIL=alphamate-rtdn-push@alphamate-504303.iam.gserviceaccount.com
 ```
 
 확인 방법:
@@ -205,6 +212,8 @@ GOOGLE_PLAY_RTDN_SHARED_TOKEN=긴_랜덤_토큰
 - 같은 구매가 중복 지급되지 않는지 확인
 - 구매 중 앱 종료 후 `Google Play 구매 복구`로 반영되는지 확인
 - Pro 구독 구매 후 Pro 제공량이 보이는지 확인
+- Pro 구독 취소 직후에는 혜택이 유지되고 Play Console에 표시된 만료 시각 이후에만 종료되는지 확인
+- 구독 갱신 후 Pro 월 제공량이 새 주기로 바뀌고 이전 잔여량은 이월되지 않는지 확인
 
 ## 5. AdMob 광고
 

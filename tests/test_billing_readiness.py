@@ -267,6 +267,8 @@ class BillingReadinessTest(unittest.TestCase):
 
         pro = catalog["subscriptions"]["pro_monthly"]
         self.assertEqual((35, 25, 9900), (pro["monthly_basic"], pro["monthly_advanced"], pro["price_krw"]))
+        self.assertEqual("monthly", pro["google_play_base_plan_id"])
+        self.assertEqual("launch_7900_3m", pro["google_play_offer_id"])
         self.assertEqual(
             {
                 "price_krw": 7900,
@@ -1138,6 +1140,169 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual(25, renewed["advanced"]["pro_monthly_remaining"])
             self.assertEqual(10, renewed["advanced"]["purchased_remaining"])
             self.assertIsNone(renewed["validity"]["purchased_pass_expires_at"])
+
+    def test_canceled_pro_remains_active_until_play_expiry_without_resetting_quota(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            subscription = {
+                "subscription_state": "SUBSCRIPTION_STATE_ACTIVE",
+                "expiry_time": "2099-01-01T00:00:00Z",
+                "latest_order_id": "GPA.pro.cancel-cycle",
+                "auto_renewing": True,
+            }
+
+            def fake_verify(**kwargs):
+                return {
+                    "package_name": "com.alphamate.app",
+                    "product_id": "pro_monthly",
+                    **subscription,
+                }
+
+            access_control._verify_google_play_subscription = fake_verify
+            access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="pro_monthly",
+                purchase_token="subscription-cancel-token",
+                package_name="com.alphamate.app",
+            )
+            access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="advanced",
+            )
+
+            subscription.update({
+                "subscription_state": "SUBSCRIPTION_STATE_CANCELED",
+                "auto_renewing": False,
+            })
+            canceled = access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="pro_monthly",
+                purchase_token="subscription-cancel-token",
+                package_name="com.alphamate.app",
+            )
+
+            self.assertEqual("pro", canceled["plan"])
+            self.assertEqual(24, canceled["advanced"]["pro_monthly_remaining"])
+            self.assertEqual("2099-01-01T00:00:00Z", canceled["validity"]["pro_allowance_resets_at"])
+
+            subscription.update({
+                "expiry_time": "2020-01-01T00:00:00Z",
+            })
+            with self.assertRaises(HTTPException) as raised:
+                access_control.apply_google_play_purchase(
+                    authorization="Bearer dev-token",
+                    product_id="pro_monthly",
+                    purchase_token="subscription-cancel-token",
+                    package_name="com.alphamate.app",
+                )
+
+            self.assertEqual(402, raised.exception.status_code)
+            self.assertEqual(
+                "free",
+                access_control.get_user_entitlements(
+                    authorization="Bearer dev-token",
+                    entitlement_token="",
+                )["plan"],
+            )
+
+    def test_grace_period_keeps_pro_until_play_expiry(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+
+            def fake_verify(**kwargs):
+                return {
+                    "package_name": "com.alphamate.app",
+                    "product_id": "pro_monthly",
+                    "subscription_state": "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+                    "expiry_time": "2099-01-01T00:00:00Z",
+                    "latest_order_id": "GPA.pro.grace-cycle",
+                    "auto_renewing": True,
+                }
+
+            access_control._verify_google_play_subscription = fake_verify
+            entitlements = access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="pro_monthly",
+                purchase_token="subscription-grace-token",
+                package_name="com.alphamate.app",
+            )
+
+            self.assertEqual("pro", entitlements["plan"])
+            self.assertEqual(35, entitlements["basic"]["pro_monthly_remaining"])
+            self.assertEqual(25, entitlements["advanced"]["pro_monthly_remaining"])
+
+    def test_payment_hold_disables_pro_even_before_previous_expiry(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            subscription = {
+                "subscription_state": "SUBSCRIPTION_STATE_ACTIVE",
+                "expiry_time": "2099-01-01T00:00:00Z",
+                "latest_order_id": "GPA.pro.hold-cycle",
+                "auto_renewing": True,
+            }
+
+            def fake_verify(**kwargs):
+                return {
+                    "package_name": "com.alphamate.app",
+                    "product_id": "pro_monthly",
+                    **subscription,
+                }
+
+            access_control._verify_google_play_subscription = fake_verify
+            access_control.apply_google_play_purchase(
+                authorization="Bearer dev-token",
+                product_id="pro_monthly",
+                purchase_token="subscription-hold-token",
+                package_name="com.alphamate.app",
+            )
+
+            subscription.update({
+                "subscription_state": "SUBSCRIPTION_STATE_ON_HOLD",
+                "auto_renewing": False,
+            })
+            with self.assertRaises(HTTPException) as raised:
+                access_control.apply_google_play_purchase(
+                    authorization="Bearer dev-token",
+                    product_id="pro_monthly",
+                    purchase_token="subscription-hold-token",
+                    package_name="com.alphamate.app",
+                )
+
+            self.assertEqual(402, raised.exception.status_code)
+            self.assertEqual(
+                "free",
+                access_control.get_user_entitlements(
+                    authorization="Bearer dev-token",
+                    entitlement_token="",
+                )["plan"],
+            )
 
     def test_inactive_subscription_refresh_disables_previous_pro_plan(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(

@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { buildGooglePlayRecoveryCandidates } from './billingPolicy';
+import { buildGooglePlayRecoveryCandidates, selectGooglePlayOffer } from './billingPolicy';
 
 const APP_ENV = import.meta.env.VITE_ALPHAMATE_ENV || (import.meta.env.PROD ? 'production' : 'development');
 const PRODUCT_KIND = {
@@ -140,7 +140,10 @@ export async function purchaseGooglePlayProduct({ productCatalog, localProductId
   const product = currentProducts.find(item => item.localProductId === localProductId);
   const googleProductId = product?.googleProductId || localProductId;
   const storeProduct = store.get(googleProductId, Platform.GOOGLE_PLAY);
-  const offer = storeProduct?.offers?.[0];
+  const productConfig = productCatalog?.subscriptions?.[localProductId]
+    || productCatalog?.consumables?.[localProductId]
+    || {};
+  const offer = selectGooglePlayOffer({ storeProduct, productConfig, localProductId });
   if (!offer) {
     throw new Error('This product is not available from Google Play yet.');
   }

@@ -478,10 +478,17 @@
 ### Google Play RTDN 알림 수신
 
 - `POST /api/journal/google-play-rtdn`를 추가해 Google Play Real-time Developer Notifications Pub/Sub push 메시지를 받을 수 있게 했다.
-- endpoint는 `X-AlphaMate-RTDN-Token` 헤더가 `.env`의 `GOOGLE_PLAY_RTDN_SHARED_TOKEN`과 일치할 때만 처리한다.
+- endpoint는 `X-AlphaMate-RTDN-Token` 헤더 또는 `verification_token` query 값이 `.env`의 `GOOGLE_PLAY_RTDN_SHARED_TOKEN`과 일치할 때만 처리한다. Google Cloud Pub/Sub push 설정에서는 임의 헤더를 추가할 수 없으므로 query 방식을 사용한다.
 - `.env`에 `GOOGLE_PLAY_RTDN_OIDC_AUDIENCE` 또는 `GOOGLE_PLAY_RTDN_OIDC_EMAIL`을 설정하면 Pub/Sub push의 `Authorization: Bearer <JWT>`도 검증한다.
 - subscription notification을 받으면 알림 내용만 믿지 않고 Google Play 구독 API를 다시 호출해 저장된 Pro 상태를 갱신한다.
 - 모르는 purchase token은 사용자와 연결할 수 없으므로 무시하고, 이미 저장된 구독 토큰 해시와 매칭되는 경우만 갱신한다.
+
+### Google Play Pro 갱신·취소 처리 보강
+
+- Pro 구독 상품의 기본 요금제 `monthly`와 출시 혜택 `launch_7900_3m`을 앱이 명시적으로 선택하도록 바꿨다.
+- 사용자가 자동 갱신을 취소해도 Google Play의 실제 `expiryTime`까지 Pro 혜택을 유지하고, 만료 후에만 비활성화한다.
+- 새 결제 주문으로 갱신된 경우에만 Pro 일반 35회·심화 25회 제공량을 새 주기로 바꾸고, 같은 결제 주기 안의 취소 상태 변경은 잔여량을 초기화하지 않는다.
+- 결제 유예는 실제 만료 시각까지 유지하고, 결제 보류와 만료 상태는 Pro로 인정하지 않는 회귀 테스트를 추가했다.
 
 ### 앱 표시 이름 설정화
 
