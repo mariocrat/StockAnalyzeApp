@@ -1185,6 +1185,120 @@ def get_purchase_credit_order_for_admin(*, order_id: str) -> dict:
     return dict(order)
 
 
+def _update_purchase_credit_order_for_admin(
+    *,
+    order_id: str,
+    event_key: str,
+    event_type: str,
+    balance_locked: bool | None = None,
+    remaining_quantity: int | None = None,
+) -> dict:
+    normalized_order_id = str(order_id or "").strip()
+    normalized_event_key = str(event_key or "").strip()
+    if not normalized_order_id or not normalized_event_key:
+        raise HTTPException(status_code=400, detail="order_id and event_key are required.")
+    if balance_locked is None and remaining_quantity is None:
+        raise HTTPException(status_code=400, detail="An order update is required.")
+    if remaining_quantity is not None:
+        try:
+            remaining_quantity = int(remaining_quantity)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="remaining_quantity must be an integer.")
+
+    payload_hash = hashlib.sha256(
+        f"{normalized_order_id}|{event_type}|{balance_locked}|{remaining_quantity}".encode("utf-8")
+    ).hexdigest()
+    conn = _connect_access_db()
+    try:
+        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+        receipt = conn.execute(
+            "SELECT * FROM billing_event_receipts WHERE event_key = ?",
+            (normalized_event_key,),
+        ).fetchone()
+        if receipt:
+            if (
+                receipt["order_id"] != normalized_order_id
+                or receipt["event_type"] != event_type
+                or receipt["payload_hash"] != payload_hash
+            ):
+                raise HTTPException(status_code=409, detail="Billing event key is already linked to another update.")
+            conn.rollback()
+            return {"status": "already_processed", "order": get_purchase_credit_order_for_admin(order_id=normalized_order_id)}
+
+        order = conn.execute(
+            "SELECT * FROM purchase_credit_orders WHERE order_id = ?",
+            (normalized_order_id,),
+        ).fetchone()
+        if not order:
+            raise HTTPException(status_code=404, detail="Purchase credit order was not found.")
+        current_remaining = int(order["remaining_quantity"] or 0)
+        current_locked = bool(order["balance_locked"])
+        next_remaining = current_remaining if remaining_quantity is None else remaining_quantity
+        next_locked = current_locked if balance_locked is None else bool(balance_locked)
+        if next_remaining < 0 or next_remaining > int(order["granted_quantity"] or 0) - int(order["used_quantity"] or 0):
+            raise HTTPException(status_code=400, detail="remaining_quantity is outside the order balance limit.")
+        if order["order_status"] in {"CANCELED", "REFUNDED"} and (
+            next_remaining != current_remaining or not next_locked
+        ):
+            raise HTTPException(status_code=409, detail="Canceled or refunded purchase credit orders cannot be reactivated.")
+
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds")
+        conn.execute(
+            """
+            UPDATE purchase_credit_orders
+            SET remaining_quantity = ?, balance_locked = ?, updated_at = ?
+            WHERE order_id = ?
+            """,
+            (next_remaining, 1 if next_locked else 0, now, normalized_order_id),
+        )
+        conn.execute(
+            """
+            INSERT INTO billing_event_receipts (
+                event_key, user_id, order_id, event_type, payload_hash, status, processed_at
+            ) VALUES (?, ?, ?, ?, ?, 'applied', ?)
+            """,
+            (
+                normalized_event_key,
+                order["user_id"],
+                normalized_order_id,
+                event_type,
+                payload_hash,
+                now,
+            ),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return {"status": "updated", "order": get_purchase_credit_order_for_admin(order_id=normalized_order_id)}
+
+
+def set_purchase_credit_order_lock_for_admin(*, order_id: str, locked: bool, event_key: str) -> dict:
+    return _update_purchase_credit_order_for_admin(
+        order_id=order_id,
+        event_key=event_key,
+        event_type="admin_purchase_credit_order_lock",
+        balance_locked=locked,
+    )
+
+
+def set_purchase_credit_order_remaining_for_admin(
+    *,
+    order_id: str,
+    remaining_quantity: int,
+    event_key: str,
+) -> dict:
+    return _update_purchase_credit_order_for_admin(
+        order_id=order_id,
+        event_key=event_key,
+        event_type="admin_purchase_credit_order_remaining_adjustment",
+        remaining_quantity=remaining_quantity,
+    )
+
+
 def _parse_google_time(value: str | None):
     text = str(value or "").strip()
     if not text:

@@ -36,6 +36,8 @@ from core.access_control import (
     claim_rewarded_ad_progress,
     record_admob_ssv_reward,
     refund_ai_review_access,
+    set_purchase_credit_order_lock_for_admin,
+    set_purchase_credit_order_remaining_for_admin,
     sync_google_play_purchase_order_status,
     verify_ai_review_access,
 )
@@ -944,6 +946,36 @@ def sync_admin_purchase_credit_order(
     _enforce_admin_rate_limit(_request_client_key(request))
     _require_admin_token(authorization)
     return sync_google_play_purchase_order_status(order_id=order_id, event_key=event_key)
+
+
+@app.post("/api/admin/purchase-credit-orders/{order_id}/lock")
+def set_admin_purchase_credit_order_lock(
+    request: Request,
+    order_id: str,
+    locked: bool,
+    event_key: str,
+    authorization: Optional[str] = Header(default=None),
+):
+    _enforce_admin_rate_limit(_request_client_key(request))
+    _require_admin_token(authorization)
+    return set_purchase_credit_order_lock_for_admin(order_id=order_id, locked=locked, event_key=event_key)
+
+
+@app.post("/api/admin/purchase-credit-orders/{order_id}/remaining")
+def adjust_admin_purchase_credit_order_remaining(
+    request: Request,
+    order_id: str,
+    remaining_quantity: int,
+    event_key: str,
+    authorization: Optional[str] = Header(default=None),
+):
+    _enforce_admin_rate_limit(_request_client_key(request))
+    _require_admin_token(authorization)
+    return set_purchase_credit_order_remaining_for_admin(
+        order_id=order_id,
+        remaining_quantity=remaining_quantity,
+        event_key=event_key,
+    )
 
 
 @app.get("/api/admin/operational-events")

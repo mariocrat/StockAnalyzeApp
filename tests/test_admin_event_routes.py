@@ -73,6 +73,8 @@ class AdminEventRoutesTest(unittest.TestCase):
         paths = set(main.app.openapi()["paths"].keys())
         self.assertIn("/api/admin/purchase-credit-orders/{order_id}", paths)
         self.assertIn("/api/admin/purchase-credit-orders/{order_id}/sync", paths)
+        self.assertIn("/api/admin/purchase-credit-orders/{order_id}/lock", paths)
+        self.assertIn("/api/admin/purchase-credit-orders/{order_id}/remaining", paths)
 
     def test_admin_can_query_and_sync_purchase_credit_order(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
@@ -125,6 +127,112 @@ class AdminEventRoutesTest(unittest.TestCase):
                 )
             self.assertEqual({"status": "ignored"}, result)
             sync.assert_called_once_with(order_id=order_id, event_key="admin-sync-event-1")
+
+    def test_admin_can_lock_unlock_and_adjust_purchase_credit_order(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            ALPHAMATE_ADMIN_TOKEN="admin-secret",
+        ):
+            import main
+            from core import access_control
+            from core.rate_limit import InMemoryRateLimiter
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_10",
+            )
+            conn = access_control._connect_access_db()
+            try:
+                order_id = conn.execute("SELECT order_id FROM purchase_credit_orders").fetchone()[0]
+            finally:
+                conn.close()
+
+            request = SimpleNamespace(headers={}, client=SimpleNamespace(host="127.0.0.1"))
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            locked = main.set_admin_purchase_credit_order_lock(
+                request,
+                order_id,
+                locked=True,
+                event_key="admin-lock-1",
+                authorization="Bearer admin-secret",
+            )
+            while_locked = access_control.get_user_entitlements(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+            )
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            repeated = main.set_admin_purchase_credit_order_lock(
+                request,
+                order_id,
+                locked=True,
+                event_key="admin-lock-1",
+                authorization="Bearer admin-secret",
+            )
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            unlocked = main.set_admin_purchase_credit_order_lock(
+                request,
+                order_id,
+                locked=False,
+                event_key="admin-unlock-1",
+                authorization="Bearer admin-secret",
+            )
+            after_unlock = access_control.get_user_entitlements(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+            )
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            adjusted = main.adjust_admin_purchase_credit_order_remaining(
+                request,
+                order_id,
+                remaining_quantity=4,
+                event_key="admin-adjust-1",
+                authorization="Bearer admin-secret",
+            )
+
+            self.assertEqual("updated", locked["status"])
+            self.assertEqual(1, locked["order"]["balance_locked"])
+            self.assertEqual(0, while_locked["advanced"]["purchased_remaining"])
+            self.assertEqual("already_processed", repeated["status"])
+            self.assertEqual(0, unlocked["order"]["balance_locked"])
+            self.assertEqual(10, after_unlock["advanced"]["purchased_remaining"])
+            self.assertEqual(4, adjusted["order"]["remaining_quantity"])
+
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            with self.assertRaises(HTTPException) as invalid:
+                main.adjust_admin_purchase_credit_order_remaining(
+                    request,
+                    order_id,
+                    remaining_quantity=11,
+                    event_key="admin-adjust-invalid",
+                    authorization="Bearer admin-secret",
+                )
+            self.assertEqual(400, invalid.exception.status_code)
+
+            conn = access_control._connect_access_db()
+            try:
+                conn.execute(
+                    "UPDATE purchase_credit_orders "
+                    "SET remaining_quantity = 0, balance_locked = 1, order_status = 'REFUNDED', refund_status = 'refunded' "
+                    "WHERE order_id = ?",
+                    (order_id,),
+                )
+                conn.commit()
+            finally:
+                conn.close()
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            with self.assertRaises(HTTPException) as terminal:
+                main.adjust_admin_purchase_credit_order_remaining(
+                    request,
+                    order_id,
+                    remaining_quantity=1,
+                    event_key="admin-adjust-refunded",
+                    authorization="Bearer admin-secret",
+                )
+            self.assertEqual(409, terminal.exception.status_code)
 
     def test_admin_event_route_requires_admin_token(self):
         with patched_env(ALPHAMATE_ADMIN_TOKEN="admin-secret"):
