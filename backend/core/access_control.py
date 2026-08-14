@@ -1160,6 +1160,31 @@ def sync_google_play_purchase_order_status(
         conn.close()
 
 
+def get_purchase_credit_order_for_admin(*, order_id: str) -> dict:
+    normalized_order_id = str(order_id or "").strip()
+    if not normalized_order_id:
+        raise HTTPException(status_code=400, detail="order_id is required.")
+    conn = _connect_access_db()
+    try:
+        order = conn.execute(
+            """
+            SELECT
+                order_id, user_id, product_id, google_play_product_id, credit_kind,
+                granted_quantity, used_quantity, remaining_quantity, order_status,
+                price_amount_micros, currency_code, refund_amount_micros, refund_status,
+                balance_locked, created_at, updated_at
+            FROM purchase_credit_orders
+            WHERE order_id = ?
+            """,
+            (normalized_order_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not order:
+        raise HTTPException(status_code=404, detail="Purchase credit order was not found.")
+    return dict(order)
+
+
 def _parse_google_time(value: str | None):
     text = str(value or "").strip()
     if not text:

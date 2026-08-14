@@ -28,6 +28,7 @@ from core.review_history import add_review_history, list_review_history, get_rev
 from core.access_control import (
     apply_dev_purchase,
     apply_google_play_purchase,
+    get_purchase_credit_order_for_admin,
     handle_google_play_rtdn,
     get_product_catalog,
     get_user_entitlements,
@@ -35,6 +36,7 @@ from core.access_control import (
     claim_rewarded_ad_progress,
     record_admob_ssv_reward,
     refund_ai_review_access,
+    sync_google_play_purchase_order_status,
     verify_ai_review_access,
 )
 from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
@@ -919,6 +921,29 @@ def _require_admin_token(authorization: Optional[str]) -> bool:
     if not hmac.compare_digest(token, configured):
         raise HTTPException(status_code=403, detail="Admin token is invalid.")
     return True
+
+
+@app.get("/api/admin/purchase-credit-orders/{order_id}")
+def get_admin_purchase_credit_order(
+    request: Request,
+    order_id: str,
+    authorization: Optional[str] = Header(default=None),
+):
+    _enforce_admin_rate_limit(_request_client_key(request))
+    _require_admin_token(authorization)
+    return get_purchase_credit_order_for_admin(order_id=order_id)
+
+
+@app.post("/api/admin/purchase-credit-orders/{order_id}/sync")
+def sync_admin_purchase_credit_order(
+    request: Request,
+    order_id: str,
+    event_key: str,
+    authorization: Optional[str] = Header(default=None),
+):
+    _enforce_admin_rate_limit(_request_client_key(request))
+    _require_admin_token(authorization)
+    return sync_google_play_purchase_order_status(order_id=order_id, event_key=event_key)
 
 
 @app.get("/api/admin/operational-events")

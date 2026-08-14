@@ -1,9 +1,11 @@
 import os
 import sys
+import importlib
 import tempfile
 import unittest
 from contextlib import contextmanager
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from fastapi import HTTPException
 
@@ -64,6 +66,65 @@ class AdminEventRoutesTest(unittest.TestCase):
         self.assertIn("event_id", summary_parameter_names)
         self.assertIn("created_after", summary_parameter_names)
         self.assertIn("created_before", summary_parameter_names)
+
+    def test_admin_purchase_credit_order_routes_are_registered(self):
+        import main
+
+        paths = set(main.app.openapi()["paths"].keys())
+        self.assertIn("/api/admin/purchase-credit-orders/{order_id}", paths)
+        self.assertIn("/api/admin/purchase-credit-orders/{order_id}/sync", paths)
+
+    def test_admin_can_query_and_sync_purchase_credit_order(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            ALPHAMATE_ADMIN_TOKEN="admin-secret",
+        ):
+            import main
+            from core import access_control
+            from core.rate_limit import InMemoryRateLimiter
+
+            access_control = importlib.reload(access_control)
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="basic_review_15",
+            )
+            conn = access_control._connect_access_db()
+            try:
+                order_id = conn.execute("SELECT order_id FROM purchase_credit_orders").fetchone()[0]
+            finally:
+                conn.close()
+
+            request = SimpleNamespace(headers={}, client=SimpleNamespace(host="127.0.0.1"))
+            with self.assertRaises(HTTPException) as missing:
+                main.get_admin_purchase_credit_order(request, order_id, authorization=None)
+            self.assertEqual(401, missing.exception.status_code)
+
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            order = main.get_admin_purchase_credit_order(
+                request,
+                order_id,
+                authorization="Bearer admin-secret",
+            )
+            self.assertEqual(order_id, order["order_id"])
+            self.assertEqual(15, order["granted_quantity"])
+            self.assertEqual(15, order["remaining_quantity"])
+            self.assertNotIn("purchase_token_ciphertext", order)
+            self.assertNotIn("purchase_token_hash", order)
+
+            main._admin_rate_limiter = InMemoryRateLimiter()
+            with patch.object(main, "sync_google_play_purchase_order_status", return_value={"status": "ignored"}) as sync:
+                result = main.sync_admin_purchase_credit_order(
+                    request,
+                    order_id,
+                    event_key="admin-sync-event-1",
+                    authorization="Bearer admin-secret",
+                )
+            self.assertEqual({"status": "ignored"}, result)
+            sync.assert_called_once_with(order_id=order_id, event_key="admin-sync-event-1")
 
     def test_admin_event_route_requires_admin_token(self):
         with patched_env(ALPHAMATE_ADMIN_TOKEN="admin-secret"):
