@@ -1728,6 +1728,43 @@ body {
   font-style: normal;
 }
 
+.journal-billing-policy-link {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #9bbcff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.journal-billing-policy {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #2c3445;
+  border-radius: 6px;
+  background: #121826;
+}
+
+.journal-billing-policy h4 {
+  margin: 0;
+  color: #f2f5ff;
+  font-size: 13px;
+}
+
+.journal-billing-policy ul {
+  display: grid;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: #c5ccda;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .journal-ad-policy {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

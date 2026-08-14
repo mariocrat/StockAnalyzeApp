@@ -306,6 +306,7 @@ export default function TradingJournal({
   const [adLoading, setAdLoading] = useState(false);
   const [purchaseLoadingId, setPurchaseLoadingId] = useState('');
   const [purchaseRecoveryLoading, setPurchaseRecoveryLoading] = useState(false);
+  const [accountBillingPolicyOpen, setAccountBillingPolicyOpen] = useState(false);
   const [mobileAdStatus, setMobileAdStatus] = useState(getAdMobRuntimeStatus);
   const [billingStatus, setBillingStatus] = useState(getBillingRuntimeStatus);
   const [entitlements, setEntitlements] = useState(null);
@@ -2134,6 +2135,25 @@ export default function TradingJournal({
             )}
           </div>
         )}
+        <button
+          type="button"
+          className="journal-billing-policy-link"
+          aria-expanded={accountBillingPolicyOpen}
+          onClick={() => setAccountBillingPolicyOpen(open => !open)}
+        >
+          구매 및 환불 정책
+        </button>
+        {accountBillingPolicyOpen && (
+          <section className="journal-billing-policy" aria-labelledby="journal-billing-policy-title">
+            <h4 id="journal-billing-policy-title">구매 및 환불 정책</h4>
+            <ul>
+              <li>일회성 구매 이용권은 주문별로 관리하며, 무료 이용자는 가입 체험·일일 무료·광고 보상을 먼저, Pro 이용자는 Pro 월 제공량을 먼저 사용한 뒤 구매 주문 순서대로 사용합니다.</li>
+              <li>전액 환불·취소·차지백이 확정되면 해당 주문의 남은 이용권만 회수합니다. 다른 주문과 무료·광고·Pro 제공량은 변경하지 않습니다.</li>
+              <li>부분 환불은 고객지원 수동 검토로 처리하며, 앱에서 자동 환불 또는 자동 이용권 조정을 하지 않습니다.</li>
+              <li>Pro를 해지해도 현재 결제 주기 만료 시점까지 이용할 수 있으며, 실제 환불 또는 권한 회수 시에만 해당 주기 제공량과 권한이 조정됩니다.</li>
+            </ul>
+          </section>
+        )}
         {authSession && (
           <div className="journal-data-grid">
             <div>
@@ -2416,6 +2436,16 @@ export default function TradingJournal({
             배포 모드에서는 Google Play 결제 검증이 연결된 뒤 복기권 구매가 표시됩니다.
           </p>
         )}
+        <button
+          type="button"
+          className="journal-billing-policy-link"
+          onClick={() => {
+            setAccountBillingPolicyOpen(true);
+            onOpenAccountPanel?.();
+          }}
+        >
+          구매 및 환불 정책 보기
+        </button>
       </section>
 
       <section className="journal-panel">
