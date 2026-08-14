@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi import HTTPException
 from cryptography.hazmat.primitives import serialization
@@ -557,6 +558,24 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertIn("product_id_mappings", catalog["google_play"])
             self.assertFalse(catalog["google_play"]["product_id_mappings"]["all_configured"])
 
+    def test_production_readiness_requires_purchase_token_encryption_key(self):
+        with patched_env(
+            ALPHAMATE_ENV="production",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+            GOOGLE_PLAY_PURCHASE_TOKEN_ENCRYPTION_KEY=None,
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            catalog = access_control.get_product_catalog()
+
+            self.assertFalse(catalog["google_play"]["ready"])
+            self.assertIn(
+                "GOOGLE_PLAY_PURCHASE_TOKEN_ENCRYPTION_KEY",
+                catalog["google_play"]["missing_server_settings"],
+            )
+
     def test_production_readiness_rejects_duplicate_google_play_product_ids(self):
         with patched_env(
             ALPHAMATE_ENV="production",
@@ -713,9 +732,11 @@ class BillingReadinessTest(unittest.TestCase):
                     review_type="basic",
                 )
 
-            wallet = access_control._wallet_for("dev-user", "free")
-            wallet.purchased_basic = 15
-            access_control._save_wallet("dev-user", wallet)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="basic_review_15",
+            )
 
             access = access_control.verify_ai_review_access(
                 authorization="Bearer dev-token",
@@ -799,6 +820,9 @@ class BillingReadinessTest(unittest.TestCase):
                     "product_id": google_product_id,
                     "purchase_state": "purchased",
                     "order_id": "GPA.1234",
+                    "order_status": "PROCESSED",
+                    "price_amount_micros": 2_900_000_000,
+                    "currency_code": "KRW",
                     "acknowledgement_state": "acknowledged",
                 }
 
@@ -825,6 +849,281 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual("already_applied", second["purchase"]["status"])
             self.assertEqual(1, len(consumed))
 
+            conn = access_control._connect_access_db()
+            try:
+                order = conn.execute("SELECT * FROM purchase_credit_orders").fetchone()
+            finally:
+                conn.close()
+
+            self.assertEqual("GPA.1234", order["order_id"])
+            self.assertEqual(15, order["granted_quantity"])
+            self.assertEqual(15, order["remaining_quantity"])
+            self.assertEqual(2_900_000_000, order["price_amount_micros"])
+            self.assertEqual("KRW", order["currency_code"])
+            self.assertNotEqual(b"purchase-token", order["purchase_token_ciphertext"])
+            self.assertEqual(
+                b"purchase-token",
+                access_control._purchase_token_cipher()[0].decrypt(order["purchase_token_ciphertext"]),
+            )
+
+    def test_google_play_consumable_rejects_non_processed_order(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            for order_status in ("CANCELED", "PENDING_REFUND", "PARTIALLY_REFUNDED", "REFUNDED"):
+                access_control._verify_google_play_purchase = lambda **kwargs: {
+                    "package_name": kwargs["package_name"],
+                    "product_id": kwargs["google_product_id"],
+                    "purchase_state": "purchased",
+                    "order_id": f"GPA.{order_status.lower()}",
+                    "order_status": order_status,
+                    "price_amount_micros": 2_900_000_000,
+                    "currency_code": "KRW",
+                }
+                with self.subTest(order_status=order_status), self.assertRaises(HTTPException) as raised:
+                    access_control.apply_google_play_purchase(
+                        authorization="Bearer dev-token",
+                        product_id="basic_review_15",
+                        purchase_token=f"token-{order_status.lower()}",
+                        package_name="com.alphamate.app",
+                    )
+                self.assertEqual(402, raised.exception.status_code)
+
+            conn = access_control._connect_access_db()
+            try:
+                self.assertEqual(0, conn.execute("SELECT COUNT(*) FROM purchase_credit_orders").fetchone()[0])
+            finally:
+                conn.close()
+
+    def test_google_play_purchase_verification_loads_actual_order_amount(self):
+        from backend.core import access_control
+
+        access_control = importlib.reload(access_control)
+
+        class FakeResponse:
+            def __init__(self, payload):
+                self.status_code = 200
+                self._payload = payload
+
+            def json(self):
+                return self._payload
+
+        responses = [
+            FakeResponse({
+                "purchaseState": 0,
+                "orderId": "GPA.order.amount",
+                "acknowledgementState": 1,
+            }),
+            FakeResponse({
+                "orderId": "GPA.order.amount",
+                "purchaseToken": "purchase-token",
+                "state": "PROCESSED",
+                "createTime": "2026-08-14T00:00:00Z",
+                "lineItems": [{
+                    "productId": "basic_review_15",
+                    "total": {"currencyCode": "KRW", "units": "2900", "nanos": 0},
+                }],
+            }),
+        ]
+        with patch.object(access_control, "_google_play_headers", return_value={"Authorization": "Bearer test"}), \
+             patch.object(access_control.requests, "get", side_effect=lambda *args, **kwargs: responses.pop(0)):
+            verified = access_control._verify_google_play_purchase(
+                package_name="com.alphamate.app",
+                google_product_id="basic_review_15",
+                purchase_token="purchase-token",
+            )
+
+        self.assertEqual("GPA.order.amount", verified["order_id"])
+        self.assertEqual("PROCESSED", verified["order_status"])
+        self.assertEqual(2_900_000_000, verified["price_amount_micros"])
+        self.assertEqual("KRW", verified["currency_code"])
+
+    def test_purchase_credits_are_consumed_fifo_and_record_order_source(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_10",
+            )
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_20",
+            )
+
+            access = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="advanced",
+            )
+
+            conn = access_control._connect_access_db()
+            try:
+                orders = conn.execute(
+                    "SELECT order_id, used_quantity, remaining_quantity FROM purchase_credit_orders ORDER BY created_at, order_id"
+                ).fetchall()
+                usage = conn.execute("SELECT * FROM credit_usage_ledger").fetchone()
+            finally:
+                conn.close()
+
+            self.assertEqual("purchased_advanced", access.source)
+            self.assertEqual(29, access.quota["advanced"]["purchased_remaining"])
+            self.assertEqual((1, 9), (orders[0]["used_quantity"], orders[0]["remaining_quantity"]))
+            self.assertEqual((0, 20), (orders[1]["used_quantity"], orders[1]["remaining_quantity"]))
+            self.assertEqual(orders[0]["order_id"], usage["source_order_id"])
+            self.assertEqual("purchase_order", usage["source_type"])
+
+    def test_basic_purchase_credit_is_consumed_after_free_credits(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="basic_review_15",
+            )
+            for _ in range(6):
+                access_control.verify_ai_review_access(
+                    authorization="Bearer dev-token",
+                    ad_reward_token="",
+                    entitlement_token="",
+                    privacy_consent=True,
+                    review_type="basic",
+                )
+            access = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="basic",
+            )
+
+            self.assertEqual("purchased_basic", access.source)
+            self.assertEqual(14, access.quota["basic"]["purchased_remaining"])
+
+    def test_purchase_credit_refund_restores_the_same_order(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_10",
+            )
+            access = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="advanced",
+            )
+            refunded = access_control.refund_ai_review_access(access)
+
+            conn = access_control._connect_access_db()
+            try:
+                order = conn.execute("SELECT * FROM purchase_credit_orders").fetchone()
+                usage = conn.execute("SELECT * FROM credit_usage_ledger").fetchone()
+            finally:
+                conn.close()
+
+            self.assertEqual(10, refunded["advanced"]["purchased_remaining"])
+            self.assertEqual((0, 10), (order["used_quantity"], order["remaining_quantity"]))
+            self.assertEqual("reversed", usage["status"])
+
+    def test_purchase_credit_consumption_rolls_back_when_wallet_save_fails(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_10",
+            )
+            with patch.object(access_control, "_write_wallet", side_effect=RuntimeError("save failed")):
+                with self.assertRaises(RuntimeError):
+                    access_control.verify_ai_review_access(
+                        authorization="Bearer dev-token",
+                        ad_reward_token="",
+                        entitlement_token="",
+                        privacy_consent=True,
+                        review_type="advanced",
+                    )
+
+            conn = access_control._connect_access_db()
+            try:
+                order = conn.execute("SELECT * FROM purchase_credit_orders").fetchone()
+                usage_count = conn.execute("SELECT COUNT(*) FROM credit_usage_ledger").fetchone()[0]
+            finally:
+                conn.close()
+
+            self.assertEqual((0, 10), (order["used_quantity"], order["remaining_quantity"]))
+            self.assertEqual(0, usage_count)
+
+    def test_purchase_credit_consumption_rolls_back_when_snapshot_fails(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_10",
+            )
+            with patch.object(access_control, "_wallet_snapshot", side_effect=RuntimeError("snapshot failed")):
+                with self.assertRaises(RuntimeError):
+                    access_control.verify_ai_review_access(
+                        authorization="Bearer dev-token",
+                        ad_reward_token="",
+                        entitlement_token="",
+                        privacy_consent=True,
+                        review_type="advanced",
+                    )
+
+            conn = access_control._connect_access_db()
+            try:
+                order = conn.execute("SELECT * FROM purchase_credit_orders").fetchone()
+                usage_count = conn.execute("SELECT COUNT(*) FROM credit_usage_ledger").fetchone()[0]
+            finally:
+                conn.close()
+
+            self.assertEqual((0, 10), (order["used_quantity"], order["remaining_quantity"]))
+            self.assertEqual(0, usage_count)
+
     def test_google_play_purchase_stored_fields_are_length_limited(self):
         long_product_id = "alphamate.basic." + ("p" * 500)
         long_order_id = "GPA." + ("o" * 500)
@@ -844,6 +1143,9 @@ class BillingReadinessTest(unittest.TestCase):
                 "product_id": kwargs["google_product_id"],
                 "purchase_state": "purchased",
                 "order_id": long_order_id,
+                "order_status": "PROCESSED",
+                "price_amount_micros": 2_900_000_000,
+                "currency_code": "KRW",
                 "acknowledgement_state": "acknowledged",
             }
             access_control._consume_google_play_product = lambda **kwargs: True
@@ -882,6 +1184,9 @@ class BillingReadinessTest(unittest.TestCase):
                     "product_id": google_product_id,
                     "purchase_state": "purchased",
                     "order_id": "GPA.consume.retry",
+                    "order_status": "PROCESSED",
+                    "price_amount_micros": 2_900_000_000,
+                    "currency_code": "KRW",
                     "acknowledgement_state": "acknowledged",
                 }
 

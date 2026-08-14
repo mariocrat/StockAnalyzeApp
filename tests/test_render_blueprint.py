@@ -53,7 +53,11 @@ class RenderBlueprintTest(unittest.TestCase):
                 self.assertRegex(text, rf"key: {key}\n\s+sync: false")
                 self.assertNotRegex(text, rf"key: {key}\n\s+value: .+")
 
-        for key in ("ALPHAMATE_ADMIN_TOKEN", "GOOGLE_PLAY_RTDN_SHARED_TOKEN"):
+        for key in (
+            "ALPHAMATE_ADMIN_TOKEN",
+            "GOOGLE_PLAY_PURCHASE_TOKEN_ENCRYPTION_KEY",
+            "GOOGLE_PLAY_RTDN_SHARED_TOKEN",
+        ):
             with self.subTest(key=key):
                 self.assertRegex(text, rf"key: {key}\n\s+generateValue: true")
 

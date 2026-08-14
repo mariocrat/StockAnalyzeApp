@@ -4,13 +4,15 @@ import hashlib
 import hmac
 import json
 import requests
+import secrets
 import sqlite3
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import parse_qsl, unquote
+from urllib.parse import parse_qsl, quote, unquote
 from zoneinfo import ZoneInfo
 
+from cryptography.fernet import Fernet
 from fastapi import HTTPException
 
 try:
@@ -114,6 +116,8 @@ class AiAccessContext:
     plan: str
     review_type: str
     source: str
+    source_order_id: str
+    usage_event_key: str
     product_balances: dict
     quota: dict
 
@@ -740,6 +744,11 @@ def _google_play_status() -> dict:
     if _is_production():
         missing.extend(product_ids["missing_server_settings"])
         missing.extend(rtdn["missing_server_settings"])
+        encryption_key = _env_value("GOOGLE_PLAY_PURCHASE_TOKEN_ENCRYPTION_KEY")
+        if not encryption_key:
+            missing.append("GOOGLE_PLAY_PURCHASE_TOKEN_ENCRYPTION_KEY")
+        elif len(encryption_key) < 32:
+            missing.append("GOOGLE_PLAY_PURCHASE_TOKEN_ENCRYPTION_KEY_MIN_LENGTH_32")
     return {
         "ready": not missing,
         "package_name_configured": bool(package_name),
@@ -927,6 +936,78 @@ def _hash_purchase_token(token: str) -> str:
     return hashlib.sha256(str(token or "").strip().encode("utf-8")).hexdigest()
 
 
+def _purchase_token_cipher() -> tuple[Fernet, str]:
+    configured = _env_value("GOOGLE_PLAY_PURCHASE_TOKEN_ENCRYPTION_KEY")
+    if not configured and not _is_production():
+        configured = "alphamate-development-purchase-token-key"
+    if not configured:
+        raise HTTPException(status_code=503, detail="Google Play purchase token encryption is not configured.")
+    if len(configured) < 32:
+        raise HTTPException(status_code=503, detail="Google Play purchase token encryption key is too short.")
+    key_digest = hashlib.sha256(configured.encode("utf-8")).digest()
+    cipher = Fernet(base64.urlsafe_b64encode(key_digest))
+    key_id = hashlib.sha256(key_digest).hexdigest()[:16]
+    return cipher, key_id
+
+
+def _encrypt_purchase_token(purchase_token: str) -> tuple[bytes, str]:
+    cipher, key_id = _purchase_token_cipher()
+    return cipher.encrypt(str(purchase_token).encode("utf-8")), key_id
+
+
+def _money_to_micros(money: dict) -> tuple[int, str]:
+    try:
+        units = int((money or {}).get("units") or 0)
+        nanos = int((money or {}).get("nanos") or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=502, detail="Google Play order amount is invalid.")
+    amount_micros = units * 1_000_000 + nanos // 1_000
+    currency_code = str((money or {}).get("currencyCode") or "").strip().upper()
+    if amount_micros <= 0 or len(currency_code) != 3:
+        raise HTTPException(status_code=502, detail="Google Play order amount is unavailable.")
+    return amount_micros, currency_code
+
+
+def _verify_google_play_order(
+    *,
+    package_name: str,
+    google_product_id: str,
+    purchase_token: str,
+    order_id: str,
+) -> dict:
+    url = (
+        "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"
+        f"{quote(package_name, safe='')}/orders/{quote(order_id, safe='')}"
+    )
+    try:
+        response = requests.get(url, headers=_google_play_headers(), timeout=10)
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Google Play order verification request failed.")
+    if response.status_code == 404:
+        raise HTTPException(status_code=402, detail="Google Play order was not found.")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Google Play order verification failed.")
+
+    data = response.json()
+    if str(data.get("orderId") or "") != order_id:
+        raise HTTPException(status_code=400, detail="Google Play order id does not match the purchase.")
+    if str(data.get("purchaseToken") or "") != purchase_token:
+        raise HTTPException(status_code=400, detail="Google Play order token does not match the purchase.")
+    line_item = next(
+        (item for item in data.get("lineItems") or [] if item.get("productId") == google_product_id),
+        None,
+    )
+    if not line_item:
+        raise HTTPException(status_code=400, detail="Google Play order product id does not match the purchase.")
+    amount_micros, currency_code = _money_to_micros(line_item.get("total") or data.get("total") or {})
+    return {
+        "order_status": str(data.get("state") or ""),
+        "price_amount_micros": amount_micros,
+        "currency_code": currency_code,
+        "created_at": str(data.get("createTime") or ""),
+    }
+
+
 def _parse_google_time(value: str | None):
     text = str(value or "").strip()
     if not text:
@@ -1017,12 +1098,24 @@ def _verify_google_play_purchase(
 
     data = response.json()
     purchase_state = "purchased" if int(data.get("purchaseState", -1)) == 0 else "not_purchased"
+    order_id = str(data.get("orderId") or "").strip()
+    order = {}
+    if purchase_state == "purchased":
+        if not order_id:
+            raise HTTPException(status_code=502, detail="Google Play purchase order id is unavailable.")
+        order = _verify_google_play_order(
+            package_name=package_name,
+            google_product_id=google_product_id,
+            purchase_token=purchase_token,
+            order_id=order_id,
+        )
     return {
         "package_name": package_name,
         "product_id": google_product_id,
         "purchase_state": purchase_state,
-        "order_id": str(data.get("orderId") or ""),
+        "order_id": order_id,
         "acknowledgement_state": "acknowledged" if int(data.get("acknowledgementState", 0)) == 1 else "unacknowledged",
+        **order,
         "raw": data,
     }
 
@@ -1174,6 +1267,183 @@ def _write_google_purchase(
     )
 
 
+def _write_purchase_credit_order(
+    conn,
+    *,
+    order_id: str,
+    token_hash: str,
+    token_ciphertext: bytes,
+    token_key_id: str,
+    user_id: str,
+    local_product_id: str,
+    google_product_id: str,
+    kind: str,
+    quantity: int,
+    order_status: str,
+    price_amount_micros: int,
+    currency_code: str,
+    created_at: str = "",
+):
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds")
+    conn.execute(
+        """
+        INSERT INTO purchase_credit_orders (
+            order_id,
+            purchase_token_hash,
+            purchase_token_ciphertext,
+            purchase_token_key_id,
+            user_id,
+            product_id,
+            google_play_product_id,
+            credit_kind,
+            granted_quantity,
+            remaining_quantity,
+            order_status,
+            price_amount_micros,
+            currency_code,
+            created_at,
+            updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            order_id,
+            token_hash,
+            token_ciphertext,
+            token_key_id,
+            user_id,
+            _short_text(local_product_id, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
+            _short_text(google_product_id, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
+            kind,
+            quantity,
+            quantity,
+            _short_text(order_status, limit=GOOGLE_PLAY_FIELD_MAX_CHARS),
+            price_amount_micros,
+            currency_code.upper(),
+            created_at or now,
+            now,
+        ),
+    )
+
+
+def _purchase_credit_remaining(user_id: str, kind: str, conn=None) -> int:
+    owns_connection = conn is None
+    if owns_connection:
+        conn = _connect_access_db()
+    try:
+        row = conn.execute(
+            """
+            SELECT COALESCE(SUM(remaining_quantity), 0) AS remaining
+            FROM purchase_credit_orders
+            WHERE user_id = ? AND credit_kind = ? AND balance_locked = 0
+            """,
+            (user_id, kind),
+        ).fetchone()
+        return int(row["remaining"] or 0)
+    finally:
+        if owns_connection:
+            conn.close()
+
+
+def _consume_purchase_credit(
+    *,
+    user_id: str,
+    credit_kind: str,
+    review_type: str,
+    wallet: UserWallet,
+) -> tuple[str, str, sqlite3.Connection] | None:
+    conn = _connect_access_db()
+    keep_connection = False
+    try:
+        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+        order = conn.execute(
+            """
+            SELECT order_id
+            FROM purchase_credit_orders
+            WHERE user_id = ?
+              AND credit_kind = ?
+              AND remaining_quantity > 0
+              AND balance_locked = 0
+            ORDER BY created_at ASC, order_id ASC
+            LIMIT 1
+            """,
+            (user_id, credit_kind),
+        ).fetchone()
+        if not order:
+            conn.rollback()
+            return None
+
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds")
+        event_key = f"review:{secrets.token_hex(16)}"
+        conn.execute(
+            """
+            UPDATE purchase_credit_orders
+            SET used_quantity = used_quantity + 1,
+                remaining_quantity = remaining_quantity - 1,
+                updated_at = ?
+            WHERE order_id = ? AND user_id = ? AND remaining_quantity > 0
+            """,
+            (now, order["order_id"], user_id),
+        )
+        conn.execute(
+            """
+            INSERT INTO credit_usage_ledger (
+                user_id, review_type, source_type, source_order_id,
+                quantity, status, idempotency_key, created_at
+            ) VALUES (?, ?, 'purchase_order', ?, 1, 'consumed', ?, ?)
+            """,
+            (user_id, review_type, order["order_id"], event_key, now),
+        )
+        _write_wallet(conn, user_id, wallet)
+        keep_connection = True
+        return order["order_id"], event_key, conn
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        if not keep_connection:
+            conn.close()
+
+
+def _refund_purchase_credit(*, user_id: str, order_id: str, event_key: str) -> bool:
+    conn = _connect_access_db()
+    try:
+        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+        usage = conn.execute(
+            """
+            UPDATE credit_usage_ledger
+            SET status = 'reversed'
+            WHERE user_id = ? AND source_order_id = ? AND idempotency_key = ? AND status = 'consumed'
+            """,
+            (user_id, order_id, event_key),
+        )
+        if usage.rowcount == 0:
+            conn.rollback()
+            return False
+        conn.execute(
+            """
+            UPDATE purchase_credit_orders
+            SET used_quantity = used_quantity - 1,
+                remaining_quantity = remaining_quantity + 1,
+                updated_at = ?
+            WHERE order_id = ? AND user_id = ? AND used_quantity > 0
+            """,
+            (
+                datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds"),
+                order_id,
+                user_id,
+            ),
+        )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
 def _save_google_subscription(
     *,
     user_id: str,
@@ -1240,15 +1510,22 @@ def _ensure_google_subscription_token_owner(*, token_hash: str, user_id: str):
     return None
 
 
-def _save_wallet_and_record_google_purchase(
+def _save_order_and_record_google_purchase(
     *,
     wallet: UserWallet,
     token_hash: str,
+    token_ciphertext: bytes,
+    token_key_id: str,
     user_id: str,
     local_product_id: str,
     google_product_id: str,
     kind: str,
+    quantity: int,
     order_id: str,
+    order_status: str,
+    price_amount_micros: int,
+    currency_code: str,
+    created_at: str,
     status: str = "applied",
 ):
     conn = _connect_access_db()
@@ -1262,6 +1539,22 @@ def _save_wallet_and_record_google_purchase(
             kind=kind,
             order_id=order_id,
             status=status,
+        )
+        _write_purchase_credit_order(
+            conn,
+            order_id=order_id,
+            token_hash=token_hash,
+            token_ciphertext=token_ciphertext,
+            token_key_id=token_key_id,
+            user_id=user_id,
+            local_product_id=local_product_id,
+            google_product_id=google_product_id,
+            kind=kind,
+            quantity=quantity,
+            order_status=order_status,
+            price_amount_micros=price_amount_micros,
+            currency_code=currency_code,
+            created_at=created_at,
         )
         _write_wallet(conn, user_id, wallet)
         conn.commit()
@@ -1628,15 +1921,25 @@ def _grant_weekly_advanced_if_earned(wallet: UserWallet):
     usage.weekly_advanced_granted += 1
 
 
-def _consume_basic(wallet: UserWallet, plan: str, ad_verified: bool) -> str:
+def _consume_basic(
+    wallet: UserWallet,
+    plan: str,
+    ad_verified: bool,
+    user_id: str,
+) -> tuple[str, str, str, sqlite3.Connection | None]:
     usage = wallet.usage
     if plan == "pro":
         if usage.pro_basic_monthly_used < PRO_MONTHLY_BASIC:
             usage.pro_basic_monthly_used += 1
-            return "pro_monthly_basic"
-        if wallet.purchased_basic > 0:
-            wallet.purchased_basic -= 1
-            return "purchased_basic"
+            return "pro_monthly_basic", "", "", None
+        purchased = _consume_purchase_credit(
+            user_id=user_id,
+            credit_kind="basic",
+            review_type="basic",
+            wallet=wallet,
+        )
+        if purchased:
+            return "purchased_basic", purchased[0], purchased[1], purchased[2]
         raise HTTPException(
             status_code=402,
             detail="Pro 일반 복기권을 모두 사용했습니다. 구매한 일반 복기권을 확인해 주세요.",
@@ -1644,11 +1947,11 @@ def _consume_basic(wallet: UserWallet, plan: str, ad_verified: bool) -> str:
 
     if wallet.basic_signup_remaining > 0:
         wallet.basic_signup_remaining -= 1
-        return "signup_basic"
+        return "signup_basic", "", "", None
     if usage.free_basic_daily_used < FREE_DAILY_BASIC_GRANT and usage.free_basic_monthly_used < FREE_MONTHLY_BASIC_MAX:
         usage.free_basic_daily_used += 1
         usage.free_basic_monthly_used += 1
-        return "free_daily_basic"
+        return "free_daily_basic", "", "", None
     if (
         ad_verified
         and usage.rewarded_basic_daily_used < FREE_REWARDED_BASIC_DAILY_MAX
@@ -1656,13 +1959,24 @@ def _consume_basic(wallet: UserWallet, plan: str, ad_verified: bool) -> str:
     ):
         usage.rewarded_basic_daily_used += 1
         usage.free_basic_monthly_used += 1
-        return "rewarded_ad_basic"
-    if wallet.purchased_basic > 0:
-        wallet.purchased_basic -= 1
-        return "purchased_basic"
-    if _allow_advanced_for_basic() and wallet.purchased_advanced > 0:
-        wallet.purchased_advanced -= 1
-        return "purchased_advanced_as_basic"
+        return "rewarded_ad_basic", "", "", None
+    purchased = _consume_purchase_credit(
+        user_id=user_id,
+        credit_kind="basic",
+        review_type="basic",
+        wallet=wallet,
+    )
+    if purchased:
+        return "purchased_basic", purchased[0], purchased[1], purchased[2]
+    if _allow_advanced_for_basic():
+        purchased = _consume_purchase_credit(
+            user_id=user_id,
+            credit_kind="advanced",
+            review_type="basic",
+            wallet=wallet,
+        )
+        if purchased:
+            return "purchased_advanced_as_basic", purchased[0], purchased[1], purchased[2]
     raise HTTPException(
         status_code=402,
         detail="무료 일반 복기권을 모두 사용했습니다. 광고를 보거나 일반 복기권을 확인해 주세요.",
@@ -1686,31 +2000,45 @@ def _basic_can_use_ad_reward(wallet: UserWallet, plan: str) -> bool:
     )
 
 
-def _consume_advanced(wallet: UserWallet, plan: str) -> str:
+def _consume_advanced(
+    wallet: UserWallet,
+    plan: str,
+    user_id: str,
+) -> tuple[str, str, str, sqlite3.Connection | None]:
     usage = wallet.usage
     if plan == "pro":
         if usage.pro_advanced_monthly_used < PRO_MONTHLY_ADVANCED:
             usage.pro_advanced_monthly_used += 1
-            return "pro_monthly_advanced"
-        if wallet.purchased_advanced > 0:
-            wallet.purchased_advanced -= 1
-            return "purchased_advanced"
+            return "pro_monthly_advanced", "", "", None
+        purchased = _consume_purchase_credit(
+            user_id=user_id,
+            credit_kind="advanced",
+            review_type="advanced",
+            wallet=wallet,
+        )
+        if purchased:
+            return "purchased_advanced", purchased[0], purchased[1], purchased[2]
     if wallet.signup_advanced_remaining > 0:
         wallet.signup_advanced_remaining -= 1
-        return "signup_advanced"
+        return "signup_advanced", "", "", None
     if wallet.weekly_advanced > 0:
         wallet.weekly_advanced -= 1
-        return "weekly_ad_advanced"
-    if wallet.purchased_advanced > 0:
-        wallet.purchased_advanced -= 1
-        return "purchased_advanced"
+        return "weekly_ad_advanced", "", "", None
+    purchased = _consume_purchase_credit(
+        user_id=user_id,
+        credit_kind="advanced",
+        review_type="advanced",
+        wallet=wallet,
+    )
+    if purchased:
+        return "purchased_advanced", purchased[0], purchased[1], purchased[2]
     raise HTTPException(
         status_code=402,
         detail="심화 복기권이 필요합니다. 첫 로그인 체험권, Pro 제공량, 광고 보상 또는 구매한 심화 복기권을 확인해 주세요.",
     )
 
 
-def _wallet_snapshot(wallet: UserWallet, plan: str, user_id: str) -> dict:
+def _wallet_snapshot(wallet: UserWallet, plan: str, user_id: str, conn=None) -> dict:
     usage = wallet.usage
     free_daily_remaining = max(0, FREE_DAILY_BASIC_GRANT - usage.free_basic_daily_used)
     rewarded_daily_remaining = max(
@@ -1719,6 +2047,8 @@ def _wallet_snapshot(wallet: UserWallet, plan: str, user_id: str) -> dict:
     )
     deadlines = _reset_deadlines()
     _, pro_allowance_resets_at = _pro_allowance_cycle(user_id, plan)
+    purchased_basic = _purchase_credit_remaining(user_id, "basic", conn)
+    purchased_advanced = _purchase_credit_remaining(user_id, "advanced", conn)
     return {
         "plan": plan,
         "basic": {
@@ -1731,7 +2061,7 @@ def _wallet_snapshot(wallet: UserWallet, plan: str, user_id: str) -> dict:
             "free_monthly_remaining": max(0, FREE_MONTHLY_BASIC_MAX - usage.free_basic_monthly_used),
             "free_monthly_limit": FREE_MONTHLY_BASIC_MAX,
             "pro_monthly_remaining": max(0, PRO_MONTHLY_BASIC - usage.pro_basic_monthly_used) if plan == "pro" else 0,
-            "purchased_remaining": wallet.purchased_basic,
+            "purchased_remaining": purchased_basic,
         },
         "advanced": {
             "signup_remaining": wallet.signup_advanced_remaining,
@@ -1740,7 +2070,7 @@ def _wallet_snapshot(wallet: UserWallet, plan: str, user_id: str) -> dict:
             "weekly_advanced_granted": usage.weekly_advanced_granted,
             "weekly_ad_views": usage.weekly_ad_views,
             "weekly_ad_views_needed": max(0, _ad_policy()["ads_per_advanced_ticket"] - usage.weekly_ad_views),
-            "purchased_remaining": wallet.purchased_advanced,
+            "purchased_remaining": purchased_advanced,
             "max_hold": ADVANCED_TICKET_HOLD_MAX,
         },
         "products": PRODUCTS,
@@ -1851,11 +2181,30 @@ def apply_dev_purchase(*, authorization: str | None, entitlement_token: str | No
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id, plan)
         product = PRODUCTS[product_id]
-        if product["kind"] == "basic":
-            wallet.purchased_basic += product["quantity"]
-        else:
-            wallet.purchased_advanced += product["quantity"]
-        _save_wallet(user_id, wallet)
+        order_id = f"dev:{secrets.token_hex(16)}"
+        purchase_token = f"dev-token:{secrets.token_hex(16)}"
+        token_ciphertext, token_key_id = _encrypt_purchase_token(purchase_token)
+        conn = _connect_access_db()
+        try:
+            _write_purchase_credit_order(
+                conn,
+                order_id=order_id,
+                token_hash=_hash_purchase_token(purchase_token),
+                token_ciphertext=token_ciphertext,
+                token_key_id=token_key_id,
+                user_id=user_id,
+                local_product_id=product_id,
+                google_product_id=product_id,
+                kind=product["kind"],
+                quantity=product["quantity"],
+                order_status="development_grant",
+                price_amount_micros=product["price_krw"] * 1_000_000,
+                currency_code="KRW",
+            )
+            _write_wallet(conn, user_id, wallet)
+            conn.commit()
+        finally:
+            conn.close()
         return _wallet_snapshot(wallet, plan, user_id)
 
 
@@ -1987,6 +2336,15 @@ def apply_google_play_purchase(
         raise HTTPException(status_code=402, detail="Google Play purchase is not completed.")
 
     product = PRODUCTS[product_id]
+    order_id = str(verification.get("order_id") or "").strip()
+    order_status = str(verification.get("order_status") or "").strip()
+    price_amount_micros = int(verification.get("price_amount_micros") or 0)
+    currency_code = str(verification.get("currency_code") or "").strip().upper()
+    if not order_id or not order_status or price_amount_micros <= 0 or len(currency_code) != 3:
+        raise HTTPException(status_code=502, detail="Google Play order evidence is incomplete.")
+    if order_status != "PROCESSED":
+        raise HTTPException(status_code=402, detail="Google Play order is not processed.")
+    token_ciphertext, token_key_id = _encrypt_purchase_token(purchase_token)
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id, plan)
         existing = _load_google_purchase(token_hash)
@@ -2013,18 +2371,21 @@ def apply_google_play_purchase(
             if consumed is not None:
                 snapshot["purchase"]["consumed"] = consumed
             return snapshot
-        if product["kind"] == "basic":
-            wallet.purchased_basic += product["quantity"]
-        else:
-            wallet.purchased_advanced += product["quantity"]
-        _save_wallet_and_record_google_purchase(
+        _save_order_and_record_google_purchase(
             wallet=wallet,
             token_hash=token_hash,
+            token_ciphertext=token_ciphertext,
+            token_key_id=token_key_id,
             user_id=user_id,
             local_product_id=product_id,
             google_product_id=google_product_id,
             kind=product["kind"],
-            order_id=str(verification.get("order_id") or ""),
+            quantity=product["quantity"],
+            order_id=order_id,
+            order_status=order_status,
+            price_amount_micros=price_amount_micros,
+            currency_code=currency_code,
+            created_at=str(verification.get("created_at") or ""),
             status="consume_pending",
         )
         snapshot = _wallet_snapshot(wallet, plan, user_id)
@@ -2062,29 +2423,49 @@ def verify_ai_review_access(
     normalized_type = "advanced" if review_type == "advanced" else "basic"
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id, plan)
-        if normalized_type == "advanced":
-            source = _consume_advanced(wallet, plan)
-        else:
-            ad_verified = (
-                _consume_ad_reward(user_id, ad_reward_token)
-                if _basic_can_use_ad_reward(wallet, plan)
-                else False
+        purchase_conn = None
+        try:
+            if normalized_type == "advanced":
+                source, source_order_id, usage_event_key, purchase_conn = _consume_advanced(wallet, plan, user_id)
+            else:
+                ad_verified = (
+                    _consume_ad_reward(user_id, ad_reward_token)
+                    if _basic_can_use_ad_reward(wallet, plan)
+                    else False
+                )
+                source, source_order_id, usage_event_key, purchase_conn = _consume_basic(
+                    wallet,
+                    plan,
+                    ad_verified,
+                    user_id,
+                )
+            if purchase_conn is None:
+                _save_wallet(user_id, wallet)
+            snapshot = _wallet_snapshot(wallet, plan, user_id, purchase_conn)
+            access = AiAccessContext(
+                user_id=user_id,
+                auth_mode=auth_mode,
+                plan=plan,
+                review_type=normalized_type,
+                source=source,
+                source_order_id=source_order_id,
+                usage_event_key=usage_event_key,
+                product_balances=snapshot,
+                quota={
+                    "basic": snapshot["basic"],
+                    "advanced": snapshot["advanced"],
+                },
             )
-            source = _consume_basic(wallet, plan, ad_verified)
-        _save_wallet(user_id, wallet)
-        snapshot = _wallet_snapshot(wallet, plan, user_id)
-    return AiAccessContext(
-        user_id=user_id,
-        auth_mode=auth_mode,
-        plan=plan,
-        review_type=normalized_type,
-        source=source,
-        product_balances=snapshot,
-        quota={
-            "basic": snapshot["basic"],
-            "advanced": snapshot["advanced"],
-        },
-    )
+            if purchase_conn is not None:
+                purchase_conn.commit()
+            return access
+        except Exception:
+            if purchase_conn is not None:
+                purchase_conn.rollback()
+            raise
+        finally:
+            if purchase_conn is not None:
+                purchase_conn.close()
 
 
 def refund_ai_review_access(access: AiAccessContext) -> dict:
@@ -2096,6 +2477,14 @@ def refund_ai_review_access(access: AiAccessContext) -> dict:
         usage = wallet.usage
         source = str(access.source or "")
 
+        if source in {"purchased_basic", "purchased_advanced_as_basic", "purchased_advanced"}:
+            _refund_purchase_credit(
+                user_id=access.user_id,
+                order_id=access.source_order_id,
+                event_key=access.usage_event_key,
+            )
+            return _wallet_snapshot(wallet, access.plan, access.user_id)
+
         if source == "signup_basic":
             wallet.basic_signup_remaining += 1
         elif source == "free_daily_basic":
@@ -2104,10 +2493,6 @@ def refund_ai_review_access(access: AiAccessContext) -> dict:
         elif source == "rewarded_ad_basic":
             usage.rewarded_basic_daily_used = max(0, usage.rewarded_basic_daily_used - 1)
             usage.free_basic_monthly_used = max(0, usage.free_basic_monthly_used - 1)
-        elif source == "purchased_basic":
-            wallet.purchased_basic += 1
-        elif source == "purchased_advanced_as_basic":
-            wallet.purchased_advanced += 1
         elif source == "pro_monthly_basic":
             usage.pro_basic_monthly_used = max(0, usage.pro_basic_monthly_used - 1)
         elif source == "pro_monthly_advanced":
@@ -2116,8 +2501,6 @@ def refund_ai_review_access(access: AiAccessContext) -> dict:
             wallet.signup_advanced_remaining += 1
         elif source == "weekly_ad_advanced":
             wallet.weekly_advanced += 1
-        elif source == "purchased_advanced":
-            wallet.purchased_advanced += 1
         else:
             return _wallet_snapshot(wallet, access.plan, access.user_id)
 
