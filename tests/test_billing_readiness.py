@@ -1124,6 +1124,206 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual((0, 10), (order["used_quantity"], order["remaining_quantity"]))
             self.assertEqual(0, usage_count)
 
+    def test_google_play_full_refund_revokes_only_the_matching_order_once(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_10",
+            )
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_20",
+            )
+            conn = access_control._connect_access_db()
+            try:
+                orders = conn.execute(
+                    "SELECT order_id, remaining_quantity FROM purchase_credit_orders ORDER BY created_at, order_id"
+                ).fetchall()
+            finally:
+                conn.close()
+
+            access_control._verify_google_play_order = lambda **kwargs: {
+                "order_status": "REFUNDED",
+                "refund_amount_micros": 4_900_000_000,
+                "refund_currency_code": "KRW",
+            }
+            first = access_control.sync_google_play_purchase_order_status(
+                order_id=orders[0]["order_id"],
+                event_key="refund-event-1",
+            )
+            repeated = access_control.sync_google_play_purchase_order_status(
+                order_id=orders[0]["order_id"],
+                event_key="refund-event-1",
+            )
+
+            conn = access_control._connect_access_db()
+            try:
+                updated_orders = conn.execute(
+                    "SELECT order_id, order_status, remaining_quantity, balance_locked, refund_status, refund_amount_micros "
+                    "FROM purchase_credit_orders ORDER BY created_at, order_id"
+                ).fetchall()
+                receipt_count = conn.execute("SELECT COUNT(*) FROM billing_event_receipts").fetchone()[0]
+            finally:
+                conn.close()
+
+            self.assertEqual("revoked", first["status"])
+            self.assertEqual(10, first["revoked_quantity"])
+            self.assertEqual("already_processed", repeated["status"])
+            self.assertEqual(1, receipt_count)
+            self.assertEqual(("REFUNDED", 0, 1, "refunded", 4_900_000_000), tuple(updated_orders[0][1:]))
+            self.assertEqual(("development_grant", 20, 0, "none", 0), tuple(updated_orders[1][1:]))
+
+    def test_google_play_canceled_order_revokes_remaining_credit_without_refund_amount(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="basic_review_15",
+            )
+            conn = access_control._connect_access_db()
+            try:
+                order_id = conn.execute("SELECT order_id FROM purchase_credit_orders").fetchone()[0]
+            finally:
+                conn.close()
+
+            access_control._verify_google_play_order = lambda **kwargs: {
+                "order_status": "CANCELED",
+                "refund_amount_micros": 0,
+                "refund_currency_code": "",
+            }
+            result = access_control.sync_google_play_purchase_order_status(
+                order_id=order_id,
+                event_key="cancellation-event-1",
+            )
+
+            conn = access_control._connect_access_db()
+            try:
+                order = conn.execute(
+                    "SELECT order_status, remaining_quantity, balance_locked, refund_status, refund_amount_micros "
+                    "FROM purchase_credit_orders WHERE order_id = ?",
+                    (order_id,),
+                ).fetchone()
+            finally:
+                conn.close()
+
+            self.assertEqual({"status": "revoked", "revoked_quantity": 15}, {
+                "status": result["status"],
+                "revoked_quantity": result["revoked_quantity"],
+            })
+            self.assertEqual(("CANCELED", 0, 1, "canceled", 0), tuple(order))
+
+    def test_failed_review_refund_does_not_restore_credit_to_refunded_order(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+            GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            access_control.apply_dev_purchase(
+                authorization="Bearer dev-token",
+                entitlement_token="",
+                product_id="advanced_review_10",
+            )
+            access = access_control.verify_ai_review_access(
+                authorization="Bearer dev-token",
+                ad_reward_token="",
+                entitlement_token="",
+                privacy_consent=True,
+                review_type="advanced",
+            )
+            access_control._verify_google_play_order = lambda **kwargs: {
+                "order_status": "REFUNDED",
+                "refund_amount_micros": 4_900_000_000,
+                "refund_currency_code": "KRW",
+            }
+            access_control.sync_google_play_purchase_order_status(
+                order_id=access.source_order_id,
+                event_key="refund-after-consumption",
+            )
+            refunded_wallet = access_control.refund_ai_review_access(access)
+
+            conn = access_control._connect_access_db()
+            try:
+                order = conn.execute(
+                    "SELECT used_quantity, remaining_quantity, order_status, refund_status "
+                    "FROM purchase_credit_orders WHERE order_id = ?",
+                    (access.source_order_id,),
+                ).fetchone()
+                usage_status = conn.execute(
+                    "SELECT status FROM credit_usage_ledger WHERE idempotency_key = ?",
+                    (access.usage_event_key,),
+                ).fetchone()[0]
+            finally:
+                conn.close()
+
+            self.assertEqual("purchased_advanced", access.source)
+            self.assertEqual((0, 0, "REFUNDED", "refunded"), tuple(order))
+            self.assertEqual("reversed", usage_status)
+            self.assertEqual(0, refunded_wallet["advanced"]["purchased_remaining"])
+
+    def test_google_play_order_verification_reads_full_refund_details(self):
+        from backend.core import access_control
+
+        access_control = importlib.reload(access_control)
+
+        class FakeResponse:
+            status_code = 200
+
+            def json(self):
+                return {
+                    "orderId": "GPA.refunded.order",
+                    "purchaseToken": "purchase-token",
+                    "state": "REFUNDED",
+                    "lineItems": [{
+                        "productId": "basic_review_15",
+                        "total": {"currencyCode": "KRW", "units": "2900", "nanos": 0},
+                    }],
+                    "orderHistory": {
+                        "refundEvent": {
+                            "refundDetails": {
+                                "total": {"currencyCode": "KRW", "units": "2900", "nanos": 0},
+                            },
+                        },
+                    },
+                }
+
+        with patch.object(access_control, "_google_play_headers", return_value={"Authorization": "Bearer test"}), \
+             patch.object(access_control.requests, "get", return_value=FakeResponse()):
+            verified = access_control._verify_google_play_order(
+                package_name="com.alphamate.app",
+                google_product_id="basic_review_15",
+                purchase_token="purchase-token",
+                order_id="GPA.refunded.order",
+            )
+
+        self.assertEqual("REFUNDED", verified["order_status"])
+        self.assertEqual(2_900_000_000, verified["refund_amount_micros"])
+        self.assertEqual("KRW", verified["refund_currency_code"])
+
     def test_google_play_purchase_stored_fields_are_length_limited(self):
         long_product_id = "alphamate.basic." + ("p" * 500)
         long_order_id = "GPA." + ("o" * 500)

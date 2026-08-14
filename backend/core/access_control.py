@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, quote, unquote
 from zoneinfo import ZoneInfo
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException
 
 try:
@@ -1000,12 +1000,164 @@ def _verify_google_play_order(
     if not line_item:
         raise HTTPException(status_code=400, detail="Google Play order product id does not match the purchase.")
     amount_micros, currency_code = _money_to_micros(line_item.get("total") or data.get("total") or {})
+    order_status = str(data.get("state") or "")
+    refund_amount_micros = 0
+    refund_currency_code = ""
+    if order_status == "REFUNDED":
+        refund_details = ((data.get("orderHistory") or {}).get("refundEvent") or {}).get("refundDetails") or {}
+        refund_amount_micros, refund_currency_code = _money_to_micros(refund_details.get("total") or {})
     return {
-        "order_status": str(data.get("state") or ""),
+        "order_status": order_status,
         "price_amount_micros": amount_micros,
         "currency_code": currency_code,
+        "refund_amount_micros": refund_amount_micros,
+        "refund_currency_code": refund_currency_code,
         "created_at": str(data.get("createTime") or ""),
     }
+
+
+def sync_google_play_purchase_order_status(
+    *,
+    order_id: str,
+    event_key: str,
+    package_name: str | None = None,
+) -> dict:
+    normalized_order_id = str(order_id or "").strip()
+    normalized_event_key = str(event_key or "").strip()
+    if not normalized_order_id or not normalized_event_key:
+        raise HTTPException(status_code=400, detail="order_id and event_key are required.")
+
+    status = _google_play_status()
+    if not status["ready"]:
+        raise HTTPException(status_code=503, detail="Google Play Billing verification is not configured.")
+    configured_package = _env_value("GOOGLE_PLAY_PACKAGE_NAME")
+    normalized_package = str(package_name or configured_package or "").strip()
+    if normalized_package != configured_package:
+        raise HTTPException(status_code=400, detail="Google Play package name does not match the configured package.")
+
+    conn = _connect_access_db()
+    try:
+        order = conn.execute(
+            "SELECT * FROM purchase_credit_orders WHERE order_id = ?",
+            (normalized_order_id,),
+        ).fetchone()
+        receipt = conn.execute(
+            "SELECT * FROM billing_event_receipts WHERE event_key = ?",
+            (normalized_event_key,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not order:
+        raise HTTPException(status_code=404, detail="Purchase credit order was not found.")
+    if receipt:
+        if receipt["order_id"] != normalized_order_id or receipt["event_type"] not in {
+            "google_play_order_canceled",
+            "google_play_order_refunded",
+        }:
+            raise HTTPException(status_code=409, detail="Billing event key is already linked to another order.")
+        return {"status": "already_processed", "order_id": normalized_order_id}
+
+    cipher, key_id = _purchase_token_cipher()
+    if order["purchase_token_key_id"] != key_id:
+        raise HTTPException(status_code=503, detail="Google Play purchase token key is unavailable.")
+    try:
+        purchase_token = cipher.decrypt(order["purchase_token_ciphertext"]).decode("utf-8")
+    except (InvalidToken, UnicodeDecodeError):
+        raise HTTPException(status_code=503, detail="Google Play purchase token cannot be decrypted.")
+
+    verification = _verify_google_play_order(
+        package_name=normalized_package,
+        google_product_id=order["google_play_product_id"],
+        purchase_token=purchase_token,
+        order_id=normalized_order_id,
+    )
+    order_status = str(verification.get("order_status") or "").strip()
+    if order_status not in {"CANCELED", "REFUNDED"}:
+        return {"status": "ignored", "order_id": normalized_order_id, "order_status": order_status}
+
+    refund_amount_micros = 0
+    refund_status = "canceled"
+    if order_status == "REFUNDED":
+        refund_amount_micros = int(verification.get("refund_amount_micros") or 0)
+        refund_currency_code = str(verification.get("refund_currency_code") or "").strip().upper()
+        if refund_amount_micros <= 0 or refund_currency_code != order["currency_code"]:
+            raise HTTPException(status_code=502, detail="Google Play refund evidence is incomplete.")
+        refund_status = "refunded"
+
+    payload_hash = hashlib.sha256(
+        f"{normalized_order_id}|{order_status}|{refund_amount_micros}|{order['currency_code']}".encode("utf-8")
+    ).hexdigest()
+    now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds")
+    conn = _connect_access_db()
+    try:
+        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+        receipt = conn.execute(
+            "SELECT * FROM billing_event_receipts WHERE event_key = ?",
+            (normalized_event_key,),
+        ).fetchone()
+        if receipt:
+            if receipt["order_id"] != normalized_order_id or receipt["event_type"] not in {
+                "google_play_order_canceled",
+                "google_play_order_refunded",
+            }:
+                raise HTTPException(status_code=409, detail="Billing event key is already linked to another order.")
+            conn.rollback()
+            return {"status": "already_processed", "order_id": normalized_order_id}
+
+        current = conn.execute(
+            "SELECT user_id, remaining_quantity FROM purchase_credit_orders WHERE order_id = ?",
+            (normalized_order_id,),
+        ).fetchone()
+        if not current:
+            raise HTTPException(status_code=404, detail="Purchase credit order was not found.")
+        revoked_quantity = int(current["remaining_quantity"] or 0)
+        conn.execute(
+            """
+            UPDATE purchase_credit_orders
+            SET remaining_quantity = 0,
+                balance_locked = 1,
+                order_status = ?,
+                refund_amount_micros = ?,
+                refund_status = ?,
+                updated_at = ?
+            WHERE order_id = ?
+            """,
+            (
+                order_status,
+                refund_amount_micros,
+                refund_status,
+                now,
+                normalized_order_id,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO billing_event_receipts (
+                event_key, user_id, order_id, event_type, payload_hash, status, processed_at
+            ) VALUES (?, ?, ?, ?, ?, 'applied', ?)
+            """,
+            (
+                normalized_event_key,
+                current["user_id"],
+                normalized_order_id,
+                "google_play_order_refunded" if order_status == "REFUNDED" else "google_play_order_canceled",
+                payload_hash,
+                now,
+            ),
+        )
+        conn.commit()
+        return {
+            "status": "revoked",
+            "order_id": normalized_order_id,
+            "order_status": order_status,
+            "revoked_quantity": revoked_quantity,
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def _parse_google_time(value: str | None):
@@ -1425,7 +1577,10 @@ def _refund_purchase_credit(*, user_id: str, order_id: str, event_key: str) -> b
             """
             UPDATE purchase_credit_orders
             SET used_quantity = used_quantity - 1,
-                remaining_quantity = remaining_quantity + 1,
+                remaining_quantity = CASE
+                    WHEN order_status IN ('CANCELED', 'REFUNDED') THEN remaining_quantity
+                    ELSE remaining_quantity + 1
+                END,
                 updated_at = ?
             WHERE order_id = ? AND user_id = ? AND used_quantity > 0
             """,
