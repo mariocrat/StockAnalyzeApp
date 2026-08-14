@@ -35,6 +35,7 @@ from core.access_control import (
     get_rewarded_ad_status,
     claim_rewarded_ad_progress,
     record_admob_ssv_reward,
+    reconcile_google_play_voided_purchase_orders,
     refund_ai_review_access,
     set_purchase_credit_order_lock_for_admin,
     set_purchase_credit_order_remaining_for_admin,
@@ -946,6 +947,21 @@ def sync_admin_purchase_credit_order(
     _enforce_admin_rate_limit(_request_client_key(request))
     _require_admin_token(authorization)
     return sync_google_play_purchase_order_status(order_id=order_id, event_key=event_key)
+
+
+@app.post("/api/admin/purchase-credit-orders/reconcile-voided")
+def reconcile_admin_voided_purchase_credit_orders(
+    request: Request,
+    start_time_millis: Optional[int] = None,
+    end_time_millis: Optional[int] = None,
+    authorization: Optional[str] = Header(default=None),
+):
+    _enforce_admin_rate_limit(_request_client_key(request))
+    _require_admin_token(authorization)
+    return reconcile_google_play_voided_purchase_orders(
+        start_time_millis=start_time_millis,
+        end_time_millis=end_time_millis,
+    )
 
 
 @app.post("/api/admin/purchase-credit-orders/{order_id}/lock")

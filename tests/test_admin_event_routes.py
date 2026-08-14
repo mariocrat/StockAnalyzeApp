@@ -73,6 +73,7 @@ class AdminEventRoutesTest(unittest.TestCase):
         paths = set(main.app.openapi()["paths"].keys())
         self.assertIn("/api/admin/purchase-credit-orders/{order_id}", paths)
         self.assertIn("/api/admin/purchase-credit-orders/{order_id}/sync", paths)
+        self.assertIn("/api/admin/purchase-credit-orders/reconcile-voided", paths)
         self.assertIn("/api/admin/purchase-credit-orders/{order_id}/lock", paths)
         self.assertIn("/api/admin/purchase-credit-orders/{order_id}/remaining", paths)
 

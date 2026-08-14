@@ -1,4 +1,5 @@
 import base64
+import datetime
 import importlib
 import json
 import os
@@ -2508,6 +2509,106 @@ class BillingReadinessTest(unittest.TestCase):
             "ad_unit=1234567890&reward_item=광고 시청&custom_data=a+b".encode("utf-8"),
             content,
         )
+
+    def test_voided_purchase_reconciliation_defaults_to_thirty_day_window(self):
+        from backend.core import access_control
+
+        start_time_millis, end_time_millis = access_control._voided_purchase_window(
+            start_time_millis=None,
+            end_time_millis=None,
+        )
+
+        self.assertEqual(30 * 24 * 60 * 60 * 1000, end_time_millis - start_time_millis)
+
+    def test_voided_purchase_reconciliation_handles_chargebacks_partial_refunds_and_item_failures(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ENV="development",
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            for product_id in ("basic_review_15", "basic_review_25", "advanced_review_10"):
+                access_control.apply_dev_purchase(
+                    authorization="Bearer dev-token",
+                    entitlement_token="",
+                    product_id=product_id,
+                )
+            conn = access_control._connect_access_db()
+            try:
+                orders = conn.execute(
+                    "SELECT * FROM purchase_credit_orders ORDER BY created_at, order_id"
+                ).fetchall()
+            finally:
+                conn.close()
+            cipher, _ = access_control._purchase_token_cipher()
+            purchase_tokens = {
+                order["order_id"]: cipher.decrypt(order["purchase_token_ciphertext"]).decode("utf-8")
+                for order in orders
+            }
+            failed_order, chargeback_order, partial_order = orders
+
+            class FakeResponse:
+                status_code = 200
+
+                @staticmethod
+                def json():
+                    return {
+                        "voidedPurchases": [
+                            {"orderId": failed_order["order_id"], "purchaseToken": "mismatched-token", "voidedTimeMillis": "1720000000000", "voidedReason": 1, "voidedSource": 0},
+                            {"orderId": chargeback_order["order_id"], "purchaseToken": purchase_tokens[chargeback_order["order_id"]], "voidedTimeMillis": "1720000000001", "voidedReason": 3, "voidedSource": 1},
+                            {"orderId": partial_order["order_id"], "purchaseToken": purchase_tokens[partial_order["order_id"]], "voidedTimeMillis": "1720000000002", "voidedReason": 1, "voidedSource": 0, "voidedQuantity": 1},
+                            {"orderId": "GPA.untracked-order", "purchaseToken": "untracked-token", "voidedTimeMillis": "1720000000003", "voidedReason": 3, "voidedSource": 1},
+                        ],
+                    }
+
+            end_time_millis = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+            start_time_millis = end_time_millis - 1000
+            with patch.object(access_control, "_google_play_status", return_value={"ready": True}), \
+                 patch.object(access_control, "_google_play_headers", return_value={"Authorization": "Bearer test"}), \
+                 patch.object(access_control.requests, "get", return_value=FakeResponse()) as request, \
+                 patch.object(access_control, "_verify_google_play_order") as verify_order:
+                result = access_control.reconcile_google_play_voided_purchase_orders(
+                    start_time_millis=start_time_millis,
+                    end_time_millis=end_time_millis,
+                )
+
+            verify_order.assert_not_called()
+
+            conn = access_control._connect_access_db()
+            try:
+                updated_orders = {
+                    row["order_id"]: row
+                    for row in conn.execute("SELECT * FROM purchase_credit_orders").fetchall()
+                }
+            finally:
+                conn.close()
+
+            self.assertEqual(1, result["pages"])
+            self.assertEqual(4, result["voided_purchase_count"])
+            self.assertEqual(3, result["matched_order_count"])
+            self.assertEqual(2, result["processed_count"])
+            self.assertEqual(1, result["revoked_count"])
+            self.assertEqual(1, result["locked_for_review_count"])
+            self.assertEqual(1, result["failed_count"])
+            self.assertEqual(1, result["unmatched_count"])
+            self.assertEqual({
+                "startTime": str(start_time_millis),
+                "endTime": str(end_time_millis),
+                "type": 0,
+                "includeQuantityBasedPartialRefund": "true",
+                "pageSelection.maxResults": 100,
+            }, request.call_args.kwargs["params"])
+            self.assertEqual(15, updated_orders[failed_order["order_id"]]["remaining_quantity"])
+            self.assertEqual(0, updated_orders[failed_order["order_id"]]["balance_locked"])
+            self.assertEqual(0, updated_orders[chargeback_order["order_id"]]["remaining_quantity"])
+            self.assertEqual(1, updated_orders[chargeback_order["order_id"]]["balance_locked"])
+            self.assertEqual("VOIDED", updated_orders[chargeback_order["order_id"]]["order_status"])
+            self.assertEqual(10, updated_orders[partial_order["order_id"]]["remaining_quantity"])
+            self.assertEqual(1, updated_orders[partial_order["order_id"]]["balance_locked"])
+            self.assertEqual("PARTIALLY_REFUNDED", updated_orders[partial_order["order_id"]]["order_status"])
 
 
 if __name__ == "__main__":

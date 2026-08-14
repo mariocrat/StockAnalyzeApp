@@ -80,6 +80,8 @@ ADMOB_SSV_VERIFICATION_AD_UNIT = "1234567890"
 ADMOB_SSV_VERIFICATION_TRANSACTION_ID = "123456789"
 GOOGLE_PLAY_FIELD_MAX_CHARS = 120
 PURCHASE_CREDIT_LEDGER_RESET_KEY = "purchase_credit_ledger_reset_v1"
+GOOGLE_PLAY_VOIDED_PURCHASE_LOOKBACK_DAYS = 30
+GOOGLE_PLAY_VOIDED_PURCHASE_PAGE_SIZE = 100
 PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
 PLACEHOLDER_EMAIL_PARTS = ("your-project", "example.com")
 
@@ -1021,6 +1023,7 @@ def sync_google_play_purchase_order_status(
     order_id: str,
     event_key: str,
     package_name: str | None = None,
+    authoritative_voided_purchase: dict | None = None,
 ) -> dict:
     normalized_order_id = str(order_id or "").strip()
     normalized_event_key = str(event_key or "").strip()
@@ -1053,6 +1056,8 @@ def sync_google_play_purchase_order_status(
         if receipt["order_id"] != normalized_order_id or receipt["event_type"] not in {
             "google_play_order_canceled",
             "google_play_order_refunded",
+            "google_play_order_voided",
+            "google_play_order_partial_refund_review",
         }:
             raise HTTPException(status_code=409, detail="Billing event key is already linked to another order.")
         return {"status": "already_processed", "order_id": normalized_order_id}
@@ -1065,27 +1070,55 @@ def sync_google_play_purchase_order_status(
     except (InvalidToken, UnicodeDecodeError):
         raise HTTPException(status_code=503, detail="Google Play purchase token cannot be decrypted.")
 
-    verification = _verify_google_play_order(
-        package_name=normalized_package,
-        google_product_id=order["google_play_product_id"],
-        purchase_token=purchase_token,
-        order_id=normalized_order_id,
-    )
-    order_status = str(verification.get("order_status") or "").strip()
-    if order_status not in {"CANCELED", "REFUNDED"}:
-        return {"status": "ignored", "order_id": normalized_order_id, "order_status": order_status}
+    is_authoritative_void = authoritative_voided_purchase is not None
+    if is_authoritative_void:
+        if not isinstance(authoritative_voided_purchase, dict):
+            raise HTTPException(status_code=400, detail="Google Play voided purchase evidence is invalid.")
+        voided_order_id = str(authoritative_voided_purchase.get("orderId") or "").strip()
+        voided_purchase_token = str(authoritative_voided_purchase.get("purchaseToken") or "").strip()
+        if voided_order_id != normalized_order_id or not hmac.compare_digest(voided_purchase_token, purchase_token):
+            raise HTTPException(status_code=400, detail="Google Play voided purchase evidence does not match the order.")
+
+    if is_authoritative_void:
+        verification = {}
+        is_partial_refund_review = "voidedQuantity" in authoritative_voided_purchase
+        order_status = "PARTIALLY_REFUNDED" if is_partial_refund_review else "VOIDED"
+    else:
+        verification = _verify_google_play_order(
+            package_name=normalized_package,
+            google_product_id=order["google_play_product_id"],
+            purchase_token=purchase_token,
+            order_id=normalized_order_id,
+        )
+        order_status = str(verification.get("order_status") or "").strip()
+        is_partial_refund_review = False
+        if order_status not in {"CANCELED", "REFUNDED"}:
+            return {"status": "ignored", "order_id": normalized_order_id, "order_status": order_status}
 
     refund_amount_micros = 0
     refund_status = "canceled"
-    if order_status == "REFUNDED":
+    event_type = "google_play_order_canceled"
+    if is_partial_refund_review:
+        refund_status = "manual_review"
+        event_type = "google_play_order_partial_refund_review"
+    elif order_status == "REFUNDED":
         refund_amount_micros = int(verification.get("refund_amount_micros") or 0)
         refund_currency_code = str(verification.get("refund_currency_code") or "").strip().upper()
         if refund_amount_micros <= 0 or refund_currency_code != order["currency_code"]:
             raise HTTPException(status_code=502, detail="Google Play refund evidence is incomplete.")
         refund_status = "refunded"
+        event_type = "google_play_order_refunded"
+    elif order_status == "VOIDED":
+        refund_status = "voided"
+        event_type = "google_play_order_voided"
 
     payload_hash = hashlib.sha256(
-        f"{normalized_order_id}|{order_status}|{refund_amount_micros}|{order['currency_code']}".encode("utf-8")
+        (
+            f"{normalized_order_id}|{order_status}|{refund_amount_micros}|{order['currency_code']}|"
+            f"{(authoritative_voided_purchase or {}).get('voidedReason', '')}|"
+            f"{(authoritative_voided_purchase or {}).get('voidedSource', '')}|"
+            f"{(authoritative_voided_purchase or {}).get('voidedQuantity', '')}"
+        ).encode("utf-8")
     ).hexdigest()
     now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds")
     conn = _connect_access_db()
@@ -1100,6 +1133,8 @@ def sync_google_play_purchase_order_status(
             if receipt["order_id"] != normalized_order_id or receipt["event_type"] not in {
                 "google_play_order_canceled",
                 "google_play_order_refunded",
+                "google_play_order_voided",
+                "google_play_order_partial_refund_review",
             }:
                 raise HTTPException(status_code=409, detail="Billing event key is already linked to another order.")
             conn.rollback()
@@ -1111,26 +1146,39 @@ def sync_google_play_purchase_order_status(
         ).fetchone()
         if not current:
             raise HTTPException(status_code=404, detail="Purchase credit order was not found.")
-        revoked_quantity = int(current["remaining_quantity"] or 0)
-        conn.execute(
-            """
-            UPDATE purchase_credit_orders
-            SET remaining_quantity = 0,
-                balance_locked = 1,
-                order_status = ?,
-                refund_amount_micros = ?,
-                refund_status = ?,
-                updated_at = ?
-            WHERE order_id = ?
-            """,
-            (
-                order_status,
-                refund_amount_micros,
-                refund_status,
-                now,
-                normalized_order_id,
-            ),
-        )
+        revoked_quantity = 0 if is_partial_refund_review else int(current["remaining_quantity"] or 0)
+        if is_partial_refund_review:
+            conn.execute(
+                """
+                UPDATE purchase_credit_orders
+                SET balance_locked = 1,
+                    order_status = ?,
+                    refund_status = ?,
+                    updated_at = ?
+                WHERE order_id = ?
+                """,
+                (order_status, refund_status, now, normalized_order_id),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE purchase_credit_orders
+                SET remaining_quantity = 0,
+                    balance_locked = 1,
+                    order_status = ?,
+                    refund_amount_micros = ?,
+                    refund_status = ?,
+                    updated_at = ?
+                WHERE order_id = ?
+                """,
+                (
+                    order_status,
+                    refund_amount_micros,
+                    refund_status,
+                    now,
+                    normalized_order_id,
+                ),
+            )
         conn.execute(
             """
             INSERT INTO billing_event_receipts (
@@ -1141,12 +1189,19 @@ def sync_google_play_purchase_order_status(
                 normalized_event_key,
                 current["user_id"],
                 normalized_order_id,
-                "google_play_order_refunded" if order_status == "REFUNDED" else "google_play_order_canceled",
+                event_type,
                 payload_hash,
                 now,
             ),
         )
         conn.commit()
+        if is_partial_refund_review:
+            return {
+                "status": "locked_for_review",
+                "order_id": normalized_order_id,
+                "order_status": order_status,
+                "revoked_quantity": 0,
+            }
         return {
             "status": "revoked",
             "order_id": normalized_order_id,
@@ -1158,6 +1213,185 @@ def sync_google_play_purchase_order_status(
         raise
     finally:
         conn.close()
+
+
+def _voided_purchase_window(
+    *,
+    start_time_millis: int | None,
+    end_time_millis: int | None,
+) -> tuple[int, int]:
+    now_millis = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+    try:
+        end_millis = now_millis if end_time_millis is None else int(end_time_millis)
+        start_millis = (
+            end_millis - GOOGLE_PLAY_VOIDED_PURCHASE_LOOKBACK_DAYS * 24 * 60 * 60 * 1000
+            if start_time_millis is None
+            else int(start_time_millis)
+        )
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Voided purchase reconciliation times must be epoch milliseconds.")
+    oldest_allowed_millis = now_millis - 30 * 24 * 60 * 60 * 1000
+    if start_millis < oldest_allowed_millis or start_millis > end_millis or end_millis > now_millis:
+        raise HTTPException(status_code=400, detail="Voided purchase reconciliation time window is invalid.")
+    return start_millis, end_millis
+
+
+def _list_google_play_voided_purchases(
+    *,
+    package_name: str,
+    start_time_millis: int,
+    end_time_millis: int,
+    page_token: str | None = None,
+) -> dict:
+    params = {
+        "type": 0,
+        "includeQuantityBasedPartialRefund": "true",
+        "pageSelection.maxResults": GOOGLE_PLAY_VOIDED_PURCHASE_PAGE_SIZE,
+    }
+    if page_token:
+        params["pageSelection.token"] = page_token
+    else:
+        params["startTime"] = str(start_time_millis)
+        params["endTime"] = str(end_time_millis)
+    url = (
+        "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/"
+        f"{quote(package_name, safe='')}/purchases/voidedpurchases"
+    )
+    try:
+        response = requests.get(url, headers=_google_play_headers(), params=params, timeout=10)
+    except requests.RequestException:
+        raise HTTPException(status_code=502, detail="Google Play voided purchase reconciliation request failed.")
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Google Play voided purchase reconciliation failed.")
+    try:
+        data = response.json()
+    except ValueError:
+        raise HTTPException(status_code=502, detail="Google Play voided purchase reconciliation response is invalid.")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=502, detail="Google Play voided purchase reconciliation response is invalid.")
+    return data
+
+
+def _local_purchase_credit_order_ids(order_ids: set[str]) -> set[str]:
+    if not order_ids:
+        return set()
+    placeholders = ", ".join("?" for _ in order_ids)
+    conn = _connect_access_db()
+    try:
+        rows = conn.execute(
+            f"SELECT order_id FROM purchase_credit_orders WHERE order_id IN ({placeholders})",
+            tuple(order_ids),
+        ).fetchall()
+        return {str(row["order_id"]) for row in rows}
+    finally:
+        conn.close()
+
+
+def _voided_purchase_event_key(voided_purchase: dict) -> str:
+    event_data = "|".join(
+        str(voided_purchase.get(field) or "")
+        for field in ("orderId", "voidedTimeMillis", "voidedReason", "voidedSource", "voidedQuantity")
+    )
+    return f"google-play-voided:{hashlib.sha256(event_data.encode('utf-8')).hexdigest()}"
+
+
+def reconcile_google_play_voided_purchase_orders(
+    *,
+    start_time_millis: int | None = None,
+    end_time_millis: int | None = None,
+) -> dict:
+    status = _google_play_status()
+    if not status["ready"]:
+        raise HTTPException(status_code=503, detail="Google Play Billing verification is not configured.")
+    package_name = str(_env_value("GOOGLE_PLAY_PACKAGE_NAME") or "").strip()
+    start_millis, end_millis = _voided_purchase_window(
+        start_time_millis=start_time_millis,
+        end_time_millis=end_time_millis,
+    )
+    pages = 0
+    voided_purchase_count = 0
+    matched_order_count = 0
+    processed_count = 0
+    revoked_count = 0
+    ignored_count = 0
+    unmatched_count = 0
+    locked_for_review_count = 0
+    failed_count = 0
+    failures = []
+    page_token = None
+    seen_page_tokens = set()
+
+    while True:
+        page = _list_google_play_voided_purchases(
+            package_name=package_name,
+            start_time_millis=start_millis,
+            end_time_millis=end_millis,
+            page_token=page_token,
+        )
+        pages += 1
+        voided_purchases = page.get("voidedPurchases") or []
+        if not isinstance(voided_purchases, list):
+            raise HTTPException(status_code=502, detail="Google Play voided purchase reconciliation response is invalid.")
+        voided_order_events = []
+        for voided_purchase in voided_purchases:
+            if not isinstance(voided_purchase, dict):
+                continue
+            voided_purchase_count += 1
+            order_id = str(voided_purchase.get("orderId") or "").strip()
+            if order_id:
+                voided_order_events.append((order_id, voided_purchase))
+
+        local_order_ids = _local_purchase_credit_order_ids({order_id for order_id, _ in voided_order_events})
+        for order_id, voided_purchase in voided_order_events:
+            if order_id not in local_order_ids:
+                unmatched_count += 1
+                continue
+            matched_order_count += 1
+            try:
+                result = sync_google_play_purchase_order_status(
+                    order_id=order_id,
+                    event_key=_voided_purchase_event_key(voided_purchase),
+                    package_name=package_name,
+                    authoritative_voided_purchase=voided_purchase,
+                )
+            except HTTPException as exc:
+                failed_count += 1
+                failures.append({"order_id": order_id, "status_code": exc.status_code})
+                continue
+            except Exception:
+                failed_count += 1
+                failures.append({"order_id": order_id, "status_code": 500})
+                continue
+            processed_count += 1
+            if result.get("status") == "revoked":
+                revoked_count += 1
+            elif result.get("status") == "locked_for_review":
+                locked_for_review_count += 1
+            else:
+                ignored_count += 1
+
+        page_token = str(((page.get("tokenPagination") or {}).get("nextPageToken") or "")).strip()
+        if not page_token:
+            break
+        if page_token in seen_page_tokens:
+            raise HTTPException(status_code=502, detail="Google Play voided purchase reconciliation pagination is invalid.")
+        seen_page_tokens.add(page_token)
+
+    return {
+        "status": "completed_with_errors" if failed_count else "completed",
+        "start_time_millis": start_millis,
+        "end_time_millis": end_millis,
+        "pages": pages,
+        "voided_purchase_count": voided_purchase_count,
+        "matched_order_count": matched_order_count,
+        "processed_count": processed_count,
+        "revoked_count": revoked_count,
+        "ignored_count": ignored_count,
+        "unmatched_count": unmatched_count,
+        "locked_for_review_count": locked_for_review_count,
+        "failed_count": failed_count,
+        "failures": failures,
+    }
 
 
 def get_purchase_credit_order_for_admin(*, order_id: str) -> dict:
@@ -1238,7 +1472,7 @@ def _update_purchase_credit_order_for_admin(
         next_locked = current_locked if balance_locked is None else bool(balance_locked)
         if next_remaining < 0 or next_remaining > int(order["granted_quantity"] or 0) - int(order["used_quantity"] or 0):
             raise HTTPException(status_code=400, detail="remaining_quantity is outside the order balance limit.")
-        if order["order_status"] in {"CANCELED", "REFUNDED"} and (
+        if order["order_status"] in {"CANCELED", "REFUNDED", "VOIDED"} and (
             next_remaining != current_remaining or not next_locked
         ):
             raise HTTPException(status_code=409, detail="Canceled or refunded purchase credit orders cannot be reactivated.")
@@ -1717,7 +1951,7 @@ def _refund_purchase_credit(*, user_id: str, order_id: str, event_key: str) -> b
             UPDATE purchase_credit_orders
             SET used_quantity = used_quantity - 1,
                 remaining_quantity = CASE
-                    WHEN order_status IN ('CANCELED', 'REFUNDED') THEN remaining_quantity
+                    WHEN order_status IN ('CANCELED', 'REFUNDED', 'VOIDED') THEN remaining_quantity
                     ELSE remaining_quantity + 1
                 END,
                 updated_at = ?
