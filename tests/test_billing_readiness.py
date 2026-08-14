@@ -2,6 +2,7 @@ import base64
 import importlib
 import json
 import os
+import sqlite3
 import tempfile
 import unittest
 from contextlib import contextmanager
@@ -48,6 +49,204 @@ def patched_env(**values):
 
 
 class BillingReadinessTest(unittest.TestCase):
+    def test_purchase_credit_ledger_schema_tracks_order_balances_and_usage_sources(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            conn = access_control._connect_access_db()
+            try:
+                order_columns = {
+                    row["name"]
+                    for row in conn.execute("PRAGMA table_info(purchase_credit_orders)").fetchall()
+                }
+                usage_columns = {
+                    row["name"]
+                    for row in conn.execute("PRAGMA table_info(credit_usage_ledger)").fetchall()
+                }
+                event_columns = {
+                    row["name"]
+                    for row in conn.execute("PRAGMA table_info(billing_event_receipts)").fetchall()
+                }
+            finally:
+                conn.close()
+
+            self.assertTrue({
+                "order_id",
+                "purchase_token_hash",
+                "purchase_token_ciphertext",
+                "product_id",
+                "credit_kind",
+                "granted_quantity",
+                "used_quantity",
+                "remaining_quantity",
+                "order_status",
+                "price_amount_micros",
+                "currency_code",
+                "refund_amount_micros",
+                "refund_status",
+                "balance_locked",
+            }.issubset(order_columns))
+            self.assertTrue({
+                "user_id",
+                "review_type",
+                "source_type",
+                "source_order_id",
+                "quantity",
+                "idempotency_key",
+            }.issubset(usage_columns))
+            self.assertTrue({
+                "event_key",
+                "order_id",
+                "event_type",
+                "payload_hash",
+                "status",
+            }.issubset(event_columns))
+
+    def test_purchase_credit_ledger_rejects_incomplete_order_evidence(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            conn = access_control._connect_access_db()
+            try:
+                sql = """
+                    INSERT INTO purchase_credit_orders (
+                        order_id, purchase_token_hash, purchase_token_ciphertext,
+                        purchase_token_key_id, user_id, product_id,
+                        google_play_product_id, credit_kind, granted_quantity,
+                        remaining_quantity, order_status, price_amount_micros,
+                        currency_code, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """
+                invalid_fields = {
+                    "null order id": (0, None),
+                    "empty order id": (0, ""),
+                    "empty encrypted token": (2, b""),
+                    "empty token key id": (3, ""),
+                    "missing price": (11, 0),
+                    "empty currency": (12, ""),
+                }
+                for index, (label, (field_index, invalid_value)) in enumerate(invalid_fields.items()):
+                    values = [
+                        f"GPA.order-{index}", f"token-hash-{index}", b"encrypted-token", "billing-key-v1",
+                        "user-1", "basic_review_15", "basic_review_15", "basic",
+                        15, 15, "paid", 2_900_000_000, "KRW", "now", "now",
+                    ]
+                    values[field_index] = invalid_value
+                    with self.subTest(case=label), self.assertRaises(sqlite3.IntegrityError):
+                        conn.execute(sql, tuple(values))
+            finally:
+                conn.close()
+
+    def test_purchase_usage_requires_an_existing_order_for_the_same_user(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            conn = access_control._connect_access_db()
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO purchase_credit_orders (
+                        order_id, purchase_token_hash, purchase_token_ciphertext,
+                        purchase_token_key_id, user_id, product_id,
+                        google_play_product_id, credit_kind, granted_quantity,
+                        remaining_quantity, order_status, price_amount_micros,
+                        currency_code, created_at, updated_at
+                    ) VALUES (
+                        'GPA.order-1', 'token-hash-1', X'0102', 'billing-key-v1',
+                        'user-1', 'basic_review_15', 'basic_review_15', 'basic',
+                        15, 15, 'paid', 2900000000, 'KRW', 'now', 'now'
+                    )
+                    """
+                )
+                usage_sql = """
+                    INSERT INTO credit_usage_ledger (
+                        user_id, review_type, source_type, source_order_id,
+                        idempotency_key, created_at
+                    ) VALUES (?, 'basic', 'purchase_order', ?, ?, 'now')
+                """
+                invalid_cases = (
+                    ("user-1", None, "usage-null-order"),
+                    ("user-1", "", "usage-empty-order"),
+                    ("user-1", "GPA.missing", "usage-missing-order"),
+                    ("user-2", "GPA.order-1", "usage-wrong-user"),
+                )
+                for values in invalid_cases:
+                    with self.subTest(values=values), self.assertRaises(sqlite3.IntegrityError):
+                        conn.execute(usage_sql, values)
+
+                conn.execute(usage_sql, ("user-1", "GPA.order-1", "usage-valid"))
+                self.assertEqual(1, conn.execute("SELECT COUNT(*) FROM credit_usage_ledger").fetchone()[0])
+            finally:
+                conn.close()
+
+    def test_legacy_test_purchase_balances_are_reset_only_by_explicit_one_time_initialization(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+        ):
+            from backend.core import access_control
+
+            access_control = importlib.reload(access_control)
+            conn = access_control._connect_access_db()
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO access_wallets (
+                        user_id, purchased_basic, purchased_advanced, updated_at
+                    ) VALUES ('legacy-user', 7, 3, '2026-01-01T00:00:00')
+                    """
+                )
+                conn.execute(
+                    """
+                    INSERT INTO google_play_purchases (
+                        purchase_token_hash, user_id, local_product_id,
+                        google_play_product_id, kind, order_id, status, granted_at
+                    ) VALUES (
+                        'legacy-token-hash', 'legacy-user', 'basic_review_15',
+                        'basic_review_15', 'basic', 'legacy-order', 'applied',
+                        '2026-01-01T00:00:00'
+                    )
+                    """
+                )
+                conn.commit()
+            finally:
+                conn.close()
+
+            with self.assertRaises(ValueError):
+                access_control.initialize_purchase_credit_ledger()
+
+            conn = sqlite3.connect(os.path.join(tmpdir, "access.sqlite3"))
+            try:
+                unchanged = conn.execute(
+                    "SELECT purchased_basic, purchased_advanced FROM access_wallets WHERE user_id = 'legacy-user'"
+                ).fetchone()
+            finally:
+                conn.close()
+            self.assertEqual((7, 3), unchanged)
+
+            self.assertTrue(access_control.initialize_purchase_credit_ledger(reset_legacy_balances=True))
+            self.assertFalse(access_control.initialize_purchase_credit_ledger(reset_legacy_balances=True))
+
+            conn = sqlite3.connect(os.path.join(tmpdir, "access.sqlite3"))
+            try:
+                balances = conn.execute(
+                    "SELECT purchased_basic, purchased_advanced FROM access_wallets WHERE user_id = 'legacy-user'"
+                ).fetchone()
+                purchases = conn.execute("SELECT COUNT(*) FROM google_play_purchases").fetchone()[0]
+            finally:
+                conn.close()
+
+            self.assertEqual((0, 0), balances)
+            self.assertEqual(0, purchases)
+
     def test_app_readiness_summarizes_deployment_without_secret_values(self):
         with patched_env(
             OPENAI_API_KEY="sk-secret-openai",

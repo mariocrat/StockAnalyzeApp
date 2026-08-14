@@ -77,6 +77,7 @@ ADMOB_PLACEHOLDER_AD_UNIT = "ca-app-pub-0000000000000000/0000000000"
 ADMOB_SSV_VERIFICATION_AD_UNIT = "1234567890"
 ADMOB_SSV_VERIFICATION_TRANSACTION_ID = "123456789"
 GOOGLE_PLAY_FIELD_MAX_CHARS = 120
+PURCHASE_CREDIT_LEDGER_RESET_KEY = "purchase_credit_ledger_reset_v1"
 PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
 PLACEHOLDER_EMAIL_PARTS = ("your-project", "example.com")
 
@@ -158,6 +159,7 @@ def _connect_access_db():
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS access_wallets (
@@ -239,6 +241,93 @@ def _connect_access_db():
     )
     conn.execute(
         """
+        CREATE TABLE IF NOT EXISTS access_schema_meta (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS purchase_credit_orders (
+            order_id TEXT PRIMARY KEY CHECK (order_id IS NOT NULL AND length(trim(order_id)) > 0),
+            purchase_token_hash TEXT NOT NULL UNIQUE CHECK (length(trim(purchase_token_hash)) > 0),
+            purchase_token_ciphertext BLOB NOT NULL
+                CHECK (typeof(purchase_token_ciphertext) = 'blob' AND length(purchase_token_ciphertext) > 0),
+            purchase_token_key_id TEXT NOT NULL CHECK (length(trim(purchase_token_key_id)) > 0),
+            user_id TEXT NOT NULL,
+            product_id TEXT NOT NULL,
+            google_play_product_id TEXT NOT NULL,
+            credit_kind TEXT NOT NULL CHECK (credit_kind IN ('basic', 'advanced')),
+            granted_quantity INTEGER NOT NULL CHECK (granted_quantity >= 0),
+            used_quantity INTEGER NOT NULL DEFAULT 0 CHECK (used_quantity >= 0),
+            remaining_quantity INTEGER NOT NULL CHECK (remaining_quantity >= 0),
+            order_status TEXT NOT NULL,
+            price_amount_micros INTEGER NOT NULL CHECK (price_amount_micros > 0),
+            currency_code TEXT NOT NULL CHECK (length(trim(currency_code)) = 3),
+            refund_amount_micros INTEGER NOT NULL DEFAULT 0 CHECK (refund_amount_micros >= 0),
+            refund_status TEXT NOT NULL DEFAULT 'none',
+            balance_locked INTEGER NOT NULL DEFAULT 0 CHECK (balance_locked IN (0, 1)),
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE (order_id, user_id),
+            CHECK (used_quantity + remaining_quantity <= granted_quantity)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_purchase_credit_orders_fifo
+        ON purchase_credit_orders (user_id, credit_kind, balance_locked, created_at, order_id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS credit_usage_ledger (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            review_type TEXT NOT NULL CHECK (review_type IN ('basic', 'advanced')),
+            source_type TEXT NOT NULL CHECK (source_type IN ('free', 'ad', 'pro', 'purchase_order')),
+            source_order_id TEXT,
+            quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+            status TEXT NOT NULL DEFAULT 'consumed',
+            idempotency_key TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL,
+            CHECK (
+                (
+                    source_type = 'purchase_order'
+                    AND source_order_id IS NOT NULL
+                    AND length(trim(source_order_id)) > 0
+                )
+                OR (source_type != 'purchase_order' AND source_order_id IS NULL)
+            ),
+            FOREIGN KEY (source_order_id, user_id)
+                REFERENCES purchase_credit_orders (order_id, user_id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_credit_usage_ledger_user_created
+        ON credit_usage_ledger (user_id, created_at, id)
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS billing_event_receipts (
+            event_key TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL DEFAULT '',
+            order_id TEXT NOT NULL DEFAULT '',
+            event_type TEXT NOT NULL,
+            payload_hash TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL,
+            processed_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
         CREATE UNIQUE INDEX IF NOT EXISTS idx_google_play_subscriptions_purchase_token_hash
         ON google_play_subscriptions (purchase_token_hash)
         """
@@ -259,6 +348,47 @@ def _connect_access_db():
         """
     )
     return conn
+
+
+def initialize_purchase_credit_ledger(*, reset_legacy_balances: bool = False) -> bool:
+    """Explicitly reset legacy test purchases once before the order ledger cutover."""
+    conn = _connect_access_db()
+    try:
+        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+        initialized = conn.execute(
+            "SELECT 1 FROM access_schema_meta WHERE key = ?",
+            (PURCHASE_CREDIT_LEDGER_RESET_KEY,),
+        ).fetchone()
+        if initialized:
+            conn.rollback()
+            return False
+        if not reset_legacy_balances:
+            conn.rollback()
+            raise ValueError("reset_legacy_balances=True is required for the one-time ledger initialization.")
+
+        conn.execute(
+            "UPDATE access_wallets SET purchased_basic = 0, purchased_advanced = 0"
+        )
+        conn.execute("DELETE FROM google_play_purchases")
+        conn.execute("DELETE FROM credit_usage_ledger")
+        conn.execute("DELETE FROM purchase_credit_orders")
+        conn.execute("DELETE FROM billing_event_receipts")
+        initialized_at = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+        conn.execute(
+            """
+            INSERT INTO access_schema_meta (key, value, updated_at)
+            VALUES (?, 'completed', ?)
+            """,
+            (PURCHASE_CREDIT_LEDGER_RESET_KEY, initialized_at),
+        )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def _wallet_from_row(row) -> UserWallet:
@@ -398,6 +528,9 @@ def delete_user_access_data(user_id: str) -> dict:
         try:
             deleted = {}
             for table, key in (
+                ("credit_usage_ledger", "deleted_credit_usage_events"),
+                ("purchase_credit_orders", "deleted_purchase_credit_orders"),
+                ("billing_event_receipts", "deleted_billing_event_receipts"),
                 ("access_wallets", "deleted_wallets"),
                 ("access_grants", "deleted_access_grants"),
                 ("google_play_purchases", "deleted_google_play_purchases"),
