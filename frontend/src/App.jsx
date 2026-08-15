@@ -13,7 +13,8 @@ import { MARKET_DOWN, MARKET_FLAT, MARKET_UP } from './theme/marketColors';
 import { toKoreanUserMessage } from './utils/userMessage';
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8002';
-const APP_NAME = import.meta.env.VITE_APP_NAME || 'AlphaMate';
+const APP_NAME = import.meta.env.VITE_APP_NAME || 'StockBoda';
+const USE_STOCKBODA_WORDMARK = APP_NAME === 'StockBoda';
 const APP_ENV = import.meta.env.VITE_ALPHAMATE_ENV || (import.meta.env.PROD ? 'production' : 'development');
 const CHART_DETAIL_AD_FREQUENCY = APP_ENV === 'production' ? 3 : 1;
 const DEV_TOOLS_ENABLED = APP_ENV !== 'production' && import.meta.env.VITE_ENABLE_DEV_TOOLS !== 'false';
@@ -76,15 +77,12 @@ function AppSplash({ exiting }) {
 }
 
 function AppWordmark() {
-  const isAlphaMate = APP_NAME === 'AlphaMate';
   return (
     <span className="mobile-app-brand" aria-label={APP_NAME}>
       <img src={appIcon} alt="" aria-hidden="true" />
-      {isAlphaMate ? (
-        <span className="mobile-app-brand-text"><span>Alpha</span><em>Mate</em></span>
-      ) : (
-        <span className="mobile-app-brand-text"><span>{APP_NAME}</span></span>
-      )}
+      <span className="mobile-app-brand-text">
+        {USE_STOCKBODA_WORDMARK ? <><span>Stock</span><em>Boda</em></> : APP_NAME}
+      </span>
     </span>
   );
 }

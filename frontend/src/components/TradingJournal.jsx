@@ -968,7 +968,7 @@ export default function TradingJournal({
         headers: { Authorization: `Bearer ${authSession.session_token}` },
       });
       const dateText = new Date().toISOString().slice(0, 10);
-      const filename = `AlphaMate-데이터-백업-${dateText}.json`;
+      const filename = `StockBoda-데이터-백업-${dateText}.json`;
       const jsonText = JSON.stringify(res.data || {}, null, 2);
       const file = typeof File === 'function'
         ? new File([jsonText], filename, { type: 'application/json;charset=utf-8' })
@@ -977,8 +977,8 @@ export default function TradingJournal({
         && (!navigator.canShare || navigator.canShare({ files: [file] }));
 
       if (canShareFile) {
-        await navigator.share({ title: 'AlphaMate 내 데이터', files: [file] });
-        setMessage(`AlphaMate 백업 파일을 보낼 곳을 선택했습니다. '내 파일' 또는 'Files'를 선택했다면 선택한 폴더에서 ${filename} 파일을 확인할 수 있습니다.`);
+        await navigator.share({ title: 'StockBoda 내 데이터', files: [file] });
+        setMessage(`StockBoda 백업 파일을 보낼 곳을 선택했습니다. '내 파일' 또는 'Files'를 선택했다면 선택한 폴더에서 ${filename} 파일을 확인할 수 있습니다.`);
       } else {
         const blob = new Blob([jsonText], { type: 'application/json;charset=utf-8' });
         const url = URL.createObjectURL(blob);
@@ -989,7 +989,7 @@ export default function TradingJournal({
         link.click();
         link.remove();
         window.setTimeout(() => URL.revokeObjectURL(url), 0);
-        setMessage(`다운로드 폴더에 ${filename} 파일을 저장했습니다. 이 파일은 AlphaMate의 저장 기록과 이용권 정보를 보관하는 백업 파일입니다.`);
+        setMessage(`다운로드 폴더에 ${filename} 파일을 저장했습니다. 이 파일은 StockBoda의 저장 기록과 이용권 정보를 보관하는 백업 파일입니다.`);
       }
     } catch (err) {
       if (err?.name === 'AbortError') {
@@ -2176,7 +2176,7 @@ export default function TradingJournal({
           <div>
             <p>AI 복기는 입력한 매매 기록, 메모, 차트 요약을 서버와 AI 제공업체로 전송해 분석합니다.</p>
             <p>매매 이력 저장을 켠 계정은 AI 복기 결과와 당시 차트 스냅샷이 복기 보관함에 저장될 수 있습니다.</p>
-            <p>내 데이터 내보내기는 저장 내용을 AlphaMate 백업 파일로 내려받습니다. 휴대폰에서는 공유 화면에서 내 파일 또는 Files를 선택해 원하는 폴더에 저장할 수 있습니다.</p>
+            <p>내 데이터 내보내기는 저장 내용을 StockBoda 백업 파일로 내려받습니다. 휴대폰에서는 공유 화면에서 내 파일 또는 Files를 선택해 원하는 폴더에 저장할 수 있습니다.</p>
             <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">
               개인정보처리방침 열기
             </a>
@@ -2206,7 +2206,7 @@ export default function TradingJournal({
               계정 데이터 삭제
             </button>
             <p className="journal-privacy-note">
-              저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 내 데이터 내보내기를 누른 뒤 휴대폰의 공유 화면에서 내 파일 또는 Files를 선택하면 원하는 폴더에 AlphaMate 백업 파일을 저장할 수 있습니다. PC나 웹에서는 보통 다운로드 폴더에 저장됩니다. 계정 데이터 삭제는 현재 로그인 계정의 저장 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보를 함께 정리합니다.
+              저장 기능을 켠 로그인 계정의 매매 기록만 서버에 보관됩니다. 내 데이터 내보내기를 누른 뒤 휴대폰의 공유 화면에서 내 파일 또는 Files를 선택하면 원하는 폴더에 StockBoda 백업 파일을 저장할 수 있습니다. PC나 웹에서는 보통 다운로드 폴더에 저장됩니다. 계정 데이터 삭제는 현재 로그인 계정의 저장 기록, 복기권/구독 상태, 광고 보상 기록, 로그인 연결 정보를 함께 정리합니다.
             </p>
           </>
         )}

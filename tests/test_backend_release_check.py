@@ -234,7 +234,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             },
         })
 
-        self.assertIn("AlphaMate 출시 준비 보고서", report)
+        self.assertIn("StockBoda 출시 준비 보고서", report)
         self.assertIn("[필요] AI 복기", report)
         self.assertIn("[필요] 개인정보처리방침", report)
         self.assertIn("준비율: 0/6 (0%)", report)

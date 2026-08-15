@@ -82,7 +82,7 @@ def validate_release_alignment() -> dict:
 
 def format_release_alignment_report(result: dict) -> str:
     lines = [
-        "AlphaMate 서버/앱 설정 일치 보고서",
+        "StockBoda 서버/앱 설정 일치 보고서",
         "",
         f"전체 상태: {'준비됨' if result.get('ok') else '준비 필요'}",
     ]

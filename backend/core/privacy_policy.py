@@ -7,7 +7,7 @@ POLICY_EFFECTIVE_DATE = "2026-07-23"
 
 
 def _operator_name() -> str:
-    return html.escape(env_value("ALPHAMATE_PRIVACY_OPERATOR_NAME").strip() or "AlphaMate 운영자")
+    return html.escape(env_value("ALPHAMATE_PRIVACY_OPERATOR_NAME").strip() or "스톡보다 운영자")
 
 
 def _contact_html() -> str:
@@ -55,15 +55,15 @@ def privacy_policy_html() -> str:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>AlphaMate 개인정보처리방침</title>
+  <title>스톡보다(StockBoda) 개인정보처리방침</title>
   <style>{_page_style()}</style>
 </head>
 <body>
 <main>
-  <h1>AlphaMate 개인정보처리방침</h1>
-  <p class="meta">시행일: {POLICY_EFFECTIVE_DATE}<br>서비스명: AlphaMate<br>개인정보처리자 및 운영자: {operator}</p>
-  <p>AlphaMate(이하 “서비스”)는 개인 개발자 {operator}(이하 “운영자”)가 운영합니다.</p>
-  <p class="notice">AlphaMate는 매매 기록과 AI 복기 데이터를 사용자가 선택한 기능을 제공하는 범위에서만 처리합니다. AI 복기는 투자 판단을 대신하지 않으며, 사용자는 계정/데이터 관리에서 저장 기록을 확인·내보내기·삭제할 수 있습니다.</p>
+  <h1>스톡보다(StockBoda) 개인정보처리방침</h1>
+  <p class="meta">시행일: {POLICY_EFFECTIVE_DATE}<br>서비스명: 스톡보다(StockBoda)<br>개인정보처리자 및 운영자: {operator}</p>
+  <p>스톡보다(StockBoda, 이하 “서비스”)는 개인 개발자 {operator}(이하 “운영자”)가 운영합니다.</p>
+  <p class="notice">스톡보다는 매매 기록과 AI 복기 데이터를 사용자가 선택한 기능을 제공하는 범위에서만 처리합니다. AI 복기는 투자 판단을 대신하지 않으며, 사용자는 계정/데이터 관리에서 저장 기록을 확인·내보내기·삭제할 수 있습니다.</p>
 
   <h2>1. 처리하는 개인정보와 수집 방법</h2>
   <table>
@@ -77,7 +77,7 @@ def privacy_policy_html() -> str:
       <tr><td>광고</td><td>광고 식별자, 기기 정보, 대략적 위치 등 Google Mobile Ads SDK가 광고 제공·측정을 위해 처리하는 정보</td><td>무료 사용자에게 광고가 표시될 때</td></tr>
     </tbody>
   </table>
-  <p>AlphaMate는 카카오·네이버 비밀번호와 신용카드 번호를 직접 수집하거나 저장하지 않습니다. 사용자가 메모에 민감정보나 불필요한 개인정보를 적지 않도록 권장합니다.</p>
+  <p>스톡보다는 카카오·네이버 비밀번호와 신용카드 번호를 직접 수집하거나 저장하지 않습니다. 사용자가 메모에 민감정보나 불필요한 개인정보를 적지 않도록 권장합니다.</p>
 
   <h2>2. 처리 목적</h2>
   <ul>
@@ -97,16 +97,16 @@ def privacy_policy_html() -> str:
       <tr><td>저장을 끈 상태의 1회성 매매 입력</td><td>현재 복기 요청 처리와 화면 표시가 끝날 때까지. 서버 복기 보관함에는 저장하지 않음</td></tr>
       <tr><td>운영·오류 로그</td><td>원칙적으로 90일 후 자동 삭제</td></tr>
       <tr><td>결제·이용권·광고 보상 기록</td><td>계정 삭제 시까지. 다만 관련 법령 준수, 결제 분쟁 또는 부정 이용 방지를 위해 필요한 항목은 해당 목적 달성 시까지 분리 보관할 수 있음</td></tr>
-      <tr><td>OpenAI API 전송 데이터</td><td>AlphaMate는 Responses API 요청에 <code>store=false</code>를 설정합니다. OpenAI의 안전·오용 방지 로그는 해당 업체 정책에 따라 최대 30일 보관될 수 있음</td></tr>
+      <tr><td>OpenAI API 전송 데이터</td><td>스톡보다는 Responses API 요청에 <code>store=false</code>를 설정합니다. OpenAI의 안전·오용 방지 로그는 해당 업체 정책에 따라 최대 30일 보관될 수 있음</td></tr>
     </tbody>
   </table>
 
   <h2>4. 제3자 제공, 처리위탁 및 국외 이전</h2>
-  <p>AlphaMate는 개인정보를 판매하지 않으며, 사용자의 별도 동의 또는 법령상 근거 없이 아래 목적과 무관한 제3자에게 제공하지 않습니다. 서비스 제공을 위해 아래 업체에 처리를 위탁하거나 국외에서 처리할 수 있습니다. 업체·국가·처리 내용이 바뀌는 경우 이 방침을 갱신합니다.</p>
+  <p>스톡보다는 개인정보를 판매하지 않으며, 사용자의 별도 동의 또는 법령상 근거 없이 아래 목적과 무관한 제3자에게 제공하지 않습니다. 서비스 제공을 위해 아래 업체에 처리를 위탁하거나 국외에서 처리할 수 있습니다. 업체·국가·처리 내용이 바뀌는 경우 이 방침을 갱신합니다.</p>
   <table>
     <thead><tr><th>수탁자·처리 국가·연락처</th><th>이전 항목과 시점·방법</th><th>목적과 보유 기간</th></tr></thead>
     <tbody>
-      <tr><td>Render Services, Inc. · 미국(사업자 운영), 싱가포르(서버 리전)<br><a href="mailto:privacy@render.com">privacy@render.com</a></td><td>계정, 저장 매매 기록, 이용권·운영 정보가 서비스 이용 시 HTTPS로 전송</td><td>백엔드·데이터베이스 호스팅. 위 3항의 AlphaMate 보유 기간 적용</td></tr>
+      <tr><td>Render Services, Inc. · 미국(사업자 운영), 싱가포르(서버 리전)<br><a href="mailto:privacy@render.com">privacy@render.com</a></td><td>계정, 저장 매매 기록, 이용권·운영 정보가 서비스 이용 시 HTTPS로 전송</td><td>백엔드·데이터베이스 호스팅. 위 3항의 스톡보다 보유 기간 적용</td></tr>
       <tr><td>OpenAI, L.L.C. · 미국 및 서비스 처리 지역<br><a href="mailto:privacy@openai.com">privacy@openai.com</a></td><td>사용자가 동의하고 AI 복기를 누를 때 매매 기록·메모·차트 요약을 HTTPS로 전송</td><td>AI 복기 생성. API 데이터는 별도 동의 없이는 모델 학습에 사용되지 않으며, 안전·오용 방지 로그는 최대 30일 보관될 수 있음</td></tr>
       <tr><td>Google LLC · 미국 등 Google 처리 지역<br><a href="mailto:googlekrsupport@google.com">googlekrsupport@google.com</a></td><td>광고 식별자·기기 정보, 광고 보상값, 구매 토큰·상품 상태가 광고 표시 또는 결제 시 HTTPS로 전송</td><td>AdMob 광고·보상 확인 및 Google Play 결제 검증. Google 정책과 법정 보유 기간 적용</td></tr>
       <tr><td>카카오·네이버 · 대한민국</td><td>로그인 요청 시 OAuth 인증 정보와 제공자 사용자 식별자가 HTTPS로 전송</td><td>간편 로그인과 계정 연결. 연결 해제 또는 계정 삭제 시까지</td></tr>
@@ -134,7 +134,7 @@ def privacy_policy_html() -> str:
   <p>API 키와 로그인 비밀값은 앱에 포함하지 않고 서버 환경변수로 관리합니다. 전송 구간은 HTTPS를 사용하고, 사용자별 데이터는 로그인 세션으로 구분합니다. 접근 권한 최소화, 요청 횟수 제한, 중요 작업 감사 로그, 비밀정보 마스킹과 정기적인 의존성·배포 점검을 적용합니다.</p>
 
   <h2>9. 만 14세 미만 아동</h2>
-  <p>AlphaMate는 만 14세 미만 아동을 대상으로 하지 않으며, 해당 아동의 개인정보를 고의로 수집하지 않습니다. 관련 사실을 확인하면 법정대리인 확인 등 필요한 절차 후 삭제합니다.</p>
+  <p>스톡보다는 만 14세 미만 아동을 대상으로 하지 않으며, 해당 아동의 개인정보를 고의로 수집하지 않습니다. 관련 사실을 확인하면 법정대리인 확인 등 필요한 절차 후 삭제합니다.</p>
 
   <h2>10. AI 복기와 투자정보 고지</h2>
   <p>AI 복기와 차트 분석은 과거 기록을 정리하는 참고 정보이며 투자 권유, 수익 보장 또는 전문 금융 자문이 아닙니다. AI 결과에는 오류가 있을 수 있으므로 최종 투자 판단과 책임은 사용자에게 있습니다.</p>
@@ -158,29 +158,29 @@ def account_deletion_html() -> str:
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>AlphaMate 계정 및 데이터 삭제</title>
+  <title>StockBoda (스톡보다) 계정 및 데이터 삭제</title>
   <style>{_page_style()}</style>
 </head>
 <body>
 <main>
-  <h1>AlphaMate 계정 및 데이터 삭제</h1>
+  <h1>StockBoda (스톡보다) 계정 및 데이터 삭제</h1>
   <p class="meta">운영자: {operator}</p>
   <p class="notice">계정 삭제를 요청하면 로그인 연결 정보와 계정에 저장된 매매 기록·AI 복기 기록을 삭제합니다. 삭제가 끝난 데이터는 복구할 수 없습니다.</p>
 
   <h2>앱에서 즉시 삭제</h2>
   <ol>
-    <li>AlphaMate를 열고 오른쪽 위 계정 아이콘을 누릅니다.</li>
+    <li>스톡보다를 열고 오른쪽 위 계정 아이콘을 누릅니다.</li>
     <li><strong>계정/데이터 관리</strong>에서 <strong>계정 데이터 삭제</strong>를 누릅니다.</li>
     <li>확인 절차를 완료하면 현재 로그인 계정과 연결 데이터가 삭제됩니다.</li>
   </ol>
 
   <h2>앱을 사용할 수 없는 경우</h2>
-  <p>아래 연락처로 제목을 <strong>AlphaMate 계정 삭제 요청</strong>으로 작성하고, 카카오 또는 네이버 중 사용한 로그인 방법과 본인 확인에 필요한 최소 정보만 보내 주세요. 비밀번호, API 키, 결제카드 번호는 보내지 마세요.</p>
+  <p>아래 연락처로 제목을 <strong>스톡보다 계정 삭제 요청</strong>으로 작성하고, 카카오 또는 네이버 중 사용한 로그인 방법과 본인 확인에 필요한 최소 정보만 보내 주세요. 비밀번호, API 키, 결제카드 번호는 보내지 마세요.</p>
   <p class="notice">삭제 요청 연락처: {contact}</p>
 
   <h2>삭제되는 정보</h2>
   <ul>
-    <li>카카오·네이버 로그인 연결과 AlphaMate 계정 식별 정보</li>
+    <li>카카오·네이버 로그인 연결과 스톡보다 계정 식별 정보</li>
     <li>서버에 저장된 매매 기록과 AI 복기 보관함</li>
     <li>복기권·광고 보상·구매 상태 등 계정 연결 정보</li>
   </ul>

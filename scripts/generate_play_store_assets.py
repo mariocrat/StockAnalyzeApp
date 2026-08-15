@@ -91,10 +91,10 @@ def rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
 
 def draw_brand(draw: ImageDraw.ImageDraw, x: int, y: int, size: int) -> int:
     brand_font = font(size, bold=True)
-    draw.text((x, y), "Alpha", font=brand_font, fill=TEXT)
-    alpha_width = int(draw.textlength("Alpha", font=brand_font))
-    draw.text((x + alpha_width, y), "Mate", font=brand_font, fill=BLUE)
-    return alpha_width + int(draw.textlength("Mate", font=brand_font))
+    draw.text((x, y), "Stock", font=brand_font, fill=TEXT)
+    stock_width = int(draw.textlength("Stock", font=brand_font))
+    draw.text((x + stock_width, y), "Boda", font=brand_font, fill=BLUE)
+    return stock_width + int(draw.textlength("Boda", font=brand_font))
 
 
 def wrap_text(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
@@ -238,6 +238,11 @@ def clean_source(image: Image.Image) -> Image.Image:
 def create_store_screenshot(spec: ScreenshotSpec, icon_path: Path) -> Path:
     source_path = RAW_ROOT / spec.source
     source = clean_source(Image.open(source_path))
+    source_draw = ImageDraw.Draw(source)
+    source_draw.rectangle((200, 0, 425, 58), fill="#101624")
+    source_icon = Image.open(icon_path).convert("RGB").resize((32, 32), Image.Resampling.LANCZOS)
+    source.paste(source_icon, (207, 13))
+    draw_brand(source_draw, 246, 16, 23)
     app_screen = resize_cover(source, (900, 1600), top_align=True)
 
     canvas = Image.new("RGB", (1080, 1920), BG)
@@ -262,7 +267,7 @@ def create_store_screenshot(spec: ScreenshotSpec, icon_path: Path) -> Path:
 def create_contact_sheet(icon_path: Path, feature_path: Path, screenshots: list[Path]) -> Path:
     sheet = Image.new("RGB", (1800, 1180), "#EEF2F8")
     draw = ImageDraw.Draw(sheet)
-    draw.text((50, 34), "AlphaMate · Google Play 등록 이미지", font=font(42, bold=True), fill="#111827")
+    draw.text((50, 34), "StockBoda · Google Play 등록 이미지", font=font(42, bold=True), fill="#111827")
 
     icon = Image.open(icon_path).convert("RGB").resize((220, 220), Image.Resampling.LANCZOS)
     sheet.paste(icon, (52, 112))
@@ -278,7 +283,7 @@ def create_contact_sheet(icon_path: Path, feature_path: Path, screenshots: list[
         draw.rectangle((x - 1, y - 1, x + thumb_w, y + thumb_h), outline="#CBD5E1", width=2)
 
     draw.text((52, 958), "앱 이름", font=font(25, bold=True), fill="#475569")
-    draw.text((52, 1002), "알파메이트 - 주식 테마·매매복기", font=font(38, bold=True), fill="#111827")
+    draw.text((52, 1002), "스톡보다 - 주식 테마·매매복기", font=font(38, bold=True), fill="#111827")
     draw.text((52, 1068), "스토어 아이콘 512×512 · 대표 그래픽 1024×500 · 휴대전화 스크린샷 1080×1920", font=font(24), fill="#64748B")
 
     output = ASSET_ROOT / "preview-contact-sheet.png"

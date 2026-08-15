@@ -126,7 +126,7 @@ class ReleaseAlignmentTest(unittest.TestCase):
 
         report = format_release_alignment_report({"ok": False, "errors": ["SETTING must match APP_SETTING"]})
 
-        self.assertIn("AlphaMate 서버/앱 설정 일치 보고서", report)
+        self.assertIn("StockBoda 서버/앱 설정 일치 보고서", report)
         self.assertIn("주의:", report)
         self.assertNotIn("?쒕", report)
         self.assertNotIn("以", report)

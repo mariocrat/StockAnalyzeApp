@@ -6,8 +6,11 @@ test('Android app label is injected from release branding settings', () => {
   const gradle = fs.readFileSync('android/app/build.gradle', 'utf8');
   const stringsXml = fs.readFileSync('android/app/src/main/res/values/strings.xml', 'utf8');
   const indexHtml = fs.readFileSync('index.html', 'utf8');
+  const capacitorConfig = fs.readFileSync('capacitor.config.json', 'utf8');
+  const viteConfig = fs.readFileSync('vite.config.js', 'utf8');
 
   assert.match(gradle, /ALPHAMATE_ANDROID_APP_NAME/);
+  assert.ok(gradle.includes('?: "StockBoda"'));
   assert.match(gradle, /VITE_APP_NAME/);
   assert.match(gradle, /VITE_GOOGLE_PLAY_PACKAGE_NAME/);
   assert.match(gradle, /VITE_ADMOB_ANDROID_APP_ID/);
@@ -23,6 +26,8 @@ test('Android app label is injected from release branding settings', () => {
   assert.doesNotMatch(indexHtml, /<title>AlphaMate<\/title>/);
   assert.match(indexHtml, /%APP_TITLE%/);
   assert.doesNotMatch(indexHtml, /%VITE_APP_NAME%/);
+  assert.match(capacitorConfig, /"appName": "StockBoda"/);
+  assert.match(viteConfig, /VITE_APP_NAME \|\| 'StockBoda'/);
 });
 
 test('Android Manifest declares OAuth app return deep link for the package scheme', () => {

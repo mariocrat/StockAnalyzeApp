@@ -15,7 +15,7 @@ class PrivacyPolicyTest(unittest.TestCase):
         with patch.dict(os.environ, env, clear=False):
             page = privacy_policy_html()
 
-        self.assertIn("서비스명: AlphaMate", page)
+        self.assertIn("서비스명: 스톡보다(StockBoda)", page)
         self.assertIn("개인정보처리자 및 운영자: 김건희", page)
         self.assertIn("개인 개발자 김건희", page)
         self.assertIn("개인정보 보호책임자", page)

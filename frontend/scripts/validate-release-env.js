@@ -375,7 +375,7 @@ export function formatOwnerFrontendReleaseReport(result, env = releaseEnvFromPro
   const readyPercent = Math.round((readyCount / readinessItems.length) * 100);
 
   const lines = [
-    'AlphaMate 프론트/앱 출시 준비 보고서',
+    'StockBoda 프론트/앱 출시 준비 보고서',
     '',
     `전체 상태: ${statusLabel(result.ok)}`,
     `준비율: ${readyCount}/${readinessItems.length} (${readyPercent}%)`,

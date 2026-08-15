@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 export default defineConfig(({ mode }) => {
   const root = dirname(fileURLToPath(import.meta.url))
   const env = loadEnv(mode, root, '')
-  const appName = env.VITE_APP_NAME || 'AlphaMate'
+  const appName = env.VITE_APP_NAME || 'StockBoda'
 
   return {
     plugins: [

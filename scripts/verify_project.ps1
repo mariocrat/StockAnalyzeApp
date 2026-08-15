@@ -64,7 +64,7 @@ try {
     Run-Step "프론트 사용자 안내 문구 테스트" { & npm.cmd run test:user-messages }
     Run-Step "프론트 린트" { & npm.cmd run lint }
     if (-not $env:VITE_APP_NAME) {
-        $env:VITE_APP_NAME = "AlphaMate"
+        $env:VITE_APP_NAME = "StockBoda"
     }
     Run-Step "프론트 운영 빌드" { & npm.cmd run build }
     Pop-Location

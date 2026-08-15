@@ -121,11 +121,11 @@ foreach ($name in $adUnitNames) {
 }
 foreach ($blockedPublisher in @($googleDemoPublisher, $placeholderPublisher)) {
     if ($admobAppId.Contains($blockedPublisher)) {
-        throw "The AdMob QA APK requires the real AlphaMate app ID."
+        throw "The AdMob QA APK requires the real StockBoda app ID."
     }
     foreach ($name in $adUnitNames) {
         if ($publicValues[$name].Contains($blockedPublisher)) {
-            throw "The AdMob QA APK requires the real AlphaMate ad unit ID: $name"
+            throw "The AdMob QA APK requires the real StockBoda ad unit ID: $name"
         }
     }
 }
@@ -174,7 +174,7 @@ try {
     }
     foreach ($name in $adUnitNames) {
         if (-not ($distFiles | Select-String -SimpleMatch $publicValues[$name] -Quiet)) {
-            throw "Built web assets do not contain the configured AlphaMate ad unit ID: $name"
+            throw "Built web assets do not contain the configured StockBoda ad unit ID: $name"
         }
     }
     $secretNames = @("NAVER_CLIENT_SECRET", "KAKAO_CLIENT_SECRET", "OPENAI_API_KEY", "ALPHAMATE_OPENAI_API_KEY")

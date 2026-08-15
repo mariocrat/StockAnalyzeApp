@@ -139,7 +139,7 @@ class AuthRoutesTest(unittest.TestCase):
 
         self.assertEqual("text/html", response.media_type)
         self.assertIn("charset=utf-8", response.headers["content-type"])
-        self.assertIn("AlphaMate 개인정보처리방침", body)
+        self.assertIn("스톡보다(StockBoda) 개인정보처리방침", body)
         self.assertIn("제3자 제공, 처리위탁 및 국외 이전", body)
         self.assertIn("privacy@render.com", body)
         self.assertIn("privacy@openai.com", body)
@@ -159,7 +159,7 @@ class AuthRoutesTest(unittest.TestCase):
         body = response.body.decode("utf-8")
 
         self.assertEqual("text/html", response.media_type)
-        self.assertIn("AlphaMate 계정 및 데이터 삭제", body)
+        self.assertIn("StockBoda (스톡보다) 계정 및 데이터 삭제", body)
         self.assertIn("계정 데이터 삭제", body)
         self.assertIn("카카오·네이버 로그인 연결", body)
 
