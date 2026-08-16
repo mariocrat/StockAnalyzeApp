@@ -34,6 +34,13 @@ class BrandImageAssetsTest(unittest.TestCase):
         actual_surface = source.crop((210, 8, 330, 50))
         self.assertGreater(sum(1 for pixel in actual_surface.get_flattened_data() if min(pixel) >= 240), 2500)
 
+    def test_raw_screenshot_headers_use_the_official_horizontal_logo_pixels(self):
+        expected = official_asset_on_background("stockboda-logo-horizontal.png", (102, 34), "#F8FAFC")
+        for name in ("01-theme-ranking.png", "02-theme-stocks.png", "04-journal-input.png"):
+            with self.subTest(name=name):
+                source = Image.open(STORE_ROOT / "raw" / name).convert("RGB")
+                self.assertIsNone(ImageChops.difference(source.crop((219, 12, 321, 46)), expected).getbbox())
+
     def test_favicon_uses_the_official_light_app_icon_pixels(self):
         actual = Image.open(ROOT / "frontend" / "public" / "favicon.png").convert("RGBA")
         expected = Image.open(BRAND_ROOT / "stockboda-app-icon-light.png").convert("RGBA").resize((48, 48), Image.Resampling.LANCZOS)

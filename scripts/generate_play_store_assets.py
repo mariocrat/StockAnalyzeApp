@@ -70,6 +70,12 @@ SCREENSHOTS = (
     ),
 )
 
+RAW_SOURCES_WITH_STALE_BRANDING = (
+    "01-theme-ranking.png",
+    "02-theme-stocks.png",
+    "04-journal-input.png",
+)
+
 
 def font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(str(FONT_BOLD if bold else FONT_REGULAR), size)
@@ -95,6 +101,13 @@ def paste_header_logo(image: Image.Image) -> None:
     ImageDraw.Draw(image).rounded_rectangle((210, 8, 330, 50), radius=8, fill="#F8FAFC")
     logo = Image.open(HEADER_LOGO_SOURCE).convert("RGBA").resize((102, 34), Image.Resampling.LANCZOS)
     image.paste(logo, (219, 12), logo)
+
+
+def refresh_raw_source_header(source_path: Path) -> None:
+    source = Image.open(source_path).convert("RGB")
+    ImageDraw.Draw(source).rectangle((200, 0, 425, 58), fill="#101624")
+    paste_header_logo(source)
+    source.save(source_path, "PNG", optimize=True)
 
 
 def paste_feature_wordmark(image: Image.Image) -> None:
@@ -303,6 +316,9 @@ def main() -> None:
     if missing:
         missing_text = "\n".join(str(path) for path in missing)
         raise SystemExit(f"Missing raw screenshots:\n{missing_text}")
+
+    for source_name in RAW_SOURCES_WITH_STALE_BRANDING:
+        refresh_raw_source_header(RAW_ROOT / source_name)
 
     SCREENSHOT_ROOT.mkdir(parents=True, exist_ok=True)
     icon_path = create_store_icon()
