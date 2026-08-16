@@ -34,6 +34,11 @@ class BrandImageAssetsTest(unittest.TestCase):
         actual_surface = source.crop((210, 8, 330, 50))
         self.assertGreater(sum(1 for pixel in actual_surface.get_flattened_data() if min(pixel) >= 240), 2500)
 
+    def test_favicon_uses_the_official_light_app_icon_pixels(self):
+        actual = Image.open(ROOT / "frontend" / "public" / "favicon.png").convert("RGBA")
+        expected = Image.open(BRAND_ROOT / "stockboda-app-icon-light.png").convert("RGBA").resize((48, 48), Image.Resampling.LANCZOS)
+        self.assertIsNone(ImageChops.difference(actual, expected).getbbox())
+
 
 if __name__ == "__main__":
     unittest.main()
