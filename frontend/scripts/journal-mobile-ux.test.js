@@ -91,9 +91,11 @@ test('mobile header uses a graphical wordmark and masks scrolling content', () =
   assert.match(appSource, /function AppWordmark\(\)/);
   assert.match(appSource, /<img src=\{appIcon\}/);
   assert.match(appSource, /const USE_STOCKBODA_WORDMARK = APP_NAME === 'StockBoda'/);
-  assert.match(appSource, /<span>Stock<\/span><em>Boda<\/em>/);
+  assert.match(appSource, /stockboda-logo-horizontal\.png/);
+  assert.match(appSource, /className="mobile-app-brand-logo"/);
   assert.match(appSource, /<h2 className="sidebar-title">\{APP_NAME\}<\/h2>/);
   assert.match(cssSource, /\.mobile-app-brand img \{[\s\S]*?drop-shadow/);
+  assert.match(cssSource, /\.mobile-app-brand img\.mobile-app-brand-logo \{[\s\S]*?background: #f8fafc/);
   assert.match(cssSource, /\.theme-sidebar-fixed \{[\s\S]*?margin: -12px -12px 0;[\s\S]*?background: #131722/);
   assert.match(cssSource, /\.mobile-app-bar > \* \{[\s\S]*?z-index: 1/);
 });

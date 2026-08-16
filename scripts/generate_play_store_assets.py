@@ -11,7 +11,9 @@ ASSET_ROOT = ROOT / "store-assets" / "google-play" / "ko-KR"
 RAW_ROOT = ASSET_ROOT / "raw"
 SCREENSHOT_ROOT = ASSET_ROOT / "screenshots"
 
-APP_ICON_SOURCE = ROOT / "frontend" / "src" / "assets" / "app-icon.png"
+STORE_ICON_SOURCE = ROOT / "frontend" / "src" / "assets" / "brand" / "stockboda-app-icon-light.png"
+HEADER_LOGO_SOURCE = ROOT / "frontend" / "src" / "assets" / "brand" / "stockboda-logo-horizontal.png"
+WORDMARK_SOURCE = ROOT / "frontend" / "src" / "assets" / "brand" / "stockboda-wordmark.png"
 
 FONT_REGULAR = Path("C:/Windows/Fonts/malgun.ttf")
 FONT_BOLD = Path("C:/Windows/Fonts/malgunbd.ttf")
@@ -89,12 +91,22 @@ def rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
     return mask
 
 
-def draw_brand(draw: ImageDraw.ImageDraw, x: int, y: int, size: int) -> int:
-    brand_font = font(size, bold=True)
-    draw.text((x, y), "Stock", font=brand_font, fill=TEXT)
-    stock_width = int(draw.textlength("Stock", font=brand_font))
-    draw.text((x + stock_width, y), "Boda", font=brand_font, fill=BLUE)
-    return stock_width + int(draw.textlength("Boda", font=brand_font))
+def paste_header_logo(image: Image.Image) -> None:
+    ImageDraw.Draw(image).rounded_rectangle((210, 8, 330, 50), radius=8, fill="#F8FAFC")
+    logo = Image.open(HEADER_LOGO_SOURCE).convert("RGBA").resize((102, 34), Image.Resampling.LANCZOS)
+    image.paste(logo, (219, 12), logo)
+
+
+def paste_feature_wordmark(image: Image.Image) -> None:
+    ImageDraw.Draw(image).rounded_rectangle((326, 74, 662, 188), radius=22, fill="#F8FAFC")
+    wordmark = Image.open(WORDMARK_SOURCE).convert("RGBA").resize((300, 100), Image.Resampling.LANCZOS)
+    image.paste(wordmark, (344, 81), wordmark)
+
+
+def paste_screenshot_brand(image: Image.Image) -> None:
+    ImageDraw.Draw(image).rounded_rectangle((64, 34, 314, 106), radius=16, fill="#F8FAFC")
+    logo = Image.open(HEADER_LOGO_SOURCE).convert("RGBA").resize((216, 72), Image.Resampling.LANCZOS)
+    image.paste(logo, (81, 34), logo)
 
 
 def wrap_text(draw: ImageDraw.ImageDraw, text: str, text_font: ImageFont.FreeTypeFont, max_width: int) -> list[str]:
@@ -136,9 +148,7 @@ def create_demo_ai_review_source() -> Path:
 
     draw.rectangle((0, 0, 540, 58), fill="#101624")
     draw.line((29, 20, 18, 29, 29, 38), fill=TEXT, width=3)
-    icon = Image.open(APP_ICON_SOURCE).convert("RGB").resize((32, 32), Image.Resampling.LANCZOS)
-    image.paste(icon, (207, 13))
-    draw_brand(draw, 246, 16, 23)
+    paste_header_logo(image)
     draw.ellipse((510, 18, 526, 34), outline=TEXT, width=2)
     draw.arc((506, 30, 530, 53), 195, 345, fill=TEXT, width=2)
 
@@ -181,7 +191,7 @@ def create_demo_ai_review_source() -> Path:
 
 
 def create_store_icon() -> Path:
-    source = Image.open(APP_ICON_SOURCE).convert("RGBA")
+    source = Image.open(STORE_ICON_SOURCE).convert("RGBA")
     icon = source.resize((512, 512), Image.Resampling.LANCZOS)
     output = ASSET_ROOT / "icon-512.png"
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -202,7 +212,7 @@ def create_feature_graphic(icon_path: Path) -> Path:
     icon = Image.open(icon_path).convert("RGB").resize((218, 218), Image.Resampling.LANCZOS)
     image.paste(icon, (58, 82))
 
-    draw_brand(draw, 334, 90, 76)
+    paste_feature_wordmark(image)
     draw.text((336, 196), "테마 흐름부터 매매 복기까지", font=font(36, bold=True), fill=TEXT)
     draw.text((338, 260), "주식 테마 · 차트 · AI 복기", font=font(25), fill=MUTED)
 
@@ -240,17 +250,13 @@ def create_store_screenshot(spec: ScreenshotSpec, icon_path: Path) -> Path:
     source = clean_source(Image.open(source_path))
     source_draw = ImageDraw.Draw(source)
     source_draw.rectangle((200, 0, 425, 58), fill="#101624")
-    source_icon = Image.open(icon_path).convert("RGB").resize((32, 32), Image.Resampling.LANCZOS)
-    source.paste(source_icon, (207, 13))
-    draw_brand(source_draw, 246, 16, 23)
+    paste_header_logo(source)
     app_screen = resize_cover(source, (900, 1600), top_align=True)
 
     canvas = Image.new("RGB", (1080, 1920), BG)
     draw = ImageDraw.Draw(canvas)
 
-    brand_icon = Image.open(icon_path).convert("RGB").resize((54, 54), Image.Resampling.LANCZOS)
-    canvas.paste(brand_icon, (72, 42))
-    draw_brand(draw, 140, 48, 34)
+    paste_screenshot_brand(canvas)
     draw.text((72, 112), spec.title, font=font(58, bold=True), fill=TEXT)
     draw.text((74, 200), spec.subtitle, font=font(29), fill=MUTED)
 

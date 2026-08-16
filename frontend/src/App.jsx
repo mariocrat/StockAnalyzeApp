@@ -5,6 +5,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { ArrowLeft, ChevronDown, ChevronUp, CircleAlert, UserRound } from 'lucide-react';
 import './App.css';
 import appIcon from './assets/app-icon.png';
+import stockBodaHorizontalLogo from './assets/brand/stockboda-logo-horizontal.png';
 import { getAdMobRuntimeStatus, removeAppBanner, showAppBanner, showChartDetailInterstitial, showResumeAppOpenAd } from './mobile/admob';
 import { shouldShowBannerAd, shouldShowChartDetailInterstitial, shouldShowResumeAppOpenAd } from './mobile/admobPolicy';
 import { reportClientEvent } from './utils/clientEventLog';
@@ -79,10 +80,14 @@ function AppSplash({ exiting }) {
 function AppWordmark() {
   return (
     <span className="mobile-app-brand" aria-label={APP_NAME}>
-      <img src={appIcon} alt="" aria-hidden="true" />
-      <span className="mobile-app-brand-text">
-        {USE_STOCKBODA_WORDMARK ? <><span>Stock</span><em>Boda</em></> : APP_NAME}
-      </span>
+      {USE_STOCKBODA_WORDMARK ? (
+        <img className="mobile-app-brand-logo" src={stockBodaHorizontalLogo} alt="StockBoda" />
+      ) : (
+        <>
+          <img src={appIcon} alt="" aria-hidden="true" />
+          <span className="mobile-app-brand-text">{APP_NAME}</span>
+        </>
+      )}
     </span>
   );
 }

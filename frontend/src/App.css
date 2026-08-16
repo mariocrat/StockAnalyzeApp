@@ -91,6 +91,15 @@ body {
   filter: drop-shadow(0 2px 5px rgba(41, 98, 255, 0.38));
 }
 
+.mobile-app-brand img.mobile-app-brand-logo {
+  width: 126px;
+  height: 42px;
+  flex-basis: 126px;
+  border-radius: 8px;
+  background: #f8fafc;
+  filter: none;
+}
+
 .mobile-app-brand-text {
   display: inline-flex;
   min-width: 0;
