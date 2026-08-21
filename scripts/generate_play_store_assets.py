@@ -11,7 +11,7 @@ ASSET_ROOT = ROOT / "store-assets" / "google-play" / "ko-KR"
 RAW_ROOT = ASSET_ROOT / "raw"
 SCREENSHOT_ROOT = ASSET_ROOT / "screenshots"
 
-STORE_ICON_SOURCE = ROOT / "frontend" / "src" / "assets" / "brand" / "stockboda-app-icon-light.png"
+STORE_ICON_SOURCE = ROOT / "stockboda-play-icon-512.png"
 HEADER_LOGO_SOURCE = ROOT / "frontend" / "src" / "assets" / "brand" / "stockboda-logo-horizontal.png"
 WORDMARK_SOURCE = ROOT / "frontend" / "src" / "assets" / "brand" / "stockboda-wordmark.png"
 
@@ -70,13 +70,6 @@ SCREENSHOTS = (
     ),
 )
 
-RAW_SOURCES_WITH_STALE_BRANDING = (
-    "01-theme-ranking.png",
-    "02-theme-stocks.png",
-    "04-journal-input.png",
-)
-
-
 def font(size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont:
     return ImageFont.truetype(str(FONT_BOLD if bold else FONT_REGULAR), size)
 
@@ -95,19 +88,6 @@ def rounded_mask(size: tuple[int, int], radius: int) -> Image.Image:
     mask = Image.new("L", size, 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, size[0] - 1, size[1] - 1), radius=radius, fill=255)
     return mask
-
-
-def paste_header_logo(image: Image.Image) -> None:
-    ImageDraw.Draw(image).rounded_rectangle((210, 8, 330, 50), radius=8, fill="#F8FAFC")
-    logo = Image.open(HEADER_LOGO_SOURCE).convert("RGBA").resize((102, 34), Image.Resampling.LANCZOS)
-    image.paste(logo, (219, 12), logo)
-
-
-def refresh_raw_source_header(source_path: Path) -> None:
-    source = Image.open(source_path).convert("RGB")
-    ImageDraw.Draw(source).rectangle((200, 0, 425, 58), fill="#101624")
-    paste_header_logo(source)
-    source.save(source_path, "PNG", optimize=True)
 
 
 def paste_feature_wordmark(image: Image.Image) -> None:
@@ -153,54 +133,6 @@ def draw_wrapped_text(
         draw.text((x, y), line, font=text_font, fill=fill)
         y += line_height
     return y
-
-
-def create_demo_ai_review_source() -> Path:
-    image = Image.new("RGB", (540, 960), BG)
-    draw = ImageDraw.Draw(image)
-
-    draw.rectangle((0, 0, 540, 58), fill="#101624")
-    draw.line((29, 20, 18, 29, 29, 38), fill=TEXT, width=3)
-    paste_header_logo(image)
-    draw.ellipse((510, 18, 526, 34), outline=TEXT, width=2)
-    draw.arc((506, 30, 530, 53), 195, 345, fill=TEXT, width=2)
-
-    draw.rounded_rectangle((12, 70, 528, 110), radius=6, fill="#1E2432")
-    draw.text((89, 82), "테마/차트", font=font(15, bold=True), fill="#8E99AE")
-    draw.rounded_rectangle((270, 72, 526, 108), radius=5, fill=BLUE)
-    draw.text((365, 82), "매매복기", font=font(15, bold=True), fill=TEXT)
-
-    draw.rounded_rectangle((12, 124, 528, 938), radius=8, fill=SURFACE, outline=BORDER, width=1)
-    draw.text((30, 146), "AI 복기", font=font(24, bold=True), fill=TEXT)
-    draw.rounded_rectangle((410, 143, 500, 174), radius=5, fill="#18264E", outline="#315FB8", width=1)
-    draw.text((430, 150), "예시 매매", font=font(13, bold=True), fill="#AFC8FF")
-
-    draw.rounded_rectangle((30, 194, 510, 246), radius=6, fill="#2A303E")
-    draw.text((234, 210), "일반 복기", font=font(16, bold=True), fill=TEXT)
-
-    section_x = 34
-    section_width = 468
-    y = 278
-    sections = (
-        ("한 줄 총평", TEXT, "급등 후 눌림목에서 진입해 수익을 확보했지만, 전량 매도 기준은 더 구체화할 필요가 있습니다."),
-        ("잘한 점", "#65D69A", "거래량 증가와 단기 추세 회복을 확인한 뒤 매수해 방향 선택이 좋았습니다."),
-        ("아쉬운 점", "#FFB55B", "매도 당시 상승 추세가 유지되어 일부 물량을 남길 여지가 있었습니다."),
-        ("다음 체크리스트", "#8DB0FF", "1. 매수 전 손절가 정하기  2. 분할 매도 기준 세우기  3. 매도 후 5분 흐름 기록하기"),
-    )
-
-    body_font = font(16)
-    for title, color, body in sections:
-        draw.text((section_x, y), title, font=font(17, bold=True), fill=color)
-        y += 34
-        y = draw_wrapped_text(draw, (section_x, y), body, body_font, "#D8DEEA", section_width, line_gap=9)
-        y += 25
-        if y < 900:
-            draw.line((section_x, y - 10, section_x + section_width, y - 10), fill="#2A3345", width=1)
-
-    output = RAW_ROOT / "05-ai-review-source.png"
-    output.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output, "PNG", optimize=True)
-    return output
 
 
 def create_store_icon() -> Path:
@@ -261,9 +193,6 @@ def clean_source(image: Image.Image) -> Image.Image:
 def create_store_screenshot(spec: ScreenshotSpec, icon_path: Path) -> Path:
     source_path = RAW_ROOT / spec.source
     source = clean_source(Image.open(source_path))
-    source_draw = ImageDraw.Draw(source)
-    source_draw.rectangle((200, 0, 425, 58), fill="#101624")
-    paste_header_logo(source)
     app_screen = resize_cover(source, (900, 1600), top_align=True)
 
     canvas = Image.new("RGB", (1080, 1920), BG)
@@ -302,7 +231,7 @@ def create_contact_sheet(icon_path: Path, feature_path: Path, screenshots: list[
         draw.rectangle((x - 1, y - 1, x + thumb_w, y + thumb_h), outline="#CBD5E1", width=2)
 
     draw.text((52, 958), "앱 이름", font=font(25, bold=True), fill="#475569")
-    draw.text((52, 1002), "스톡보다 - 주식 테마·매매복기", font=font(38, bold=True), fill="#111827")
+    draw.text((52, 1002), "스톡보다", font=font(38, bold=True), fill="#111827")
     draw.text((52, 1068), "스토어 아이콘 512×512 · 대표 그래픽 1024×500 · 휴대전화 스크린샷 1080×1920", font=font(24), fill="#64748B")
 
     output = ASSET_ROOT / "preview-contact-sheet.png"
@@ -311,14 +240,10 @@ def create_contact_sheet(icon_path: Path, feature_path: Path, screenshots: list[
 
 
 def main() -> None:
-    create_demo_ai_review_source()
     missing = [RAW_ROOT / spec.source for spec in SCREENSHOTS if not (RAW_ROOT / spec.source).exists()]
     if missing:
         missing_text = "\n".join(str(path) for path in missing)
         raise SystemExit(f"Missing raw screenshots:\n{missing_text}")
-
-    for source_name in RAW_SOURCES_WITH_STALE_BRANDING:
-        refresh_raw_source_header(RAW_ROOT / source_name)
 
     SCREENSHOT_ROOT.mkdir(parents=True, exist_ok=True)
     icon_path = create_store_icon()
