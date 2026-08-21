@@ -5,7 +5,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { ArrowLeft, ChevronDown, ChevronUp, CircleAlert, UserRound } from 'lucide-react';
 import './App.css';
 import appIcon from './assets/app-icon.png';
-import stockBodaHorizontalLogo from './assets/brand/stockboda-logo-horizontal.png';
+import stockBodaHeaderLogo from './assets/brand/stockboda-logo-horizontal-dark.png';
 import { getAdMobRuntimeStatus, removeAppBanner, showAppBanner, showChartDetailInterstitial, showResumeAppOpenAd } from './mobile/admob';
 import { shouldShowBannerAd, shouldShowChartDetailInterstitial, shouldShowResumeAppOpenAd } from './mobile/admobPolicy';
 import { reportClientEvent } from './utils/clientEventLog';
@@ -81,7 +81,7 @@ function AppWordmark() {
   return (
     <span className="mobile-app-brand" aria-label={APP_NAME}>
       {USE_STOCKBODA_WORDMARK ? (
-        <img className="mobile-app-brand-logo" src={stockBodaHorizontalLogo} alt="StockBoda" />
+        <img className="mobile-app-brand-logo" src={stockBodaHeaderLogo} alt="StockBoda" />
       ) : (
         <>
           <img src={appIcon} alt="" aria-hidden="true" />

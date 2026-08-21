@@ -95,8 +95,7 @@ body {
   width: 126px;
   height: 42px;
   flex-basis: 126px;
-  border-radius: 8px;
-  background: #f8fafc;
+  background: transparent;
   filter: none;
 }
 
