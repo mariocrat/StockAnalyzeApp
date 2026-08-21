@@ -1792,6 +1792,7 @@ export default function TradingJournal({
     : '';
   const monthlyBasicMax = Number(freePolicy.monthly_basic_max || 30);
   const rewardedBasicDailyMax = Number(freePolicy.rewarded_basic_daily_max || 2);
+  const weeklyAdvancedMax = Number(freePolicy.weekly_advanced_max || 1);
   const weeklyRewardAlreadyGranted = Number(entitlements?.advanced?.weekly_advanced_granted || 0) >= 1;
   const adPolicyText = `심화 복기권 받기 광고 ${adsPerAdvancedTicket}회 시청 시 무료 심화 복기권 1장`;
   const adReadinessText = admobStatus.ready ? 'AdMob 보상형 광고 준비됨' : 'AdMob 광고 단위 설정 필요';
@@ -2346,10 +2347,15 @@ export default function TradingJournal({
           </div>
         </details>
         <div className="journal-ad-policy">
-          <div>
-            <span>광고 보상 정책</span>
-            <strong>{adPolicyText}</strong>
-            <em>현재 주간 광고 시청 {weeklyAdViews}/{adsPerAdvancedTicket}회</em>
+          <div className="journal-ad-policy-main" aria-label={adPolicyText}>
+            <span className="journal-policy-eyebrow">광고 보상 정책</span>
+            <strong className="journal-policy-reward">무료 심화 복기권 1장</strong>
+            <span className="journal-policy-condition">광고 {adsPerAdvancedTicket}회 시청 시 지급</span>
+            <div className="journal-ad-policy-meta">
+              <span className="journal-policy-chip">주간 최대 {weeklyAdvancedMax}장</span>
+              <em>{weeklyResetText === '만료 없음' ? '매주 초기화' : `${weeklyResetText} 초기화`}</em>
+              <em>진행 {weeklyAdViews}/{adsPerAdvancedTicket}회</em>
+            </div>
             <button
               type="button"
               className="journal-ad-reward-button"
@@ -2405,11 +2411,14 @@ export default function TradingJournal({
             <button
               className="journal-secondary journal-product-pro"
               disabled={Boolean(purchaseLoadingId)}
+              aria-label={`${PRO_PRODUCT[1]} · ${PRO_PRODUCT[2]}`}
               onClick={() => purchaseProduct(PRO_PRODUCT[0])}
             >
-              {purchaseLoadingId === PRO_PRODUCT[0]
-                ? '구독 확인중'
-                : `${PRO_PRODUCT[1]} · ${PRO_PRODUCT[2]}`}
+              <span className="journal-product-copy">
+                <strong>Pro 월 구독</strong>
+                <span>일반 35회 + 심화 25회 · 광고 제거</span>
+                <em>{purchaseLoadingId === PRO_PRODUCT[0] ? '구독 확인중' : PRO_PRODUCT[2]}</em>
+              </span>
             </button>
             {REVIEW_PRODUCTS.map(([id, label, price]) => (
               <button

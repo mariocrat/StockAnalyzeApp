@@ -63,6 +63,17 @@ test('mobile entitlement balances remain in a compact three-column grid', () => 
   assert.match(cssSource, /\.journal-entitlement-grid \{[\s\S]*?grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
 });
 
+test('ad reward and Pro subscription policies use a scan-friendly hierarchy', () => {
+  assert.match(journalSource, /className="journal-ad-policy-main"/);
+  assert.match(journalSource, /className="journal-policy-reward"/);
+  assert.match(journalSource, /className="journal-policy-condition"/);
+  assert.match(journalSource, /className="journal-policy-chip"/);
+  assert.match(journalSource, /className="journal-product-copy"/);
+  assert.match(journalSource, /일반 35회 \+ 심화 25회 · 광고 제거/);
+  assert.match(cssSource, /\.journal-ad-policy-main \.journal-policy-reward[\s\S]*?font-size: 17px/);
+  assert.match(cssSource, /\.journal-product-copy \{[\s\S]*?display: grid/);
+});
+
 test('advanced review shortage opens a Korean pass dialog instead of an inline AI error', () => {
   assert.match(journalSource, /err\.response\?\.status === 402/);
   assert.match(journalSource, /reviewType === 'advanced' \? 'advanced' : 'basic'/);

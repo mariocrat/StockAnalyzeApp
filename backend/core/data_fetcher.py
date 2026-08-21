@@ -570,10 +570,7 @@ def _calculate_theme_return_ranges(period_ranges: dict[str, tuple[str, str]]) ->
                 start_price = period_rows[0]["close"]
                 end_price = period_rows[-1]["close"]
                 if start_price > 0:
-                    returns_by_period[period][ticker] = round(
-                        ((end_price - start_price) / start_price) * 100,
-                        2,
-                    )
+                    returns_by_period[period][ticker] = ((end_price - start_price) / start_price) * 100
                     effective_dates[period]["starts"].append(period_rows[0]["date"])
                     effective_dates[period]["ends"].append(period_rows[-1]["date"])
 

@@ -132,6 +132,35 @@ class MobileRuntimeRecoveryTest(unittest.TestCase):
         self.assertEqual(datetime.date(2026, 7, 13), main._last_completed_market_date(after_ready))
         self.assertEqual(datetime.date(2026, 7, 10), main._last_completed_market_date(sunday))
 
+    def test_theme_cache_key_tracks_resolved_period_dates(self):
+        if str(BACKEND) not in sys.path:
+            sys.path.insert(0, str(BACKEND))
+        import main
+
+        main.get_themes.cache_clear()
+        period_ranges = iter([
+            ("20260708", "20260714"),
+            ("20260709", "20260715"),
+        ])
+
+        def cached_returns(start_date, end_date, period="custom"):
+            return pd.DataFrame([{
+                "Theme": "반도체",
+                "Avg Return (%)": 1.0,
+                "End Date": end_date,
+            }])
+
+        with (
+            patch.object(main, "_period_date_range", side_effect=lambda _period: next(period_ranges)),
+            patch.object(main, "get_cached_theme_returns", side_effect=cached_returns),
+        ):
+            first = main.get_themes(period="1W")
+            second = main.get_themes(period="1W")
+
+        self.assertEqual("20260714", first[0]["End Date"])
+        self.assertEqual("20260715", second[0]["End Date"])
+        main.get_themes.cache_clear()
+
     def test_stale_theme_cache_is_returned_while_latest_close_is_calculated(self):
         if str(BACKEND) not in sys.path:
             sys.path.insert(0, str(BACKEND))

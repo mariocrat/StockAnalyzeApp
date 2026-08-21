@@ -87,6 +87,60 @@ class ThemeCacheMemoryTests(unittest.TestCase):
                 self.assertEqual(2, len([name for name in files if name.startswith("theme_returns_v4_")]))
                 self.assertFalse(any(name.startswith("naver_closes_") for name in files))
 
+    def test_period_returns_use_available_closes_and_exclude_tickers_without_two_rows(self):
+        from backend.core import data_fetcher
+
+        data_fetcher = importlib.reload(data_fetcher)
+        themes = {"테스트 테마": ["000001", "000002", "000003"]}
+        names = {"000001": "가나다", "000002": "라마바", "000003": "누락"}
+        rows = {
+            "000001": (
+                '["20250102", 0, 0, 0, 100, 0]\n'
+                '["20250103", 0, 0, 0, 110, 0]\n'
+                '["20250108", 0, 0, 0, 120, 0]\n'
+                '["20250110", 0, 0, 0, 130, 0]'
+            ),
+            "000002": (
+                '["20250102", 0, 0, 0, 200, 0]\n'
+                '["20250108", 0, 0, 0, 180, 0]\n'
+                '["20250110", 0, 0, 0, 198, 0]'
+            ),
+            "000003": (
+                '["20241231", 0, 0, 0, 50, 0]\n'
+                '["20250110", 0, 0, 0, 55, 0]'
+            ),
+        }
+        requested = []
+
+        class FakeSession:
+            def __init__(self):
+                self.headers = {}
+
+            def get(self, url, **_kwargs):
+                ticker = url.split("symbol=", 1)[1].split("&", 1)[0]
+                requested.append(ticker)
+                return _Response(rows[ticker])
+
+        with mock.patch.object(data_fetcher, "get_krx_themes", return_value=(themes, names, {})), \
+             mock.patch("requests.Session", side_effect=FakeSession), \
+             mock.patch.dict(os.environ, {"ALPHAMATE_THEME_FETCH_WORKERS": "2"}):
+            result = data_fetcher._calculate_theme_return_ranges({
+                "1D": ("20250101", "20250110"),
+                "1W": ("20250103", "20250110"),
+                "1M": ("20250101", "20250110"),
+            })
+
+        self.assertCountEqual(["000001", "000002", "000003"], requested)
+        self.assertAlmostEqual(9.17, result["1D"].iloc[0]["Avg Return (%)"])
+        self.assertEqual("20250108", result["1D"].iloc[0]["Start Date"])
+        self.assertAlmostEqual(14.09, result["1W"].iloc[0]["Avg Return (%)"])
+        self.assertEqual("20250103", result["1W"].iloc[0]["Start Date"])
+        self.assertAlmostEqual(14.5, result["1M"].iloc[0]["Avg Return (%)"])
+        self.assertEqual("20250102", result["1M"].iloc[0]["Start Date"])
+        for period in ("1D", "1W", "1M"):
+            self.assertEqual(2, result[period].iloc[0]["Num Stocks"])
+            self.assertNotIn("000003", [row["ticker"] for row in result[period].iloc[0]["Tickers"]])
+
     def test_reverse_split_is_normalized_before_return_calculation(self):
         from backend.core import data_fetcher
 

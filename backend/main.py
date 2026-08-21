@@ -1180,12 +1180,8 @@ def calculate_indicators(df: pd.DataFrame, indicators: list):
     # Fill NA with None for JSON serialization
     return df.where(pd.notnull(df), None)
 
-@app.get("/api/themes")
 @ttl_cache(maxsize=100, ttl=3600)
-def get_themes(period: str = "1D", start_date: Optional[str] = None, end_date: Optional[str] = None):
-    if period in {"1D", "1W", "1M", "1Y"}:
-        start_date, end_date = _period_date_range(period)
-
+def _get_themes_cached(period: str, start_date: Optional[str], end_date: Optional[str]):
     if start_date and end_date:
         if period in {"1D", "1W", "1M", "1Y"}:
             df = get_cached_theme_returns(start_date, end_date, period=period)
@@ -1225,6 +1221,16 @@ def get_themes(period: str = "1D", start_date: Optional[str] = None, end_date: O
                 df = get_theme_returns_historical(start_date, end_date)
         return df.to_dict(orient="records")
     return []
+
+
+@app.get("/api/themes")
+def get_themes(period: str = "1D", start_date: Optional[str] = None, end_date: Optional[str] = None):
+    if period in {"1D", "1W", "1M", "1Y"}:
+        start_date, end_date = _period_date_range(period)
+    return _get_themes_cached(period, start_date, end_date)
+
+
+get_themes.cache_clear = _get_themes_cached.cache_clear
 
 @app.get("/api/theme_stocks")
 @ttl_cache(maxsize=1000, ttl=3600)

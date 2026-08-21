@@ -1803,6 +1803,68 @@ body {
   margin: 4px 0;
 }
 
+.journal-ad-policy-main {
+  display: grid;
+  gap: 3px;
+  padding: 12px 13px !important;
+  border-color: #30456d !important;
+  background: linear-gradient(145deg, #121b2b, #10141f) !important;
+}
+
+.journal-ad-policy-main .journal-policy-eyebrow {
+  color: #91a9d3;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.journal-ad-policy-main .journal-policy-reward {
+  margin: 2px 0 0;
+  color: #f5f7ff;
+  font-size: 17px;
+  line-height: 1.25;
+}
+
+.journal-ad-policy-main .journal-policy-condition {
+  color: #c7d5ee;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.journal-ad-policy-main .journal-ad-policy-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  margin: 7px 0 2px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+}
+
+.journal-ad-policy-main .journal-ad-policy-meta em {
+  color: #8798b5;
+  font-size: 10px;
+}
+
+.journal-ad-policy-main .journal-policy-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 7px;
+  border: 1px solid #3a5687;
+  border-radius: 999px;
+  background: #172541;
+  color: #b9cdf1;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.journal-ad-policy-main .journal-ad-reward-button {
+  margin-top: 8px;
+}
+
 .journal-ad-reward-button {
   width: 100%;
   min-height: 38px;
@@ -1897,6 +1959,39 @@ body {
 .journal-product-list {
   justify-content: flex-start;
   margin-top: 10px;
+}
+
+.journal-product-list .journal-product-pro {
+  justify-content: flex-start;
+  min-width: 235px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.journal-product-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: left;
+}
+
+.journal-product-copy strong {
+  color: #f4f6ff;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.journal-product-copy span {
+  color: #c9d3e7;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.journal-product-copy em {
+  color: #8fa4ca;
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.35;
 }
 
 .journal-ai-consent {
@@ -2849,6 +2944,11 @@ body {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
+  }
+
+  .journal-product-list .journal-product-pro {
+    grid-column: 1 / -1;
+    min-width: 0;
   }
 
   .journal-trade-chart {
