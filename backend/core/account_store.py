@@ -1,5 +1,6 @@
 import datetime
 import hashlib
+import hmac
 import secrets
 import sqlite3
 import threading
@@ -17,6 +18,10 @@ except ModuleNotFoundError:
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 SESSION_DAYS = 30
 SUPPORTED_PROVIDERS = {"kakao", "naver"}
+REVIEW_PROVIDER = "review"
+REVIEW_PASSWORD_HASH_PREFIX = "pbkdf2_sha256"
+REVIEW_PASSWORD_HASH_ITERATIONS = 600_000
+REVIEW_PASSWORD_HASH_MAX_ITERATIONS = 1_000_000
 PRIVACY_CONSENT_VERSION = env_value("ALPHAMATE_PRIVACY_CONSENT_VERSION") or "privacy-2026-07-18"
 ACCOUNT_FIELD_MAX_CHARS = 120
 _ACCOUNT_LOCK = threading.Lock()
@@ -52,6 +57,80 @@ def _hash_token(token: str) -> str:
 def _hash_optional(value: str) -> str:
     text = str(value or "").strip().lower()
     return hashlib.sha256(text.encode("utf-8")).hexdigest() if text else ""
+
+
+def _review_access_config() -> dict:
+    enabled = _env_value("ALPHAMATE_REVIEW_ACCESS_ENABLED").lower() in {"1", "true", "yes", "on"}
+    review_id = str(_env_value("ALPHAMATE_REVIEW_ACCESS_ID") or "").strip()
+    password_hash = str(_env_value("ALPHAMATE_REVIEW_ACCESS_PASSWORD_HASH") or "").strip()
+    expires_at = str(_env_value("ALPHAMATE_REVIEW_ACCESS_EXPIRES_AT") or "").strip()
+    try:
+        expires = datetime.datetime.fromisoformat(expires_at.replace("Z", "+00:00"))
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=datetime.timezone.utc)
+        not_expired = expires > datetime.datetime.now(datetime.timezone.utc)
+    except (TypeError, ValueError):
+        not_expired = False
+    try:
+        prefix, iterations_text, salt, digest = password_hash.split("$", 3)
+        hash_well_formed = (
+            prefix == REVIEW_PASSWORD_HASH_PREFIX
+            and 100_000 <= int(iterations_text) <= REVIEW_PASSWORD_HASH_MAX_ITERATIONS
+            and len(salt) == 32
+            and len(digest) == 64
+            and all(character in "0123456789abcdef" for character in salt.lower() + digest.lower())
+        )
+    except (TypeError, ValueError):
+        hash_well_formed = False
+    return {
+        "enabled": bool(enabled and review_id and hash_well_formed and expires_at and not_expired),
+        "review_id": review_id,
+        "password_hash": password_hash,
+        "expires_at": expires_at,
+        "user_key": _env_value("ALPHAMATE_REVIEW_ACCESS_USER_KEY") or "google-play-reviewer",
+    }
+
+
+def get_review_access_status() -> dict:
+    config = _review_access_config()
+    return {
+        "enabled": config["enabled"],
+        "expires_at": config["expires_at"] if config["enabled"] else "",
+    }
+
+
+def hash_review_password(password: str, *, iterations: int = REVIEW_PASSWORD_HASH_ITERATIONS) -> str:
+    password_bytes = str(password or "").encode("utf-8")
+    if not password_bytes:
+        raise ValueError("password is required")
+    safe_iterations = max(100_000, min(int(iterations), REVIEW_PASSWORD_HASH_MAX_ITERATIONS))
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password_bytes,
+        salt.encode("ascii"),
+        safe_iterations,
+    ).hex()
+    return f"{REVIEW_PASSWORD_HASH_PREFIX}${safe_iterations}${salt}${digest}"
+
+
+def _verify_review_password(password: str, password_hash: str) -> bool:
+    try:
+        prefix, iterations_text, salt, expected = str(password_hash or "").split("$", 3)
+        iterations = int(iterations_text)
+        if prefix != REVIEW_PASSWORD_HASH_PREFIX or not salt or not expected:
+            return False
+        if iterations < 100_000 or iterations > REVIEW_PASSWORD_HASH_MAX_ITERATIONS:
+            return False
+        actual = hashlib.pbkdf2_hmac(
+            "sha256",
+            str(password or "").encode("utf-8"),
+            salt.encode("ascii"),
+            iterations,
+        ).hex()
+    except (TypeError, ValueError, UnicodeError):
+        return False
+    return hmac.compare_digest(actual, expected)
 
 
 def _short_text(value, *, limit: int = ACCOUNT_FIELD_MAX_CHARS) -> str:
@@ -252,6 +331,86 @@ def login_provider_identity(
             conn.close()
 
 
+def login_review_access(*, review_id: str, password: str) -> dict:
+    config = _review_access_config()
+    supplied_id = str(review_id or "").strip()
+    supplied_password = str(password or "")
+    credentials_match = bool(
+        config["enabled"]
+        and supplied_id
+        and supplied_password
+        and hmac.compare_digest(supplied_id, config["review_id"])
+        and _verify_review_password(supplied_password, config["password_hash"])
+    )
+    if not credentials_match:
+        raise HTTPException(status_code=401, detail="Review access credentials are invalid.")
+
+    with _ACCOUNT_LOCK:
+        conn = _connect()
+        try:
+            now = _now()
+            identity = conn.execute(
+                """
+                SELECT user_id
+                FROM user_identities
+                WHERE provider = ? AND provider_user_id = ?
+                """,
+                (REVIEW_PROVIDER, config["user_key"]),
+            ).fetchone()
+            if identity:
+                user_id = identity["user_id"]
+                conn.execute(
+                    """
+                    UPDATE users
+                    SET display_name = 'Google Play 심사 계정',
+                        journal_storage_enabled = 1,
+                        status = 'active',
+                        last_login_at = ?
+                    WHERE id = ?
+                    """,
+                    (now, user_id),
+                )
+                conn.execute(
+                    """
+                    UPDATE user_identities
+                    SET last_verified_at = ?
+                    WHERE provider = ? AND provider_user_id = ?
+                    """,
+                    (now, REVIEW_PROVIDER, config["user_key"]),
+                )
+            else:
+                user_id = uuid.uuid4().hex
+                conn.execute(
+                    """
+                    INSERT INTO users
+                    (id, display_name, journal_storage_enabled, created_at, last_login_at)
+                    VALUES (?, 'Google Play 심사 계정', 1, ?, ?)
+                    """,
+                    (user_id, now, now),
+                )
+                conn.execute(
+                    """
+                    INSERT INTO user_identities
+                    (id, user_id, provider, provider_user_id, connected_at, last_verified_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (uuid.uuid4().hex, user_id, REVIEW_PROVIDER, config["user_key"], now, now),
+                )
+
+            token = _issue_session(conn, user_id)
+            conn.commit()
+            user = _get_user(conn, user_id)
+            return {
+                "token_type": "bearer",
+                "session_token": token,
+                "expires_in_days": SESSION_DAYS,
+                "user": user,
+                "review_access": {"expires_at": config["expires_at"]},
+            }
+        finally:
+            conn.close()
+
+
 def login_dev_provider(*, provider: str, provider_user_id: str, display_name: str = "") -> dict:
     if _is_production():
         raise HTTPException(status_code=403, detail="Development login is disabled in production.")
@@ -282,7 +441,16 @@ def authenticate_session(authorization: str | None) -> dict:
         expires_at = datetime.datetime.fromisoformat(row["expires_at"])
         if expires_at <= datetime.datetime.now(datetime.timezone.utc):
             raise HTTPException(status_code=401, detail="User session expired.")
-        return _get_user(conn, row["user_id"])
+        user = _get_user(conn, row["user_id"])
+        review_identity = next(
+            (identity for identity in user.get("identities", []) if identity.get("provider") == REVIEW_PROVIDER),
+            None,
+        )
+        if review_identity:
+            config = _review_access_config()
+            if not config["enabled"] or review_identity.get("provider_user_id") != config["user_key"]:
+                raise HTTPException(status_code=401, detail="Review access is unavailable.")
+        return user
     finally:
         conn.close()
 

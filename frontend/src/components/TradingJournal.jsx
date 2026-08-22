@@ -71,6 +71,8 @@ const reviewSourceLabels = {
   purchased_basic: '구매 일반 복기권',
   purchased_advanced: '구매 심화 복기권',
   purchased_advanced_as_basic: '심화 복기권 전환 사용',
+  review_basic: '심사용 일반 복기권',
+  review_advanced: '심사용 심화 복기권',
 };
 
 const emptyForm = {
@@ -325,6 +327,8 @@ export default function TradingJournal({
   const [feeFree, setFeeFree] = useState(false);
   const [authSession, setAuthSession] = useState(loadStoredAuth);
   const [oauthServerStatus, setOauthServerStatus] = useState(null);
+  const [reviewAccessId, setReviewAccessId] = useState('');
+  const [reviewAccessPassword, setReviewAccessPassword] = useState('');
   const [appReadiness, setAppReadiness] = useState(null);
   const [dataSummary, setDataSummary] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
@@ -724,6 +728,35 @@ export default function TradingJournal({
       setMessage(`${profile.label} 개발 계정으로 로그인했습니다.`);
     } catch (err) {
       setMessage(err.response?.data?.detail || '개발 로그인을 처리하지 못했습니다.');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleReviewLogin = async () => {
+    if (!reviewAccessId.trim() || !reviewAccessPassword) {
+      setMessage('심사용 로그인 ID와 비밀번호를 입력해 주세요.');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const res = await axios.post(`${apiBase}/api/auth/review-login`, {
+        review_id: reviewAccessId.trim(),
+        password: reviewAccessPassword,
+      });
+      const session = res.data || null;
+      setAuthSession(session);
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+      setReviewAccessPassword('');
+      resetJournalWorkspace();
+      await loadEntitlements(session?.session_token || '');
+      await loadDataSummary(session?.session_token || '');
+      if (session?.user?.journal_storage_enabled && session?.session_token) {
+        await loadPersistedJournal(session.session_token);
+      }
+      setMessage('심사용 계정으로 로그인했습니다. 예시 매매 기록을 확인해 보세요.');
+    } catch (err) {
+      setMessage(err.response?.data?.detail || '심사용 로그인을 처리하지 못했습니다.');
     } finally {
       setAuthLoading(false);
     }
@@ -1381,7 +1414,10 @@ export default function TradingJournal({
         const data = res.data || null;
         setAppReadiness(data);
         if (data?.sections?.login?.providers) {
-          setOauthServerStatus({ providers: data.sections.login.providers });
+          setOauthServerStatus(prev => ({
+            ...(prev || {}),
+            providers: data.sections.login.providers,
+          }));
         }
       })
       .catch(() => setAppReadiness(null));
@@ -1803,7 +1839,11 @@ export default function TradingJournal({
     : '웹 화면에서는 네이티브 광고 미사용';
   const billingStatusText = billingStatus.native ? 'Google Play Billing SDK 준비됨' : '웹 화면에서는 Google Play 결제 미사용';
   const activeIdentity = authSession?.user?.identities?.[0];
-  const activeProviderLabel = activeIdentity ? DEV_LOGIN_PROFILES[activeIdentity.provider]?.label || activeIdentity.provider : '';
+  const activeProviderLabel = authSession?.user?.auth_mode === 'review' || activeIdentity?.provider === 'review'
+    ? '심사용'
+    : activeIdentity ? DEV_LOGIN_PROFILES[activeIdentity.provider]?.label || activeIdentity.provider : '';
+  const isReviewAccount = activeIdentity?.provider === 'review' || entitlements?.user?.auth_mode === 'review';
+  const reviewAccessStatus = oauthServerStatus?.review_access || null;
   const consentRecordedAt = dataSummary?.privacy_consented_at || authSession?.user?.privacy_consented_at || '';
   const consentStatusText = consentRecordedAt ? '동의 완료' : '동의 필요';
   const consentDetailText = consentRecordedAt ? `동의일 ${consentRecordedAt.slice(0, 10)}` : 'AI 복기 실행 시 동의할 수 있습니다.';
@@ -2099,6 +2139,38 @@ export default function TradingJournal({
             )}
           </div>
         </div>
+        {!authSession && reviewAccessStatus?.enabled && (
+          <div className="journal-review-access">
+            <div className="journal-review-access-head">
+              <strong>심사용 로그인</strong>
+              <span>Google Play 검토용 계정입니다.</span>
+            </div>
+            <div className="journal-review-access-fields">
+              <input
+                type="text"
+                value={reviewAccessId}
+                onChange={event => setReviewAccessId(event.target.value)}
+                placeholder="심사용 ID"
+                autoComplete="username"
+                disabled={authLoading}
+              />
+              <input
+                type="password"
+                value={reviewAccessPassword}
+                onChange={event => setReviewAccessPassword(event.target.value)}
+                placeholder="비밀번호"
+                autoComplete="current-password"
+                disabled={authLoading}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') handleReviewLogin();
+                }}
+              />
+              <button className="journal-secondary" disabled={authLoading} onClick={handleReviewLogin}>
+                {authLoading ? '확인 중' : '심사용 로그인'}
+              </button>
+            </div>
+          </div>
+        )}
         {!authSession && DEV_TOOLS_ENABLED && (
           <div className="journal-oauth-setup">
             <div className="journal-oauth-setup-head">
@@ -2406,7 +2478,7 @@ export default function TradingJournal({
             </div>
           </div>
         )}
-        {DEV_TOOLS_ENABLED || billingStatus.native ? (
+        {!isReviewAccount && (DEV_TOOLS_ENABLED || billingStatus.native) ? (
           <div className="journal-product-list">
             <button
               className="journal-secondary journal-product-pro"

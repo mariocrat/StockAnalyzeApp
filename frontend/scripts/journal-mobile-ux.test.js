@@ -98,6 +98,16 @@ test('advanced review terminology and rewarded-ad ticket action are user-facing'
   assert.match(journalSource, /\/privacy/);
 });
 
+test('reviewer access is backend-gated and does not expose credentials in config', () => {
+  assert.match(journalSource, /reviewAccessStatus\?\.enabled/);
+  assert.match(journalSource, /\/api\/auth\/review-login/);
+  assert.match(journalSource, /심사용 로그인/);
+  assert.match(journalSource, /review_id: reviewAccessId\.trim\(\)/);
+  assert.match(journalSource, /password: reviewAccessPassword/);
+  assert.doesNotMatch(journalSource, /reviewAccessPassword.*localStorage/);
+  assert.match(journalSource, /!isReviewAccount && \(DEV_TOOLS_ENABLED \|\| billingStatus\.native\)/);
+});
+
 test('mobile header uses a graphical wordmark and masks scrolling content', () => {
   assert.match(appSource, /function AppWordmark\(\)/);
   assert.match(appSource, /<img src=\{appIcon\}/);

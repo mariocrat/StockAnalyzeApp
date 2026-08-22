@@ -16,6 +16,7 @@ OPENAI_TIMEOUT_MAX_SECONDS = 90
 OPENAI_MAX_RETRIES_LIMIT = 3
 OPENAI_RETRY_BACKOFF_MAX_SECONDS = 5.0
 OPENAI_MAX_OUTPUT_TOKENS_LIMIT = 10_000
+OPENAI_REASONING_EFFORTS = {"none", "low", "medium", "high", "xhigh"}
 BASIC_REVIEW_FOCUS_LABELS = {
     "balanced": "매수 시점, 매도 시점, 위험 관리를 균형 있게 점검",
     "entry_timing": "매수 직후 5개 봉과 진입 위치를 우선 점검",
@@ -76,6 +77,14 @@ def _review_max_output_tokens(payload: dict) -> int:
     if str(payload.get("review_type") or "").strip().lower() == "advanced":
         return _env_int("OPENAI_ADVANCED_REVIEW_MAX_OUTPUT_TOKENS", 3000, 256, OPENAI_MAX_OUTPUT_TOKENS_LIMIT)
     return _env_int("OPENAI_BASIC_REVIEW_MAX_OUTPUT_TOKENS", 1000, 256, OPENAI_MAX_OUTPUT_TOKENS_LIMIT)
+
+
+def _review_reasoning_effort(payload: dict) -> str:
+    is_advanced = str(payload.get("review_type") or "").strip().lower() == "advanced"
+    env_name = "OPENAI_ADVANCED_REVIEW_REASONING_EFFORT" if is_advanced else "OPENAI_BASIC_REVIEW_REASONING_EFFORT"
+    default = "medium" if is_advanced else "none"
+    configured = str(_env_value(env_name) or default).strip().lower()
+    return configured if configured in OPENAI_REASONING_EFFORTS else default
 
 
 def _record_openai_usage(data: dict, *, payload: dict, model: str) -> None:
@@ -141,6 +150,7 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
         "instructions": instructions,
         "input": json.dumps(payload, ensure_ascii=False),
         "max_output_tokens": _review_max_output_tokens(payload),
+        "reasoning": {"effort": _review_reasoning_effort(payload)},
         "store": False,
     }
     req = urllib.request.Request(
@@ -528,7 +538,7 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
             "length": "짧고 실전적으로",
         },
     }
-    model = _env_value("OPENAI_BASIC_REVIEW_MODEL") or _env_value("OPENAI_MODEL") or "gpt-5.4-mini"
+    model = _env_value("OPENAI_BASIC_REVIEW_MODEL") or _env_value("OPENAI_MODEL") or "gpt-5.6-luna"
     instructions = (
         AI_REVIEW_SAFETY_RULES
         + "<role>너는 한국 주식 매매 복기 코치다. 같은 종목의 여러 분할 체결은 하나의 매매 에피소드로 평가한다.</role>\n"

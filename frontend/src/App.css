@@ -1409,6 +1409,54 @@ body {
   justify-content: flex-end;
 }
 
+.journal-review-access {
+  margin-top: 10px;
+  background: #10141f;
+  border: 1px solid #2d3d63;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.journal-review-access-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.journal-review-access-head strong {
+  color: #dbe6ff;
+  font-size: 12px;
+}
+
+.journal-review-access-head span {
+  color: #8c93a3;
+  font-size: 11px;
+}
+
+.journal-review-access-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.journal-review-access-fields input {
+  min-width: 0;
+  box-sizing: border-box;
+  background: #151924;
+  color: #f2f5ff;
+  border: 1px solid #303747;
+  border-radius: 5px;
+  padding: 8px 9px;
+  font-size: 12px;
+}
+
+.journal-review-access-fields input:focus {
+  outline: none;
+  border-color: #6f9cff;
+}
+
 .journal-oauth-setup {
   margin-top: 10px;
   background: #10141f;
@@ -2862,6 +2910,10 @@ body {
     display: grid;
     grid-template-columns: 1fr;
     width: 100%;
+  }
+
+  .journal-review-access-fields {
+    grid-template-columns: 1fr;
   }
 
   .journal-review-target-list {

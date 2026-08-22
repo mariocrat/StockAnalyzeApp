@@ -99,6 +99,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             "OPENAI_API_KEY",
             "OPENAI_BASIC_REVIEW_MODEL",
             "OPENAI_ADVANCED_REVIEW_MODEL",
+            "OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL",
             "KAKAO_CLIENT_ID",
             "KAKAO_CLIENT_SECRET",
             "NAVER_CLIENT_ID",
@@ -140,6 +141,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
 
         for name in required_names:
             self.assertIn(name, template)
+        self.assertIn("OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL=gpt-5.4-mini", template)
         self.assertNotIn("ALPHAMATE_ALLOW_DEV_ACCESS", template)
         self.assertNotIn("ALPHAMATE_DEV_AUTH_TOKEN", template)
 

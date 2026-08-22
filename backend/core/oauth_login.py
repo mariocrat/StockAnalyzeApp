@@ -6,10 +6,10 @@ from fastapi import HTTPException
 from urllib.parse import urlencode, urlparse
 
 try:
-    from core.account_store import _env_value, login_provider_identity
+    from core.account_store import _env_value, get_review_access_status, login_provider_identity
     from core.access_control import grant_first_login_advanced_review
 except ModuleNotFoundError:
-    from backend.core.account_store import _env_value, login_provider_identity
+    from backend.core.account_store import _env_value, get_review_access_status, login_provider_identity
     from backend.core.access_control import grant_first_login_advanced_review
 
 
@@ -217,7 +217,8 @@ def get_oauth_config_status() -> dict:
                 ["NAVER_REDIRECT_URI"],
                 {"NAVER_REDIRECT_URI": "NAVER_REDIRECT_URI_PLACEHOLDER"},
             ),
-        }
+        },
+        "review_access": get_review_access_status(),
     }
 
 

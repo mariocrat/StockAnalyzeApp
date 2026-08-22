@@ -19,6 +19,8 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         "OPENAI_ADVANCED_REVIEW_MODEL",
         "OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL",
         "OPENAI_MODEL",
+        "OPENAI_BASIC_REVIEW_REASONING_EFFORT",
+        "OPENAI_ADVANCED_REVIEW_REASONING_EFFORT",
         "OPENAI_BASIC_REVIEW_MAX_OUTPUT_TOKENS",
         "OPENAI_ADVANCED_REVIEW_MAX_OUTPUT_TOKENS",
     ]
@@ -120,6 +122,49 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         )
 
         self.assertEqual([1000, 3000], captured)
+
+    def test_openai_review_sends_review_specific_reasoning_effort(self):
+        os.environ["OPENAI_API_KEY"] = "sk-test"
+        captured = []
+
+        def fake_urlopen(req, timeout):
+            body = json.loads(req.data.decode("utf-8"))
+            captured.append((body["model"], body["reasoning"]["effort"], body["max_output_tokens"]))
+            return self._success_response("reasoning-ok")
+
+        self.ai_review_v2.urllib.request.urlopen = fake_urlopen
+        self.ai_review_v2._call_openai_review(
+            {"review_type": "basic"}, model="gpt-5.6-luna", instructions="test"
+        )
+        self.ai_review_v2._call_openai_review(
+            {"review_type": "advanced"}, model="gpt-5.6-luna", instructions="test"
+        )
+
+        self.assertEqual(
+            [
+                ("gpt-5.6-luna", "none", 1000),
+                ("gpt-5.6-luna", "medium", 3000),
+            ],
+            captured,
+        )
+
+    def test_openai_review_reasoning_effort_override_and_invalid_value_are_safe(self):
+        os.environ["OPENAI_API_KEY"] = "sk-test"
+        os.environ["OPENAI_BASIC_REVIEW_REASONING_EFFORT"] = "high"
+        os.environ["OPENAI_ADVANCED_REVIEW_REASONING_EFFORT"] = "not-a-valid-effort"
+        captured = []
+
+        def fake_urlopen(req, timeout):
+            captured.append(json.loads(req.data.decode("utf-8"))["reasoning"]["effort"])
+            return self._success_response("reasoning-override-ok")
+
+        self.ai_review_v2.urllib.request.urlopen = fake_urlopen
+        for review_type in ("basic", "advanced"):
+            self.ai_review_v2._call_openai_review(
+                {"review_type": review_type}, model="test-model", instructions="test"
+            )
+
+        self.assertEqual(["high", "medium"], captured)
 
     def test_openai_review_disables_response_storage(self):
         os.environ["OPENAI_API_KEY"] = "sk-test"
@@ -286,9 +331,9 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             "quantity": 1,
         }])
 
-        self.assertEqual("gpt-5.4-mini", basic["model"])
+        self.assertEqual("gpt-5.6-luna", basic["model"])
         self.assertEqual("gpt-5.6-luna", advanced["model"])
-        self.assertEqual([("basic", "gpt-5.4-mini"), ("advanced", "gpt-5.6-luna")], captured)
+        self.assertEqual([("basic", "gpt-5.6-luna"), ("advanced", "gpt-5.6-luna")], captured)
 
     def test_ai_review_model_ids_are_configurable(self):
         os.environ["OPENAI_BASIC_REVIEW_MODEL"] = "custom-basic-model"

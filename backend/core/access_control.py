@@ -82,6 +82,9 @@ GOOGLE_PLAY_FIELD_MAX_CHARS = 120
 PURCHASE_CREDIT_LEDGER_RESET_KEY = "purchase_credit_ledger_reset_v1"
 GOOGLE_PLAY_VOIDED_PURCHASE_LOOKBACK_DAYS = 30
 GOOGLE_PLAY_VOIDED_PURCHASE_PAGE_SIZE = 100
+REVIEW_BASIC_QUOTA_DEFAULT = 100
+REVIEW_ADVANCED_QUOTA_DEFAULT = 100
+REVIEW_QUOTA_MAX = 1000
 PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "your-site")
 PLACEHOLDER_EMAIL_PARTS = ("your-project", "example.com")
 
@@ -242,6 +245,33 @@ def _connect_access_db():
             auto_renewing INTEGER NOT NULL DEFAULT 0,
             latest_order_id TEXT NOT NULL DEFAULT '',
             updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS review_entitlements (
+            user_id TEXT PRIMARY KEY,
+            enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+            starts_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            pro_enabled INTEGER NOT NULL DEFAULT 1 CHECK (pro_enabled IN (0, 1)),
+            basic_remaining INTEGER NOT NULL CHECK (basic_remaining >= 0),
+            advanced_remaining INTEGER NOT NULL CHECK (advanced_remaining >= 0),
+            updated_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS review_entitlement_usage (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            review_type TEXT NOT NULL CHECK (review_type IN ('basic', 'advanced')),
+            quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
+            status TEXT NOT NULL DEFAULT 'consumed' CHECK (status IN ('consumed', 'reversed')),
+            idempotency_key TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL
         )
         """
     )
@@ -542,6 +572,8 @@ def delete_user_access_data(user_id: str) -> dict:
                 ("google_play_purchases", "deleted_google_play_purchases"),
                 ("google_play_subscriptions", "deleted_google_play_subscriptions"),
                 ("admob_reward_events", "deleted_admob_rewards"),
+                ("review_entitlement_usage", "deleted_review_entitlement_usage"),
+                ("review_entitlements", "deleted_review_entitlements"),
             ):
                 cur = conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (user_id,))
                 deleted[key] = cur.rowcount
@@ -581,6 +613,225 @@ def _env_int(name: str, default: int, minimum: int = 0, maximum: int | None = No
     if maximum is not None:
         value = min(value, maximum)
     return value
+
+
+def _review_quota_default(name: str, default: int) -> int:
+    return _env_int(name, default, 1, REVIEW_QUOTA_MAX)
+
+
+def _parse_utc_datetime(value: str) -> datetime.datetime | None:
+    try:
+        parsed = datetime.datetime.fromisoformat(str(value or "").replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+        return parsed.astimezone(datetime.timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def _review_row_is_active(row) -> bool:
+    if not row or not int(row["enabled"] or 0) or not int(row["pro_enabled"] or 0):
+        return False
+    now = datetime.datetime.now(datetime.timezone.utc)
+    starts_at = _parse_utc_datetime(row["starts_at"])
+    expires_at = _parse_utc_datetime(row["expires_at"])
+    return bool(starts_at and expires_at and starts_at <= now < expires_at)
+
+
+def _load_review_entitlement(user_id: str):
+    conn = _connect_access_db()
+    try:
+        return conn.execute(
+            "SELECT * FROM review_entitlements WHERE user_id = ?",
+            (str(user_id or "").strip(),),
+        ).fetchone()
+    finally:
+        conn.close()
+
+
+def initialize_review_entitlement(
+    user_id: str,
+    *,
+    starts_at: str = "",
+    expires_at: str = "",
+) -> dict:
+    normalized_user_id = str(user_id or "").strip()
+    if not normalized_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required.")
+    try:
+        from core.account_store import get_review_access_status
+    except ModuleNotFoundError:
+        from backend.core.account_store import get_review_access_status
+
+    status = get_review_access_status()
+    if not status.get("enabled"):
+        raise HTTPException(status_code=403, detail="Review access is unavailable.")
+    effective_starts = str(starts_at or datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"))
+    effective_expires = str(expires_at or status.get("expires_at") or "")
+    if not _parse_utc_datetime(effective_starts) or not _parse_utc_datetime(effective_expires):
+        raise HTTPException(status_code=503, detail="Review access expiry is not configured.")
+
+    conn = _connect_access_db()
+    try:
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+        conn.execute(
+            """
+            INSERT INTO review_entitlements (
+                user_id, enabled, starts_at, expires_at, pro_enabled,
+                basic_remaining, advanced_remaining, updated_at
+            ) VALUES (?, 1, ?, ?, 1, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                enabled = 1,
+                starts_at = excluded.starts_at,
+                expires_at = excluded.expires_at,
+                pro_enabled = 1,
+                updated_at = excluded.updated_at
+            """,
+            (
+                normalized_user_id,
+                effective_starts,
+                effective_expires,
+                _review_quota_default("ALPHAMATE_REVIEW_BASIC_QUOTA", REVIEW_BASIC_QUOTA_DEFAULT),
+                _review_quota_default("ALPHAMATE_REVIEW_ADVANCED_QUOTA", REVIEW_ADVANCED_QUOTA_DEFAULT),
+                now,
+            ),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM review_entitlements WHERE user_id = ?",
+            (normalized_user_id,),
+        ).fetchone()
+        return dict(row)
+    finally:
+        conn.close()
+
+
+def _review_entitlement_is_active(user_id: str) -> bool:
+    return _review_row_is_active(_load_review_entitlement(user_id))
+
+
+def _review_entitlement_snapshot(user_id: str, row=None) -> dict:
+    row = row or _load_review_entitlement(user_id)
+    if not row:
+        raise HTTPException(status_code=403, detail="Review access is unavailable.")
+    basic_remaining = max(0, int(row["basic_remaining"] or 0))
+    advanced_remaining = max(0, int(row["advanced_remaining"] or 0))
+    expires_at = str(row["expires_at"] or "")
+    return {
+        "plan": "pro" if _review_row_is_active(row) else "free",
+        "basic": {
+            "signup_remaining": 0,
+            "free_daily_remaining": 0,
+            "free_daily_max_remaining": 0,
+            "free_available_now": 0,
+            "rewarded_ad_available": 0,
+            "rewarded_ad_daily_remaining": 0,
+            "free_monthly_remaining": 0,
+            "free_monthly_limit": FREE_MONTHLY_BASIC_MAX,
+            "pro_monthly_remaining": basic_remaining if _review_row_is_active(row) else 0,
+            "purchased_remaining": 0,
+        },
+        "advanced": {
+            "signup_remaining": 0,
+            "pro_monthly_remaining": advanced_remaining if _review_row_is_active(row) else 0,
+            "weekly_reward_remaining": 0,
+            "weekly_advanced_granted": 0,
+            "weekly_ad_views": 0,
+            "weekly_ad_views_needed": 0,
+            "purchased_remaining": 0,
+            "max_hold": ADVANCED_TICKET_HOLD_MAX,
+        },
+        "products": PRODUCTS,
+        "settings": {
+            "allow_advanced_ticket_for_basic": False,
+            "ad_policy": _ad_policy(),
+            "free_policy": {
+                "daily_basic": FREE_DAILY_BASIC_GRANT,
+                "rewarded_basic_daily_max": FREE_REWARDED_BASIC_DAILY_MAX,
+                "monthly_basic_max": FREE_MONTHLY_BASIC_MAX,
+                "weekly_advanced_max": FREE_WEEKLY_ADVANCED_MAX,
+            },
+        },
+        "validity": {
+            "timezone": "Asia/Seoul",
+            "daily_reset_at": None,
+            "weekly_reset_at": None,
+            "monthly_reset_at": None,
+            "signup_pass_expires_at": None,
+            "purchased_pass_expires_at": None,
+            "weekly_reward_expires_at": None,
+            "pro_allowance_resets_at": expires_at,
+        },
+    }
+
+
+def _consume_review_quota(user_id: str, review_type: str) -> str:
+    normalized_type = "advanced" if review_type == "advanced" else "basic"
+    column = "advanced_remaining" if normalized_type == "advanced" else "basic_remaining"
+    conn = _connect_access_db()
+    try:
+        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT * FROM review_entitlements WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        if not _review_row_is_active(row) or int(row[column] or 0) <= 0:
+            conn.rollback()
+            raise HTTPException(status_code=402, detail="Review AI quota is exhausted or unavailable.")
+        event_key = f"review-access:{secrets.token_hex(16)}"
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds")
+        conn.execute(
+            f"UPDATE review_entitlements SET {column} = {column} - 1, updated_at = ? WHERE user_id = ? AND {column} > 0",
+            (now, user_id),
+        )
+        conn.execute(
+            """
+            INSERT INTO review_entitlement_usage (
+                user_id, review_type, quantity, status, idempotency_key, created_at
+            ) VALUES (?, ?, 1, 'consumed', ?, ?)
+            """,
+            (user_id, normalized_type, event_key, now),
+        )
+        conn.commit()
+        return event_key
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def _refund_review_quota(*, user_id: str, review_type: str, event_key: str) -> bool:
+    normalized_type = "advanced" if review_type == "advanced" else "basic"
+    column = "advanced_remaining" if normalized_type == "advanced" else "basic_remaining"
+    conn = _connect_access_db()
+    try:
+        conn.commit()
+        conn.execute("BEGIN IMMEDIATE")
+        usage = conn.execute(
+            """
+            UPDATE review_entitlement_usage
+            SET status = 'reversed'
+            WHERE user_id = ? AND review_type = ? AND idempotency_key = ? AND status = 'consumed'
+            """,
+            (user_id, normalized_type, event_key),
+        )
+        if usage.rowcount == 0:
+            conn.rollback()
+            return False
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="microseconds")
+        conn.execute(
+            f"UPDATE review_entitlements SET {column} = MIN({column} + 1, ?), updated_at = ? WHERE user_id = ?",
+            (REVIEW_QUOTA_MAX, now, user_id),
+        )
+        conn.commit()
+        return True
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 def _ad_policy() -> dict:
@@ -2354,12 +2605,17 @@ def _authenticate(authorization: str | None) -> tuple[str, str]:
         from backend.core.account_store import authenticate_session
 
     user = authenticate_session(authorization)
-    return user["id"], "session"
+    auth_mode = "review" if any(
+        identity.get("provider") == "review" for identity in user.get("identities", [])
+    ) else "session"
+    return user["id"], auth_mode
 
 
 def _plan_for(user_id: str, entitlement_token: str | None) -> str:
     dev_pro_token = _env_value("ALPHAMATE_DEV_PRO_ENTITLEMENT_TOKEN") or "dev-pro-entitlement"
     if _dev_access_enabled() and str(entitlement_token or "").strip() == dev_pro_token:
+        return "pro"
+    if _review_entitlement_is_active(user_id):
         return "pro"
     if _user_has_active_subscription(user_id):
         return "pro"
@@ -2627,6 +2883,10 @@ def _wallet_snapshot(wallet: UserWallet, plan: str, user_id: str, conn=None) -> 
 
 def get_user_entitlements(*, authorization: str | None, entitlement_token: str | None) -> dict:
     user_id, auth_mode = _authenticate(authorization)
+    if auth_mode == "review":
+        data = _review_entitlement_snapshot(user_id)
+        data["user"] = {"id": user_id, "auth_mode": auth_mode}
+        return data
     plan = _plan_for(user_id, entitlement_token)
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id, plan)
@@ -2646,6 +2906,14 @@ def get_rewarded_ad_status(
     if normalized_purpose not in {"basic_review", "advanced_ticket_progress"}:
         raise HTTPException(status_code=400, detail="지원하지 않는 광고 보상 목적입니다.")
     user_id, auth_mode = _authenticate(authorization)
+    if auth_mode == "review":
+        snapshot = _review_entitlement_snapshot(user_id)
+        return {
+            "ready": False,
+            "purpose": normalized_purpose,
+            "user": {"id": user_id, "auth_mode": auth_mode},
+            "wallet": snapshot,
+        }
     plan = _plan_for(user_id, entitlement_token)
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id, plan)
@@ -2666,6 +2934,15 @@ def claim_rewarded_ad_progress(
     ad_reward_token: str | None = None,
 ) -> dict:
     user_id, auth_mode = _authenticate(authorization)
+    if auth_mode == "review":
+        snapshot = _review_entitlement_snapshot(user_id)
+        snapshot["user"] = {"id": user_id, "auth_mode": auth_mode}
+        snapshot["ad_reward"] = {
+            "claimed": False,
+            "advanced_ticket_granted": False,
+            "blocked_reason": "pro_no_ads",
+        }
+        return snapshot
     plan = _plan_for(user_id, entitlement_token)
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id, plan)
@@ -2748,7 +3025,9 @@ def apply_google_play_purchase(
     if not str(purchase_token or "").strip():
         raise HTTPException(status_code=400, detail="purchase_token is required.")
 
-    user_id, _ = _authenticate(authorization)
+    user_id, auth_mode = _authenticate(authorization)
+    if auth_mode == "review":
+        raise HTTPException(status_code=403, detail="Review accounts cannot start Google Play purchases.")
     status = _google_play_status()
     if not status["ready"]:
         raise HTTPException(status_code=503, detail="Google Play Billing verification is not configured.")
@@ -2949,6 +3228,24 @@ def verify_ai_review_access(
     user_id, auth_mode = _authenticate(authorization)
     plan = _plan_for(user_id, entitlement_token)
     normalized_type = "advanced" if review_type == "advanced" else "basic"
+    if auth_mode == "review":
+        with _WALLET_LOCK:
+            usage_event_key = _consume_review_quota(user_id, normalized_type)
+            snapshot = _review_entitlement_snapshot(user_id)
+        return AiAccessContext(
+            user_id=user_id,
+            auth_mode=auth_mode,
+            plan="pro",
+            review_type=normalized_type,
+            source=f"review_{normalized_type}",
+            source_order_id="",
+            usage_event_key=usage_event_key,
+            product_balances=snapshot,
+            quota={
+                "basic": snapshot["basic"],
+                "advanced": snapshot["advanced"],
+            },
+        )
     with _WALLET_LOCK:
         wallet = _wallet_for(user_id, plan)
         purchase_conn = None
@@ -3001,6 +3298,13 @@ def refund_ai_review_access(access: AiAccessContext) -> dict:
         raise HTTPException(status_code=400, detail="AI review access context is required.")
 
     with _WALLET_LOCK:
+        if access.source in {"review_basic", "review_advanced"}:
+            _refund_review_quota(
+                user_id=access.user_id,
+                review_type=access.review_type,
+                event_key=access.usage_event_key,
+            )
+            return _review_entitlement_snapshot(access.user_id)
         wallet = _wallet_for(access.user_id, access.plan)
         usage = wallet.usage
         source = str(access.source or "")

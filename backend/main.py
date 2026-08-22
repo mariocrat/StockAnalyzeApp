@@ -41,8 +41,9 @@ from core.access_control import (
     set_purchase_credit_order_remaining_for_admin,
     sync_google_play_purchase_order_status,
     verify_ai_review_access,
+    initialize_review_entitlement,
 )
-from core.account_store import login_dev_provider, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
+from core.account_store import login_dev_provider, login_review_access, authenticate_session, revoke_session, update_journal_storage_setting, record_privacy_consent, get_privacy_consent_version, delete_user_account_data
 from core.oauth_login import create_oauth_app_error_redirect, create_oauth_app_redirect, consume_oauth_app_ticket, get_oauth_config_status, login_oauth_code, login_oauth_provider
 from core.cors import allowed_cors_origins
 from core.readiness import get_app_readiness
@@ -77,6 +78,7 @@ _callback_rate_limiter = InMemoryRateLimiter()
 _ai_review_rate_limiter = InMemoryRateLimiter()
 _ai_review_idempotency_lock = threading.Lock()
 _ai_review_idempotency_cache = {}
+_review_example_trades_lock = threading.Lock()
 REQUEST_ID_HEADER = "X-Request-ID"
 ADMIN_TOKEN_MIN_LENGTH = 32
 ADMIN_RATE_LIMIT_MAX_PER_MINUTE = 300
@@ -204,6 +206,11 @@ class AuthDevLoginIn(BaseModel):
     provider: str
     provider_user_id: str
     display_name: str = ""
+
+
+class AuthReviewLoginIn(BaseModel):
+    review_id: str
+    password: str
 
 
 class AuthProviderTokenIn(BaseModel):
@@ -1077,6 +1084,42 @@ def delete_old_admin_operational_events(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
+def _ensure_review_example_trades(user_id: str) -> int:
+    with _review_example_trades_lock:
+        if count_trades(user_id=user_id):
+            return 0
+        today = datetime.datetime.now(datetime.timezone.utc).date()
+        examples = [
+            {
+                "trade_date": f"{today - datetime.timedelta(days=4)}T09:30",
+                "ticker": "005930",
+                "name": "삼성전자 (예시)",
+                "side": "buy",
+                "price": 70000,
+                "quantity": 2,
+                "fee": 140,
+                "tax": 0,
+                "memo": "심사용 예시: 분할 진입 후 반도체 업황 회복 기대를 기록했습니다.",
+                "source": "review-example",
+            },
+            {
+                "trade_date": f"{today - datetime.timedelta(days=1)}T14:20",
+                "ticker": "005930",
+                "name": "삼성전자 (예시)",
+                "side": "sell",
+                "price": 71500,
+                "quantity": 2,
+                "fee": 143,
+                "tax": 214,
+                "memo": "심사용 예시: 사전에 기록한 목표가가 아니라 당시 변동성 확대에 대응해 정리했습니다.",
+                "source": "review-example",
+            },
+        ]
+        for example in examples:
+            _add_journal_trade(example, user_id=user_id)
+        return len(examples)
+
+
 def _theme_cache_status_payload() -> dict:
     periods = {}
     for period in ("1D", "1W", "1M", "1Y"):
@@ -1319,6 +1362,25 @@ def post_auth_dev_login(login: AuthDevLoginIn, request: Request):
         provider_user_id=login.provider_user_id,
         display_name=login.display_name,
     )
+
+
+@app.post("/api/auth/review-login")
+def post_auth_review_login(login: AuthReviewLoginIn, request: Request):
+    _enforce_auth_rate_limit(_request_client_key(request))
+    session = login_review_access(review_id=login.review_id, password=login.password)
+    initialize_review_entitlement(session["user"]["id"])
+    _ensure_review_example_trades(session["user"]["id"])
+    record_event(
+        level="info",
+        event_type="review_access_login_succeeded",
+        method="POST",
+        path="/api/auth/review-login",
+        status_code=200,
+        user_id=session["user"]["id"],
+        message="Review access login succeeded without exposing credentials.",
+        details={"expires_at": session.get("review_access", {}).get("expires_at", "")},
+    )
+    return session
 
 
 @app.post("/api/auth/login/kakao")
