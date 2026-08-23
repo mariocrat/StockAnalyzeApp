@@ -554,25 +554,51 @@ def _calculate_theme_return_ranges(period_ranges: dict[str, tuple[str, str]]) ->
         period: {"starts": [], "ends": []}
         for period in period_ranges
     }
+
+    def _record_ticker_returns(ticker: str, close_rows: list[dict]) -> None:
+        if len(close_rows) < 2:
+            return
+        for period, (start_date, end_date) in period_ranges.items():
+            period_rows = [row for row in close_rows if start_date <= row["date"] <= end_date]
+            if len(period_rows) < 2:
+                continue
+            if period == "1D":
+                period_rows = period_rows[-2:]
+            start_price = period_rows[0]["close"]
+            end_price = period_rows[-1]["close"]
+            if start_price > 0:
+                returns_by_period[period][ticker] = ((end_price - start_price) / start_price) * 100
+                effective_dates[period]["starts"].append(period_rows[0]["date"])
+                effective_dates[period]["ends"].append(period_rows[-1]["date"])
+
     max_workers = _theme_fetch_workers(len(unique_tickers))
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_fetch_closes, ticker) for ticker in unique_tickers]
-        for future in concurrent.futures.as_completed(futures):
-            ticker, close_rows = future.result()
-            if len(close_rows) < 2:
-                continue
-            for period, (start_date, end_date) in period_ranges.items():
-                period_rows = [row for row in close_rows if start_date <= row["date"] <= end_date]
-                if len(period_rows) < 2:
+        ticker_iterator = iter(unique_tickers)
+        pending = set()
+        for _ in range(max_workers):
+            try:
+                ticker = next(ticker_iterator)
+            except StopIteration:
+                break
+            pending.add(executor.submit(_fetch_closes, ticker))
+
+        while pending:
+            done, pending = concurrent.futures.wait(
+                pending,
+                return_when=concurrent.futures.FIRST_COMPLETED,
+            )
+            while done:
+                future = done.pop()
+                ticker, close_rows = future.result()
+                del future
+                _record_ticker_returns(ticker, close_rows)
+                del close_rows
+
+                try:
+                    next_ticker = next(ticker_iterator)
+                except StopIteration:
                     continue
-                if period == "1D":
-                    period_rows = period_rows[-2:]
-                start_price = period_rows[0]["close"]
-                end_price = period_rows[-1]["close"]
-                if start_price > 0:
-                    returns_by_period[period][ticker] = ((end_price - start_price) / start_price) * 100
-                    effective_dates[period]["starts"].append(period_rows[0]["date"])
-                    effective_dates[period]["ends"].append(period_rows[-1]["date"])
+                pending.add(executor.submit(_fetch_closes, next_ticker))
 
     return {
         period: _build_theme_return_stats(

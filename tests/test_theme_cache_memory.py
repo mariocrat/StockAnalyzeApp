@@ -1,3 +1,5 @@
+import concurrent.futures
+import gc
 import importlib
 import os
 import tempfile
@@ -13,6 +15,138 @@ class _Response:
 
 
 class ThemeCacheMemoryTests(unittest.TestCase):
+    def test_large_theme_fetch_keeps_outstanding_futures_and_results_bounded(self):
+        from backend.core import data_fetcher
+
+        data_fetcher = importlib.reload(data_fetcher)
+        ticker_count = 2393
+        tickers = [f"{index:06d}" for index in range(1, ticker_count + 1)]
+        themes = {"대규모 테스트 테마": tickers}
+        names = {ticker: f"종목 {ticker}" for ticker in tickers}
+        tracker = {
+            "outstanding": 0,
+            "peak_outstanding": 0,
+            "live_results": 0,
+            "peak_live_results": 0,
+            "submitted": 0,
+            "executor_exited": False,
+        }
+
+        class TrackedRows(list):
+            def __init__(self, rows):
+                super().__init__(rows)
+                tracker["live_results"] += 1
+                tracker["peak_live_results"] = max(
+                    tracker["peak_live_results"],
+                    tracker["live_results"],
+                )
+
+            def __del__(self):
+                tracker["live_results"] -= 1
+
+        class TrackedFuture(concurrent.futures.Future):
+            def __init__(self):
+                super().__init__()
+                self._consumed = False
+
+            def result(self, timeout=None):
+                if not self._consumed:
+                    self._consumed = True
+                    tracker["outstanding"] -= 1
+                return super().result(timeout=timeout)
+
+        class TrackingExecutor:
+            def __init__(self, max_workers):
+                self.max_workers = max_workers
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, _exc_type, _exc, _traceback):
+                tracker["executor_exited"] = True
+
+            def submit(self, fn, *args, **kwargs):
+                tracker["submitted"] += 1
+                tracker["outstanding"] += 1
+                tracker["peak_outstanding"] = max(
+                    tracker["peak_outstanding"],
+                    tracker["outstanding"],
+                )
+                future = TrackedFuture()
+                try:
+                    future.set_result(fn(*args, **kwargs))
+                except BaseException as exc:
+                    future.set_exception(exc)
+                return future
+
+        class FakeSession:
+            def __init__(self):
+                self.headers = {}
+
+            def get(self, _url, **_kwargs):
+                return _Response(
+                    '["20250109", 100, 100, 100, 100, 1]\n'
+                    '["20250110", 110, 110, 110, 110, 1]'
+                )
+
+        def track_rows(rows):
+            return TrackedRows(rows)
+
+        worker_limit = 8
+        with mock.patch.object(data_fetcher, "get_krx_themes", return_value=(themes, names, {})), \
+             mock.patch.object(concurrent.futures, "ThreadPoolExecutor", TrackingExecutor), \
+             mock.patch.object(data_fetcher, "_adjust_price_rows_for_corporate_actions", side_effect=track_rows), \
+             mock.patch("requests.Session", side_effect=FakeSession), \
+             mock.patch.dict(os.environ, {"ALPHAMATE_THEME_FETCH_WORKERS": str(worker_limit)}):
+            result = data_fetcher._calculate_theme_return_ranges({
+                "1D": ("20250101", "20250110"),
+            })
+
+        gc.collect()
+        self.assertEqual(ticker_count, tracker["submitted"])
+        self.assertLessEqual(tracker["peak_outstanding"], worker_limit)
+        self.assertLessEqual(tracker["peak_live_results"], worker_limit)
+        self.assertEqual(0, tracker["outstanding"])
+        self.assertEqual(0, tracker["live_results"])
+        self.assertTrue(tracker["executor_exited"])
+        self.assertEqual(ticker_count, result["1D"].iloc[0]["Num Stocks"])
+
+    def test_worker_exception_still_exits_bounded_executor(self):
+        from backend.core import data_fetcher
+
+        data_fetcher = importlib.reload(data_fetcher)
+        themes = {"테스트 테마": ["000001", "000002", "000003"]}
+        names = {ticker: ticker for ticker in themes["테스트 테마"]}
+        tracker = {"executor_exited": False}
+
+        class FailingExecutor:
+            def __init__(self, max_workers):
+                self.max_workers = max_workers
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, _exc_type, _exc, _traceback):
+                tracker["executor_exited"] = True
+
+            def submit(self, _fn, ticker):
+                future = concurrent.futures.Future()
+                if ticker == "000002":
+                    future.set_exception(RuntimeError("worker failed"))
+                else:
+                    future.set_result((ticker, []))
+                return future
+
+        with mock.patch.object(data_fetcher, "get_krx_themes", return_value=(themes, names, {})), \
+             mock.patch.object(concurrent.futures, "ThreadPoolExecutor", FailingExecutor), \
+             mock.patch.dict(os.environ, {"ALPHAMATE_THEME_FETCH_WORKERS": "2"}):
+            with self.assertRaisesRegex(RuntimeError, "worker failed"):
+                data_fetcher._calculate_theme_return_ranges({
+                    "1D": ("20250101", "20250110"),
+                })
+
+        self.assertTrue(tracker["executor_exited"])
+
     def test_multiple_periods_are_calculated_from_one_bounded_fetch_pass(self):
         from backend.core import data_fetcher
 
