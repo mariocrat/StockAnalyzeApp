@@ -404,21 +404,101 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         )
 
     def test_trade_guidance_validator_blocks_future_actionable_advice(self):
-        self.assertTrue(
-            self.ai_review_v2._contains_prohibited_trade_guidance(
-                "다음에는 80,000원 돌파 시 매수하세요."
-            )
+        blocked_examples = (
+            "다음에는 80,000원 돌파 시 매수하세요.",
+            "75,000원 돌파 시 매수하세요.",
+            "75,000원을 돌파하면 매수하세요.",
+            "MA20 이탈 시 매도하세요.",
+            "MA20을 이탈하면 매도하세요.",
+            "-5%에서 손절하세요.",
+            "손실이 5%가 되면 손절하세요.",
+            "80,000원에 도달하면 청산하세요.",
+            "70,000원 아래로 내려가면 매도하세요.",
+            "오후 2시에 전량 매도하는 것을 권장합니다.",
+            "추천 매수가 75,000원",
+            "목표가 80,000원",
+            "손절가를 68,000원으로 설정하세요.",
+            "5% 하락하면 손절하세요.",
+            "MA20 이탈 시 매도를 고려하세요.",
+            "MA20 이탈 시 매도하는 편이 좋습니다.",
+            "MA20 이탈 시 매도할 계획을 세우세요.",
+            "75,000원 돌파 시 매수를 고려하세요.",
+            "75,000원 돌파 시 매수하는 편이 좋습니다.",
+            "75,000원 돌파 시 매수할 계획을 세우세요.",
+            "손실이 5%가 되면 손절을 고려하세요.",
+            "손실이 5%가 되면 손절하는 편이 좋습니다.",
+            "손실이 5%가 되면 손절할 계획을 세우세요.",
+            "MA20 이탈 시 매도해보세요.",
+            "75,000원 돌파 시 매수를 검토하세요.",
+            "80,000원에 도달하면 청산을 생각해보세요.",
         )
-        self.assertTrue(
-            self.ai_review_v2._contains_prohibited_trade_guidance(
-                "오후 2시에 전량 매도하는 것을 권장합니다."
-            )
+
+        for example in blocked_examples:
+            with self.subTest(example=example):
+                self.assertTrue(self.ai_review_v2._contains_prohibited_trade_guidance(example))
+                self.assertTrue(
+                    self.ai_review_v2._matched_prohibited_trade_guidance_rule_ids(example)
+                )
+
+    def test_trade_guidance_validator_allows_retrospective_review_language(self):
+        allowed_examples = (
+            "당시 70,000원에 매수했다.",
+            "당시 68,000원을 손절 기준으로 기록했다.",
+            "당시 MA20 이탈 시 매도하기로 정했는지 확인해보세요.",
+            "실제로 -5% 손실에서 매도했다.",
+            "당시 정한 손절 기준과 실제 행동이 일치했는지 점검해보세요.",
+            "실제 수익률은 2.1%였고 당시 대응이 합리적이었는지 점검하세요.",
+            "이번 매매에서는 오전 9시 10분에 7,430원으로 매도했습니다. 당시 근거를 확인하세요.",
+            "당시 MA20 이탈 시 매도를 고려했다고 기록했다.",
+            "당시 MA20 이탈 시 매도할 계획을 세웠다.",
+            "당시 MA20 이탈 시 매도하는 편이 좋다고 판단했다.",
+            "당시 68,000원을 손절 기준으로 정했다.",
+            "당시 정한 매도 계획이 실제 행동과 일치했는지 확인해보세요.",
         )
-        self.assertFalse(
-            self.ai_review_v2._contains_prohibited_trade_guidance(
-                "이번 매매에서는 오전 9시 10분에 7,430원으로 매도했습니다."
-            )
+
+        for example in allowed_examples:
+            with self.subTest(example=example):
+                self.assertFalse(self.ai_review_v2._contains_prohibited_trade_guidance(example))
+                self.assertEqual(
+                    [],
+                    self.ai_review_v2._matched_prohibited_trade_guidance_rule_ids(example),
+                )
+
+    def test_safety_rejection_records_only_rule_ids_and_internal_status(self):
+        rejected_text = "MA20 이탈 시 매도하세요."
+        captured_events = []
+
+        self.ai_review_v2._contexts_for_trades = lambda trades: []
+        self.ai_review_v2._compact_chart_snapshot = lambda trades: {}
+        self.ai_review_v2._call_openai_review = lambda payload, *, model, instructions: (
+            self.ai_review_v2._OpenAiReviewText(rejected_text, response_status="completed")
         )
+        self.ai_review_v2.record_event = lambda **kwargs: captured_events.append(kwargs)
+
+        result = self.ai_review_v2.build_advanced_ai_review([{
+            "id": 1,
+            "trade_date": "2026-07-10T09:36",
+            "ticker": "017900",
+            "name": "광전자",
+            "side": "buy",
+            "price": 6980,
+            "quantity": 10,
+        }])
+
+        self.assertEqual("missing_key", result["status"])
+        self.assertEqual("chart-rules", result["source"])
+        self.assertEqual("safety_rejected", result["internal_status"])
+        self.assertEqual(1, len(captured_events))
+        event = captured_events[0]
+        self.assertEqual("openai_review_safety_rejected", event["event_type"])
+        self.assertEqual("advanced", event["details"]["review_type"])
+        self.assertEqual("gpt-5.6-luna", event["details"]["model"])
+        self.assertEqual(["rule_2"], event["details"]["matched_rule_ids"])
+        self.assertEqual("completed", event["details"]["response_status"])
+        serialized_event = json.dumps(event, ensure_ascii=False)
+        self.assertNotIn(rejected_text, serialized_event)
+        self.assertNotIn("prompt", serialized_event.lower())
+        self.assertNotIn("snippet", serialized_event.lower())
 
     def test_advanced_review_uses_configurable_fallback_model_after_primary_failure(self):
         os.environ["OPENAI_ADVANCED_REVIEW_MODEL"] = "primary-advanced-model"

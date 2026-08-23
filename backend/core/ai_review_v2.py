@@ -31,18 +31,59 @@ AI_REVIEW_SAFETY_RULES = (
     "목표가, 추천 매수가, 추천 매도가를 만들지 않는다. 대신 당시 근거, 가설의 일관성, "
     "위험 관리 기록 여부와 사후 확인 질문만 제시한다.</safety_rules>\n"
 )
-_PROHIBITED_TRADE_GUIDANCE_PATTERNS = (
-    re.compile(r"(목표가|추천\s*매수가|추천\s*매도가|매수\s*추천|매도\s*추천)"),
-    re.compile(r"(돌파|이탈|도달|하회|상회)\s*(?:하면|시|할\s*때).{0,30}(매수|매도|진입|청산|손절)"),
-    re.compile(r"\d[\d,]*(?:원|시|분).{0,30}(매수|매도|진입|청산|손절).{0,24}(권장|추천|해야|하세요|하십시오|정하|설정|두세요)"),
-    re.compile(r"(손절가|청산가|진입가).{0,20}\d[\d,]*(?:원|%)"),
-    re.compile(r"-?\d+(?:\.\d+)?%.{0,24}(손절|청산|매수|매도).{0,20}(권장|추천|해야|하세요|정하|설정)"),
+_ACTION_DIRECTIVE_SUFFIX = (
+    r"(?:하세요|하십시오|해야\s*합니다|하는\s*것을\s*(?:권장|추천)합니다|"
+    r"(?:을|를)?\s*(?:권장|추천)합니다|해\s*보세요|하는\s*편이\s*좋습니다|"
+    r"할\s*계획을\s*세우세요|(?:을|를)\s*(?:(?:고려|검토)(?:하세요|해\s*보세요)|"
+    r"생각해\s*보세요))"
+)
+_PROHIBITED_TRADE_GUIDANCE_RULES = (
+    ("rule_1", re.compile(r"(목표가|추천\s*매수가|추천\s*매도가|매수\s*추천|매도\s*추천)")),
+    (
+        "rule_2",
+        re.compile(
+            rf"(돌파|이탈|도달|하회|상회)\s*(?:하면|시|할\s*때).{{0,30}}"
+            rf"(매수|매도|진입|청산|손절)\s*(?:{_ACTION_DIRECTIVE_SUFFIX}|[.!?]|$)"
+        ),
+    ),
+    (
+        "rule_3",
+        re.compile(
+            rf"\d[\d,]*(?:원|시|분).{{0,30}}(매수|매도|진입|청산|손절)\s*"
+            rf"{_ACTION_DIRECTIVE_SUFFIX}"
+        ),
+    ),
+    (
+        "rule_4",
+        re.compile(
+            r"(손절가|청산가|진입가).{0,20}\d[\d,]*(?:원|%).{0,20}"
+            r"(?:설정|정하|두)(?:세요|십시오|는\s*것을\s*(?:권장|추천)합니다)"
+        ),
+    ),
+    (
+        "rule_5",
+        re.compile(
+            rf"-?\d+(?:\.\d+)?%.{{0,24}}(손절|청산|매수|매도)\s*"
+            rf"{_ACTION_DIRECTIVE_SUFFIX}"
+        ),
+    ),
 )
 
 
-def _contains_prohibited_trade_guidance(text: str) -> bool:
+class _OpenAiReviewText(str):
+    def __new__(cls, value: str, *, response_status: str):
+        instance = super().__new__(cls, value)
+        instance.response_status = str(response_status or "unknown")
+        return instance
+
+
+def _matched_prohibited_trade_guidance_rule_ids(text: str) -> list[str]:
     normalized = str(text or "")
-    return any(pattern.search(normalized) for pattern in _PROHIBITED_TRADE_GUIDANCE_PATTERNS)
+    return [rule_id for rule_id, pattern in _PROHIBITED_TRADE_GUIDANCE_RULES if pattern.search(normalized)]
+
+
+def _contains_prohibited_trade_guidance(text: str) -> bool:
+    return bool(_matched_prohibited_trade_guidance_rule_ids(text))
 
 
 def _env_int(name: str, default: int, minimum: int, maximum: int | None = None) -> int:
@@ -140,6 +181,31 @@ def _record_openai_failure(error: BaseException, *, payload: dict, model: str, a
         return
 
 
+def _filter_openai_review_safety(text: str, *, payload: dict, model: str) -> tuple[str, list[str]]:
+    matched_rule_ids = _matched_prohibited_trade_guidance_rule_ids(text)
+    if not matched_rule_ids:
+        return text, []
+    try:
+        record_event(
+            level="warning",
+            event_type="openai_review_safety_rejected",
+            method="POST",
+            path="/v1/responses",
+            status_code=200,
+            message="OpenAI review output was rejected by application safety rules without storing response content.",
+            details={
+                "review_type": str(payload.get("review_type") or "unknown"),
+                "model": model,
+                "matched_rule_ids": matched_rule_ids,
+                "response_status": str(getattr(text, "response_status", "unknown") or "unknown"),
+            },
+        )
+    except Exception:
+        # Safety telemetry must never interfere with rejecting unsafe output.
+        pass
+    return "", matched_rule_ids
+
+
 def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
     api_key = _env_value("OPENAI_API_KEY") or _env_value("ALPHAMATE_OPENAI_API_KEY")
     if not api_key:
@@ -194,7 +260,7 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
     if data.get("output_text"):
         output_text = str(data["output_text"]).strip()
         if output_text:
-            return output_text
+            return _OpenAiReviewText(output_text, response_status=data.get("status"))
 
     chunks = []
     for item in data.get("output", []):
@@ -204,7 +270,7 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
                 chunks.append(text)
     output_text = "\n".join(chunks).strip()
     if output_text:
-        return output_text
+        return _OpenAiReviewText(output_text, response_status=data.get("status"))
 
     incomplete = data.get("incomplete_details") if isinstance(data, dict) else None
     try:
@@ -565,10 +631,9 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
             "chart_snapshot": chart_snapshot,
             "chart_reviews": chart_snapshot.get("rule_based_observations") or [],
         }
-    if _contains_prohibited_trade_guidance(ai_text):
-        ai_text = ""
+    ai_text, safety_rule_ids = _filter_openai_review_safety(ai_text, payload=payload, model=model)
 
-    return {
+    result = {
         "status": "ready" if ai_text else "missing_key",
         "source": "openai" if ai_text else "chart-rules",
         "review_type": "basic",
@@ -578,6 +643,9 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
         "chart_snapshot": chart_snapshot,
         "chart_reviews": chart_snapshot.get("rule_based_observations") or [],
     }
+    if safety_rule_ids:
+        result["internal_status"] = "safety_rejected"
+    return result
 
 
 def build_advanced_ai_review(
@@ -657,10 +725,9 @@ def build_advanced_ai_review(
                 ai_text = ""
         else:
             ai_text = ""
-        if _contains_prohibited_trade_guidance(ai_text):
-            ai_text = ""
+        ai_text, safety_rule_ids = _filter_openai_review_safety(ai_text, payload=payload, model=model)
         if not ai_text:
-            return {
+            result = {
                 "status": "error",
                 "source": "chart-rules",
                 "review_type": "advanced",
@@ -669,10 +736,12 @@ def build_advanced_ai_review(
                 "chart_snapshots": chart_snapshots,
                 "chart_reviews": [item for snapshot in chart_snapshots for item in (snapshot.get("rule_based_observations") or [])],
             }
-    if _contains_prohibited_trade_guidance(ai_text):
-        ai_text = ""
+            if safety_rule_ids:
+                result["internal_status"] = "safety_rejected"
+            return result
+    ai_text, safety_rule_ids = _filter_openai_review_safety(ai_text, payload=payload, model=model)
 
-    return {
+    result = {
         "status": "ready" if ai_text else "missing_key",
         "source": "openai" if ai_text else "chart-rules",
         "review_type": "advanced",
@@ -682,3 +751,6 @@ def build_advanced_ai_review(
         "chart_snapshots": chart_snapshots,
         "chart_reviews": [item for snapshot in chart_snapshots for item in (snapshot.get("rule_based_observations") or [])],
     }
+    if safety_rule_ids:
+        result["internal_status"] = "safety_rejected"
+    return result
