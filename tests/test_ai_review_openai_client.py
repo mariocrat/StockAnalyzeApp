@@ -463,9 +463,174 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
                     [],
                     self.ai_review_v2._matched_prohibited_trade_guidance_rule_ids(example),
                 )
+                self.assertEqual(
+                    [],
+                    self.ai_review_v2._matched_prohibited_trade_guidance_rule_categories(example),
+                )
+
+    def test_rule_1_allows_negated_and_retrospective_mentions(self):
+        allowed_examples = (
+            "목표가를 제시하지 않습니다.",
+            "목표가를 정하는 대신 당시 판단 근거를 점검해보세요.",
+            "이 내용은 매수 추천이 아닙니다.",
+            "특정 종목의 매도 추천을 제공하지 않습니다.",
+            "당시 목표가를 정해두었는지는 기록에서 확인되지 않습니다.",
+            "당시 목표가를 정했던 이유가 무엇인지 복기해보세요.",
+            "당시 추천 매수가를 참고했는지는 기록에서 알 수 없습니다.",
+            "당시 목표가를 약 80,000원으로 기록했다.",
+            "당시 80,000원을 목표가로 잡았는지 기록을 확인해보세요.",
+            "당시 추천 매수 가격을 참고했다고 기록했다.",
+            "당시 매수 쪽이 좋다고 판단한 이유를 복기해보세요.",
+            "당시 매도하는 편이 낫다고 생각했던 근거를 확인해보세요.",
+            "당시 목표가는 8만원이었다고 기록했다.",
+            "당시 목표가를 80,000원으로 잡았던 이유를 복기해보세요.",
+            "당시 매수하는 게 좋다고 판단했다.",
+            "당시 매도하는 게 낫다고 생각했던 이유를 복기해보세요.",
+        )
+
+        for example in allowed_examples:
+            with self.subTest(example=example):
+                self.assertFalse(self.ai_review_v2._contains_prohibited_trade_guidance(example))
+                self.assertEqual(
+                    [],
+                    self.ai_review_v2._matched_prohibited_trade_guidance_rule_ids(example),
+                )
+                self.assertEqual(
+                    [],
+                    self.ai_review_v2._matched_prohibited_trade_guidance_rule_categories(example),
+                )
+
+    def test_rule_1_blocks_exact_independent_review_regressions(self):
+        blocked_examples = {
+            "목표가는 8만원입니다.": "target_price",
+            "목표가를 80,000원으로 잡으세요.": "target_price",
+            "현재는 매수하는 게 좋습니다.": "buy_recommendation",
+            "현재는 매도하는 게 낫습니다.": "sell_recommendation",
+        }
+
+        for example, category in blocked_examples.items():
+            with self.subTest(example=example):
+                self.assertTrue(self.ai_review_v2._contains_prohibited_trade_guidance(example))
+                self.assertEqual(
+                    ["rule_1"],
+                    self.ai_review_v2._matched_prohibited_trade_guidance_rule_ids(example),
+                )
+                self.assertEqual(
+                    [category],
+                    self.ai_review_v2._matched_prohibited_trade_guidance_rule_categories(example),
+                )
+
+    def test_rule_1_blocks_target_term_and_price_notation_combinations(self):
+        target_terms = (("목표가", "는"), ("목표 가격", "은"), ("목표주가", "는"))
+        prices = ("80,000원", "80000원", "8만원")
+
+        for target_term, particle in target_terms:
+            for price in prices:
+                example = f"{target_term}{particle} {price}입니다."
+                with self.subTest(target_term=target_term, price=price):
+                    self.assertEqual(
+                        ["rule_1"],
+                        self.ai_review_v2._matched_prohibited_trade_guidance_rule_ids(example),
+                    )
+                    self.assertEqual(
+                        ["target_price"],
+                        self.ai_review_v2._matched_prohibited_trade_guidance_rule_categories(example),
+                    )
+
+        for price in prices:
+            for directive in ("잡으세요", "설정하세요"):
+                example = f"목표가를 {price}으로 {directive}."
+                with self.subTest(price=price, directive=directive):
+                    self.assertEqual(
+                        ["rule_1"],
+                        self.ai_review_v2._matched_prohibited_trade_guidance_rule_ids(example),
+                    )
+                    self.assertEqual(
+                        ["target_price"],
+                        self.ai_review_v2._matched_prohibited_trade_guidance_rule_categories(example),
+                    )
+
+    def test_rule_1_blocks_trade_action_and_positive_predicate_combinations(self):
+        actions = (("매수", "buy_recommendation"), ("매도", "sell_recommendation"))
+        recommendation_phrases = (
+            "하는 것이 좋습니다",
+            "하는 게 좋습니다",
+            "하는 편이 좋습니다",
+            "하는 것이 낫습니다",
+            "하는 게 낫습니다",
+            "하는 편이 낫습니다",
+        )
+
+        for action, category in actions:
+            for recommendation_phrase in recommendation_phrases:
+                example = f"현재는 {action}{recommendation_phrase}."
+                with self.subTest(action=action, recommendation_phrase=recommendation_phrase):
+                    self.assertEqual(
+                        ["rule_1"],
+                        self.ai_review_v2._matched_prohibited_trade_guidance_rule_ids(example),
+                    )
+                    self.assertEqual(
+                        [category],
+                        self.ai_review_v2._matched_prohibited_trade_guidance_rule_categories(example),
+                    )
+
+    def test_rule_1_blocks_actionable_recommendations_with_categories(self):
+        blocked_examples = {
+            "목표가는 80,000원입니다.": ("rule_1", "target_price"),
+            "목표가를 80,000원으로 설정하세요.": ("rule_1", "target_price"),
+            "추천 매수가는 75,000원입니다.": ("rule_1", "recommended_entry_price"),
+            "추천 매도가는 82,000원입니다.": ("rule_1", "recommended_exit_price"),
+            "이 종목은 매수 추천합니다.": ("rule_1", "buy_recommendation"),
+            "현재는 매도 추천합니다.": ("rule_1", "sell_recommendation"),
+            "목표가는 약 80,000원으로 보입니다.": ("rule_1", "target_price"),
+            "목표 가격은 80,000원입니다.": ("rule_1", "target_price"),
+            "목표주가는 80,000원 정도가 적절합니다.": ("rule_1", "target_price"),
+            "80,000원을 목표가로 잡는 것이 좋습니다.": ("rule_1", "target_price"),
+            "80,000원을 목표 가격으로 설정하는 편이 좋습니다.": (
+                "rule_1",
+                "target_price",
+            ),
+            "80,000원을 목표가로 잡는 게 좋습니다.": ("rule_1", "target_price"),
+            "추천 매수 가격은 75,000원입니다.": (
+                "rule_1",
+                "recommended_entry_price",
+            ),
+            "추천 매도 가격은 82,000원입니다.": (
+                "rule_1",
+                "recommended_exit_price",
+            ),
+            "이 종목은 매수 쪽이 좋아 보입니다.": ("rule_1", "buy_recommendation"),
+            "현재는 매도하는 편이 낫습니다.": ("rule_1", "sell_recommendation"),
+            "매수 쪽이 더 유리해 보입니다.": ("rule_1", "buy_recommendation"),
+            "매도하는 것이 적절해 보입니다.": ("rule_1", "sell_recommendation"),
+            "매수 추천은 아니지만, 현재는 매수 쪽이 좋아 보입니다.": (
+                "rule_1",
+                "buy_recommendation",
+            ),
+            "목표가를 제시하지 않지만, 80,000원을 목표가로 잡는 것이 좋습니다.": (
+                "rule_1",
+                "target_price",
+            ),
+            "75,000원에 매수하는 것을 추천합니다.": (
+                "rule_3",
+                "price_or_time_trade_instruction",
+            ),
+        }
+
+        for example, (rule_id, category) in blocked_examples.items():
+            with self.subTest(example=example):
+                self.assertTrue(self.ai_review_v2._contains_prohibited_trade_guidance(example))
+                self.assertIn(
+                    rule_id,
+                    self.ai_review_v2._matched_prohibited_trade_guidance_rule_ids(example),
+                )
+                self.assertIn(
+                    category,
+                    self.ai_review_v2._matched_prohibited_trade_guidance_rule_categories(example),
+                )
 
     def test_safety_rejection_records_only_rule_ids_and_internal_status(self):
-        rejected_text = "MA20 이탈 시 매도하세요."
+        rejected_text = "목표가는 80,000원입니다."
         captured_events = []
 
         self.ai_review_v2._contexts_for_trades = lambda trades: []
@@ -493,7 +658,8 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.assertEqual("openai_review_safety_rejected", event["event_type"])
         self.assertEqual("advanced", event["details"]["review_type"])
         self.assertEqual("gpt-5.6-luna", event["details"]["model"])
-        self.assertEqual(["rule_2"], event["details"]["matched_rule_ids"])
+        self.assertEqual(["rule_1"], event["details"]["matched_rule_ids"])
+        self.assertEqual(["target_price"], event["details"]["matched_rule_categories"])
         self.assertEqual("completed", event["details"]["response_status"])
         serialized_event = json.dumps(event, ensure_ascii=False)
         self.assertNotIn(rejected_text, serialized_event)

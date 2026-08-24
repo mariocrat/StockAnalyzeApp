@@ -37,24 +37,101 @@ _ACTION_DIRECTIVE_SUFFIX = (
     r"할\s*계획을\s*세우세요|(?:을|를)\s*(?:(?:고려|검토)(?:하세요|해\s*보세요)|"
     r"생각해\s*보세요))"
 )
+_PRICE = r"(?:\d[\d,]*(?:\.\d+)?원|\d+(?:\.\d+)?만원)"
+_TARGET_PRICE_TERM = r"(?:목표\s*가격|목표\s*주가|목표가)"
+_BUY_TRADE_ACTION = r"(?:매수|진입)"
+_SELL_TRADE_ACTION = r"(?:매도|청산|손절)"
+_TRADE_ACTION = rf"(?:{_BUY_TRADE_ACTION}|{_SELL_TRADE_ACTION})"
+_RECOMMENDATION_PRICE_TERM = r"추천\s*{action}\s*(?:가|가격(?:대)?)"
+_POSITIVE_RECOMMENDATION_PREDICATE = (
+    r"(?:좋(?:아\s*보입니다|습니다)|낫습니다|"
+    r"유리(?:해\s*보입니다|합니다)|적절(?:해\s*보입니다|합니다))"
+)
+_TARGET_PRICE_SETTING_ACTION = r"(?:잡는|설정하는|정하는|제시하는)"
+_TARGET_PRICE_SETTING_DIRECTIVE = (
+    r"(?:잡(?:으세요|으십시오|습니다)|설정(?:하세요|하십시오|합니다)|"
+    r"정(?:하세요|하십시오|합니다)|제시(?:하세요|하십시오|합니다))"
+)
+_PRICE_GUIDANCE_SUFFIX = (
+    r"(?:\s*(?:입니다|이에요|이다)|"
+    r"\s*(?:정도|수준)\s*(?:가|이)?\s*(?:적절|타당)합니다|"
+    rf"\s*(?:으로|로)\s*(?:{_TARGET_PRICE_SETTING_DIRECTIVE}|"
+    rf"{_TARGET_PRICE_SETTING_ACTION}\s*(?:것이|게|편이)\s*"
+    rf"{_POSITIVE_RECOMMENDATION_PREDICATE})|"
+    r"\s*(?:으로|로)\s*(?:보입니다|적절해\s*보입니다)|"
+    r"(?=\s*(?:[.!?]|$)))"
+)
+_DIRECTION_RECOMMENDATION_FORM = (
+    rf"(?:쪽이|하는\s*(?:것이|게|편이))\s*(?:더\s*)?"
+    rf"{_POSITIVE_RECOMMENDATION_PREDICATE}"
+)
 _PROHIBITED_TRADE_GUIDANCE_RULES = (
-    ("rule_1", re.compile(r"(목표가|추천\s*매수가|추천\s*매도가|매수\s*추천|매도\s*추천)")),
+    (
+        "rule_1",
+        "target_price",
+        re.compile(
+            rf"{_TARGET_PRICE_TERM}\s*(?:는|은|를|:)?\s*(?:약\s*)?"
+            rf"{_PRICE}{_PRICE_GUIDANCE_SUFFIX}"
+            rf"|{_PRICE}\s*(?:을|를)?\s*{_TARGET_PRICE_TERM}\s*(?:으로|로)"
+            rf"\s*{_TARGET_PRICE_SETTING_ACTION}\s*(?:것이|게|편이)"
+            rf"\s*{_POSITIVE_RECOMMENDATION_PREDICATE}"
+        ),
+    ),
+    (
+        "rule_1",
+        "recommended_entry_price",
+        re.compile(
+            rf"{_RECOMMENDATION_PRICE_TERM.format(action=_BUY_TRADE_ACTION)}"
+            rf"\s*(?:는|은|를|:)?\s*(?:약\s*)?{_PRICE}"
+            rf"{_PRICE_GUIDANCE_SUFFIX}"
+        ),
+    ),
+    (
+        "rule_1",
+        "recommended_exit_price",
+        re.compile(
+            rf"{_RECOMMENDATION_PRICE_TERM.format(action=_SELL_TRADE_ACTION)}"
+            rf"\s*(?:는|은|를|:)?\s*(?:약\s*)?{_PRICE}"
+            rf"{_PRICE_GUIDANCE_SUFFIX}"
+        ),
+    ),
+    (
+        "rule_1",
+        "buy_recommendation",
+        re.compile(
+            rf"{_BUY_TRADE_ACTION}\s*(?:추천\s*"
+            rf"(?:합니다|드립니다|해요|입니다|하세요|하십시오)"
+            rf"|{_DIRECTION_RECOMMENDATION_FORM})"
+        ),
+    ),
+    (
+        "rule_1",
+        "sell_recommendation",
+        re.compile(
+            rf"{_SELL_TRADE_ACTION}\s*(?:추천\s*"
+            rf"(?:합니다|드립니다|해요|입니다|하세요|하십시오)"
+            rf"|{_DIRECTION_RECOMMENDATION_FORM})"
+        ),
+    ),
     (
         "rule_2",
+        "conditional_trade_instruction",
         re.compile(
             rf"(돌파|이탈|도달|하회|상회)\s*(?:하면|시|할\s*때).{{0,30}}"
-            rf"(매수|매도|진입|청산|손절)\s*(?:{_ACTION_DIRECTIVE_SUFFIX}|[.!?]|$)"
+            rf"{_TRADE_ACTION}\s*(?:{_ACTION_DIRECTIVE_SUFFIX}|[.!?]|$)"
         ),
     ),
     (
         "rule_3",
+        "price_or_time_trade_instruction",
         re.compile(
-            rf"\d[\d,]*(?:원|시|분).{{0,30}}(매수|매도|진입|청산|손절)\s*"
+            rf"\d[\d,]*(?:원|시|분).{{0,30}}{_TRADE_ACTION}\s*"
             rf"{_ACTION_DIRECTIVE_SUFFIX}"
         ),
     ),
     (
         "rule_4",
+        "explicit_risk_price_instruction",
         re.compile(
             r"(손절가|청산가|진입가).{0,20}\d[\d,]*(?:원|%).{0,20}"
             r"(?:설정|정하|두)(?:세요|십시오|는\s*것을\s*(?:권장|추천)합니다)"
@@ -62,8 +139,9 @@ _PROHIBITED_TRADE_GUIDANCE_RULES = (
     ),
     (
         "rule_5",
+        "percentage_trade_instruction",
         re.compile(
-            rf"-?\d+(?:\.\d+)?%.{{0,24}}(손절|청산|매수|매도)\s*"
+            rf"-?\d+(?:\.\d+)?%.{{0,24}}{_TRADE_ACTION}\s*"
             rf"{_ACTION_DIRECTIVE_SUFFIX}"
         ),
     ),
@@ -79,7 +157,20 @@ class _OpenAiReviewText(str):
 
 def _matched_prohibited_trade_guidance_rule_ids(text: str) -> list[str]:
     normalized = str(text or "")
-    return [rule_id for rule_id, pattern in _PROHIBITED_TRADE_GUIDANCE_RULES if pattern.search(normalized)]
+    return list(dict.fromkeys(
+        rule_id
+        for rule_id, _category, pattern in _PROHIBITED_TRADE_GUIDANCE_RULES
+        if pattern.search(normalized)
+    ))
+
+
+def _matched_prohibited_trade_guidance_rule_categories(text: str) -> list[str]:
+    normalized = str(text or "")
+    return list(dict.fromkeys(
+        category
+        for _rule_id, category, pattern in _PROHIBITED_TRADE_GUIDANCE_RULES
+        if pattern.search(normalized)
+    ))
 
 
 def _contains_prohibited_trade_guidance(text: str) -> bool:
@@ -185,6 +276,7 @@ def _filter_openai_review_safety(text: str, *, payload: dict, model: str) -> tup
     matched_rule_ids = _matched_prohibited_trade_guidance_rule_ids(text)
     if not matched_rule_ids:
         return text, []
+    matched_rule_categories = _matched_prohibited_trade_guidance_rule_categories(text)
     try:
         record_event(
             level="warning",
@@ -197,6 +289,7 @@ def _filter_openai_review_safety(text: str, *, payload: dict, model: str) -> tup
                 "review_type": str(payload.get("review_type") or "unknown"),
                 "model": model,
                 "matched_rule_ids": matched_rule_ids,
+                "matched_rule_categories": matched_rule_categories,
                 "response_status": str(getattr(text, "response_status", "unknown") or "unknown"),
             },
         )
