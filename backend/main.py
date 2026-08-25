@@ -720,6 +720,23 @@ def _finish_ai_review_idempotency(cache_key: str, result: dict | None):
         _trim_ai_review_idempotency_cache({cache_key})
 
 
+def _abort_ai_review_idempotency(cache_key: str):
+    if not cache_key:
+        return
+    with _ai_review_idempotency_lock:
+        cached = _ai_review_idempotency_cache.get(cache_key)
+        if cached and cached.get("status") == "pending":
+            _ai_review_idempotency_cache.pop(cache_key, None)
+
+
+def _normalize_ai_review_result(result: dict) -> dict:
+    normalized = dict(result or {})
+    summary = normalized.get("summary")
+    if isinstance(summary, str):
+        normalized["summary"] = str(summary)
+    return normalized
+
+
 def _enforce_ai_review_rate_limit(authorization: str | None) -> bool:
     rate_limit = _ai_review_rate_limiter.check(
         _ai_review_rate_key(authorization),
@@ -1770,6 +1787,16 @@ def get_journal_ai_review_once(
     _acquire_ai_review_capacity()
     access = None
     result = None
+    review_history_id = None
+    refund_attempted = False
+
+    def refund_access_once():
+        nonlocal refund_attempted
+        if access is None or refund_attempted:
+            return access.product_balances if access is not None else None
+        refund_attempted = True
+        return refund_ai_review_access(access)
+
     try:
         access = verify_ai_review_access(
             authorization=authorization,
@@ -1789,44 +1816,56 @@ def get_journal_ai_review_once(
                 target_trade_id=batch.target_trade_id,
                 analysis_focus=batch.analysis_focus,
             )
-    except Exception:
-        _finish_ai_review_idempotency(idempotency_cache_key, None)
-        if access is not None:
-            refund_ai_review_access(access)
+        result = _normalize_ai_review_result(result)
+
+        refunded = False
+        if result.get("status") == "error":
+            refunded = True
+            refunded_wallet = refund_access_once()
+        else:
+            refunded_wallet = access.product_balances
+        access_quota = {
+            "basic": refunded_wallet["basic"],
+            "advanced": refunded_wallet["advanced"],
+        }
+        result["access"] = {
+            "auth_mode": access.auth_mode,
+            "plan": access.plan,
+            "review_type": access.review_type,
+            "source": access.source,
+            "quota": access_quota,
+            "wallet": refunded_wallet,
+            "refunded": refunded,
+            "idempotent_replay": False,
+        }
+        review_history_id = _save_ai_review_history_if_enabled(
+            authorization=authorization,
+            batch=batch,
+            trades=trades,
+            result=result,
+        )
+        if review_history_id:
+            result["review_history_id"] = review_history_id
+        _finish_ai_review_idempotency(idempotency_cache_key, result)
+        return result
+    except Exception as error:
+        _abort_ai_review_idempotency(idempotency_cache_key)
+        cleanup_error = None
+        if review_history_id and access is not None:
+            try:
+                delete_review_history(review_history_id, user_id=access.user_id)
+            except Exception as exc:
+                cleanup_error = exc
+        if access is not None and not refund_attempted:
+            try:
+                refund_access_once()
+            except Exception as exc:
+                cleanup_error = cleanup_error or exc
+        if cleanup_error is not None:
+            raise cleanup_error from error
         raise
     finally:
         _release_ai_review_capacity()
-
-    refunded = False
-    if result.get("status") == "error":
-        refunded = True
-        refunded_wallet = refund_ai_review_access(access)
-    else:
-        refunded_wallet = access.product_balances
-    access_quota = {
-        "basic": refunded_wallet["basic"],
-        "advanced": refunded_wallet["advanced"],
-    }
-    result["access"] = {
-        "auth_mode": access.auth_mode,
-        "plan": access.plan,
-        "review_type": access.review_type,
-        "source": access.source,
-        "quota": access_quota,
-        "wallet": refunded_wallet,
-        "refunded": refunded,
-        "idempotent_replay": False,
-    }
-    review_history_id = _save_ai_review_history_if_enabled(
-        authorization=authorization,
-        batch=batch,
-        trades=trades,
-        result=result,
-    )
-    if review_history_id:
-        result["review_history_id"] = review_history_id
-    _finish_ai_review_idempotency(idempotency_cache_key, result)
-    return result
 
 
 @app.get("/api/journal/charts")

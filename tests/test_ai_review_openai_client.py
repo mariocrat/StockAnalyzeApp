@@ -722,6 +722,33 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.assertEqual("error", result["status"])
         self.assertEqual("advanced", result["review_type"])
 
+    def test_successful_openai_review_results_expose_plain_string_summaries(self):
+        self.ai_review_v2._compact_chart_snapshot = lambda trades: {}
+        self.ai_review_v2._contexts_for_trades = lambda trades: []
+        self.ai_review_v2._call_openai_review = lambda payload, *, model, instructions: (
+            self.ai_review_v2._OpenAiReviewText(
+                f"{payload['review_type']} review",
+                response_status="completed",
+            )
+        )
+        trades = [{
+            "id": 1,
+            "trade_date": "2026-07-10T09:36",
+            "ticker": "017900",
+            "name": "광전자",
+            "side": "buy",
+            "price": 6980,
+            "quantity": 10,
+        }]
+
+        basic = self.ai_review_v2.build_basic_ai_review(trades)
+        advanced = self.ai_review_v2.build_advanced_ai_review(trades)
+
+        self.assertIs(str, type(basic["summary"]))
+        self.assertIs(str, type(advanced["summary"]))
+        self.assertEqual("basic review", basic["summary"])
+        self.assertEqual("advanced review", advanced["summary"])
+
     def test_many_trades_keep_basic_episode_and_advanced_history_scopes_separate(self):
         captured = {}
 

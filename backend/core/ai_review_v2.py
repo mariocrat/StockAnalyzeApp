@@ -725,6 +725,8 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
             "chart_reviews": chart_snapshot.get("rule_based_observations") or [],
         }
     ai_text, safety_rule_ids = _filter_openai_review_safety(ai_text, payload=payload, model=model)
+    if ai_text:
+        ai_text = str(ai_text)
 
     result = {
         "status": "ready" if ai_text else "missing_key",
@@ -833,6 +835,8 @@ def build_advanced_ai_review(
                 result["internal_status"] = "safety_rejected"
             return result
     ai_text, safety_rule_ids = _filter_openai_review_safety(ai_text, payload=payload, model=model)
+    if ai_text:
+        ai_text = str(ai_text)
 
     result = {
         "status": "ready" if ai_text else "missing_key",
