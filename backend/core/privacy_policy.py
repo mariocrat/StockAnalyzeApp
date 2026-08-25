@@ -192,3 +192,49 @@ def account_deletion_html() -> str:
 </main>
 </body>
 </html>"""
+
+
+def public_landing_html() -> str:
+    operator = PUBLIC_OPERATOR_NAME
+    configured_contact = env_value("ALPHAMATE_PRIVACY_CONTACT_EMAIL").strip()
+    contact_email = html.escape(configured_contact or "support@stockboda.co.kr")
+    return f"""<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="StockBoda의 주식 시세·차트·테마 정보와 과거 매매 복기 서비스">
+  <title>StockBoda | 스톡보다</title>
+  <style>{_page_style()}
+    .hero {{ margin: 28px 0 20px; padding: 28px; border: 1px solid #293b65; border-radius: 14px; background: linear-gradient(145deg, #111c36, #0f1524); }}
+    .eyebrow {{ margin: 0 0 8px; color: #8fb1ff; font-size: 13px; font-weight: 800; letter-spacing: .14em; }}
+    .hero h1 {{ margin-bottom: 14px; font-size: clamp(30px, 7vw, 46px); letter-spacing: -.03em; }}
+    .hero h1 span {{ color: #8fb1ff; font-weight: 500; }}
+    .hero p {{ max-width: 640px; margin: 0; font-size: 17px; }}
+    .panel {{ margin-top: 16px; padding: 20px; border: 1px solid #293143; border-radius: 10px; background: #101621; }}
+    .panel h2 {{ margin-top: 0; }}
+    .secondary {{ background: #1a2438; border: 1px solid #40557f; }}
+    .support {{ margin: 0; color: #aab5c8; font-size: 14px; }}
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <p class="eyebrow">STOCKBODA</p>
+    <h1>스톡보다 <span>StockBoda</span></h1>
+    <p>주식 시세·차트·테마 정보를 확인하고, 사용자가 기록한 과거 매매를 복기할 수 있는 서비스입니다.</p>
+    <div class="actions">
+      <a class="button" href="/privacy">개인정보처리방침</a>
+      <a class="button secondary" href="/account-deletion">계정 및 데이터 삭제</a>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>서비스 안내</h2>
+    <p>StockBoda는 과거 기록을 정리하고 시장 정보를 살펴보는 도구입니다. 실제 주식 주문·중개나 투자자문을 제공하지 않으며, 화면의 정보는 투자 판단을 대신하지 않습니다.</p>
+    <p class="support">운영자/개발사: {operator}<br>고객지원: <a href="mailto:{contact_email}">{contact_email}</a></p>
+  </section>
+</main>
+</body>
+</html>"""

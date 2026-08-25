@@ -910,6 +910,13 @@ def healthz():
     return payload
 
 
+@app.get("/", response_class=HTMLResponse)
+def public_landing():
+    from core.privacy_policy import public_landing_html
+
+    return HTMLResponse(public_landing_html())
+
+
 @app.get("/privacy", response_class=HTMLResponse)
 def privacy_policy():
     from core.privacy_policy import privacy_policy_html

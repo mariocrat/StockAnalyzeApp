@@ -35,6 +35,7 @@ class AuthRoutesTest(unittest.TestCase):
 
         paths = set(main.app.openapi()["paths"].keys())
 
+        self.assertIn("/", paths)
         self.assertIn("/healthz", paths)
         self.assertIn("/api/healthz", paths)
         self.assertIn("/privacy", paths)
@@ -148,6 +149,28 @@ class AuthRoutesTest(unittest.TestCase):
         self.assertIn("계정 데이터를 삭제", body)
         self.assertIn("store=false", body)
         self.assertIn("Google AdMob", body)
+
+    def test_public_landing_page_is_public_korean_html(self):
+        backend_dir = os.path.join(os.getcwd(), "backend")
+        if backend_dir not in sys.path:
+            sys.path.insert(0, backend_dir)
+
+        import main
+
+        response = main.public_landing()
+        body = response.body.decode("utf-8")
+
+        self.assertEqual("text/html", response.media_type)
+        self.assertIn("charset=utf-8", response.headers["content-type"])
+        self.assertIn("StockBoda", body)
+        self.assertIn("스톡보다", body)
+        self.assertIn("Orvetriq Labs", body)
+        self.assertIn("support@stockboda.co.kr", body)
+        self.assertIn('href="/privacy"', body)
+        self.assertIn('href="/account-deletion"', body)
+        self.assertIn("주식 시세·차트·테마 정보", body)
+        self.assertIn("과거 매매를 복기", body)
+        self.assertIn("실제 주식 주문·중개나 투자자문을 제공하지 않으며", body)
 
     def test_account_deletion_page_is_public_korean_html(self):
         backend_dir = os.path.join(os.getcwd(), "backend")
