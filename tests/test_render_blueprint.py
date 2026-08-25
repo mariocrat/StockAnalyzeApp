@@ -87,7 +87,7 @@ class RenderBlueprintTest(unittest.TestCase):
         self.assertRegex(text, r"key: ALPHAMATE_PRIVACY_OPERATOR_NAME\n\s+value: 김건희")
         self.assertRegex(
             text,
-            r"key: ALPHAMATE_PRIVACY_CONTACT_EMAIL\n\s+value: support@alphamate\.co\.kr",
+            r"key: ALPHAMATE_PRIVACY_CONTACT_EMAIL\n\s+value: support@stockboda\.co\.kr",
         )
 
     def test_env_example_mentions_render_blueprint_without_real_secrets(self):
