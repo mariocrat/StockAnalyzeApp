@@ -24,6 +24,7 @@
     "test:chart-layout": "node --test scripts/chart-layout.test.js",
     "test:journal-mobile-ux": "node --test scripts/journal-mobile-ux.test.js",
     "test:review-selection": "node --test scripts/review-trade-selection.test.js",
+    "test:broker-import": "node --test scripts/broker-import.test.js",
     "test:user-messages": "node --test scripts/user-message.test.js",
     "test:release-env": "node --test scripts/validate-release-env.test.js",
     "test:mobile-bundle": "node --test scripts/validate-mobile-bundle.test.js",
@@ -45,6 +46,7 @@
     "capacitor-plugin-cdv-purchase": "^13.17.2",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^1.14.0",
+    "pdfjs-dist": "^6.2.108",
     "react": "^19.2.5",
     "react-dom": "^19.2.5"
   },

@@ -5,6 +5,7 @@ import test from 'node:test';
 import { nextRootBackAction, requestNestedBack } from '../src/utils/appNavigation.js';
 
 const journalSource = readFileSync(new URL('../src/components/TradingJournal.jsx', import.meta.url), 'utf8');
+const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 
 test('billing and refund policy is available from account management and the purchase area', () => {
   assert.match(journalSource, /구매 및 환불 정책/);
@@ -18,8 +19,16 @@ test('billing and refund policy is available from account management and the pur
 
 test('back navigation unwinds app views before asking to exit', () => {
   assert.equal(nextRootBackAction({ activeView: 'journal', hasThemeSelection: false }), 'themes');
+  assert.equal(nextRootBackAction({ activeView: 'broker-import', hasThemeSelection: false }), 'themes');
   assert.equal(nextRootBackAction({ activeView: 'themes', hasThemeSelection: true }), 'clear-theme-selection');
   assert.equal(nextRootBackAction({ activeView: 'themes', hasThemeSelection: false }), 'confirm-exit');
+});
+
+test('broker PDF import is registered as an independent app view', () => {
+  assert.match(appSource, /const BrokerImport = lazy\(\(\) => import\('\.\/components\/BrokerImport'\)\)/);
+  assert.match(appSource, /view === 'journal' \|\| view === 'broker-import'/);
+  assert.match(appSource, /nextView === 'journal' \|\| nextView === 'broker-import'/);
+  assert.match(appSource, /activeView === 'broker-import'/);
 });
 
 test('nested fullscreen or history view can consume a back request', () => {
