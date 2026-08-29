@@ -844,6 +844,140 @@ body {
   font-size: 18px;
 }
 
+.journal-import-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.journal-import-entry h3 {
+  margin-bottom: 4px;
+}
+
+.journal-import-entry p,
+.journal-import-entry-note {
+  margin: 0;
+  color: #8c96aa;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.journal-import-entry-note {
+  grid-column: 1 / -1;
+  color: #a9c2ff;
+}
+
+.journal-import-preview {
+  display: grid;
+  gap: 10px;
+}
+
+.journal-import-preview .journal-panel-title {
+  margin-bottom: 0;
+}
+
+.journal-imported-list {
+  display: grid;
+  gap: 7px;
+}
+
+.journal-imported-trade {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(190px, auto);
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #252c3b;
+  border-radius: 6px;
+  background: #10141f;
+}
+
+.journal-imported-trade-main,
+.journal-imported-trade-main > div,
+.journal-imported-time {
+  min-width: 0;
+}
+
+.journal-imported-trade-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.journal-imported-trade-main > div {
+  display: grid;
+  gap: 3px;
+}
+
+.journal-imported-trade-main strong {
+  overflow: hidden;
+  color: #f4f7fb;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journal-imported-trade-main span:not(.journal-imported-side) {
+  overflow: hidden;
+  color: #8c93a3;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journal-imported-side {
+  display: inline-flex;
+  min-width: 38px;
+  justify-content: center;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.journal-imported-side.buy {
+  background: #1c356c;
+  color: #8cb0ff;
+}
+
+.journal-imported-side.sell {
+  background: #54242d;
+  color: #ff8c96;
+}
+
+.journal-imported-amount {
+  color: #d9e3f5;
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.journal-imported-time {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  color: #9faac0;
+  font-size: 11px;
+}
+
+.journal-imported-time > input[type="time"] {
+  width: 92px;
+  min-height: 30px;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  border: 1px solid #343c50;
+  border-radius: 5px;
+  background: #171c28;
+  color: #eef2fa;
+}
+
+.journal-imported-time > input[type="time"]:disabled {
+  opacity: 0.5;
+}
+
 .journal-notice-backdrop,
 .journal-access-backdrop {
   position: fixed;
@@ -2629,6 +2763,81 @@ body {
   letter-spacing: 0.12em;
 }
 
+.broker-import-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.broker-import-back {
+  flex: 0 0 auto;
+}
+
+.broker-import-guide {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.broker-import-guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #2a2e39;
+  border-radius: 8px;
+  background: #131722;
+}
+
+.broker-import-guide-number {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  flex: 0 0 23px;
+  place-items: center;
+  border-radius: 50%;
+  background: #263e7a;
+  color: #b8ccff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.broker-import-guide-step strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #e7ebf5;
+  font-size: 12px;
+}
+
+.broker-import-guide-step p {
+  margin: 0;
+  color: #8c96aa;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.broker-import-guide-step em {
+  color: #a9c2ff;
+  font-style: normal;
+}
+
+.broker-import-howto {
+  margin-top: 7px;
+  color: #a9c2ff;
+  font-size: 11px;
+}
+
+.broker-import-howto summary {
+  cursor: pointer;
+}
+
+.broker-import-howto p {
+  margin-top: 5px;
+  color: #8c96aa;
+}
+
 .broker-import-privacy,
 .broker-import-panel,
 .broker-import-results {
@@ -2735,6 +2944,10 @@ body {
 
 .broker-import-message.error {
   color: #ffb36b;
+}
+
+.broker-import-message {
+  white-space: pre-line;
 }
 
 .broker-import-results-heading {
@@ -3090,6 +3303,14 @@ body {
     margin-bottom: 0;
   }
 
+  .broker-import-header {
+    flex-direction: column;
+  }
+
+  .broker-import-guide {
+    grid-template-columns: 1fr;
+  }
+
   .global-controls {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(142px, auto);
@@ -3193,6 +3414,30 @@ body {
 }
 
 @media (max-width: 520px) {
+
+  .journal-import-entry {
+    grid-template-columns: 1fr;
+  }
+
+  .journal-import-entry button {
+    width: 100%;
+  }
+
+  .journal-imported-trade {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .journal-imported-amount {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .journal-imported-time {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
 
   .broker-import-page,
   .broker-import-panel,

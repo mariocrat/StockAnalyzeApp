@@ -2,10 +2,15 @@ import { useRef, useState } from 'react';
 import { Check, FileText, ShieldCheck } from 'lucide-react';
 import { extractPdfText, LocalPdfPasswordRequiredError } from '../utils/pdfTextExtractor';
 import {
+  BROKER_STATEMENT_MESSAGES,
+  BROKER_STATEMENT_STATUS,
+  createTradeTimeState,
   formatTradeDateTime,
   formatTradeNumber,
-  parseTradeCandidates,
+  parseBrokerStatement,
+  setTradeTimeUnknownState,
   tradeSideLabel,
+  updateTradeTimeState,
 } from '../utils/brokerImport';
 
 const MAX_PDF_BYTES = 25 * 1024 * 1024;
@@ -15,15 +20,16 @@ function isPdfFile(file) {
 }
 
 function resetImportState(setState) {
-  setState({ status: 'idle', trades: [], selectedIds: new Set(), pageCount: 0, textItemCount: 0, message: '' });
+  setState({ status: 'idle', trades: [], selectedIds: new Set(), tradeStates: {}, pageCount: 0, textItemCount: 0, message: '' });
 }
 
-export default function BrokerImport() {
+export default function BrokerImport({ onBackToJournal, onImportToJournal }) {
   const fileInputRef = useRef(null);
   const [state, setState] = useState({
     status: 'idle',
     trades: [],
     selectedIds: new Set(),
+    tradeStates: {},
     pageCount: 0,
     textItemCount: 0,
     message: '',
@@ -42,28 +48,36 @@ export default function BrokerImport() {
       setState(previous => ({
         ...previous,
         status: 'error',
-        message: '프로토타입에서는 25MB 이하의 PDF만 처리합니다. 원본은 서버로 전송하지 않습니다.',
+        message: '25MB 이하의 PDF만 처리할 수 있습니다. PDF 원본은 서버로 전송하지 않습니다.',
       }));
       return;
     }
 
-    setState({ status: 'processing', trades: [], selectedIds: new Set(), pageCount: 0, textItemCount: 0, message: '' });
+    setState({ status: 'processing', trades: [], selectedIds: new Set(), tradeStates: {}, pageCount: 0, textItemCount: 0, message: '' });
     try {
       let extraction = await extractPdfText(await file.arrayBuffer());
-      const trades = parseTradeCandidates(extraction.text);
+      const parsed = parseBrokerStatement(extraction.text);
+      const trades = parsed.trades;
       const { pageCount, textItemCount } = extraction;
       extraction = null;
+      const tradeStates = Object.fromEntries(trades.map(trade => [trade.id, createTradeTimeState(trade.tradeTime)]));
+      const message = parsed.status === BROKER_STATEMENT_STATUS.OVERSEAS_UNSUPPORTED
+        ? BROKER_STATEMENT_MESSAGES.OVERSEAS_UNSUPPORTED
+        : parsed.status === BROKER_STATEMENT_STATUS.TOSS_DOMESTIC_SAMPLE_REQUIRED
+          ? BROKER_STATEMENT_MESSAGES.TOSS_DOMESTIC_SAMPLE_REQUIRED
+          : trades.length
+            ? `${trades.length}건의 거래를 찾았습니다. 각 거래는 합치지 않고 그대로 표시합니다.`
+            : textItemCount
+              ? '거래내역은 읽었지만 현재 지원되는 국내주식 형식의 거래를 찾지 못했습니다.'
+              : '텍스트가 없는 PDF입니다. 사진이나 스캔 문서는 현재 지원하지 않습니다.';
       setState({
         status: 'ready',
         trades,
         selectedIds: new Set(),
+        tradeStates,
         pageCount,
         textItemCount,
-        message: trades.length
-          ? `${trades.length}건의 거래 후보를 찾았습니다. 각 항목은 합치지 않고 그대로 표시합니다.`
-          : textItemCount
-            ? 'PDF 텍스트는 읽었지만 현재 보수적인 후보 형식과 일치하는 거래가 없습니다.'
-            : '텍스트가 없는 PDF입니다. 이미지·스캔 PDF의 OCR은 이번 프로토타입 범위에 포함하지 않습니다.',
+        message,
       });
     } catch (error) {
       const message = error instanceof LocalPdfPasswordRequiredError
@@ -94,28 +108,92 @@ export default function BrokerImport() {
     });
   };
 
+  const updateTradeTime = (id, value) => {
+    setState(previous => ({
+      ...previous,
+      tradeStates: {
+        ...previous.tradeStates,
+        [id]: updateTradeTimeState(previous.tradeStates[id] || createTradeTimeState(), value),
+      },
+    }));
+  };
+
+  const markTimeUnknown = (id, unknown) => {
+    setState(previous => ({
+      ...previous,
+      tradeStates: {
+        ...previous.tradeStates,
+        [id]: setTradeTimeUnknownState(previous.tradeStates[id] || createTradeTimeState(), unknown),
+      },
+    }));
+  };
+
   const clearImport = () => {
     resetImportState(setState);
   };
 
   const allSelected = state.trades.length > 0 && state.trades.every(trade => state.selectedIds.has(trade.id));
   const isProcessing = state.status === 'processing';
+  const selectedTrades = state.trades
+    .filter(trade => state.selectedIds.has(trade.id))
+    .map(trade => ({ ...trade, ...(state.tradeStates[trade.id] || createTradeTimeState()) }));
+
+  const importSelectedTrades = () => {
+    if (!selectedTrades.length) {
+      setState(previous => ({ ...previous, message: '매매복기로 가져올 거래를 먼저 선택해 주세요.' }));
+      return;
+    }
+    onImportToJournal?.(selectedTrades);
+  };
 
   return (
     <div className="broker-import-page">
       <header className="broker-import-header">
         <div>
-          <span className="broker-import-eyebrow">LOCAL PDF PROTOTYPE</span>
-          <h2>증권사 매매내역 PDF 가져오기</h2>
-          <p>거래내역을 기기에서 읽고, 원하는 거래만 직접 선택합니다.</p>
+          <span className="broker-import-eyebrow">매매복기 입력 방법</span>
+          <h2>증권사 거래내역 불러오기</h2>
+          <p>거래내역서에서 복기할 거래를 골라 기존 매매복기를 준비합니다.</p>
         </div>
+        {onBackToJournal && (
+          <button type="button" className="journal-secondary broker-import-back" onClick={onBackToJournal}>
+            매매복기로 돌아가기
+          </button>
+        )}
       </header>
 
       <section className="broker-import-privacy" aria-label="개인정보 보호 안내">
         <ShieldCheck size={22} aria-hidden="true" />
         <div>
-          <strong>온디바이스 처리</strong>
-          <span>PDF 원본과 전체 텍스트는 StockBoda backend·Render·외부 서버로 전송하거나 저장하지 않습니다.</span>
+          <strong>🔒 거래내역서는 기기에서만 처리됩니다.</strong>
+          <span>PDF 원본은 스톡보다 서버로 전송되거나 저장되지 않습니다.</span>
+        </div>
+      </section>
+
+      <section className="broker-import-guide" aria-label="거래내역 불러오기 안내">
+        <div className="broker-import-guide-step">
+          <span className="broker-import-guide-number">1</span>
+          <div>
+            <strong>증권사 선택</strong>
+            <p>토스증권 <em>1차 지원 예정</em></p>
+          </div>
+        </div>
+        <div className="broker-import-guide-step">
+          <span className="broker-import-guide-number">2</span>
+          <div>
+            <strong>거래내역서를 준비하세요</strong>
+            <p>토스증권 앱에서 국내주식 거래내역서 PDF를 발급해 주세요.</p>
+            <details className="broker-import-howto">
+              <summary>발급 방법 보기</summary>
+              <p>거래내역서 PDF를 준비한 뒤 아래 버튼에서 파일을 선택해 주세요. 정확한 메뉴 이름과 경로는 토스증권 앱의 최신 안내를 확인해 주세요.</p>
+            </details>
+          </div>
+        </div>
+        <div className="broker-import-guide-step">
+          <span className="broker-import-guide-number">3</span>
+          <div>
+            <strong>PDF 선택</strong>
+            <p>국내주식 거래내역서 PDF를 선택하면 복기할 거래를 고를 수 있습니다.</p>
+          </div>
         </div>
       </section>
 
@@ -123,8 +201,8 @@ export default function BrokerImport() {
         <div className="broker-import-panel-heading">
           <div className="broker-import-file-icon" aria-hidden="true"><FileText size={24} /></div>
           <div>
-            <h3>거래내역 PDF 선택</h3>
-            <p>현재는 전자 텍스트 PDF만 지원합니다. 이미지·스캔 PDF와 실제 증권사별 서식 parser는 샘플 확인 후 확장합니다.</p>
+            <h3>국내주식 거래내역 PDF 선택</h3>
+            <p>전자 텍스트 PDF만 지원합니다. 사진이나 스캔 문서는 현재 지원하지 않습니다.</p>
           </div>
         </div>
         <input
@@ -133,11 +211,11 @@ export default function BrokerImport() {
           type="file"
           accept="application/pdf,.pdf"
           onChange={handleFileChange}
-          aria-label="증권사 거래내역 PDF 선택"
+          aria-label="거래내역 PDF 선택"
         />
         <div className="broker-import-actions">
           <button type="button" className="journal-primary" onClick={() => fileInputRef.current?.click()} disabled={isProcessing}>
-            {isProcessing ? 'PDF 분석 중…' : 'PDF 파일 선택'}
+            {isProcessing ? '거래내역 확인 중…' : '거래내역 PDF 선택'}
           </button>
           <button type="button" className="journal-secondary" onClick={clearImport} disabled={isProcessing && state.trades.length === 0}>
             초기화
@@ -165,8 +243,8 @@ export default function BrokerImport() {
 
           {state.trades.length === 0 ? (
             <div className="broker-import-empty">
-              <strong>표시할 거래 후보가 없습니다.</strong>
-              <span>실제 증권사 PDF 서식이 준비되면 해당 서식에 맞춘 parser를 추가할 수 있습니다.</span>
+              <strong>가져올 거래가 없습니다.</strong>
+              <span>현재 지원되는 국내주식 거래내역서 형식과 일치하는 거래가 없습니다.</span>
             </div>
           ) : (
             <>
@@ -180,10 +258,12 @@ export default function BrokerImport() {
               <ul className="broker-trade-list">
                 {state.trades.map(trade => {
                   const selected = state.selectedIds.has(trade.id);
+                  const tradeState = state.tradeStates[trade.id] || createTradeTimeState();
+                  const { tradeTime, timeUnknown } = tradeState;
                   return (
                     <li key={trade.id} className={selected ? 'selected' : ''}>
-                      <label className="broker-trade-card">
-                        <input type="checkbox" checked={selected} onChange={() => toggleTrade(trade.id)} />
+                      <div className="broker-trade-card" onClick={() => toggleTrade(trade.id)}>
+                        <input type="checkbox" checked={selected} onClick={event => event.stopPropagation()} onChange={() => toggleTrade(trade.id)} />
                         <span className={`broker-trade-side ${trade.side}`}>
                           {selected && <Check size={13} aria-hidden="true" />}
                           {tradeSideLabel(trade.side)}
@@ -192,7 +272,7 @@ export default function BrokerImport() {
                           <strong>{trade.stockName}</strong>
                           <span className="broker-trade-meta">
                             {trade.symbol && <em>{trade.symbol}</em>}
-                            <time>{formatTradeDateTime(trade)}</time>
+                            <time>{formatTradeDateTime({ ...trade, tradeTime })}</time>
                           </span>
                         </span>
                         <span className="broker-trade-amount">
@@ -201,12 +281,37 @@ export default function BrokerImport() {
                             <small>{trade.fee !== null ? `수수료 ${formatTradeNumber(trade.fee)}원` : ''}{trade.tax !== null ? ` 세금 ${formatTradeNumber(trade.tax)}원` : ''}</small>
                           )}
                         </span>
-                      </label>
+                        {selected && (
+                          <div className="broker-trade-time" onClick={event => event.stopPropagation()}>
+                            <span>체결시간</span>
+                            <input
+                              type="time"
+                              value={tradeTime ?? ''}
+                              disabled={timeUnknown}
+                              onChange={event => updateTradeTime(trade.id, event.target.value)}
+                              aria-label={`${trade.stockName} 체결시간`}
+                            />
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={timeUnknown}
+                                onChange={event => markTimeUnknown(trade.id, event.target.checked)}
+                              />
+                              시간을 모름
+                            </label>
+                          </div>
+                        )}
+                      </div>
                     </li>
                   );
                 })}
               </ul>
-              <p className="broker-import-next-step">선택한 거래를 기존 복기 화면이나 DB로 보내는 기능은 아직 연결하지 않았습니다.</p>
+              <div className="broker-import-actions broker-import-transfer-actions">
+                <button type="button" className="journal-primary" onClick={importSelectedTrades}>
+                  선택한 거래를 매매복기로 가져오기
+                </button>
+              </div>
+              <p className="broker-import-next-step">PDF에서 읽은 정보만 준비합니다. 체결시간을 모르면 비워 둘 수 있고, 매매 이유와 판단은 매매복기에서 작성합니다.</p>
             </>
           )}
         </section>

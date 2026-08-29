@@ -19,7 +19,7 @@ test('billing and refund policy is available from account management and the pur
 
 test('back navigation unwinds app views before asking to exit', () => {
   assert.equal(nextRootBackAction({ activeView: 'journal', hasThemeSelection: false }), 'themes');
-  assert.equal(nextRootBackAction({ activeView: 'broker-import', hasThemeSelection: false }), 'themes');
+  assert.equal(nextRootBackAction({ activeView: 'broker-import', hasThemeSelection: false }), 'journal');
   assert.equal(nextRootBackAction({ activeView: 'themes', hasThemeSelection: true }), 'clear-theme-selection');
   assert.equal(nextRootBackAction({ activeView: 'themes', hasThemeSelection: false }), 'confirm-exit');
 });
@@ -29,6 +29,13 @@ test('broker PDF import is registered as an independent app view', () => {
   assert.match(appSource, /view === 'journal' \|\| view === 'broker-import'/);
   assert.match(appSource, /nextView === 'journal' \|\| nextView === 'broker-import'/);
   assert.match(appSource, /activeView === 'broker-import'/);
+  assert.match(appSource, /onOpenBrokerImport=\{openBrokerImport\}/);
+  assert.match(appSource, /onImportToJournal=\{handleImportedTrades\}/);
+  assert.doesNotMatch(appSource, />PDF 가져오기<\/button>/);
+  assert.match(journalSource, /증권사 거래내역 불러오기/);
+  assert.match(journalSource, /거래내역서 불러오기/);
+  assert.match(journalSource, /onImportedTradesChange/);
+  assert.match(journalSource, /시간을 모름/);
 });
 
 test('nested fullscreen or history view can consume a back request', () => {

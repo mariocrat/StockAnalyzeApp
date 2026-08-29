@@ -43,6 +43,11 @@ android {
         }
     }
     buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            resValue "string", "app_name", "StockBoda Debug"
+            resValue "string", "title_activity_main", "StockBoda Debug"
+        }
         release {
             minifyEnabled false
             if (releaseSigningReady) {

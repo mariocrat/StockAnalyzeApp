@@ -2,12 +2,21 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import {
+  BROKER_STATEMENT_MESSAGES,
+  BROKER_STATEMENT_STATUS,
+  createTradeTimeState,
+  detectBrokerStatement,
   formatTradeDateTime,
+  normalizeOptionalTradeTime,
+  parseBrokerStatement,
   parseTradeCandidates,
+  setTradeTimeUnknownState,
   sortTradesByDateDesc,
+  updateTradeTimeState,
 } from '../src/utils/brokerImport.js';
 
 const componentSource = readFileSync(new URL('../src/components/BrokerImport.jsx', import.meta.url), 'utf8');
+const journalSource = readFileSync(new URL('../src/components/TradingJournal.jsx', import.meta.url), 'utf8');
 const extractorSource = readFileSync(new URL('../src/utils/pdfTextExtractor.js', import.meta.url), 'utf8');
 
 test('keeps every clear candidate as an independent trade and sorts newest first', () => {
@@ -54,6 +63,80 @@ test('maps explicit quantity and price markers to the correct fields', () => {
   assert.equal(priceThenQuantity[0].price, 70000);
 });
 
+test('classifies supported generic rows without guessing an unknown broker layout', () => {
+  const parsed = parseBrokerStatement('2026-08-27 삼성전자 매수 10주 @ 70,000');
+
+  assert.equal(parsed.status, BROKER_STATEMENT_STATUS.READY);
+  assert.equal(parsed.trades.length, 1);
+  assert.equal(parsed.trades[0].quantity, 10);
+  assert.equal(parsed.trades[0].price, 70000);
+});
+
+test('rejects overseas or Toss statements before treating them as domestic trades', () => {
+  const overseasText = '해외주식 거래내역 USD AAPL 매수 10주 @ 70,000';
+  const tossText = '토스증권 국내주식 거래내역서';
+
+  assert.deepEqual(detectBrokerStatement(overseasText), {
+    broker: 'unknown',
+    market: 'overseas',
+    currency: 'foreign',
+    hasTossMarker: false,
+    hasOverseasMarker: true,
+    hasDomesticMarker: false,
+  });
+  assert.equal(parseBrokerStatement(overseasText).status, BROKER_STATEMENT_STATUS.OVERSEAS_UNSUPPORTED);
+  assert.deepEqual(parseBrokerStatement(overseasText).trades, []);
+  assert.equal(parseBrokerStatement(tossText).status, BROKER_STATEMENT_STATUS.TOSS_DOMESTIC_SAMPLE_REQUIRED);
+  assert.deepEqual(parseBrokerStatement(tossText).trades, []);
+  assert.match(BROKER_STATEMENT_MESSAGES.OVERSEAS_UNSUPPORTED, /국내주식만 지원/);
+  assert.match(BROKER_STATEMENT_MESSAGES.OVERSEAS_UNSUPPORTED, /해외주식은 추후 지원/);
+});
+
+test('keeps execution time optional and never invents it', () => {
+  const trade = parseTradeCandidates('2026-08-27 삼성전자 매수 10주 @ 70,000')[0];
+
+  assert.equal(trade.tradeTime, null);
+  assert.equal(normalizeOptionalTradeTime('09:10'), '09:10');
+  assert.equal(normalizeOptionalTradeTime('25:00'), null);
+  assert.equal(normalizeOptionalTradeTime(''), null);
+});
+
+test('keeps timeUnknown and tradeTime independent for every selected trade', () => {
+  const transition = (rows, id, update) => rows.map(row => (
+    row.id === id ? { ...row, ...update(row) } : row
+  ));
+
+  let rows = [
+    { id: 'buy-1', ...createTradeTimeState() },
+    { id: 'buy-2', ...createTradeTimeState() },
+    { id: 'sell-1', ...createTradeTimeState('14:10') },
+  ];
+  assert.deepEqual(rows[0], { id: 'buy-1', tradeTime: null, timeUnknown: true });
+  assert.equal(rows[0].timeUnknown, true, 'time input starts disabled');
+
+  rows = transition(rows, 'buy-1', row => setTradeTimeUnknownState(row, false));
+  assert.deepEqual(rows[0], { id: 'buy-1', tradeTime: '', timeUnknown: false });
+  assert.equal(rows[0].timeUnknown, false, 'time input becomes enabled after unchecking');
+
+  rows = transition(rows, 'buy-1', row => updateTradeTimeState(row, '09:37'));
+  assert.deepEqual(rows[0], { id: 'buy-1', tradeTime: '09:37', timeUnknown: false });
+
+  rows = transition(rows, 'buy-1', row => setTradeTimeUnknownState(row, true));
+  assert.deepEqual(rows[0], { id: 'buy-1', tradeTime: null, timeUnknown: true });
+  assert.equal(rows[0].timeUnknown, true, 'time input is disabled again');
+
+  rows = transition(rows, 'buy-1', row => setTradeTimeUnknownState(row, false));
+  assert.deepEqual(rows[0], { id: 'buy-1', tradeTime: '', timeUnknown: false });
+  assert.equal(rows[0].timeUnknown, false, 'time input can be enabled again');
+  assert.deepEqual(rows[1], { id: 'buy-2', tradeTime: null, timeUnknown: true });
+  assert.deepEqual(rows[2], { id: 'sell-1', tradeTime: '14:10', timeUnknown: false });
+
+  assert.equal(componentSource.includes('disabled={timeUnknown}'), true);
+  assert.equal(journalSource.includes('disabled={timeUnknown}'), true);
+  assert.equal(componentSource.includes('const timeUnknown = !tradeTime'), false);
+  assert.equal(journalSource.includes('const timeUnknown = !trade.tradeTime'), false);
+});
+
 test('rejects ambiguous rows that could carry customer or account information', () => {
   const trades = parseTradeCandidates([
     '2026-08-27 09:10 홍길동 계좌 123-45 삼성전자 005930 매수 70,000 10',
@@ -97,6 +180,11 @@ test('local PDF flow has no client upload, API, or browser storage call', () => 
   assert.doesNotMatch(extractorSource, /axios|fetch\s*\(|XMLHttpRequest|\/api\//i);
   assert.doesNotMatch(componentSource, /localStorage|sessionStorage|indexedDB/i);
   assert.match(componentSource, /file\.arrayBuffer\(\)/);
+  assert.match(componentSource, /기기에서만 처리됩니다/);
+  assert.match(componentSource, /서버로 전송되거나 저장되지 않습니다/);
+  assert.doesNotMatch(componentSource, /StockBoda backend|Render|OCR|\bDB\b/i);
+  assert.match(componentSource, /onImportToJournal/);
+  assert.match(componentSource, /시간을 모름/);
   assert.match(extractorSource, /getDocument\(\{[\s\S]*data,/);
   assert.match(extractorSource, /pdf\.worker\.min\.mjs\?url/);
 });

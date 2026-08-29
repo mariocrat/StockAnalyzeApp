@@ -10,10 +10,25 @@ const EXPLICIT_AMOUNT_TAIL_PATTERNS = [
   new RegExp(`^(.+?)\\s+(${NUMBER_SOURCE}\\s*원\\s+${NUMBER_SOURCE}\\s*주)$`),
 ];
 const SENSITIVE_MARKER_PATTERN = /^(?:계좌|계좌번호|고객명|성명|이름|account|accountnumber|accountno|customer|name)$/i;
+const TOSS_STATEMENT_PATTERN = /(?:토스증권|toss\s+securities)/i;
+const OVERSEAS_MARKER_PATTERN = /(?:해외\s*주식|해외\s*거래|외화|환율|달러|미국\s*주식|\bUSD\b|\bHKD\b|\bJPY\b|\bCNY\b|\$)/i;
+const DOMESTIC_MARKER_PATTERN = /(?:국내\s*주식|원화|\bKRW\b)/i;
 
 export const TRADE_SIDES = Object.freeze({
   BUY: 'buy',
   SELL: 'sell',
+});
+
+export const BROKER_STATEMENT_STATUS = Object.freeze({
+  READY: 'ready',
+  NO_CANDIDATES: 'no-candidates',
+  OVERSEAS_UNSUPPORTED: 'overseas-unsupported',
+  TOSS_DOMESTIC_SAMPLE_REQUIRED: 'toss-domestic-sample-required',
+});
+
+export const BROKER_STATEMENT_MESSAGES = Object.freeze({
+  OVERSEAS_UNSUPPORTED: '현재 증권사 거래내역 불러오기는 국내주식만 지원합니다.\n해외주식은 추후 지원 예정입니다.',
+  TOSS_DOMESTIC_SAMPLE_REQUIRED: '토스증권 국내주식 거래내역서 형식은 국내주식 샘플 확인 후 지원할 예정입니다.',
 });
 
 function cleanToken(token) {
@@ -40,6 +55,52 @@ function normalizeWhitespace(value) {
     .trim();
 }
 
+export function normalizeOptionalTradeTime(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  const match = text.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+  return match ? `${match[1]}:${match[2]}` : null;
+}
+
+export function createTradeTimeState(tradeTime = null) {
+  const normalizedTradeTime = normalizeOptionalTradeTime(tradeTime);
+  return {
+    tradeTime: normalizedTradeTime,
+    timeUnknown: normalizedTradeTime === null,
+  };
+}
+
+export function updateTradeTimeState(state, value) {
+  return {
+    ...state,
+    tradeTime: normalizeOptionalTradeTime(value),
+    timeUnknown: false,
+  };
+}
+
+export function setTradeTimeUnknownState(state, unknown) {
+  return {
+    ...state,
+    tradeTime: unknown ? null : '',
+    timeUnknown: Boolean(unknown),
+  };
+}
+
+export function detectBrokerStatement(text) {
+  const normalized = normalizeWhitespace(text);
+  const hasTossMarker = TOSS_STATEMENT_PATTERN.test(normalized);
+  const hasOverseasMarker = OVERSEAS_MARKER_PATTERN.test(normalized);
+  const hasDomesticMarker = DOMESTIC_MARKER_PATTERN.test(normalized);
+  return {
+    broker: hasTossMarker ? 'toss' : 'unknown',
+    market: hasOverseasMarker ? 'overseas' : hasDomesticMarker ? 'domestic' : 'unknown',
+    currency: hasOverseasMarker ? 'foreign' : hasDomesticMarker ? 'krw' : null,
+    hasTossMarker,
+    hasOverseasMarker,
+    hasDomesticMarker,
+  };
+}
+
 function parseDate(match) {
   const year = Number(match[1]);
   const month = Number(match[2]);
@@ -58,7 +119,7 @@ function parseDate(match) {
 function parseTime(line, dateMatch) {
   const match = line.match(TIME_PATTERN);
   if (!match || match.index < dateMatch.index + dateMatch[0].length) return null;
-  return `${String(match[1]).padStart(2, '0')}:${match[2]}${match[3] ? `:${match[3]}` : ''}`;
+  return normalizeOptionalTradeTime(`${String(match[1]).padStart(2, '0')}:${match[2]}`);
 }
 
 function stripMetadata(value) {
@@ -184,6 +245,35 @@ export function parseTradeCandidates(text) {
       .map((line, sourceIndex) => parseTradeLine(line, sourceIndex))
       .filter(Boolean),
   );
+}
+
+// A Toss domestic parser is intentionally only an interface until a real domestic
+// statement sample is available. Never infer table columns from an unknown layout.
+export function parseTossDomesticStatement(text) {
+  return {
+    status: BROKER_STATEMENT_STATUS.TOSS_DOMESTIC_SAMPLE_REQUIRED,
+    detection: detectBrokerStatement(text),
+    trades: [],
+  };
+}
+
+export function parseBrokerStatement(text) {
+  const detection = detectBrokerStatement(text);
+  if (detection.market === 'overseas') {
+    return {
+      status: BROKER_STATEMENT_STATUS.OVERSEAS_UNSUPPORTED,
+      detection,
+      trades: [],
+    };
+  }
+  if (detection.broker === 'toss') return parseTossDomesticStatement(text);
+
+  const trades = parseTradeCandidates(text);
+  return {
+    status: trades.length ? BROKER_STATEMENT_STATUS.READY : BROKER_STATEMENT_STATUS.NO_CANDIDATES,
+    detection,
+    trades,
+  };
 }
 
 export function formatTradeDate(tradeDate) {

@@ -116,6 +116,7 @@ export default function App() {
     }
   });
   const [accountPanelOpen, setAccountPanelOpen] = useState(false);
+  const [importedTrades, setImportedTrades] = useState([]);
 
   useEffect(() => {
     document.title = APP_NAME;
@@ -392,6 +393,23 @@ export default function App() {
     if (returnView && returnView !== 'journal') changeActiveView(returnView);
   }, [changeActiveView]);
 
+  const openBrokerImport = useCallback(() => {
+    changeActiveView('broker-import');
+  }, [changeActiveView]);
+
+  const handleImportedTrades = useCallback((nextTrades) => {
+    setImportedTrades(nextTrades);
+    changeActiveView('journal');
+  }, [changeActiveView]);
+
+  const updateImportedTrades = useCallback((nextTrades) => {
+    setImportedTrades(nextTrades);
+  }, []);
+
+  const clearImportedTrades = useCallback(() => {
+    setImportedTrades([]);
+  }, []);
+
   const paneLayoutKey = ['RSI', 'MACD', 'STOCH'].filter(key => activeInds[key]).join('|') || 'base';
   const handlePaneLayoutChange = useCallback((key, factors) => {
     setChartPaneLayouts(previous => {
@@ -419,6 +437,10 @@ export default function App() {
     });
     if (action === 'themes') {
       changeActiveView('themes');
+      return;
+    }
+    if (action === 'journal') {
+      changeActiveView('journal');
       return;
     }
     if (action === 'clear-theme-selection') {
@@ -789,7 +811,6 @@ export default function App() {
           <div className="app-nav">
             <button className={activeView === 'themes' ? 'active' : ''} onClick={() => changeActiveView('themes')}>테마/차트</button>
             <button className={activeView === 'journal' ? 'active' : ''} onClick={() => changeActiveView('journal')}>매매복기</button>
-            <button className={activeView === 'broker-import' ? 'active' : ''} onClick={() => changeActiveView('broker-import')}>PDF 가져오기</button>
           </div>
 
           {/* Search */}
@@ -902,11 +923,18 @@ export default function App() {
               accountPanelOpen={accountPanelOpen}
               onOpenAccountPanel={openAccountPanel}
               onCloseAccountPanel={closeAccountPanel}
+              onOpenBrokerImport={openBrokerImport}
+              importedTrades={importedTrades}
+              onImportedTradesChange={updateImportedTrades}
+              onClearImportedTrades={clearImportedTrades}
             />
           </Suspense>
         ) : activeView === 'broker-import' ? (
           <Suspense fallback={<div className="themes-loading">PDF 가져오기를 불러오는 중입니다.</div>}>
-            <BrokerImport />
+            <BrokerImport
+              onBackToJournal={() => changeActiveView('journal')}
+              onImportToJournal={handleImportedTrades}
+            />
           </Suspense>
         ) : (
           <>
