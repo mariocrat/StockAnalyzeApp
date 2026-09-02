@@ -6,6 +6,7 @@ import { nextRootBackAction, requestNestedBack } from '../src/utils/appNavigatio
 
 const journalSource = readFileSync(new URL('../src/components/TradingJournal.jsx', import.meta.url), 'utf8');
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
+const appCssSource = readFileSync(new URL('../src/App.css', import.meta.url), 'utf8');
 
 test('billing and refund policy is available from account management and the purchase area', () => {
   assert.match(journalSource, /구매 및 환불 정책/);
@@ -29,13 +30,28 @@ test('broker PDF import is registered as an independent app view', () => {
   assert.match(appSource, /view === 'journal' \|\| view === 'broker-import'/);
   assert.match(appSource, /nextView === 'journal' \|\| nextView === 'broker-import'/);
   assert.match(appSource, /activeView === 'broker-import'/);
-  assert.match(appSource, /onOpenBrokerImport=\{openBrokerImport\}/);
   assert.match(appSource, /onImportToJournal=\{handleImportedTrades\}/);
   assert.doesNotMatch(appSource, />PDF 가져오기<\/button>/);
+  const appNavBlock = appCssSource.match(/\.app-nav \{[\s\S]*?\n\}/)?.[0] || '';
+  assert.match(appNavBlock, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  assert.doesNotMatch(appNavBlock, /repeat\(3/);
+  assert.match(journalSource, /복기 시작하기/);
+  assert.match(journalSource, /<h3 id="journal-start-title">매매 내역 입력 방식<\/h3>/);
+  assert.match(journalSource, /setJournalInputMode\('direct'\)/);
+  assert.match(journalSource, /setJournalInputMode\('broker'\)/);
+  assert.match(journalSource, /const \[journalInputMode, setJournalInputMode\] = useState\('direct'\)/);
+  assert.match(journalSource, /const \[form, setForm\] = useState\(emptyForm\)/);
+  assert.doesNotMatch(journalSource, /changeActiveView\('broker-import'\)/);
+  assert.match(journalSource, /journalInputMode === 'direct'/);
+  assert.match(journalSource, /journalInputMode === 'broker'/);
+  assert.match(journalSource, /BrokerImportPanel/);
   assert.match(journalSource, /증권사 거래내역 불러오기/);
-  assert.match(journalSource, /거래내역서 불러오기/);
   assert.match(journalSource, /onImportedTradesChange/);
   assert.match(journalSource, /시간을 모름/);
+  assert.match(journalSource, /journal-import-time-warning/);
+  assert.match(journalSource, /체결시간\(필수\)/);
+  assert.match(journalSource, /aria-invalid={missingRequiredTime}/);
+  assert.match(journalSource, /submitManual/);
 });
 
 test('nested fullscreen or history view can consume a back request', () => {

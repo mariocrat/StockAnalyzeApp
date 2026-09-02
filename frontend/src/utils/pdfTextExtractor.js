@@ -61,7 +61,19 @@ export async function extractPdfText(arrayBuffer) {
       const content = await page.getTextContent();
       const lines = groupTextItemsIntoLines(content.items || []);
       textItemCount += content.items?.length || 0;
-      pages.push({ pageNumber, lines });
+      pages.push({
+        pageNumber,
+        lines,
+        // Keep only the text and coordinates needed by broker-specific parsers.
+        // The extracted items stay in memory and are never persisted or uploaded.
+        items: (content.items || [])
+          .filter(item => typeof item?.str === 'string' && item.str.trim())
+          .map(item => ({
+            str: item.str,
+            x: Number(item.transform?.[4] || 0),
+            y: Number(item.transform?.[5] || 0),
+          })),
+      });
       page.cleanup();
     }
 
@@ -69,6 +81,7 @@ export async function extractPdfText(arrayBuffer) {
       pageCount: pdfDocument.numPages,
       textItemCount,
       text: pages.flatMap(page => page.lines).join('\n'),
+      pages,
     };
   } catch (error) {
     if (error?.name === 'PasswordException') throw new LocalPdfPasswordRequiredError();

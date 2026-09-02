@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -22,7 +22,13 @@ import {
   findReviewTradeGroup,
   reviewTradesForGroup,
 } from '../utils/reviewTradeSelection';
-import { formatTradeDateTime, formatTradeNumber, setTradeTimeUnknownState, updateTradeTimeState } from '../utils/brokerImport';
+import {
+  formatTradeDateTime,
+  formatTradeNumber,
+  setTradeTimeUnknownState,
+  updateTradeTimeState,
+  validateTradeTimesForReview,
+} from '../utils/brokerImport';
 import { toKoreanUserMessage } from '../utils/userMessage';
 
 const sideLabels = { buy: '매수', sell: '매도' };
@@ -75,6 +81,8 @@ const reviewSourceLabels = {
   review_basic: '심사용 일반 복기권',
   review_advanced: '심사용 심화 복기권',
 };
+
+const BrokerImportPanel = lazy(() => import('./BrokerImport'));
 
 const emptyForm = {
   trade_date: '',
@@ -296,7 +304,6 @@ export default function TradingJournal({
   accountPanelOpen = false,
   onOpenAccountPanel,
   onCloseAccountPanel,
-  onOpenBrokerImport,
   importedTrades = [],
   onImportedTradesChange,
   onClearImportedTrades,
@@ -338,6 +345,7 @@ export default function TradingJournal({
   const [dataSummary, setDataSummary] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [journalSubView, setJournalSubView] = useState('review');
+  const [journalInputMode, setJournalInputMode] = useState('direct');
   const [reviewHistory, setReviewHistory] = useState([]);
   const [activeReviewHistory, setActiveReviewHistory] = useState(null);
   const [reviewHistoryLoading, setReviewHistoryLoading] = useState(false);
@@ -355,6 +363,12 @@ export default function TradingJournal({
   const reviewTradeGroups = useMemo(() => buildReviewTradeGroups(trades), [trades]);
   const selectedReviewGroup = reviewTradeGroups.find(group => group.key === selectedReviewGroupKey) || null;
   const selectedReviewTrades = reviewTradesForGroup(reviewTradeGroups, selectedReviewGroupKey);
+  const importedTimeValidation = useMemo(
+    () => validateTradeTimesForReview(importedTrades),
+    [importedTrades],
+  );
+  const importedRequiredTradeIds = new Set(importedTimeValidation.requiredTradeIds);
+  const importedMissingTradeIds = new Set(importedTimeValidation.missingTradeIds);
   const reviewTargetFiltered = Boolean(reviewTargetQuery.trim() || reviewTargetFrom || reviewTargetTo);
   const visibleReviewTradeGroups = useMemo(
     () => filterReviewTradeGroups(reviewTradeGroups, {
@@ -2022,70 +2036,114 @@ export default function TradingJournal({
         <div><span>승률</span><strong>{summary.win_rate_pct || 0}%</strong></div>
       </div>
 
-      {journalSubView === 'review' && onOpenBrokerImport && (
+      {journalSubView === 'review' && (
         <>
-          <section className="journal-panel journal-import-entry">
-            <div>
-              <h3>증권사 거래내역 불러오기</h3>
-              <p>거래내역서 PDF에서 복기할 거래를 골라 매매복기를 준비합니다.</p>
+          <section className="journal-start" aria-labelledby="journal-start-title">
+            <div className="journal-start-heading">
+              <span>복기 시작하기</span>
+              <h3 id="journal-start-title">매매 내역 입력 방식</h3>
             </div>
-            <button type="button" className="journal-secondary" onClick={onOpenBrokerImport}>
-              거래내역서 불러오기
-            </button>
-            <span className="journal-import-entry-note">국내주식 · 첫 지원 예정: 토스증권</span>
+            <div className="journal-input-methods" role="group" aria-label="매매복기 입력 방식">
+              <button
+                type="button"
+                className={journalInputMode === 'direct' ? 'journal-input-method active' : 'journal-input-method'}
+                aria-pressed={journalInputMode === 'direct'}
+                onClick={() => setJournalInputMode('direct')}
+              >
+                <span className="journal-input-method-label">직접 입력</span>
+                <strong>직접 매매정보를 입력합니다.</strong>
+              </button>
+              <button
+                type="button"
+                className={journalInputMode === 'broker' ? 'journal-input-method active' : 'journal-input-method'}
+                aria-pressed={journalInputMode === 'broker'}
+                onClick={() => setJournalInputMode('broker')}
+              >
+                <span className="journal-input-method-label">증권사 거래내역 불러오기</span>
+                <strong>증권사 PDF에서 거래를 선택합니다.</strong>
+                <em>국내주식 · 첫 지원 예정: 토스증권</em>
+              </button>
+            </div>
           </section>
 
-          {importedTrades.length > 0 && (
-            <section className="journal-panel journal-import-preview">
-              <div className="journal-panel-title">
-                <div>
-                  <h3>가져온 거래 준비</h3>
-                  <span className="journal-chart-mode">저장 전 · {importedTrades.length}건</span>
-                </div>
-                <button type="button" className="journal-danger journal-danger-outline" onClick={onClearImportedTrades}>
-                  모두 지우기
-                </button>
-              </div>
-              <p className="journal-privacy-note">PDF에서 읽은 거래를 한 건씩 유지합니다. 아직 저장되지 않았으며, 매매 이유와 판단은 아래 복기 입력에서 작성할 수 있습니다.</p>
-             <div className="journal-imported-list">
-                {importedTrades.map(trade => {
-                 const timeUnknown = trade.timeUnknown === true;
-                 return (
-                    <div className="journal-imported-trade" key={trade.id}>
-                      <div className="journal-imported-trade-main">
-                        <span className={`journal-imported-side ${trade.side}`}>
-                          {sideLabels[trade.side] || '거래'}
-                        </span>
-                        <div>
-                          <strong>{trade.stockName}</strong>
-                          <span>{trade.symbol || '종목코드 없음'} · {formatTradeDateTime(trade)}</span>
-                        </div>
-                      </div>
-                      <span className="journal-imported-amount">
-                        {formatTradeNumber(trade.price)}원 × {formatTradeNumber(trade.quantity)}주
-                      </span>
-                      <label className="journal-imported-time">
-                        <span>체결시간(선택)</span>
-                        <input
-                          type="time"
-                          value={trade.tradeTime ?? ''}
-                          disabled={timeUnknown}
-                          onChange={event => updateImportedTradeTime(trade.id, event.target.value)}
-                          aria-label={`${trade.stockName} 체결시간`}
-                        />
-                        <span className="journal-check">
-                          <input
-                            type="checkbox"
-                            checked={timeUnknown}
-                            onChange={event => markImportedTradeTimeUnknown(trade.id, event.target.checked)}
-                          />
-                          시간을 모름
-                        </span>
-                      </label>
+          {journalInputMode === 'broker' && (
+            <section className="journal-input-content journal-input-content-broker" aria-label="거래내역 불러오기">
+              {importedTrades.length > 0 ? (
+                <div className="journal-import-preview">
+                  <div className="journal-panel-title">
+                    <div>
+                      <span className="journal-section-eyebrow">거래내역 불러오기</span>
+                      <h3>가져온 거래 준비</h3>
+                      <span className="journal-chart-mode">저장 전 · {importedTrades.length}건</span>
                     </div>
-                  );
-                })}
-              </div>
+                    <button type="button" className="journal-secondary" onClick={onClearImportedTrades}>
+                      다른 PDF 선택
+                    </button>
+                  </div>
+                  <p className="journal-privacy-note">PDF에서 읽은 거래를 한 건씩 유지합니다. 아직 저장되지 않았으며, 매매 이유와 판단은 매매복기에서 작성할 수 있습니다.</p>
+                  {importedTimeValidation.requiredGroups.length > 0 && (
+                    <div
+                      className={importedTimeValidation.valid ? 'journal-import-time-warning complete' : 'journal-import-time-warning'}
+                      role={importedTimeValidation.valid ? 'status' : 'alert'}
+                    >
+                      <strong>{importedTimeValidation.valid ? '체결시간을 확인했습니다' : '⚠ 체결시간이 필요합니다'}</strong>
+                      <span>같은 날 매수와 매도가 함께 선택되었습니다.</span>
+                      <p>정확한 거래 순서를 확인하려면 체결시간이 필요합니다.</p>
+                      {importedTimeValidation.valid && <small>필수 거래의 체결시간이 모두 입력되었습니다.</small>}
+                    </div>
+                  )}
+                  <div className="journal-imported-list">
+                    {importedTrades.map(trade => {
+                      const timeUnknown = trade.timeUnknown === true;
+                      const timeRequired = importedRequiredTradeIds.has(trade.id);
+                      const missingRequiredTime = timeRequired && importedMissingTradeIds.has(trade.id);
+                      return (
+                        <div className={missingRequiredTime ? 'journal-imported-trade time-required' : 'journal-imported-trade'} key={trade.id}>
+                          <div className="journal-imported-trade-main">
+                            <span className={`journal-imported-side ${trade.side}`}>
+                              {sideLabels[trade.side] || '거래'}
+                            </span>
+                            <div>
+                              <strong>{trade.stockName}</strong>
+                              <span>{trade.symbol || '종목코드 없음'} · {formatTradeDateTime(trade)}</span>
+                            </div>
+                          </div>
+                          <span className="journal-imported-amount">
+                            {formatTradeNumber(trade.price)}원 × {formatTradeNumber(trade.quantity)}주
+                          </span>
+                          <label className="journal-imported-time">
+                            <span>{timeRequired ? '체결시간(필수)' : '체결시간(선택)'}</span>
+                            <input
+                              type="time"
+                              value={trade.tradeTime ?? ''}
+                              disabled={timeUnknown}
+                              required={timeRequired && !timeUnknown}
+                              aria-invalid={missingRequiredTime}
+                              onChange={event => updateImportedTradeTime(trade.id, event.target.value)}
+                              aria-label={`${trade.stockName} 체결시간`}
+                            />
+                            <span className="journal-check">
+                              <input
+                                type="checkbox"
+                                checked={timeUnknown}
+                                onChange={event => markImportedTradeTimeUnknown(trade.id, event.target.checked)}
+                              />
+                              시간을 모름
+                            </span>
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <Suspense fallback={<div className="themes-loading">거래내역 불러오기를 준비하는 중입니다.</div>}>
+                  <BrokerImportPanel
+                    embedded
+                    onImportToJournal={nextTrades => onImportedTradesChange?.(nextTrades)}
+                  />
+                </Suspense>
+              )}
             </section>
           )}
         </>
@@ -2381,6 +2439,7 @@ export default function TradingJournal({
         renderReviewHistoryArchive()
       ) : (
         <>
+      {journalInputMode === 'direct' && (
       <section className="journal-panel">
         <h3>매매 기록 입력</h3>
         <div className="journal-form">
@@ -2460,6 +2519,7 @@ export default function TradingJournal({
         </div>
         <button className="journal-primary" disabled={loading} onClick={submitManual}>저장</button>
       </section>
+      )}
 
       <section className="journal-panel" ref={entitlementSectionRef}>
         <div className="journal-panel-title">

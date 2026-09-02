@@ -231,8 +231,9 @@ body {
 
 .app-nav {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
+  width: 100%;
   margin-bottom: 14px;
   background: #1e222d;
   border-radius: 5px;
@@ -240,6 +241,7 @@ body {
 }
 
 .app-nav button {
+  width: 100%;
   border: none;
   background: transparent;
   color: #888;
@@ -844,28 +846,91 @@ body {
   font-size: 18px;
 }
 
-.journal-import-entry {
+.journal-start {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px 14px;
+  gap: 10px;
+  padding-top: 2px;
 }
 
-.journal-import-entry h3 {
-  margin-bottom: 4px;
+.journal-start-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
 }
 
-.journal-import-entry p,
-.journal-import-entry-note {
+.journal-start-heading > span,
+.journal-section-eyebrow {
+  color: #7f8aa0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.journal-start-heading h3 {
   margin: 0;
-  color: #8c96aa;
-  font-size: 12px;
-  line-height: 1.55;
+  color: #e6ebf5;
+  font-size: 15px;
+  font-weight: 700;
 }
 
-.journal-import-entry-note {
-  grid-column: 1 / -1;
-  color: #a9c2ff;
+.journal-input-methods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.journal-input-method {
+  display: grid;
+  min-height: 78px;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #2a3142;
+  border-radius: 8px;
+  background: #131722;
+  color: #e7ebf5;
+  text-align: left;
+  cursor: pointer;
+}
+
+.journal-input-method:hover {
+  border-color: #3c5fae;
+}
+
+.journal-input-method.active {
+  border-color: #2962ff;
+  background: #182548;
+  box-shadow: inset 3px 0 0 #2962ff;
+}
+
+.journal-input-method-label {
+  color: #e6ebf5;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.journal-input-method strong {
+  color: #9ca8bc;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.journal-input-method em {
+  color: #7688ac;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.journal-input-content {
+  min-width: 0;
+}
+
+.journal-input-content-broker {
+  padding: 14px;
+  border: 1px solid #2a3142;
+  border-radius: 8px;
+  background: #10141f;
 }
 
 .journal-import-preview {
@@ -1067,12 +1132,14 @@ body {
 }
 
 .journal-subnav {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 14px;
 }
 
 .journal-subnav button {
+  width: 100%;
   border: 1px solid #2a3142;
   background: #151b27;
   color: #9aa6ba;
@@ -1094,9 +1161,9 @@ body {
 
 .journal-panel h3 {
   margin: 0 0 12px 0;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 800;
+  color: #e6ebf5;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .journal-panel-title {
@@ -2770,6 +2837,27 @@ body {
   gap: 14px;
 }
 
+.broker-import-page-embedded {
+  max-width: none;
+  gap: 11px;
+  padding-bottom: 0;
+}
+
+.broker-import-page-embedded .broker-import-header {
+  gap: 8px;
+}
+
+.broker-import-page-embedded .broker-import-header h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.broker-import-embedded-note {
+  margin: -4px 0 0;
+  color: #7688ac;
+  font-size: 11px;
+}
+
 .broker-import-back {
   flex: 0 0 auto;
 }
@@ -2893,9 +2981,9 @@ body {
 .broker-import-panel-heading h3,
 .broker-import-results-heading h3 {
   margin: 0 0 5px;
-  color: #fff;
+  color: #e6ebf5;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .broker-import-file-icon {
@@ -2908,6 +2996,34 @@ body {
   border-radius: 8px;
   background: #1a2a4a;
   color: #8cb0ff;
+}
+
+.broker-import-selected-file {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #2c3b5d;
+  border-radius: 7px;
+  background: #101a2d;
+}
+
+.broker-import-selected-file span,
+.broker-import-selected-file small {
+  color: #8d9dbc;
+  font-size: 11px;
+}
+
+.broker-import-selected-file strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #dce7ff;
+  font-size: 12px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .broker-import-file-input {
@@ -2948,6 +3064,53 @@ body {
 
 .broker-import-message {
   white-space: pre-line;
+}
+
+.broker-import-state-card {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid #2a3142;
+  border-radius: 8px;
+  background: #131722;
+}
+
+.broker-import-state-card h3 {
+  margin: 0;
+  color: #e6ebf5;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.broker-import-state-card p {
+  margin: 0;
+  color: #9ca8bc;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.broker-import-state-label {
+  color: #7f8aa0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.broker-import-state-unsupported {
+  border-color: #5a4930;
+  background: #1b1813;
+}
+
+.broker-import-state-unsupported h3 {
+  color: #ffd28a;
+}
+
+.broker-import-state-card button {
+  width: fit-content;
+  min-height: 38px;
+  margin-top: 6px;
 }
 
 .broker-import-results-heading {
@@ -3012,6 +3175,60 @@ body {
   color: #7f899b;
   font-size: 11px;
   text-align: right;
+}
+
+.broker-import-time-warning,
+.journal-import-time-warning {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 11px 12px;
+  border: 1px solid #72552d;
+  border-radius: 6px;
+  background: #211b13;
+}
+
+.broker-import-time-warning strong,
+.journal-import-time-warning strong {
+  color: #ffd28a;
+  font-size: 12px;
+}
+
+.broker-import-time-warning span,
+.journal-import-time-warning span,
+.broker-import-time-warning p,
+.journal-import-time-warning p,
+.broker-import-time-warning small,
+.journal-import-time-warning small {
+  color: #c5a776;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.broker-import-time-warning p,
+.journal-import-time-warning p {
+  margin: 0;
+}
+
+.broker-import-time-warning small,
+.journal-import-time-warning small {
+  color: #9dc2a7;
+}
+
+.broker-import-time-warning.complete,
+.journal-import-time-warning.complete {
+  border-color: #385b45;
+  background: #132019;
+}
+
+.broker-import-time-warning.complete strong,
+.journal-import-time-warning.complete strong {
+  color: #a9d8b2;
+}
+
+.broker-trade-list li.time-required .broker-trade-card,
+.journal-imported-trade.time-required {
+  border-color: #8a6936;
 }
 
 .broker-trade-list {
@@ -3415,12 +3632,18 @@ body {
 
 @media (max-width: 520px) {
 
-  .journal-import-entry {
+  .journal-start-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .journal-input-methods {
     grid-template-columns: 1fr;
   }
 
-  .journal-import-entry button {
-    width: 100%;
+  .journal-input-content-broker {
+    padding: 12px;
   }
 
   .journal-imported-trade {

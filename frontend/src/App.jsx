@@ -393,10 +393,6 @@ export default function App() {
     if (returnView && returnView !== 'journal') changeActiveView(returnView);
   }, [changeActiveView]);
 
-  const openBrokerImport = useCallback(() => {
-    changeActiveView('broker-import');
-  }, [changeActiveView]);
-
   const handleImportedTrades = useCallback((nextTrades) => {
     setImportedTrades(nextTrades);
     changeActiveView('journal');
@@ -923,7 +919,6 @@ export default function App() {
               accountPanelOpen={accountPanelOpen}
               onOpenAccountPanel={openAccountPanel}
               onCloseAccountPanel={closeAccountPanel}
-              onOpenBrokerImport={openBrokerImport}
               importedTrades={importedTrades}
               onImportedTradesChange={updateImportedTrades}
               onClearImportedTrades={clearImportedTrades}
