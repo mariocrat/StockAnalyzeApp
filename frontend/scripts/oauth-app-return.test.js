@@ -5,6 +5,8 @@ import { readFileSync } from 'node:fs';
 import { parseOAuthAppReturnUrl } from '../src/utils/oauthAppReturn.js';
 
 const journalSource = readFileSync(new URL('../src/components/TradingJournal.jsx', import.meta.url), 'utf8');
+const androidGradleSource = readFileSync(new URL('../android/app/build.gradle', import.meta.url), 'utf8');
+const backendOAuthSource = readFileSync(new URL('../../backend/core/oauth_login.py', import.meta.url), 'utf8');
 
 test('parses package scheme OAuth app return ticket without exposing provider tokens', () => {
   const parsed = parseOAuthAppReturnUrl(
@@ -23,6 +25,28 @@ test('ignores unsupported OAuth app return URLs', () => {
   assert.equal(parseOAuthAppReturnUrl('https://api.alphamate.kr/api/auth/kakao/callback?code=x'), null);
   assert.equal(parseOAuthAppReturnUrl('com.mariocrat.stockanalyze://oauth/other?ticket=x'), null);
   assert.equal(parseOAuthAppReturnUrl('not-a-url'), null);
+});
+
+test('native OAuth accepts only the current app scheme when the variant provides one', () => {
+  assert.ok(parseOAuthAppReturnUrl(
+    'com.mariocrat.stockanalyze.debug://oauth/naver?ticket=t&state=s',
+    'com.mariocrat.stockanalyze.debug',
+  ));
+  assert.equal(parseOAuthAppReturnUrl(
+    'com.mariocrat.stockanalyze://oauth/naver?ticket=t&state=s',
+    'com.mariocrat.stockanalyze.debug',
+  ), null);
+  assert.match(journalSource, /VITE_ANDROID_OAUTH_APP_SCHEME/);
+  assert.match(journalSource, /OAUTH_APP_SCHEME_STATE_MARKER/);
+  assert.match(journalSource, /parseOAuthAppReturnUrl\(rawUrl, ANDROID_OAUTH_APP_SCHEME\)/);
+  assert.match(androidGradleSource, /resValue "string", "custom_url_scheme", "\$\{androidPackageName\}\.debug"/);
+});
+
+test('OAuth callback keeps release scheme and selects debug scheme from the state marker', () => {
+  assert.match(backendOAuthSource, /OAUTH_APP_SCHEME_STATE_MARKER/);
+  assert.match(backendOAuthSource, /def _oauth_app_scheme\(state: str = ""\)/);
+  assert.match(backendOAuthSource, /allowed = \{configured, f"\{configured\}\.debug"\}/);
+  assert.match(backendOAuthSource, /_oauth_app_scheme\(state\)/);
 });
 
 test('native OAuth uses an in-app browser and closes it after the app callback', () => {

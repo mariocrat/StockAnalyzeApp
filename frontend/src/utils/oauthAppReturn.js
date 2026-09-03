@@ -1,4 +1,4 @@
-export function parseOAuthAppReturnUrl(rawUrl) {
+export function parseOAuthAppReturnUrl(rawUrl, expectedScheme = '') {
   if (!rawUrl) return null;
 
   let url;
@@ -8,6 +8,8 @@ export function parseOAuthAppReturnUrl(rawUrl) {
     return null;
   }
 
+  const normalizedExpectedScheme = String(expectedScheme || '').trim().replace(/:$/, '').toLowerCase();
+  if (normalizedExpectedScheme && url.protocol.toLowerCase() !== `${normalizedExpectedScheme}:`) return null;
   if (url.hostname !== 'oauth') return null;
   const provider = url.pathname.replace(/^\/+/, '').toLowerCase();
   if (!['kakao', 'naver'].includes(provider)) return null;

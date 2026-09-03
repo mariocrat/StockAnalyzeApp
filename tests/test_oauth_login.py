@@ -338,6 +338,76 @@ class OAuthLoginTest(unittest.TestCase):
         with self.assertRaises(HTTPException) as replay:
             oauth_login.consume_oauth_app_ticket(query["ticket"][0])
         self.assertEqual(401, replay.exception.status_code)
+
+    def test_oauth_app_callback_scheme_whitelist_executes_redirect_helper(self):
+        from urllib.parse import parse_qs, urlparse
+
+        from backend.core import oauth_login
+
+        previous = os.environ.get("ALPHAMATE_OAUTH_APP_SCHEME")
+        release_scheme = "com.mariocrat.stockanalyze"
+        debug_scheme = f"{release_scheme}.debug"
+        marker = oauth_login.OAUTH_APP_SCHEME_STATE_MARKER
+        cases = [
+            ("release scheme", f"state-release{marker}{release_scheme}", release_scheme),
+            ("debug scheme", f"state-debug{marker}{debug_scheme}", debug_scheme),
+            ("evil scheme", f"state-evil{marker}evilapp", release_scheme),
+            ("https scheme", f"state-https{marker}https", release_scheme),
+            ("javascript scheme", f"state-javascript{marker}javascript", release_scheme),
+            ("custom attacker scheme", f"state-attacker{marker}attacker.custom.scheme", release_scheme),
+        ]
+        try:
+            os.environ["ALPHAMATE_OAUTH_APP_SCHEME"] = release_scheme
+            for case_name, state, expected_scheme in cases:
+                with self.subTest(case=case_name):
+                    redirect_url = oauth_login.create_oauth_app_error_redirect(
+                        provider="kakao",
+                        state=state,
+                    )
+                    parsed = urlparse(redirect_url)
+
+                    self.assertEqual(expected_scheme, parsed.scheme)
+                    self.assertEqual("oauth", parsed.netloc)
+                    self.assertEqual("/kakao", parsed.path)
+                    self.assertEqual([state], parse_qs(parsed.query)["state"])
+        finally:
+            if previous is None:
+                os.environ.pop("ALPHAMATE_OAUTH_APP_SCHEME", None)
+            else:
+                os.environ["ALPHAMATE_OAUTH_APP_SCHEME"] = previous
+
+    def test_oauth_app_redirect_uses_debug_callback_for_debug_state(self):
+        from urllib.parse import parse_qs, urlparse
+
+        from backend.core import oauth_login
+
+        previous = os.environ.get("ALPHAMATE_OAUTH_APP_SCHEME")
+        release_scheme = "com.mariocrat.stockanalyze"
+        debug_scheme = f"{release_scheme}.debug"
+        state = f"state-debug{oauth_login.OAUTH_APP_SCHEME_STATE_MARKER}{debug_scheme}"
+        try:
+            os.environ["ALPHAMATE_OAUTH_APP_SCHEME"] = release_scheme
+            oauth_login.login_oauth_code = lambda **kwargs: {"user": {"id": "test-user"}}
+
+            redirect_url = oauth_login.create_oauth_app_redirect(
+                provider="naver",
+                code="provider-code",
+                state=state,
+            )
+            parsed = urlparse(redirect_url)
+            query = parse_qs(parsed.query)
+
+            self.assertEqual(debug_scheme, parsed.scheme)
+            self.assertEqual("oauth", parsed.netloc)
+            self.assertEqual("/naver", parsed.path)
+            self.assertEqual([state], query["state"])
+            self.assertEqual({"user": {"id": "test-user"}}, oauth_login.consume_oauth_app_ticket(query["ticket"][0]))
+        finally:
+            if previous is None:
+                os.environ.pop("ALPHAMATE_OAUTH_APP_SCHEME", None)
+            else:
+                os.environ["ALPHAMATE_OAUTH_APP_SCHEME"] = previous
+
     def test_oauth_config_status_reports_missing_server_settings(self):
         for key in ("KAKAO_CLIENT_ID", "KAKAO_REDIRECT_URI", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "NAVER_REDIRECT_URI"):
             os.environ.pop(key, None)

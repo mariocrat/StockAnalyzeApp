@@ -17,6 +17,7 @@ test('Android app label is injected from release branding settings', () => {
   assert.match(gradle, /applicationId androidPackageName/);
   assert.match(gradle, /resValue "string", "package_name", androidPackageName/);
   assert.match(gradle, /resValue "string", "custom_url_scheme", androidPackageName/);
+  assert.match(gradle, /resValue "string", "custom_url_scheme", "\$\{androidPackageName\}\.debug"/);
   assert.match(gradle, /manifestPlaceholders/);
   assert.doesNotMatch(stringsXml, /<string name="app_name">AlphaMate<\/string>/);
   assert.doesNotMatch(stringsXml, /<string name="title_activity_main">AlphaMate<\/string>/);

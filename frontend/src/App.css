@@ -1057,6 +1057,23 @@ body {
   opacity: 0.5;
 }
 
+.journal-dev-login-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid #252b38;
+}
+
+.journal-dev-login-actions > span {
+  flex: 0 0 100%;
+  color: #777f91;
+  font-size: 10px;
+}
+
 .journal-notice-backdrop,
 .journal-access-backdrop {
   position: fixed;

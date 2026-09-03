@@ -51,6 +51,8 @@ const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_CLIENT_ID || '';
 const KAKAO_REDIRECT_URI = import.meta.env.VITE_KAKAO_REDIRECT_URI || '';
 const NAVER_REDIRECT_URI = import.meta.env.VITE_NAVER_REDIRECT_URI || '';
 const GOOGLE_PLAY_PACKAGE_NAME = import.meta.env.VITE_GOOGLE_PLAY_PACKAGE_NAME || 'com.mariocrat.stockanalyze';
+const ANDROID_OAUTH_APP_SCHEME = import.meta.env.VITE_ANDROID_OAUTH_APP_SCHEME || GOOGLE_PLAY_PACKAGE_NAME;
+const OAUTH_APP_SCHEME_STATE_MARKER = '|stockboda-app-scheme=';
 const DEV_LOGIN_PROFILES = {
   kakao: { label: '카카오', provider_user_id: 'dev-kakao-user', display_name: '카카오 테스트' },
   naver: { label: '네이버', provider_user_id: 'dev-naver-user', display_name: '네이버 테스트' },
@@ -790,7 +792,7 @@ export default function TradingJournal({
       setMessage(oauthDisabledReason(provider));
       return;
     }
-    const state = randomState();
+    const state = `${randomState()}${OAUTH_APP_SCHEME_STATE_MARKER}${ANDROID_OAUTH_APP_SCHEME}`;
     const redirectUri = oauthRedirectUri(provider);
     localStorage.setItem(OAUTH_STATE_KEY, JSON.stringify({
       provider,
@@ -918,7 +920,7 @@ export default function TradingJournal({
   };
 
   const handleOAuthAppReturn = (rawUrl) => {
-    const parsed = parseOAuthAppReturnUrl(rawUrl);
+    const parsed = parseOAuthAppReturnUrl(rawUrl, ANDROID_OAUTH_APP_SCHEME);
     if (!parsed) return false;
     if (handledOAuthReturnUrlRef.current === rawUrl) return true;
     handledOAuthReturnUrlRef.current = rawUrl;
@@ -1485,7 +1487,7 @@ export default function TradingJournal({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (DEV_TOOLS_ENABLED || authSession?.session_token) return;
-    const appReturn = parseOAuthAppReturnUrl(window.location.href);
+    const appReturn = parseOAuthAppReturnUrl(window.location.href, ANDROID_OAUTH_APP_SCHEME);
     if (appReturn) {
       handleOAuthAppReturn(window.location.href);
       return;
@@ -2243,22 +2245,10 @@ export default function TradingJournal({
         <div className="journal-auth-box">
           <div>
             <strong>{authSession ? `${authSession.user?.display_name || activeProviderLabel} 계정` : '로그인이 필요합니다'}</strong>
-            <span>{authSession ? `${activeProviderLabel}로 연결됨` : DEV_TOOLS_ENABLED ? '기본 개발 계정으로 표시됩니다.' : '복기 보관함과 이용권 관리를 위해 로그인하세요.'}</span>
+            <span>{authSession ? `${activeProviderLabel}로 연결됨` : DEV_TOOLS_ENABLED ? '실제 로그인 또는 개발용 계정으로 연결할 수 있습니다.' : '복기 보관함과 이용권 관리를 위해 로그인하세요.'}</span>
           </div>
           <div className="journal-auth-actions">
-            {DEV_TOOLS_ENABLED && (
-              <>
-                <button className={providerButtonClass('kakao')} disabled={authLoading} onClick={() => handleDevLogin('kakao')}>
-                  <ProviderIcon provider="kakao" />
-                  <span>카카오</span>
-                </button>
-                <button className={providerButtonClass('naver')} disabled={authLoading} onClick={() => handleDevLogin('naver')}>
-                  <ProviderIcon provider="naver" />
-                  <span>네이버</span>
-                </button>
-              </>
-            )}
-            {!DEV_TOOLS_ENABLED && !authSession && (
+            {!authSession && (
               <>
                 <button
                   className={providerButtonClass('kakao')}
@@ -2278,6 +2268,19 @@ export default function TradingJournal({
                   <ProviderIcon provider="naver" />
                   <span>네이버 로그인</span>
                 </button>
+                {DEV_TOOLS_ENABLED && (
+                  <div className="journal-dev-login-actions">
+                    <span>개발용 계정</span>
+                    <button className={providerButtonClass('kakao')} disabled={authLoading} onClick={() => handleDevLogin('kakao')}>
+                      <ProviderIcon provider="kakao" />
+                      <span>개발용 카카오</span>
+                    </button>
+                    <button className={providerButtonClass('naver')} disabled={authLoading} onClick={() => handleDevLogin('naver')}>
+                      <ProviderIcon provider="naver" />
+                      <span>개발용 네이버</span>
+                    </button>
+                  </div>
+                )}
               </>
             )}
             {authSession && (
@@ -2351,7 +2354,7 @@ export default function TradingJournal({
             </div>
             {DEV_TOOLS_ENABLED && (
               <p className="journal-privacy-note">
-                현재는 개발 모드라 위쪽 카카오/네이버 버튼은 개발용 계정 전환입니다. 실제 로그인 테스트는 `VITE_ALPHAMATE_ENV=production` 또는 `VITE_ENABLE_DEV_TOOLS=false`로 실행한 뒤 확인합니다.
+                개발 모드에서는 아래 개발용 계정을 사용할 수 있습니다. 위 카카오/네이버 로그인 버튼은 설정이 있으면 실제 OAuth로 연결됩니다.
               </p>
             )}
           </div>

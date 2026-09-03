@@ -47,6 +47,7 @@ android {
             applicationIdSuffix ".debug"
             resValue "string", "app_name", "StockBoda Debug"
             resValue "string", "title_activity_main", "StockBoda Debug"
+            resValue "string", "custom_url_scheme", "${androidPackageName}.debug"
         }
         release {
             minifyEnabled false
