@@ -22,6 +22,7 @@ import {
 const componentSource = readFileSync(new URL('../src/components/BrokerImport.jsx', import.meta.url), 'utf8');
 const journalSource = readFileSync(new URL('../src/components/TradingJournal.jsx', import.meta.url), 'utf8');
 const extractorSource = readFileSync(new URL('../src/utils/pdfTextExtractor.js', import.meta.url), 'utf8');
+const cssSource = readFileSync(new URL('../src/App.css', import.meta.url), 'utf8');
 
 function layoutItem(str, x, y) {
   return { str, x, y };
@@ -367,6 +368,40 @@ test('rejects ambiguous rows that could carry customer or account information', 
   ].join('\n'));
 
   assert.deepEqual(trades, []);
+});
+
+test('disables broker transfer until a trade is selected and required times are complete', () => {
+  assert.match(componentSource, /const canImportSelectedTrades = selectedTrades\.length > 0 && selectedTimeValidation\.valid/);
+  assert.match(componentSource, /disabled=\{!canImportSelectedTrades\}/);
+  assert.match(componentSource, />\s*매매 복기로 가져오기\s*<\/button>/);
+  assert.doesNotMatch(componentSource, /선택한 거래를 매매복기로 가져오기/);
+  assert.match(componentSource, /거래를 선택하면 매매 복기로 가져올 수 있습니다/);
+  assert.match(componentSource, /필수 체결시간을 입력하면 매매 복기로 가져올 수 있습니다/);
+  assert.match(cssSource, /\.broker-trade-card \{[\s\S]*?grid-template-areas:/);
+  assert.match(cssSource, /\.broker-trade-time \{[\s\S]*?grid-area: time/);
+});
+
+test('CTA policy enables only reviewable selected trade sets', () => {
+  const trade = (id, overrides = {}) => ({
+    id,
+    tradeDate: '2026-09-02',
+    stockName: '삼성전자',
+    symbol: '005930',
+    side: 'buy',
+    tradeTime: null,
+    timeUnknown: true,
+    ...overrides,
+  });
+  const canTransfer = rows => rows.length > 0 && validateTradeTimesForReview(rows).valid;
+
+  assert.equal(canTransfer([]), false);
+  assert.equal(canTransfer([trade('buy'), trade('sell', { side: 'sell' })]), false);
+  assert.equal(canTransfer([
+    trade('buy', { tradeTime: '09:30', timeUnknown: false }),
+    trade('sell', { side: 'sell', tradeTime: '14:10', timeUnknown: false }),
+  ]), true);
+  assert.equal(canTransfer([trade('buy')]), true);
+  assert.equal(canTransfer([trade('buy'), trade('sell', { tradeDate: '2026-09-03', side: 'sell' })]), true);
 });
 
 test('does not merge identical repeated rows', () => {

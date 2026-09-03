@@ -949,8 +949,11 @@ body {
 
 .journal-imported-trade {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(190px, auto);
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "main amount"
+    "time time";
+  align-items: start;
   gap: 10px;
   min-width: 0;
   padding: 10px;
@@ -966,6 +969,7 @@ body {
 }
 
 .journal-imported-trade-main {
+  grid-area: main;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1013,16 +1017,26 @@ body {
 }
 
 .journal-imported-amount {
+  grid-area: amount;
+  align-self: start;
   color: #d9e3f5;
   font-size: 12px;
   text-align: right;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .journal-imported-time {
+  grid-area: time;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid #293858;
+  border-radius: 6px;
+  background: #121d34;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  flex-wrap: wrap;
   gap: 7px;
   color: #9faac0;
   font-size: 11px;
@@ -3155,16 +3169,21 @@ body {
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 8px;
-  padding: 8px 10px;
-  border: 1px solid #252c3b;
-  border-radius: 6px;
-  background: #10141f;
+  padding: 9px 10px;
+  border: 1px solid #30456d;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #121d34, #101722);
 }
 
 .broker-import-selection-toolbar label {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 8px;
+  border: 1px solid #36599b;
+  border-radius: 6px;
+  background: #17284b;
   color: #e0e5f0;
   cursor: pointer;
   font-size: 12px;
@@ -3247,13 +3266,16 @@ body {
 .broker-trade-card {
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-areas:
+    "check side main amount"
+    "check time time time";
+  align-items: start;
   gap: 10px;
   min-width: 0;
-  padding: 11px 10px;
-  border: 1px solid #252c3b;
-  border-radius: 6px;
-  background: #10141f;
+  padding: 10px;
+  border: 1px solid #29344a;
+  border-radius: 9px;
+  background: linear-gradient(145deg, #111927, #10141f);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
@@ -3271,14 +3293,20 @@ body {
   accent-color: #2962ff;
 }
 
+.broker-trade-card > input {
+  grid-area: check;
+  margin-top: 3px;
+}
+
 .broker-trade-side {
+  grid-area: side;
   display: inline-flex;
   min-width: 42px;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  padding: 4px 6px;
-  border-radius: 4px;
+  padding: 5px 7px;
+  border-radius: 5px;
   font-size: 11px;
   font-weight: 800;
 }
@@ -3296,17 +3324,22 @@ body {
 .broker-trade-main,
 .broker-trade-meta,
 .broker-trade-amount {
+  overflow-wrap: anywhere;
   min-width: 0;
 }
 
 .broker-trade-main,
 .broker-trade-meta {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   gap: 7px;
 }
 
 .broker-trade-main {
+  grid-area: main;
+  display: grid;
+  align-content: start;
+  gap: 4px;
   flex-wrap: wrap;
 }
 
@@ -3315,12 +3348,14 @@ body {
   color: #f4f7fb;
   font-size: 13px;
   text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .broker-trade-meta {
+  flex-wrap: wrap;
   color: #8c93a3;
   font-size: 11px;
+  line-height: 1.35;
 }
 
 .broker-trade-meta em {
@@ -3329,6 +3364,7 @@ body {
 }
 
 .broker-trade-amount {
+  grid-area: amount;
   display: grid;
   justify-items: end;
   gap: 3px;
@@ -3338,12 +3374,85 @@ body {
 .broker-trade-amount strong {
   color: #d9e3f5;
   font-size: 12px;
-  white-space: nowrap;
+  line-height: 1.35;
 }
 
 .broker-trade-amount small {
   color: #7f899b;
   font-size: 10px;
+}
+
+.broker-trade-time {
+  grid-area: time;
+  display: grid;
+  grid-template-columns: auto minmax(92px, 110px) minmax(0, max-content);
+  align-items: center;
+  gap: 6px 8px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 8px;
+  border: 1px solid #30456d;
+  border-radius: 7px;
+  background: #121d34;
+  color: #b6c7e9;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.broker-trade-time > span {
+  color: #dbe6ff;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.broker-trade-time > input[type="time"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 5px 6px;
+  border: 1px solid #40557e;
+  border-radius: 5px;
+  background: #171f31;
+  color: #eef2fa;
+}
+
+.broker-trade-time > input[type="time"]:focus {
+  outline: 2px solid #6f9cff;
+  outline-offset: 1px;
+}
+
+.broker-trade-time > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: #b6c7e9;
+  white-space: nowrap;
+}
+
+.broker-trade-time > label input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: #6f9cff;
+}
+
+.broker-import-transfer-actions {
+  margin-top: 12px;
+}
+
+.broker-import-transfer-actions .journal-primary {
+  min-width: 190px;
+}
+
+.broker-import-transfer-hint {
+  margin-top: 8px;
+  color: #c5a776;
+}
+
+.broker-import-transfer-hint.ready {
+  color: #9dc2a7;
 }
 
 .broker-import-next-step {
@@ -3648,6 +3757,9 @@ body {
 
   .journal-imported-trade {
     grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "main amount"
+      "time time";
   }
 
   .journal-imported-amount {
@@ -3684,13 +3796,34 @@ body {
 
   .broker-trade-card {
     grid-template-columns: auto auto minmax(0, 1fr);
+    grid-template-areas:
+      "check side main"
+      "check amount amount"
+      "check time time";
     gap: 8px;
   }
 
   .broker-trade-amount {
-    grid-column: 2 / -1;
+    grid-column: auto;
     justify-items: start;
     text-align: left;
+  }
+
+  .broker-trade-time {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+  }
+
+  .broker-trade-time > span {
+    grid-column: 1 / -1;
+  }
+
+  .broker-trade-time > input[type="time"] {
+    max-width: 112px;
+  }
+
+  .broker-trade-time > label {
+    justify-self: start;
   }
 
   .journal-page,

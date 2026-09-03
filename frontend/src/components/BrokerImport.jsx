@@ -158,6 +158,7 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
   const selectedTimeValidation = validateTradeTimesForReview(selectedTrades);
   const requiredTradeIds = new Set(selectedTimeValidation.requiredTradeIds);
   const missingRequiredTimeIds = new Set(selectedTimeValidation.missingTradeIds);
+  const canImportSelectedTrades = selectedTrades.length > 0 && selectedTimeValidation.valid;
 
   const importSelectedTrades = () => {
     if (!selectedTrades.length) {
@@ -358,11 +359,22 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
                 })}
               </ul>
               <div className="broker-import-actions broker-import-transfer-actions">
-                <button type="button" className="journal-primary" onClick={importSelectedTrades}>
-                  선택한 거래를 매매복기로 가져오기
+                <button
+                  type="button"
+                  className="journal-primary"
+                  onClick={importSelectedTrades}
+                  disabled={!canImportSelectedTrades}
+                  aria-describedby="broker-import-transfer-hint"
+                >
+                  매매 복기로 가져오기
                 </button>
               </div>
-              <p className="broker-import-next-step">
+              <p className={`broker-import-next-step broker-import-transfer-hint${canImportSelectedTrades ? ' ready' : ''}`} id="broker-import-transfer-hint" role="status">
+                {!selectedTrades.length
+                  ? '거래를 선택하면 매매 복기로 가져올 수 있습니다.'
+                  : !selectedTimeValidation.valid
+                    ? '필수 체결시간을 입력하면 매매 복기로 가져올 수 있습니다.'
+                    : '선택한 거래를 매매 복기로 준비합니다.'}{' '}
                 PDF에서 읽은 정보만 준비합니다.{' '}
                 {selectedTimeValidation.requiredGroups.length > 0
                   ? '같은 날 같은 종목의 매수와 매도가 함께 선택되어 있습니다. 정확한 거래 순서를 위해 해당 거래의 체결시간을 입력해주세요.'
