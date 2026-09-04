@@ -23,6 +23,7 @@ PLACEHOLDER_URL_PARTS = ("example.com", "your-api", "your-app", "your-domain", "
 LOCAL_REDIRECT_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
 OAUTH_APP_TICKET_DEFAULT_SECONDS = 180
 OAUTH_APP_TICKET_MAX_SECONDS = 600
+OAUTH_APP_SCHEME_STATE_MARKER = "|stockboda-app-scheme="
 OAUTH_APP_TICKETS = {}
 OAUTH_APP_TICKET_LOCK = threading.Lock()
 
@@ -262,8 +263,15 @@ def _exchange_naver_code(*, code: str, redirect_uri: str, state: str) -> str:
 
 
 
-def _oauth_app_scheme() -> str:
-    return (_env_value("ALPHAMATE_OAUTH_APP_SCHEME") or "com.mariocrat.stockanalyze").strip()
+def _oauth_app_scheme(state: str = "") -> str:
+    configured = (_env_value("ALPHAMATE_OAUTH_APP_SCHEME") or "com.mariocrat.stockanalyze").strip()
+    state_text = str(state or "")
+    marker_index = state_text.rfind(OAUTH_APP_SCHEME_STATE_MARKER)
+    if marker_index < 0:
+        return configured
+    candidate = state_text[marker_index + len(OAUTH_APP_SCHEME_STATE_MARKER):].strip()
+    allowed = {configured, f"{configured}.debug"}
+    return candidate if candidate in allowed else configured
 
 
 def _oauth_app_ticket_ttl_seconds() -> int:
@@ -313,7 +321,7 @@ def create_oauth_app_redirect(*, provider: str, code: str, state: str = "") -> s
         "state": str(state or "").strip(),
         "expires_in": str(ttl),
     })
-    return f"{_oauth_app_scheme()}://oauth/{normalized_provider}?{query}"
+    return f"{_oauth_app_scheme(state)}://oauth/{normalized_provider}?{query}"
 
 
 def create_oauth_app_error_redirect(*, provider: str, state: str = "", error: str = "oauth_cancelled") -> str:
@@ -322,7 +330,7 @@ def create_oauth_app_error_redirect(*, provider: str, state: str = "", error: st
         "error": str(error or "oauth_cancelled").strip(),
         "state": str(state or "").strip(),
     })
-    return f"{_oauth_app_scheme()}://oauth/{normalized_provider}?{query}"
+    return f"{_oauth_app_scheme(state)}://oauth/{normalized_provider}?{query}"
 
 
 def consume_oauth_app_ticket(ticket: str) -> dict:
