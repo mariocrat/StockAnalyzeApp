@@ -44,7 +44,11 @@
 
 ## Backend 배포와 복구
 
-render.yaml은 backend와 다섯 DB의 persistent disk 경로를 정의한다. requirements.txt는 버전 고정이 없고 repository 내 CI workflow는 발견하지 못했다(M4). 외부 자동 배포 설정은 미검증이다. branch push가 배포를 촉발할 수 있는지 확인한다.
+render.yaml은 backend와 다섯 DB의 persistent disk 경로를 정의한다. requirements.txt는 버전 고정이 없고 repository 내 CI workflow는 발견하지 못했다(M4).
+
+production `alphamate-api`는 `render.yaml`의 `autoDeployTrigger: off`로 service Auto-Deploy를 Off로 유지하여 일반 main code push와 production deploy를 분리한다. Blueprint Auto Sync와 service Auto-Deploy는 별도 설정이며, 이 정책은 Blueprint Auto Sync를 끄지 않는다. `render.yaml` 변경은 Blueprint Auto Sync를 통해 production resource 설정 변경과 배포를 일으킬 수 있으므로 production 변경으로 취급하고 push 전에 별도 승인을 받는다. production deploy는 승인된 revision을 기준으로 수행하고 실제 Live revision과 health를 검증한다. 로컬 commit만으로 운영 설정이 바뀌지는 않으므로 정책 반영 여부는 승인된 sync 이후 확인한다.
+
+설정 의미는 Render의 [Blueprint schema](https://render.com/docs/blueprint-spec#autodeploytrigger)와 [Blueprint Auto Sync](https://render.com/docs/infrastructure-as-code)를 따른다.
 
 현재 시작 명령은 backend release validator를 강제하지 않는다. /healthz의 ok와 revision은 생존/출처 확인이며 DB·OAuth·결제·AI 준비 완료 증거가 아니다.
 
