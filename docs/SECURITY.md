@@ -33,9 +33,9 @@ AI 전송 동의와 저장 opt-in을 분리한다. 현재 AI 경로는 Responses
 
 ## 로그와 운영 점검
 
-event_log는 details의 민감한 키를 마스킹하고 크기를 제한한다. 자유 형식 message와 문자열 전체가 자동으로 안전해지는 것은 아니다(M7). 사용자 메모·문서·token을 메시지로 만들지 말고 코드화된 오류와 request ID를 사용한다.
+event_log와 client-event payload는 repository에서 사용하는 명시적인 credential alias를 마스킹하고, 자유 형식 문자열의 percent-encoded query key와 quoted/escaped credential assignment 값을 로그용 사본에서 제거한다. `input_tokens`, `status-code`, `error_code` 같은 운영 metric과 진단 필드는 credential로 취급하지 않는다. 이 방어가 라벨 없는 모든 비정형 secret을 탐지하는 것은 아니므로 사용자 메모·문서·token을 메시지로 만들지 말고 코드화된 오류와 request ID를 사용한다.
 
-OAuth code와 RTDN 공유 token은 URL query 경로에 등장한다. 앱 로그뿐 아니라 Uvicorn/proxy/외부 콘솔의 access log와 retention을 확인해야 한다. 감사한 로컬 로그에서는 해당 query 흔적을 찾지 못했으나 production과 history는 미검증이다.
+OAuth code와 RTDN 공유 token은 URL query 경로에 등장한다. Repository가 소유한 Uvicorn 시작 경로는 raw request target을 출력하는 기본 access log를 끄고 method, route template, status, duration만 담은 application summary를 사용한다. Uvicorn application error handler에는 formatted message/traceback용 credential filter를 설치하며 원본 exception과 propagation은 변경하지 않는다. 이 middleware와 filter는 request query/header/body를 변경하지 않는다. 일부 public-market 429와 CORS preflight는 현재 middleware 순서상 summary에 포함되지 않으며 후속 observability 범위다. Render/proxy/platform이 별도로 만드는 access log와 retention, production history는 여전히 미검증이다.
 
 이벤트 retention은 cache warm-up 경로와 연결되어 있다. 환경변수 하나를 설정했다고 즉시 삭제되었다고 보고하지 말고 실제 실행 경로와 주기를 확인한다.
 

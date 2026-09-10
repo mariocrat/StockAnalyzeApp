@@ -5,6 +5,7 @@ import sqlite3
 import tempfile
 import unittest
 from contextlib import contextmanager
+from time import perf_counter
 
 from fastapi import HTTPException
 
@@ -28,6 +29,111 @@ def patched_env(**values):
 
 
 class EventLogTest(unittest.TestCase):
+    def test_long_user_agent_is_bounded_before_sanitizing_and_boundary_secret_is_redacted(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            boundary_value = (
+                "x" * (event_log.MAX_DETAIL_STRING_LENGTH - 100)
+                + r' {\"verification_token\":\"SYNTHETIC_BOUNDARY_SECRET_DO_NOT_LOG'
+            )
+            multiline_value = (
+                "x" * (event_log.MAX_DETAIL_STRING_LENGTH - 180)
+                + ' private_key="SYNTHETIC_MULTILINE_FIRST\n'
+                + "SYNTHETIC_MULTILINE_SECOND"
+                + "y" * 300
+                + '"'
+            )
+            started_at = perf_counter()
+            event_log.record_event(
+                level="warning",
+                event_type="not_found",
+                method="GET",
+                path="/api/missing",
+                status_code=404,
+                details={
+                    "user_agent": "-" * 4_000,
+                    "boundary": boundary_value,
+                    "multiline_boundary": multiline_value,
+                },
+            )
+            elapsed = perf_counter() - started_at
+            row = event_log.list_events(limit=1)[0]
+
+            self.assertLess(elapsed, 0.75)
+            self.assertLessEqual(
+                len(row["details"]["user_agent"]),
+                event_log.MAX_DETAIL_STRING_LENGTH,
+            )
+            self.assertIn("[truncated]", row["details"]["user_agent"])
+            self.assertNotIn("SYNTHETIC_", str(row))
+            self.assertIn("[redacted]", row["details"]["boundary"])
+            self.assertIn("[redacted]", row["details"]["multiline_boundary"])
+            self.assertIn("[truncated]", row["details"]["multiline_boundary"])
+
+    def test_event_log_redacts_credentials_but_preserves_operational_fields(self):
+        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        ):
+            from backend.core import event_log
+
+            event_log = importlib.reload(event_log)
+            event_log.record_event(
+                level="error",
+                event_type="oauth_callback_failed",
+                method="GET",
+                path=(
+                    "/api/auth/kakao/callback?%63ode=SYNTHETIC_ENCODED_CODE_DO_NOT_LOG"
+                    "&%73tate=SYNTHETIC_ENCODED_STATE_DO_NOT_LOG"
+                    "&code=SYNTHETIC_DUPLICATE_CODE?part=value#fragment"
+                ),
+                message=(
+                    "callback failed?verification_token=SYNTHETIC_VERIFICATION_TOKEN_DO_NOT_LOG"
+                    "&shared_token=SYNTHETIC_SHARED_TOKEN&next=a=b?#fragment "
+                    "status-code=401 error-code=DENIED status_code=401 error_code=DENIED"
+                ),
+                details={
+                    "access_token": "SYNTHETIC_ACCESS_TOKEN_DO_NOT_LOG",
+                    "refreshToken": "SYNTHETIC_REFRESH_TOKEN_DO_NOT_LOG",
+                    "session_token": "SYNTHETIC_SESSION_TOKEN_DO_NOT_LOG",
+                    "verification_token": "SYNTHETIC_VERIFICATION_TOKEN_DO_NOT_LOG",
+                    "shared_token": "SYNTHETIC_SHARED_TOKEN_DO_NOT_LOG",
+                    "X-AlphaMate-RTDN-Token": "SYNTHETIC_RTDN_HEADER_DO_NOT_LOG",
+                    "KAKAO_CLIENT_SECRET": "SYNTHETIC_CLIENT_SECRET_DO_NOT_LOG",
+                    "authorization": "Bearer SYNTHETIC_AUTHORIZATION_DO_NOT_LOG",
+                    "cookie": "session=SYNTHETIC_COOKIE_DO_NOT_LOG",
+                    "input_tokens": 123,
+                    "output_tokens": 45,
+                    "status_code": 401,
+                    "error_code": "OAUTH_CALLBACK_FAILED",
+                    "status-code": 401,
+                    "error-code": "DENIED",
+                    "note": (
+                        r'payload={\"verification_token\":'
+                        r'\"SYNTHETIC_ESCAPED\\\"VALUE&x=y?#fragment\"}'
+                    ),
+                },
+            )
+
+            row = event_log.list_events(limit=1)[0]
+            row_text = str(row)
+
+            self.assertNotIn("SYNTHETIC_", row_text)
+            self.assertIn("[redacted]", row_text)
+            self.assertEqual(123, row["details"]["input_tokens"])
+            self.assertEqual(45, row["details"]["output_tokens"])
+            self.assertEqual(401, row["details"]["status_code"])
+            self.assertEqual("OAUTH_CALLBACK_FAILED", row["details"]["error_code"])
+            self.assertEqual(401, row["details"]["status-code"])
+            self.assertEqual("DENIED", row["details"]["error-code"])
+            self.assertIn("status-code=401", row["message"])
+            self.assertIn("error-code=DENIED", row["message"])
+            self.assertIn("status_code=401", row["message"])
+            self.assertIn("error_code=DENIED", row["message"])
+
     def test_event_log_redacts_secret_like_details(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),

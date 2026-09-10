@@ -49,7 +49,7 @@
 | M4 | P1 / Medium | Python 의존성 미고정, 저장소 CI workflow 미발견. 재현 가능한 설치·CI gate 필요 | RELEASE |
 | M5 | P1 / Medium | export가 매매·복기 각각 고정 건수 한도이며 잘림 표시 없음. 전체 export 계약 보완 | DATA |
 | M6 | P1 / Medium | frontend가 읽는 X-Request-ID/Retry-After의 CORS expose_headers 없음. 실제 HTTP 확인 필요 | TESTING |
-| M7 | P1 / Medium | 자유 형식 로그와 OAuth/RTDN query 노출 경로. proxy/access log 포함 점검 필요 | SECURITY |
+| M7 | P1 / Medium | Repository 소유 Uvicorn access log, application event 및 error traceback credential hotfix 적용. 일부 429/CORS summary와 Render/proxy/platform log 및 production history는 미검증 | SECURITY |
 | M8 | P1 / Medium | localStorage 세션과 Android allowBackup=true. 실제 backup 범위·기기 이동 검증 필요 | SECURITY |
 | M9 | P1 / Medium | 공개 일회성 분석 제한과 X-Forwarded-For 신뢰 경계 점검 필요; 실제 공격 미검증 | SECURITY |
 | M10 | P2 / Low | 과거 문서 경로·명칭·연락처·준비 상태 혼재. 이 지도에서 상태만 구분, 기존 본문·링크 변경은 별도 승인 후속 | 본 문서 |

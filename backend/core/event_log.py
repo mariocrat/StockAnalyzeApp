@@ -8,22 +8,16 @@ from pathlib import Path
 from fastapi import HTTPException
 
 try:
+    from core.credential_redaction import is_credential_key as _should_redact_key
+    from core.credential_redaction import sanitize_text as _sanitize_text
     from core.env import env_value
 except ModuleNotFoundError:
+    from backend.core.credential_redaction import is_credential_key as _should_redact_key
+    from backend.core.credential_redaction import sanitize_text as _sanitize_text
     from backend.core.env import env_value
 
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
-SECRET_KEY_PARTS = {
-    "authorization",
-    "code",
-    "password",
-    "private",
-    "purchase_token",
-    "secret",
-    "signature",
-    "token",
-}
 MAX_DETAIL_STRING_LENGTH = 1000
 MAX_DETAIL_LIST_LENGTH = 50
 MAX_DETAIL_DICT_KEYS = 50
@@ -86,11 +80,6 @@ def _now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
 
 
-def _should_redact_key(key: str) -> bool:
-    normalized = str(key or "").strip().lower()
-    return any(part in normalized for part in SECRET_KEY_PARTS)
-
-
 def _safe_detail_key(key) -> str:
     text = str(key or "")
     if len(text) > MAX_DETAIL_KEY_LENGTH:
@@ -115,12 +104,10 @@ def _redact(value, *, depth: int = 0):
     if isinstance(value, list):
         return [_redact(item, depth=depth + 1) for item in value[:MAX_DETAIL_LIST_LENGTH]]
     if isinstance(value, str):
-        if len(value) > MAX_DETAIL_STRING_LENGTH:
-            return f"{value[:MAX_DETAIL_STRING_LENGTH]}[truncated]"
-        return value
+        return _sanitize_text(value, limit=MAX_DETAIL_STRING_LENGTH)
     if isinstance(value, (int, float, bool)) or value is None:
         return value
-    return str(value)
+    return _sanitize_text(value, limit=MAX_DETAIL_STRING_LENGTH)
 
 
 def _details_json(details: dict | None) -> str:
@@ -144,10 +131,7 @@ def _load_details_json(details_json: str) -> dict:
 
 
 def _short_text(value, fallback: str = "", *, limit: int = MAX_EVENT_FIELD_LENGTH) -> str:
-    text = str(value or fallback)
-    if len(text) > limit:
-        return text[:limit]
-    return text
+    return _sanitize_text(value or fallback, limit=limit)
 
 
 def record_event(

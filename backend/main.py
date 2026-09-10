@@ -50,6 +50,7 @@ from core.readiness import get_app_readiness
 from core.rate_limit import InMemoryRateLimiter
 from core.env import env_value
 from core.event_log import list_events, purge_configured_retention, purge_events_older_than, record_api_exception, record_api_failure, record_event, summarize_events
+from core.http_access_log import CredentialSafeHttpSummaryMiddleware, install_credential_safe_error_logging
 
 from contextlib import asynccontextmanager
 import copy
@@ -500,6 +501,7 @@ def _theme_cache_scheduler(stop_event: threading.Event):
 
 @asynccontextmanager
 async def lifespan(app):
+    install_credential_safe_error_logging()
     scheduler_stop = threading.Event()
     if _warm_cache_on_startup():
         threading.Thread(target=_warm_cache, daemon=True).start()
@@ -514,6 +516,8 @@ async def lifespan(app):
 
 app = FastAPI(title="Stock Analysis API", lifespan=lifespan)
 
+install_credential_safe_error_logging()
+app.add_middleware(CredentialSafeHttpSummaryMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_cors_origins(),
@@ -2042,4 +2046,4 @@ def get_macro(start_date: str, end_date: str):
     return {"data": df.to_dict(orient="records")}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, access_log=False)

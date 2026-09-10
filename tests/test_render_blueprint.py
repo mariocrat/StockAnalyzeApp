@@ -17,7 +17,10 @@ class RenderBlueprintTest(unittest.TestCase):
         self.assertIn("plan: starter", text)
         self.assertIn("region: singapore", text)
         self.assertIn("buildCommand: pip install -r requirements.txt", text)
-        self.assertIn("startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT", text)
+        self.assertIn(
+            "startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT --no-access-log",
+            text,
+        )
         self.assertIn("healthCheckPath: /healthz", text)
         self.assertRegex(text, r"key: ALPHAMATE_WARM_CACHE_ON_STARTUP\n\s+value: false")
         self.assertIn("key: ALPHAMATE_CACHE_DIR", text)
