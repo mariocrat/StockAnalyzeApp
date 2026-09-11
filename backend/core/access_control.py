@@ -16,9 +16,9 @@ from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException
 
 try:
-    from core.env import env_value
+    from core.env import database_path, dev_access_enabled, env_value, is_production
 except ModuleNotFoundError:
-    from backend.core.env import env_value
+    from backend.core.env import database_path, dev_access_enabled, env_value, is_production
 
 
 PRO_MONTHLY_BASIC = 35
@@ -157,10 +157,7 @@ def _short_text(value, *, limit: int) -> str:
 
 
 def _access_db_path() -> Path:
-    configured = _env_value("ALPHAMATE_ACCESS_DB_PATH")
-    if configured:
-        return Path(configured)
-    return DATA_DIR / "access.sqlite3"
+    return database_path("ALPHAMATE_ACCESS_DB_PATH")
 
 
 def _connect_access_db():
@@ -584,13 +581,11 @@ def delete_user_access_data(user_id: str) -> dict:
 
 
 def _is_production() -> bool:
-    return _env_value("ALPHAMATE_ENV").lower() == "production"
+    return is_production()
 
 
 def _dev_access_enabled() -> bool:
-    if _is_production():
-        return False
-    return _env_value("ALPHAMATE_ALLOW_DEV_ACCESS").lower() not in {"0", "false", "no"}
+    return dev_access_enabled()
 
 
 def _allow_advanced_for_basic() -> bool:
@@ -1191,7 +1186,7 @@ def _hash_purchase_token(token: str) -> str:
 
 def _purchase_token_cipher() -> tuple[Fernet, str]:
     configured = _env_value("GOOGLE_PLAY_PURCHASE_TOKEN_ENCRYPTION_KEY")
-    if not configured and not _is_production():
+    if not configured and _dev_access_enabled():
         configured = "alphamate-development-purchase-token-key"
     if not configured:
         raise HTTPException(status_code=503, detail="Google Play purchase token encryption is not configured.")

@@ -10,9 +10,9 @@ from pathlib import Path
 from fastapi import HTTPException
 
 try:
-    from core.env import env_value
+    from core.env import database_path, dev_access_enabled, env_value, is_production
 except ModuleNotFoundError:
-    from backend.core.env import env_value
+    from backend.core.env import database_path, dev_access_enabled, env_value, is_production
 
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
@@ -36,14 +36,11 @@ def _env_value(name: str) -> str:
 
 
 def _is_production() -> bool:
-    return _env_value("ALPHAMATE_ENV").lower() == "production"
+    return is_production()
 
 
 def _account_db_path() -> Path:
-    configured = _env_value("ALPHAMATE_ACCOUNT_DB_PATH")
-    if configured:
-        return Path(configured)
-    return DATA_DIR / "accounts.sqlite3"
+    return database_path("ALPHAMATE_ACCOUNT_DB_PATH")
 
 
 def _now() -> str:
@@ -412,8 +409,8 @@ def login_review_access(*, review_id: str, password: str) -> dict:
 
 
 def login_dev_provider(*, provider: str, provider_user_id: str, display_name: str = "") -> dict:
-    if _is_production():
-        raise HTTPException(status_code=403, detail="Development login is disabled in production.")
+    if not dev_access_enabled():
+        raise HTTPException(status_code=403, detail="Development login is disabled.")
     return login_provider_identity(
         provider=provider,
         provider_user_id=provider_user_id,

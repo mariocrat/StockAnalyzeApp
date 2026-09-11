@@ -1,12 +1,23 @@
-import importlib
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from fastapi import HTTPException
 
 
 class OAuthLoginTest(unittest.TestCase):
+    def setUp(self):
+        # Restore this test's process settings even when assertions fail.
+        environment = patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+
+    def _replace(self, target, name, value):
+        replacement = patch.object(target, name, value)
+        replacement.start()
+        self.addCleanup(replacement.stop)
+
     def test_oauth_request_timeout_setting_is_capped(self):
         previous = os.environ.get("ALPHAMATE_OAUTH_TIMEOUT_SECONDS")
         try:
@@ -14,7 +25,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             captured = {}
 
             class FakeResponse:
@@ -31,8 +41,8 @@ class OAuthLoginTest(unittest.TestCase):
                 captured["get_timeout"] = timeout
                 return FakeResponse()
 
-            oauth_login.requests.post = fake_post
-            oauth_login.requests.get = fake_get
+            self._replace(oauth_login.requests, "post", fake_post)
+            self._replace(oauth_login.requests, "get", fake_get)
 
             self.assertEqual({"ok": True}, oauth_login._exchange_json("https://example.com/token", {"code": "x"}))
             self.assertEqual({"ok": True}, oauth_login._request_json("https://example.com/me", "token"))
@@ -51,9 +61,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import access_control, account_store, oauth_login
 
-            account_store = importlib.reload(account_store)
-            access_control = importlib.reload(access_control)
-            oauth_login = importlib.reload(oauth_login)
 
             def fake_request_json(url, token):
                 self.assertEqual("https://kapi.kakao.com/v2/user/me", url)
@@ -66,7 +73,7 @@ class OAuthLoginTest(unittest.TestCase):
                     },
                 }
 
-            oauth_login._request_json = fake_request_json
+            self._replace(oauth_login, "_request_json", fake_request_json)
 
             session = oauth_login.login_oauth_provider(
                 provider="kakao",
@@ -100,8 +107,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import account_store, oauth_login
 
-            account_store = importlib.reload(account_store)
-            oauth_login = importlib.reload(oauth_login)
 
             def fake_request_json(url, token):
                 self.assertEqual("https://openapi.naver.com/v1/nid/me", url)
@@ -115,7 +120,7 @@ class OAuthLoginTest(unittest.TestCase):
                     },
                 }
 
-            oauth_login._request_json = fake_request_json
+            self._replace(oauth_login, "_request_json", fake_request_json)
 
             session = oauth_login.login_oauth_provider(
                 provider="naver",
@@ -143,8 +148,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import account_store, oauth_login
 
-            account_store = importlib.reload(account_store)
-            oauth_login = importlib.reload(oauth_login)
 
             def fake_exchange(url, payload, headers=None):
                 self.assertEqual("https://kauth.kakao.com/oauth/token", url)
@@ -163,8 +166,8 @@ class OAuthLoginTest(unittest.TestCase):
                     "kakao_account": {"profile": {"nickname": "교환 카카오"}},
                 }
 
-            oauth_login._exchange_json = fake_exchange
-            oauth_login._request_json = fake_request_json
+            self._replace(oauth_login, "_exchange_json", fake_exchange)
+            self._replace(oauth_login, "_request_json", fake_request_json)
 
             session = oauth_login.login_oauth_code(
                 provider="kakao",
@@ -184,8 +187,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import account_store, oauth_login
 
-            account_store = importlib.reload(account_store)
-            oauth_login = importlib.reload(oauth_login)
 
             def fake_exchange(url, payload, headers=None):
                 self.assertEqual("https://nid.naver.com/oauth2.0/token", url)
@@ -207,8 +208,8 @@ class OAuthLoginTest(unittest.TestCase):
                     },
                 }
 
-            oauth_login._exchange_json = fake_exchange
-            oauth_login._request_json = fake_request_json
+            self._replace(oauth_login, "_exchange_json", fake_exchange)
+            self._replace(oauth_login, "_request_json", fake_request_json)
 
             session = oauth_login.login_oauth_code(
                 provider="naver",
@@ -228,7 +229,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
 
             with self.assertRaises(HTTPException) as raised:
                 oauth_login.login_oauth_code(
@@ -249,7 +249,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             with self.assertRaises(HTTPException) as raised:
                 oauth_login._configured_redirect_uri("kakao", "https://app.alphamate.kr/auth/kakao")
 
@@ -271,7 +270,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             with self.assertRaises(HTTPException) as kakao_raised:
                 oauth_login._configured_redirect_uri("kakao", "")
             with self.assertRaises(HTTPException) as naver_raised:
@@ -295,7 +293,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             with self.assertRaises(HTTPException) as raised:
                 oauth_login._configured_redirect_uri("kakao", "https://app.alphamate.kr/auth/kakao")
 
@@ -312,12 +309,11 @@ class OAuthLoginTest(unittest.TestCase):
 
         from backend.core import oauth_login
 
-        oauth_login = importlib.reload(oauth_login)
-        oauth_login.login_oauth_code = lambda **kwargs: {
+        self._replace(oauth_login, "login_oauth_code", lambda **kwargs: {
             "session_token": "secret-session-token",
             "token_type": "bearer",
             "user": {"id": "user-1"},
-        }
+        })
 
         redirect_url = oauth_login.create_oauth_app_redirect(
             provider="kakao",
@@ -344,7 +340,6 @@ class OAuthLoginTest(unittest.TestCase):
 
         from backend.core import oauth_login
 
-        oauth_login = importlib.reload(oauth_login)
         status = oauth_login.get_oauth_config_status()
 
         self.assertFalse(status["providers"]["kakao"]["server_ready"])
@@ -364,7 +359,6 @@ class OAuthLoginTest(unittest.TestCase):
 
         from backend.core import oauth_login
 
-        oauth_login = importlib.reload(oauth_login)
         status = oauth_login.get_oauth_config_status()
 
         self.assertTrue(status["providers"]["kakao"]["server_ready"])
@@ -390,7 +384,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             status = oauth_login.get_oauth_config_status()
 
             self.assertFalse(status["providers"]["kakao"]["server_ready"])
@@ -428,7 +421,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             status = oauth_login.get_oauth_config_status()
 
             self.assertFalse(status["providers"]["kakao"]["server_ready"])

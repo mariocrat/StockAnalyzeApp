@@ -7,14 +7,15 @@ import yfinance as yf
 
 from core.ai_review import _fmt8, _parse_date, _prepare_ohlcv
 from core.data_fetcher import get_stock_ohlcv
+from core.env import BACKEND_ROOT, cache_directory, is_production
 
 
-YF_CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache" / "yfinance"
-try:
-    YF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    yf.set_tz_cache_location(str(YF_CACHE_DIR))
-except Exception:
-    pass
+def initialize_yfinance_cache():
+    cache = cache_directory()
+    # Preserve production's existing yfinance location; test/dev use isolated cache.
+    path = (BACKEND_ROOT / ".cache" if is_production() else cache) / "yfinance"
+    path.mkdir(parents=True, exist_ok=True)
+    yf.set_tz_cache_location(str(path))
 
 
 def _to_float(value, default=0.0):

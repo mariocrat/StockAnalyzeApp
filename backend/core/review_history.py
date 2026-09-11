@@ -4,17 +4,16 @@ import sqlite3
 from pathlib import Path
 
 try:
-    from core.env import env_value
+    from core.env import database_path, env_value
 except ModuleNotFoundError:
-    from backend.core.env import env_value
+    from backend.core.env import database_path, env_value
 
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 
 def _db_path() -> Path:
-    configured = env_value("ALPHAMATE_REVIEW_HISTORY_DB_PATH")
-    return Path(configured) if configured else DATA_DIR / "review_history.sqlite3"
+    return database_path("ALPHAMATE_REVIEW_HISTORY_DB_PATH")
 
 
 def _now() -> str:
