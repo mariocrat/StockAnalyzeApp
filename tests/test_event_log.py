@@ -1,38 +1,19 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
 import importlib
 import datetime
-import os
 import sqlite3
-import tempfile
 import unittest
-from contextlib import contextmanager
 from time import perf_counter
 
 from fastapi import HTTPException
 
 
-@contextmanager
-def patched_env(**values):
-    previous = {key: os.environ.get(key) for key in values}
-    try:
-        for key, value in values.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
-        yield
-    finally:
-        for key, value in previous.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
-
-
 class EventLogTest(unittest.TestCase):
     def test_long_user_agent_is_bounded_before_sanitizing_and_boundary_secret_is_redacted(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -75,9 +56,7 @@ class EventLogTest(unittest.TestCase):
             self.assertIn("[truncated]", row["details"]["multiline_boundary"])
 
     def test_event_log_redacts_credentials_but_preserves_operational_fields(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -135,9 +114,7 @@ class EventLogTest(unittest.TestCase):
             self.assertIn("error_code=DENIED", row["message"])
 
     def test_event_log_redacts_secret_like_details(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -165,9 +142,7 @@ class EventLogTest(unittest.TestCase):
             self.assertIn("[redacted]", row_text)
 
     def test_event_log_truncates_oversized_detail_values(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -190,9 +165,7 @@ class EventLogTest(unittest.TestCase):
             self.assertIn("__truncated_keys__", row["details"]["many_keys"])
 
     def test_event_log_truncates_oversized_top_level_fields(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -215,9 +188,7 @@ class EventLogTest(unittest.TestCase):
             self.assertLessEqual(len(row["message"]), event_log.MAX_EVENT_MESSAGE_LENGTH)
 
     def test_event_log_truncates_oversized_detail_keys(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -241,9 +212,7 @@ class EventLogTest(unittest.TestCase):
             self.assertNotIn("secret-session-token", row_text)
 
     def test_event_log_truncates_deeply_nested_detail_values(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -264,9 +233,7 @@ class EventLogTest(unittest.TestCase):
             self.assertNotIn("leaf", row_text)
 
     def test_event_log_truncates_oversized_details_json(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -294,10 +261,7 @@ class EventLogTest(unittest.TestCase):
             self.assertNotIn("secret-session-token", row_text)
 
     def test_api_failure_event_helper_records_without_authorization_token(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-            ALPHAMATE_ENV="development",
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -326,9 +290,7 @@ class EventLogTest(unittest.TestCase):
             self.assertNotIn("secret-purchase-token", row_text)
 
     def test_http_exception_message_is_safe_for_event_log(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -348,9 +310,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual("request-123", rows[0]["details"]["request_id"])
 
     def test_list_events_can_filter_by_level_and_event_type(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -374,9 +334,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual("google_play_purchase_failed", rows[0]["event_type"])
 
     def test_list_events_survives_invalid_details_json_rows(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -403,9 +361,7 @@ class EventLogTest(unittest.TestCase):
             self.assertTrue(rows[0]["details"]["__invalid_details_json__"])
 
     def test_list_events_omits_raw_details_json_from_results(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -422,9 +378,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual("visible", row["details"]["safe"])
 
     def test_list_events_can_filter_by_request_id(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -449,9 +403,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual("request-target", rows[0]["details"]["request_id"])
 
     def test_list_events_treats_request_id_like_wildcards_literally(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -475,9 +427,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual([], rows)
 
     def test_list_events_can_filter_by_user_path_and_status_code(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -516,9 +466,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(402, rows[0]["status_code"])
 
     def test_list_events_can_filter_by_event_id_and_created_range(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -555,9 +503,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(target_created_at, rows[0]["created_at"])
 
     def test_list_events_can_offset_for_next_page(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -586,9 +532,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual([first["id"]], [row["id"] for row in second_page])
 
     def test_summarize_events_groups_recent_events(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -605,9 +549,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(2, summary["top_events"][0]["count"])
 
     def test_summarize_events_groups_status_codes_and_users(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -643,9 +585,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual({"name": "user-a", "count": 2}, summary["top_users"][0])
 
     def test_summarize_events_reports_sample_offset(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -675,9 +615,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual({"/second": 1}, summary["by_path"])
 
     def test_summarize_events_uses_the_same_filters_as_event_lookup(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -732,9 +670,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual({"/api/journal/google-play-purchase": 1}, summary["by_path"])
 
     def test_purge_events_older_than_retention_days_keeps_recent_events(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -762,9 +698,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual([recent_event["id"]], [row["id"] for row in rows])
 
     def test_purge_events_older_than_rejects_excessive_retention_days(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
-        ):
+        with storage_fixture():
             from backend.core import event_log
 
             event_log = importlib.reload(event_log)
@@ -775,8 +709,7 @@ class EventLogTest(unittest.TestCase):
             self.assertIn("retention_days", str(blocked.exception))
 
     def test_purge_configured_retention_skips_without_setting(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        with storage_fixture(
             ALPHAMATE_EVENT_LOG_RETENTION_DAYS=None,
         ):
             from backend.core import event_log
@@ -791,8 +724,7 @@ class EventLogTest(unittest.TestCase):
             self.assertEqual(1, len(rows))
 
     def test_purge_configured_retention_uses_environment_setting(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
+        with storage_fixture(
             ALPHAMATE_EVENT_LOG_RETENTION_DAYS="90",
         ):
             from backend.core import event_log

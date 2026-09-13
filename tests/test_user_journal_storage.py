@@ -1,14 +1,14 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
 import importlib
-import os
-import tempfile
 import unittest
 
 
 class UserJournalStorageTest(unittest.TestCase):
     def test_saved_trades_are_visible_only_to_their_owner(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = os.path.join(tmpdir, "trades.sqlite3")
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"):
 
             from backend.core import account_store, journal
 
@@ -44,9 +44,7 @@ class UserJournalStorageTest(unittest.TestCase):
             self.assertEqual([], journal.list_trades(user_id=naver_user_id))
 
     def test_clear_trades_removes_only_the_requested_user_records(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = os.path.join(tmpdir, "trades.sqlite3")
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"):
 
             from backend.core import account_store, journal
 

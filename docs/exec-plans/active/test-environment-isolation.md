@@ -1,12 +1,12 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. Prove H4-A1 with synthetic probes and the pure rate limiter module only.
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; the current authorized step is H4-A2-1 core storage testcase fixture migration only.
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
 Branch: `fix/test-environment-isolation`; worktree: `D:/Project/Vibe/StockBoda.worktrees/test-isolation`, initially clean.
-Only tests foundation/runner/self-tests, minimal Phase A helper extraction, and this plan may change.
+A1 originally allowed only tests foundation/runner/self-tests, minimal Phase A helper extraction, and this plan. Current A2-1 scope allows the five storage test modules, tests-only shared fixture/focused regressions, pure main/AI/consent test-file separation, and this plan; A1 foundation and production files remain unchanged.
 Main's unstaged `store-assets/google-play/ko-KR/README.md` is excluded; blob hash `e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61`.
 
 ## Decisions
@@ -18,8 +18,8 @@ Main's unstaged `store-assets/google-play/ko-KR/README.md` is excluded; blob has
 - No package installation; existing main .venv interpreter/dependencies may be read with bytecode disabled. No private settings/data are copied.
 
 ## Current Status
-- H4-A1 isolation foundation: F1 correction and local regression complete; independent re-verification required (prior acceptance was held for F1).
-- H4-A2 DB/env/CWD fixture migration: deferred.
+- H4-A1 isolation foundation: independent re-verification approved by the user; final HEAD `bc7ccfb4a26bb76125c74a5696c79751399534be` (preceded by `11312695a17e9a0d71f4186baadb79600cf6ecae`). Historical failures/F1 records below are retained.
+- H4-A2 DB/env/CWD fixture migration: A2-1 core storage implementation, focused execution and independent static review complete; ready for independent execution verification. Other A2 targets deferred.
 - H4-B1 external/filesystem isolation: deferred.
 - H4-B2 startup/background/global lifecycle: deferred.
 - H4-C frontend isolation: deferred.
@@ -30,17 +30,17 @@ Main's unstaged `store-assets/google-play/ko-KR/README.md` is excluded; blob has
 
 ## Verification
 2026-09-13: read-only Git preflight matches all user expectations; no staged/untracked main files, only protected README unstaged. Named branch/path did not exist before creation.
-Allowed commands: new self-tests/synthetic child probes, explicit isolated rate limiter, directly related safe Phase A harness/config tests, git diff --check.
+A1 allowed commands: new self-tests/synthetic child probes, explicit isolated rate limiter, directly related safe Phase A harness/config tests, git diff --check. A2-1 additionally allows only the five named storage modules through the A1 runner and focused testcase fixture/direct-entry regressions, as recorded below.
 Tests may write only disposable synthetic roots and must block external requests. No full discovery or verify_project.ps1.
 
 ## Remaining / Unverified
 H4 as a whole is not resolved. Python audit/patch guards are regression boundaries for cooperative tests, not an OS security sandbox against hostile native code. Full async/native transport coverage is B1. Full lifecycle/thread ownership is B2.
 
 ## Next Step
-Inspect the exact A1 staged diff and commit with `test: add isolated backend test foundation`; no push. After commit, wait for independent acceptance or further user direction. Do not begin A2/B1/B2/C/D.
+Complete the explicit staged/full-diff commit gate for `test: isolate core storage test fixtures`, then wait for independent A2-1 execution verification and user direction; no push or further milestone implementation.
 
 ## Out of Scope
-A2/B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
+Remaining A2 and all B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
 
 ## A1 stop record — 2026-09-13
 
@@ -180,3 +180,78 @@ Independent read-only static review first identified the custom-factory gap; fin
 
 ### Git and next step
 Only module_isolation.py, the three SQLite regression files, and this ExecPlan are in F1 scope. Inspect whitespace and full staged diff, then commit as `test: block sqlite isolation escapes` in a new commit (no amend of 1131269). No push. After commit, wait for independent re-verification/user direction. Main/README protection and A2/B1/B2/C/D deferrals remain unchanged.
+
+
+## H4-A2-1 authorized start and pre-write inventory — 2026-09-14
+
+Preflight: dedicated worktree/branch and starting HEAD `bc7ccfb4a26bb76125c74a5696c79751399534be` match; clean, no staged/untracked work. Both A1 commits and this active plan exist. Main has only its excluded README modification, hash `e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61`. Main Git status required a command-local safe.directory override, with no config write.
+
+| Module | Tests | DBs and indirect use | Original fixture/global/connection findings |
+| --- | --- | --- | --- |
+| test_account_store | 8 | accounts; access for wallets; deletion touches all five stores | Per-test TemporaryDirectory, usually partial DB env assignments without restoration. Privacy-version test has try/finally restoration. Module reloads reset import-time consent settings. Deletion assigns an SSV verification lambda without restoring it. Three direct SQLite connections use closing. |
+| test_access_control_persistence | 4 | access, with account session lookup possible | TemporaryDirectory; two patch.dict contexts restore env, two direct assignments do not. Reloads access_control (including in-test persistence check). No test-created connection. |
+| test_user_journal_storage | 2 | accounts + journal | TemporaryDirectory and direct unrestored env assignments; both modules reloaded. No test-created connection. |
+| test_review_history | 6 before separation; 2 storage + 4 deferred | Storage tests: review DB; main/AI cases: accounts/access/journal/review and indirect main dependencies | Partial paths and unrestored env. Main cases mutate sys.path and main functions. User explicitly approved pure file separation; four method bodies must remain identical and must not run in A2-1. |
+| test_event_log | 26 | event DB | TemporaryDirectory and local patched_env restores named settings, but supplies only one DB path. Module reloads; eight direct connections close in finally. |
+
+Partial path sets can use module-level fallback DBs and leave env pointing at removed directories; other testcase mutations can survive to the next test. Existing tests generally allocate different direct DBs, but do not own the full DB/cache/temp set. Production path resolvers consult configuration at call time; retain reloads and all product assertions. No production lifecycle refactor is needed.
+
+Design: tests-only storage_fixture context reuses current_boundary, sanitized_environment, DB_FILES-backed path allocation and validate_configuration. Each context owns a fresh child root with all five DBs/cache/temp/config, sanitized env, restoring env/temp/CWD, and ExitStack-owned optional real SQLite connections/patches. Existing explicit connection closes remain. Import-time gate checks active A1 guard and test-root invariants before target dependencies. This adds no runner, guard or testcase-per-process framework.
+
+Scope addition: move four unchanged main/AI/consent methods to tests/test_main_ai_review_history_consent.py as A2-1 test-scope separation; count/text/AST comparison is static only. Their execution and isolation migration are deferred to later A2. All prior A1 failure/F1 history remains intact. B1/B2/C/D remain deferred.
+
+### Account migration validation
+First isolated account run: 8 tests, 5 errors (development login disabled), 0 violations, restoration/cleanup true. The original tests implicitly depended on ALPHAMATE_ALLOW_DEV_ACCESS left by earlier tests. Set the scenario flag explicitly in each login context (not the shared default); no product assertion or production behavior changed. This is the first failure for this cause; next run validates the correction.
+
+Account correction PASS: 8 tests, 0 unexpected violations, restoration/patch restoration/container cleanup all true. Full five-store deletion assertions retained; SSV lambda now restoring patch. Proceeding to access_control_persistence.
+
+Access persistence PASS: 4 tests, 0 unexpected violations, restoration/patch restoration/container cleanup true. In-test reload persistence and real access SQLite retained. Journal contexts explicitly enable synthetic dev login as required by the account finding.
+
+Journal storage PASS: 2 tests, 0 unexpected violations, all restoration/cleanup true. Review test-scope separation static check PASS: 6 original = 2 storage + 4 deferred; method names preserved, each moved method source text and AST identical. The new main/AI/consent module was not imported or executed.
+
+Review storage PASS: 2 tests, 0 unexpected violations, all restoration/cleanup true. Event log now uses the shared full path context; original eight try/finally SQLite closes retained.
+
+### Event log migration validation
+Initial run: 26 tests, 1 error, 0 violations, restoration/cleanup true. Inventory refinement: one legacy context explicitly selected development; the new fixture correctly rejected overriding its test environment. Static record_api_failure -> record_event inspection shows no environment-specific product branch, only the storage resolver. Removed that obsolete fixture setting to retain ALPHAMATE_ENV=test, keeping the input, redaction and logging assertions unchanged. Corrected run PASS: 26 tests, 0 unexpected violations, all restoration/cleanup true. This was one failure for a distinct cause, not a repeated guard bypass attempt.
+
+All five target modules have now passed sequentially: 8 + 4 + 2 + 2 + 26 = 42 storage tests. No A1/Phase A foundation, production or other worktree file was changed. Next: focused sequential testcase/failure restoration/connection and direct execution regression; then minimum A1 regression.
+
+
+## H4-A2-1 verification and closeout — 2026-09-14
+
+### Final fixture and independent static review
+An independent read-only reviewer found that the initial fixture reused sanitized_environment with a testcase root whose parent was the module temp directory. Although tempfile.tempdir was local, explicit TEMP/TMP/TMPDIR writes could remain shared. Corrected without changing A1: own a unique testcase container under the A1 root/temp, place ALPHAMATE_TEST_ROOT at container/runtime, and reuse sanitized_environment so OS temp variables select that unique container. The entire container is cleaned. The production resolver's strict TEST_ROOT-below-TMPDIR invariant remains intact.
+
+All five database files use the existing DB_FILES filenames under container/runtime (accounts.sqlite3, access.sqlite3, trades.sqlite3, review_history.sqlite3, event_log.sqlite3); cache, config and tempfile.tempdir are under runtime. Environment and CWD restore via ExitStack, test-created registered connections close before deletion, and existing explicit closing/finally blocks remain unchanged. Overrides cannot replace isolation configuration. SSV lambda replacement is restoring; existing per-test module reloads and in-test access persistence reload remain.
+
+Reviewer inspected the corrected fixture and explicit env-temp regression and reported no remaining actionable static issue. The reviewer did not run tests; runtime evidence belongs to the implementation run below. Independent A2-1 execution verification remains the next step.
+
+### Commands and outcomes
+Cwd: D:/Project/Vibe/StockBoda.worktrees/test-isolation, branch fix/test-environment-isolation, starting HEAD bc7ccfb4a26bb76125c74a5696c79751399534be plus this scoped working diff.
+PY = D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe, used read-only with -B; no install or main writes.
+
+| Command | Result and evidence |
+| --- | --- |
+| `PY -B tests/run_isolated_tests.py tests.test_account_store` | Final PASS, 8 tests, 0 violations/unexpected, restored/patches_restored/cleanup true; initial scenario-env failure recorded above. |
+| `PY -B tests/run_isolated_tests.py tests.test_access_control_persistence` | PASS, 4 tests, 0 violations/unexpected, all restoration/cleanup true. |
+| `PY -B tests/run_isolated_tests.py tests.test_user_journal_storage` | PASS, 2 tests, 0 violations/unexpected, all restoration/cleanup true. |
+| `PY -B tests/run_isolated_tests.py tests.test_review_history` | PASS, 2 storage tests only, 0 violations/unexpected, all restoration/cleanup true. |
+| `PY -B tests/run_isolated_tests.py tests.test_event_log` | Final PASS, 26 tests, 0 violations/unexpected, all restoration/cleanup true; initial obsolete development setting failure recorded above. |
+| `PY -B -m unittest tests.test_storage_fixture_runner -v` | PASS, 2 coordinator tests. Runs 4 focused fixture tests in an A1 child with 0 unexpected violations and restoration/container cleanup asserted; direct imports of all 5 migrated modules fail before storage dependencies/file creation even with forged test env. Repeated after testcase-container correction: PASS. |
+| `PY -B tests/run_isolated_tests.py tests.test_account_store tests.test_access_control_persistence tests.test_user_journal_storage tests.test_review_history tests.test_event_log` | Final testcase-container correction: sequential module children all PASS, 42 tests total, each 0 violations/unexpected and restored/patches_restored/cleanup true. |
+| `PY -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v` | PASS, 14 A1 coordinator/result tests; synthetic child 9 tests/27 expected/0 unexpected and SQLite child 5 tests/19 expected/0 unexpected. Deliberately swallowed-violation negative children each fail as required, with one unacknowledged violation and cleanup true. |
+| `PY -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit` | PASS, separate 1 + 3 test children, 0 violations/unexpected, all restoration/cleanup true. |
+| Static AST/source comparison against starting HEAD | PASS: original five modules' 46 test names/counts and every self.assert* call preserved across the split. 42 migrated + 4 deferred = 46; 6 added fixture/coordinator tests. Each deferred method source and AST identical; no target import/execution for this comparison. |
+| `git diff --check` and production/foundation diff | PASS before staging; no backend, main.py, A1/Phase A helper/runner modification. Full staged diff and staged whitelist are required before commit. |
+
+### Testcase isolation evidence
+Focused Writer/Reader unittest cases run consecutively inside one module child after success, assertion failure, body exception and setUp failure. Each writer creates a real SQLite table/row in all five DBs, cache, relative data, tempfile files, and explicit TEMP/TMP/TMPDIR files; mutates/deletes env keys; and replaces an object attribute. Before/inside the next testcase, checks prove old containers absent, handles raise ProgrammingError, new paths unique and new SQLite schema empty, no cache/data/temp/env residue, original attribute restored, and CWD/temp/env restored. Context-body exception with cleared env also restores and closes. Synthetic host marker is absent in the child. Invalid environment/root/path and reserved override checks fail before testcase storage allocation.
+
+These are local static/unit/isolated-process results. No claim of OS sandbox security or full native/async/global lifecycle isolation is added. Phase A focused tests were not rerun because its helper was unchanged. No full discovery, 46-test full run, official wrapper, frontend/Android, production/provider/network or device verification was executed.
+
+### Git/protection and remaining scope
+Only ten A2-1 files: this plan; tests/storage_fixture.py; tests/test_storage_fixture.py; tests/test_storage_fixture_runner.py; tests/test_account_store.py; tests/test_access_control_persistence.py; tests/test_user_journal_storage.py; tests/test_review_history.py; tests/test_event_log.py; tests/test_main_ai_review_history_consent.py.
+
+Main status rechecked after validation: only the pre-existing unstaged store-assets/google-play/ko-KR/README.md. Its blob hash remains e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. No other worktree was modified. Commit authorized only after scoped staged/full-diff review, with subject `test: isolate core storage test fixtures`; no A1 amend, push, merge or rebase.
+
+Deferred: the four main/AI/consent tests moved unchanged to tests/test_main_ai_review_history_consent.py were not executed. Remaining A2 includes auth_routes, oauth_login, me_data_routes, review_access, billing_readiness, admin_event_routes, other main/API/AI/market/cache and release-validator test isolation. All B1 external/filesystem, B2 startup/background/global lifecycle, C frontend and D official entrypoint/closeout remain deferred. A2-1 is ready to request independent execution verification; H4/A2 overall are not complete.
