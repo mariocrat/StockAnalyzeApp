@@ -66,7 +66,7 @@ H1의 과거 스레드 조사에서는 일반 debug가 release Vite mode의 mobi
 
 ### Phase A Implementation Steps
 
-아래는 향후 구현 순서이며 현재 모두 미착수다. 환경 판정만 고친 상태에서 journal loader 불일치를 남긴 결과를 완료·배포하지 않는다. 한 worktree의 backend safety foundation 변경으로 연결해 검증한다.
+아래는 계획 당시의 구현 순서다. Phase A 범위는 최종 closeout에서 완료되었고, H1 및 후속 범위는 여전히 Deferred다. 환경 판정만 고친 상태에서 journal loader 불일치를 남긴 결과를 완료·배포하지 않는다는 원칙을 유지한다.
 
 1. **공통 환경/설정 기반:** `core/env.py`와 관련 소비 지점을 확인하고 순수 환경 판정 및 설정 검증을 중앙화한다. 명시 파일 단일 출처와 process-only 실행 계약을 먼저 집중 테스트로 고정한다. 설정 오류 메시지는 이름/오류 종류만 포함한다.
 2. **DB loader/path 정렬:** account/access/journal/review-history/event-log의 최종 경로를 같은 규칙으로 해석한다. CWD 변경에도 경로가 같고 test가 임시 경로만 사용할 수 있게 한다. 기존 production 경로 정책을 강화하거나 schema를 바꾸지 않는다.
@@ -76,14 +76,14 @@ H1의 과거 스레드 조사에서는 일반 debug가 release Vite mode의 mobi
 
 ### Current Status
 
-2026-09-11 구현 재개 및 중단 기록:
+2026-09-11 구현 재개 및 중단 당시 기록 (최종 closeout에서 갱신됨):
 
 - 사용자 후속 지시로 Phase A 구현이 승인되었다. 위 문서 작성 당시의 단일 파일 제한은 이번 구현 승인으로 대체되며 Deferred는 그대로 유지한다.
 - 시작 branch/HEAD/main/origin-main은 지정 baseline과 일치했다. 시작 변경은 이 untracked ExecPlan 하나뿐이었다.
-- 중앙 환경 enum/명시 파일 단일 출처, 다섯 DB 경로 검증, dev-access opt-in, 저장 매매 route의 필수 인증, import/lifespan 선행 gate 및 지연 yfinance cache 초기화 코드를 작성했다. 아직 검증 완료가 아니므로 아래 구현 완료 체크는 유지한다.
+- 중앙 환경 enum/명시 파일 단일 출처, 다섯 DB 경로 검증, dev-access opt-in, 저장 매매 route의 필수 인증, import/lifespan 선행 gate 및 지연 yfinance cache 초기화 코드를 작성했다. 최종 구현·독립 검증·production 적용 결과는 아래 closeout에 기록한다.
 - Test 경로 검증을 위해 `ALPHAMATE_TEST_ROOT`를 추가했다. Test에서는 다섯 DB와 cache 경로를 모두 명시하고 system temporary directory 아래 root 및 경로 탈출/충돌을 검사한다. Development 기본 데이터/cache는 기존 backend 경로 아래 development 하위 디렉터리다. Production 기본 경로와 기존 yfinance cache 위치는 보존한다.
 - `tests/phase_a_isolation.py`, `tests/test_phase_a_environment.py`, `tests/run_phase_a_tests.py`를 작성했다. 임시 root 밖 쓰기/DB 접근, socket 및 requests/curl transport 외부 통신을 차단한다. 사용자의 실제 환경파일은 읽거나 수정하지 않았다.
-- 테스트 두 번 실패 후 사용자 지시대로 추가 구현/테스트 반복을 중단했다. 집중 검증 및 독립 review는 완료되지 않았다.
+- 테스트 두 번 실패 후 사용자 지시대로 당시 추가 구현/테스트 반복을 중단했다. 이후 harness 보완, 집중 검증, 독립 review 및 production 적용이 별도 승인으로 완료되었다.
 
 - [x] 이전 스레드의 전체 방향 및 이후 Phase A 축소 승인 복원
 - [x] 현재 root/branch/HEAD/status 및 ExecPlan 형식 확인
@@ -107,7 +107,7 @@ H1의 과거 스레드 조사에서는 일반 debug가 release Vite mode의 mobi
 - Blocker / Major / Minor: 0 / 0 / 0
 - 검증 전후 repository 변경 없음. Independent verdict: 승인 가능.
 - Phase A 구현 및 독립 검증 완료. 이번 commit 준비에서는 이 승인 기록만 최소 갱신하며 runner를 반복하지 않는다.
-- 후속 main 통합·push·production 검증은 이번 승인 범위 밖이며 별도 검토가 남아 있어 plan은 active에 유지한다. Deferred는 완료 처리하지 않는다.
+- 후속 main 통합·push·production 검증도 2026-09-13 별도 승인으로 완료되었다. H1과 기타 Deferred 범위는 완료 처리하지 않는다.
 
 #### 독립 검증 finding 보완 — 2026-09-11
 
@@ -234,10 +234,21 @@ Git 검증: tracked `git diff --check` 오류 없음. 최종 변경은 tracked m
 - 기존 전체 backend suite와 `verify_project.ps1`는 H4 격리가 끝나지 않아 실행하지 않는다. 집중 테스트도 안전성이 확인되지 않으면 순수/static 검사까지만 하고 미검증으로 남긴다.
 - 실제 secret, 환경파일 원문, token, 고객 데이터를 로그·문서·테스트 결과에 넣지 않는다. Credential-safe logging의 기존 sanitizer와 원본 OAuth 입력 보존을 함께 지킨다.
 
+### Phase A Closeout — 2026-09-13
+
+- Phase A implementation, independent review, local main integration, origin/main push, production readiness review, and the approved production deployment are complete.
+- Approved implementation commit: `938284a33e05e0b11ce3737d66d0898c33be10e6` (`fix: enforce backend environment isolation`).
+- Independent review: A-MAJ-01 `RESOLVED`, A-MIN-01 `RESOLVED`; independent runner **87/87 passed**, with Blocker/Major/Minor **0/0/0**.
+- The implementation commit was fast-forwarded into local `main` and pushed to `origin/main`. The production deployment used the approved specific commit exactly once and succeeded.
+- Production Live revision is `938284a33e05e0b11ce3737d66d0898c33be10e6`. Startup reached `Application startup complete`; no crash/restart loop or startup/configuration/DB/cache error was observed.
+- Public `/healthz` and `/api/healthz` both returned HTTP 200 and reported the target revision. Credential-safe logging remained active, including the configured `--no-access-log` start command and safe HTTP summaries.
+- Service Auto-Deploy remains `Off`; Blueprint Auto Sync remains `Yes`; the existing `/healthz` health check, `/var/data/alphamate` 1 GB persistent disk, and production start command were preserved.
+- These facts close Phase A. They do not claim completion of Phase B/H1 frontend or Android separation, actual OAuth provider/device QA, record-level user DB continuity, or long-running background stability. Those remain explicit follow-up or unverified scope and are not Phase A blockers.
+
 ### Remaining / Unverified
 
-- Phase A 구현 및 독립 재검증은 최종 승인됐다(위 사용자 제공 결과). Main 통합·push·production 검증은 수행하지 않았으며 별도 검토 대상이다.
-- 실제 production 환경값·DB/cache 위치·Render runtime과 운영 logging 상태는 미검증이다. 사용자의 production 반영 설명과 repository 소스 증거를 구분한다.
+- Phase A 구현, 독립 재검증, main 통합·push 및 production 적용은 위 closeout 기록과 별도 Git/Render evidence로 완료됐다.
+- 실제 OAuth provider/device QA, 실제 사용자 기능의 record-level DB continuity, 장시간 background 작업 안정성은 검증하지 않았으며 후속 범위로 남긴다.
 - 기존 개발 실행의 암묵적 `.env` 의존과 test fixture의 환경 누락은 구현 시 compatibility 확인 대상이다. 기존 데이터 자동 이동이나 테스트 무력화로 해결하지 않는다.
 - Cache import 쓰기는 lifespan 이후로 옮겼고 invalid startup 선행 실패를 검증했다. Cache 전체 통합과 H4 전체 격리는 남겨둔다.
 - Android/device/provider 동작은 Phase A 집중 테스트로 검증되었다고 주장하지 않는다.
@@ -250,14 +261,14 @@ Git 검증: tracked `git diff --check` 오류 없음. 최종 변경은 tracked m
 - Production DB/schema migration·이동·복사, production cache 재배치 및 운영 확인 없는 DB/cache 새 필수 설정 강제.
 - Support_id/structured observability 후속 단계, OAuth H6 protocol remediation, AI H7 idempotency, H5 schema/account deletion, 전체 H4 테스트 격리.
 - Broker import, product/UI 기능, dependency 변경, 광범위 architecture refactor, cache 전체 구조 통합.
-- Render 접근·설정 변경·배포, external service 요청, Android build/sync, 다른 worktree 수정, stage/commit/push.
-- 이번 문서 작업에서는 이 파일 외 애플리케이션·테스트·환경파일·다른 문서를 수정하지 않는다.
+- 초기 구현 단계에서의 Render 접근·설정 변경·배포, external service 요청, Android build/sync, 다른 worktree 수정은 범위 밖이었다. 이번 별도 closeout 승인으로 target commit의 production deploy만 수행했고 설정은 변경하지 않았다.
+- 이번 closeout은 이 ExecPlan 파일의 기록·이동과 docs-only commit/push만 포함하며, 애플리케이션·테스트·환경파일·다른 문서는 수정하지 않는다.
 
 ### Completion Criteria
 
-**문서 완료:** 승인된 Phase A를 복원하고 현재 baseline/보호사항/미착수 상태/Deferred가 명시되어 있으며 ExecPlan 형식, 링크, whitespace, 단일 파일 변경 범위를 확인한다.
+**문서 완료:** 승인된 Phase A의 구현·검증·운영 closeout 사실, 보호사항, 남은 미검증/Deferred 범위를 명시하고 ExecPlan 형식, 링크, whitespace, 단일 파일 변경 범위를 확인한 뒤 completed로 이동한다.
 
-**향후 Phase A 완료:** 중앙 환경 판정·단일 loader·경로 일관성·dev opt-in·인증/ownership·startup 선행 실패에 대한 집중 격리 증거가 있고, logging/OAuth hotfix 및 Render/health 계약이 보존된다. 전체 diff와 독립 review 결과, 실행/미실행 및 compatibility 위험을 기록한다. 사용자/운영 데이터 변경 없이 완료해야 한다. H1이나 device/external 검증 및 H4 전체 해결까지 완료로 표시하지 않는다.
+**Phase A 완료:** 중앙 환경 판정·단일 loader·경로 일관성·dev opt-in·인증/ownership·startup 선행 실패에 대한 집중 격리 증거, logging/OAuth hotfix 및 Render/health 계약 보존, 전체 diff와 독립 review 결과, 실행/미실행 및 compatibility 위험이 기록되었다. 사용자/운영 데이터 변경 없이 완료했으며 H1, device/external 검증 및 H4 전체 해결은 완료로 표시하지 않는다.
 
 ### Rollback / Failure Handling
 
@@ -268,4 +279,4 @@ Git 검증: tracked `git diff --check` 오류 없음. 최종 변경은 tracked m
 
 ### Next Step
 
-승인된 Phase A 변경을 지정된 메시지로 commit한 뒤 결과를 보고하고 대기한다. Main 통합·push·deploy는 수행하지 않는다. Plan은 active로 유지하며 Deferred 범위를 확대하거나 완료 처리하지 않는다.
+이 closeout 기록을 docs-only commit으로 반영하고 active 계획을 completed로 이동한 뒤 push한다. 이후 이 계획에서 수행할 작업은 없으며, Deferred/Unverified 항목은 별도 승인된 후속 계획에서 다룬다.
