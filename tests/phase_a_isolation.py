@@ -90,21 +90,39 @@ def isolated_runtime():
             stack.enter_context(patch.dict(os.environ, values, clear=True))
             # Nested legacy fixtures also remain under the harness root.
             stack.enter_context(patch.object(tempfile, "tempdir", str(root)))
-            original_socketpair = socket.socketpair
-            def internal_socketpair(*args, **kwargs):
-                token = _socketpair_setup.set({})
-                try:
-                    return original_socketpair(*args, **kwargs)
-                finally:
-                    _socketpair_setup.reset(token)
-            stack.enter_context(patch.object(socket, "socketpair", internal_socketpair))
             _active_root = root
             try:
-                import requests
-                stack.enter_context(patch.object(requests.sessions.Session, "request", side_effect=AssertionError("network blocked")))
-                # yfinance's C transport does not emit Python socket audit events.
-                from curl_cffi import requests as curl_requests
-                stack.enter_context(patch.object(curl_requests.Session, "request", side_effect=AssertionError("network blocked")))
+                install_network_patches(stack, _blocked_network)
                 yield root
             finally:
                 _active_root = previous_root
+
+
+def _blocked_network():
+    raise AssertionError("network blocked")
+
+
+def install_network_patches(stack, blocked):
+    """Shared Phase A/A1 transport patches; caller installs its audit guard first."""
+    original_socketpair = socket.socketpair
+    originals = [(socket, "socketpair", original_socketpair)]
+
+    def internal_socketpair(*args, **kwargs):
+        token = _socketpair_setup.set({})
+        try:
+            return original_socketpair(*args, **kwargs)
+        finally:
+            _socketpair_setup.reset(token)
+
+    def deny(*args, **kwargs):
+        return blocked()
+
+    stack.enter_context(patch.object(socket, "socketpair", internal_socketpair))
+    import requests
+    originals.append((requests.sessions.Session, "request", requests.sessions.Session.request))
+    stack.enter_context(patch.object(requests.sessions.Session, "request", side_effect=deny))
+    # yfinance's C transport does not emit Python socket audit events.
+    from curl_cffi import requests as curl_requests
+    originals.append((curl_requests.Session, "request", curl_requests.Session.request))
+    stack.enter_context(patch.object(curl_requests.Session, "request", side_effect=deny))
+    return originals
