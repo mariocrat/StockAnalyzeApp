@@ -5,9 +5,12 @@ Not an OS sandbox: arbitrary native code and full lifecycle ownership are deferr
 
 import os
 import socket
+import sqlite3
+import _sqlite3
 import sys
 import tempfile
 from contextlib import ExitStack, contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,6 +21,7 @@ from tests.phase_a_isolation import _socketpair_operation, install_network_patch
 
 
 _active = None
+_sqlite_opening = ContextVar("isolation_sqlite_opening", default=None)
 
 
 def sanitized_environment(host, root):
@@ -156,6 +160,14 @@ class Boundary:
         if not inside and not writing and self.protected.contains(path):
             self.deny("sensitive-read")
 
+    def sqlite_authorizer(self, action, _arg1, _arg2, _database, _trigger):
+        # SQLite opens ATTACH/VACUUM INTO files internally, without Python open
+        # events. Record before returning DENY; callers may catch DatabaseError.
+        if action == sqlite3.SQLITE_ATTACH:
+            self.violations.append("sqlite-attach")
+            return sqlite3.SQLITE_DENY
+        return sqlite3.SQLITE_OK
+
     def audit(self, event, args):
         if event in {"socket.connect", "socket.bind"}:
             if not _socketpair_operation(event, args):
@@ -166,6 +178,11 @@ class Boundary:
         elif event in {"subprocess.Popen", "os.system", "os.exec", "os.posix_spawn", "os.fork"}:
             self.deny("subprocess")
         elif event == "sqlite3.connect":
+            # Unwrapped/pre-bootstrap aliases and direct constructors fail before
+            # opening a file. Each guarded call authorizes exactly one creation.
+            if _sqlite_opening.get() is not self:
+                self.deny("sqlite-connect")
+            _sqlite_opening.set(None)
             self.path(args[0], writing=True)
         elif event == "open":
             raw, mode, flags = args
@@ -201,6 +218,38 @@ def current_boundary():
     return _active
 
 
+def install_sqlite_patches(stack, boundary):
+    original_connect = sqlite3.connect
+    original_connection = sqlite3.Connection
+
+    def guarded_connect(*args, **kwargs):
+        # A custom factory could execute SQL before the authorizer is installed.
+        # The repository uses only the default factory; reject both API spellings.
+        factory = kwargs.get("factory", args[5] if len(args) > 5 else original_connection)
+        if factory is not original_connection:
+            boundary.deny("sqlite-factory")
+        token = _sqlite_opening.set(boundary)
+        try:
+            connection = original_connect(*args, **kwargs)
+        finally:
+            _sqlite_opening.reset(token)
+        try:
+            # connect/handle fires before __init__ finishes on this Python runtime.
+            # Install on the fully initialized connection before returning it.
+            original_connection.set_authorizer(connection, boundary.sqlite_authorizer)
+        except Exception:
+            if isinstance(connection, original_connection):
+                connection.close()
+            boundary.deny("sqlite-authorizer")
+        return connection
+
+    targets = (sqlite3, sqlite3.dbapi2, _sqlite3)
+    originals = [(target, "connect", target.connect) for target in targets]
+    for target in targets:
+        stack.enter_context(patch.object(target, "connect", guarded_connect))
+    return originals
+
+
 @contextmanager
 def isolated_module(root, protected=None, *, boundary=None):
     """Restore CWD/environment/patches even on import, test or cleanup failure."""
@@ -220,6 +269,7 @@ def isolated_module(root, protected=None, *, boundary=None):
                 directory.mkdir(exist_ok=True)
             os.chdir(boundary.root)
             validate_configuration()
+            originals.extend(install_sqlite_patches(stack, boundary))
             # urllib3.util.connection probes IPv6 by binding ::1 during import and
             # catches every Exception. Advertise no IPv6 for this import only, so
             # capability detection needs no live socket and no violation is consumed.

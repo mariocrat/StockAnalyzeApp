@@ -18,7 +18,7 @@ Main's unstaged `store-assets/google-play/ko-KR/README.md` is excluded; blob has
 - No package installation; existing main .venv interpreter/dependencies may be read with bytecode disabled. No private settings/data are copied.
 
 ## Current Status
-- H4-A1 isolation foundation: implementation and local validation COMPLETE; independent acceptance review may be requested.
+- H4-A1 isolation foundation: F1 correction and local regression complete; independent re-verification required (prior acceptance was held for F1).
 - H4-A2 DB/env/CWD fixture migration: deferred.
 - H4-B1 external/filesystem isolation: deferred.
 - H4-B2 startup/background/global lifecycle: deferred.
@@ -127,3 +127,56 @@ Production/backend/frontend/config/official entrypoints are unchanged. Final whi
 
 ### Deferred unchanged
 A2 DB/env/CWD fixture migration; B1 broader filesystem/native/async transport; B2 startup/background/global lifecycle; C frontend; D official entrypoint/full independent execution/closeout. Testcase-per-process, worker 2/reverse full-suite, broad read sandbox, H1/H5/H6/H7 and new CI remain deferred. No full unittest discovery or verify_project.ps1 was run.
+
+## F1 independent verification hold — 2026-09-14
+
+Independent verification reported F1 Blocker: an allowed SQLite connection can execute ATTACH DATABASE and SQLite opens the additional file internally, bypassing the initial sqlite3.connect path audit and the Python filesystem/violation recorder.
+Preflight: branch fix/test-environment-isolation, HEAD 11312695a17e9a0d71f4186baadb79600cf6ecae, clean/no staged or untracked files. Base-to-HEAD contains only the A1 foundation commit. Main and protected README hash remain unchanged.
+
+Scope: fix F1 in the test isolation layer only; no production edits, SQL/path parser, ATTACH allowlist or A2/B1/B2/C/D expansion. Search found normal sqlite3.connect calls in the five backend stores and tests, but no existing ATTACH/DETACH/VACUUM/backup/authorizer/custom connection factory usage. Confirm synthetic ATTACH and VACUUM INTO effects inside a coordinator-owned outer temp container, then install a connection authorizer at sqlite3.connect/handle so aliases also receive it. Deny SQLITE_ATTACH and retain the violation before returning SQLITE_DENY. Determine DETACH policy and backup behavior from this bounded evidence. Run synthetic normal/negative SQLite tests and the existing permitted A1/Phase A checks, obtain independent static review, then create a new scoped commit only on success; never amend 1131269 or push.
+Current acceptance: ON HOLD pending F1 correction and independent re-verification. Earlier completion/review records are historical and do not override F1.
+
+
+## F1 correction and local re-verification — 2026-09-14
+
+### Root cause and bounded reproduction
+On starting commit `11312695a17e9a0d71f4186baadb79600cf6ecae`, an inline synthetic probe used isolated_module with its runtime root inside a disposable outer TemporaryDirectory. ATTACH created an outer DB and VACUUM INTO created another outer DB while the violation ledger stayed empty. Both files were synthetic and the outer container was removed. No real DB/env/credential/repository file was used. SQLite version: 3.53.1.
+Adding a local authorizer to that synthetic connection demonstrated that VACUUM INTO emits SQLITE_ATTACH and is denied before creating its output. The same action-level policy can cover both escapes without parsing SQL or filenames.
+
+### Installation attempt and final interception
+The first installation at `sqlite3.connect/handle` failed once with `ProgrammingError: Base Connection.__init__ not called` because that event is too early on this Python runtime. It failed closed but the incomplete connection held its synthetic file until process exit. The exact owned leftover was subsequently removed and absence confirmed; an already-removed empty temp subdirectory caused a cleanup retry, with no user file targeted. No repeated authorizer-at-handle workaround was attempted.
+
+Final design: isolated_module temporarily wraps `sqlite3.connect`, `sqlite3.dbapi2.connect`, and `_sqlite3.connect`. Each wrapper authorizes one initial audited open, calls the original connect, installs the authorizer on the initialized connection, then returns it. A captured pre-bootstrap alias or direct Connection constructor has no authorization token and is rejected at the initial audit before file creation. The repository uses ordinary module-level connect calls; no prior alias/custom factory requirement was found. Alias imports after bootstrap receive the wrapper. API arguments otherwise pass through unchanged, and all patches restore after the module.
+
+The callback records `sqlite-attach` then returns SQLITE_DENY for SQLITE_ATTACH. SQLite raises DatabaseError; catching it cannot erase the ledger. Installation failures record sqlite-authorizer and close the owned connection before failing. Independent static review found a custom factory could execute SQL before installation; both keyword and positional custom factory arguments are now rejected before construction (sqlite-factory). Explicit default Connection factory remains supported. No connection class rewrite, SQL parser, URI parser or ATTACH allowlist was introduced.
+
+### DETACH and additional SQLite paths
+- DETACH does not open an additional file, there are no permitted attachments, and repository code does not need DETACH. No extra DETACH denial was added.
+- VACUUM INTO was a confirmed baseline WRITE bypass. SQLITE_ATTACH denial blocks it for both inside- and outside-root targets. Ordinary VACUUM also uses SQLite's internal attach mechanism and is not promised as supported under this fail-closed A1 policy; there is no repository usage.
+- backup takes an already-open destination connection rather than a filename. The initial audited open prevents acquiring an outside-root destination. Normal owned source-to-owned destination backup passes and preserves rows. A fresh child does not inherit parent SQLite connection objects.
+- Static scan of backend/tests found only ordinary connect calls and PRAGMA foreign_keys/table_info; no ATTACH, DETACH, VACUUM, backup, custom factory, authorizer, extension-loading, blobopen, serialize or deserialize use existed before these probes. No additional currently used file-opening API required a change.
+- This remains cooperative Python test isolation. Deliberate guard/authorizer replacement and arbitrary native code are not a newly implemented SQLite security sandbox. Broader B1/B2 work remains deferred.
+
+### Synthetic F1 regression
+New files: tests/isolation_sqlite_probes.py, tests/isolation_sqlite_swallowed_probe.py, tests/test_isolation_sqlite.py. The coordinator creates only a synthetic existing-decoy.sqlite3 in its owned outer container, registers it as protected metadata, launches the real child runner, then checks byte-identical decoy content and no ATTACH/VACUUM/backup/factory output outside runtime before cleanup. A regression therefore cannot damage repository or production data.
+Positive child: 5 tests, 19 expected violations, 0 unexpected. Coverage includes four standard connect/alias forms, inside/outside/existing-target ATTACH, executescript ATTACH, inside/outside VACUUM INTO, outside backup target open, fail-closed direct constructor, custom factory constructor not invoked in either API form, and normal explicit default factory/CRUD/commit/select/close/reopen/owned backup.
+Negative child: one successful unittest body catches ATTACH DatabaseError, but final child exit is 1 with one unacknowledged sqlite-attach violation. Target file remains absent. Coordinator also checks pre-bootstrap aliases fail closed before opening and connect patches restore.
+
+### Commands and evidence
+Cwd: dedicated test-isolation worktree. `PY` = `D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe`; all executions use `-B`. No package install, external request, production/private file access, full discovery, or official wrapper execution.
+
+| Command/check | Result | Tests / expected and unexpected violations |
+| --- | --- | --- |
+| Inline baseline ATTACH/VACUUM reproduction using only outer temp files | Reproduced F1 and VACUUM escape | 2 unguarded creations; baseline recorded 0; outer cleanup confirmed |
+| Initial inline authorizer-at-handle smoke | FAIL, diagnosed and replaced | 0 completed CRUD checks; installation violation; owned leftover cleanup confirmed |
+| Inline post-connect authorizer smoke | PASS | CRUD + ATTACH + VACUUM checks; 2 expected / 0 unexpected; cleanup passed |
+| `PY -B -m unittest tests.test_isolation_sqlite -v` (before factory review correction) | PASS | 3 coordinator tests; then-current positive child 4 tests / 17 expected / 0 unexpected; swallowed child deliberately failed with 1 unacknowledged |
+| `PY -B -m unittest tests.test_isolation_sqlite tests.test_isolation_runner tests.test_isolation_results -v` (final code) | PASS | 14 coordinator/result tests; SQLite child 5 tests / 19 expected / 0 unexpected; existing synthetic child 9 tests / 27 expected / 0 unexpected; SQLite and original swallowed children deliberately fail with 1 unacknowledged each |
+| `PY -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit` (final code) | PASS | Separate module children: 1 + 3 tests, 0 expected / 0 unexpected, restoration and cleanup true |
+| `PY -B -m tests.run_phase_a_tests tests.test_phase_a_environment.PhaseAHarnessTest tests.test_phase_a_environment.PhaseAEnvironmentTest` (final code) | PASS | 17 tests; expected blocked operations asserted by tests; Phase A has no aggregate violation counter, so unexpected count is not independently measured |
+
+The existing A1 11-test command and Phase A/smoke/rate checks also passed before the factory refinement, then were repeated on final code as above. Phase A helper/runner files were not changed for F1. SQLite patches are active only in the new isolated_module context, and all existing patch/restoration checks passed.
+Independent read-only static review first identified the custom-factory gap; final review confirmed its correction and reported no further F1 blockers. The reviewer did not run tests. F1 is locally corrected; A1 independent re-verification is still required before acceptance. Prior failed-attempt records remain intact.
+
+### Git and next step
+Only module_isolation.py, the three SQLite regression files, and this ExecPlan are in F1 scope. Inspect whitespace and full staged diff, then commit as `test: block sqlite isolation escapes` in a new commit (no amend of 1131269). No push. After commit, wait for independent re-verification/user direction. Main/README protection and A2/B1/B2/C/D deferrals remain unchanged.
