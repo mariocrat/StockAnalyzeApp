@@ -1,7 +1,13 @@
-﻿import os
-import sys
+﻿from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import api_module_state
+
+import os
 import unittest
 from contextlib import contextmanager
+from unittest.mock import patch
 
 from fastapi import HTTPException
 
@@ -26,16 +32,15 @@ def patched_env(**values):
 
 class BillingRateLimitTest(unittest.TestCase):
     def setUp(self):
-        backend_dir = os.path.join(os.getcwd(), "backend")
-        if backend_dir not in sys.path:
-            sys.path.insert(0, backend_dir)
+        self.enterContext(storage_fixture())
+        self.enterContext(api_module_state())
 
     def test_billing_rate_limit_rejects_excessive_purchase_requests(self):
         with patched_env(ALPHAMATE_BILLING_RATE_LIMIT_PER_MINUTE="2"):
             import main
             from core.rate_limit import InMemoryRateLimiter
 
-            main._billing_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_billing_rate_limiter", InMemoryRateLimiter()))
 
             self.assertTrue(main._enforce_billing_rate_limit("Bearer user-token", "client-a"))
             self.assertTrue(main._enforce_billing_rate_limit("Bearer user-token", "client-a"))

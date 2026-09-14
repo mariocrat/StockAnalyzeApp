@@ -33,6 +33,48 @@ def state_snapshot():
 
 
 class ApiModuleStateTest(unittest.TestCase):
+    def test_billing_limiter_restores_after_consuming_testcase_and_failures(self):
+        from tests.test_billing_rate_limits import BillingRateLimitTest
+
+        baseline = state_snapshot()
+        original_limiter = api._main._billing_rate_limiter
+        original_hits = {key: list(hits) for key, hits in original_limiter._hits.items()}
+        consumed = []
+        for outcome in ("success", "assertion", "exception"):
+            with self.subTest(outcome=outcome):
+                class ConsumingCase(BillingRateLimitTest):
+                    def runTest(case):
+                        # Run the actual two-allows/third-429 test and its patch.
+                        case.test_billing_rate_limit_rejects_excessive_purchase_requests()
+                        consumed.append(api._main._billing_rate_limiter)
+                        case.assertIsNot(original_limiter, consumed[-1])
+                        if outcome == "assertion":
+                            case.fail("synthetic assertion after limiter consumption")
+                        if outcome == "exception":
+                            raise RuntimeError("synthetic exception after limiter consumption")
+
+                result = unittest.TestResult()
+                ConsumingCase("runTest").run(result)
+                self.assertEqual(1, result.testsRun)
+                self.assertEqual(int(outcome == "assertion"), len(result.failures))
+                self.assertEqual(int(outcome == "exception"), len(result.errors))
+                self.assertIs(original_limiter, api._main._billing_rate_limiter)
+                self.assertEqual(original_hits, original_limiter._hits)
+                self.assertEqual(baseline, state_snapshot())
+
+                # Same user/client/threshold: B must again allow two calls before
+                # rejecting the third, without inheriting A's consumed state.
+                next_result = unittest.TestResult()
+                BillingRateLimitTest(
+                    "test_billing_rate_limit_rejects_excessive_purchase_requests"
+                ).run(next_result)
+                self.assertEqual(1, next_result.testsRun)
+                self.assertTrue(next_result.wasSuccessful(), next_result.errors + next_result.failures)
+                self.assertIs(original_limiter, api._main._billing_rate_limiter)
+                self.assertEqual(original_hits, original_limiter._hits)
+                self.assertEqual(baseline, state_snapshot())
+        self.assertEqual(3, len({id(limiter) for limiter in consumed}))
+
     def test_route_state_and_patches_restore_after_each_testcase_outcome(self):
         baseline = state_snapshot()
         roots = []

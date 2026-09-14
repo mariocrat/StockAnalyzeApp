@@ -1,12 +1,12 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; the current authorized step is A2-2 storage/access-control API testcase fixture migration only.
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; the current authorized step is A2-3 billing_rate_limits, exactly its two existing testcases.
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
 Branch: `fix/test-environment-isolation`; worktree: `D:/Project/Vibe/StockBoda.worktrees/test-isolation`, initially clean.
-A1 originally allowed only tests foundation/runner/self-tests, minimal Phase A helper extraction, and this plan. A2-1 allowed the five storage test modules, shared fixture/focused regressions and pure main/AI/consent separation. Current A2-2 scope is SAFE me_data_routes/admin_event_routes, their bounded API reload-state helper/regression, the existing direct-entry check target list, and this plan. Production, A1 foundation, A2-1 storage fixture and deferred review_access remain unchanged.
+A1 originally allowed only tests foundation/runner/self-tests, minimal Phase A helper extraction, and this plan. A2-1 allowed the five storage test modules, shared fixture/focused regressions and pure main/AI/consent separation. A2-2 covered SAFE me_data_routes/admin_event_routes and their focused state checks. Current A2-3 scope is test_billing_rate_limits, one billing-specific addition to the existing API state regression, the existing direct-entry target list and this plan. No new helper/framework or next-candidate migration. Production, A1 foundation, A2-1 storage fixture and deferred review_access remain unchanged.
 Main's unstaged `store-assets/google-play/ko-KR/README.md` is excluded; blob hash `e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61`.
 
 ## Decisions
@@ -19,7 +19,7 @@ Main's unstaged `store-assets/google-play/ko-KR/README.md` is excluded; blob has
 
 ## Current Status
 - H4-A1 isolation foundation: independent re-verification approved by the user; final HEAD `bc7ccfb4a26bb76125c74a5696c79751399534be` (preceded by `11312695a17e9a0d71f4186baadb79600cf6ecae`). Historical failures/F1 records below are retained.
-- H4-A2 DB/env/CWD fixture migration: A2-1 independently approved at `38d625c9c443c002ada4ade54d79bbd2fd790431`, with no Blocker/High/Major/Minor findings. A2-2 SAFE me_data_routes/admin_event_routes migration and local verification complete; independent static review has no findings. Independent execution verification is next; review_access and remaining A2 deferred.
+- H4-A2 DB/env/CWD fixture migration: A2-1 independently approved at `38d625c9c443c002ada4ade54d79bbd2fd790431`, with no Blocker/High/Major/Minor findings. A2-2 independently approved at 4c3ef2e310d49f74c910da4a061c3c7d2b8538af. User-reported residual read-only classification concludes additional A2 implementation is needed. A2-3 billing_rate_limits (2 tests) locally verified with independent static review finding none; independent execution verification requested next. All other candidates deferred.
 - H4-B1 external/filesystem isolation: deferred.
 - H4-B2 startup/background/global lifecycle: deferred.
 - H4-C frontend isolation: deferred.
@@ -37,7 +37,7 @@ Tests may write only disposable synthetic roots and must block external requests
 H4 as a whole is not resolved. Python audit/patch guards are regression boundaries for cooperative tests, not an OS security sandbox against hostile native code. Full async/native transport coverage is B1. Full lifecycle/thread ownership is B2.
 
 ## Next Step
-Complete the explicit A2-2 staged/full-diff commit gate for `test: isolate data access api tests`, then wait for independent execution verification/user direction. Do not push or begin deferred modules/phases.
+Billing 2 tests, focused leakage and minimum A1 regression passed. Complete scoped staged/full-diff commit gate for `test: isolate billing rate limit tests`, then request independent A2-3 verification and wait; no push or next-candidate work.
 
 ## Out of Scope
 Remaining A2 and all B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
@@ -315,3 +315,45 @@ Six scoped files: docs/exec-plans/active/test-environment-isolation.md; tests/ap
 review_access remains unchanged and unexecuted: AI route case belongs to later A2/B1 provider/AI work; concurrent example seeding belongs to B2 concurrency/lifecycle work. No testcase was removed, skipped or split. The already deferred four main/AI/consent tests remain untouched/unexecuted. Remaining A2 auth/OAuth, billing_readiness, AI/OpenAI, market/data-fetch, other main integration and request/background/lifespan tests remain deferred; B1/B2/C/D implementation is not started.
 
 Main protection is checked again at commit handoff: preserve its sole pre-existing unstaged store-assets/google-play/ko-KR/README.md and hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. A2-2 is ready to request independent data-access API verification; overall A2/H4 is not closed.
+
+
+## H4-A2-3 start and pre-write inventory — 2026-09-14
+
+Preflight: root D:/Project/Vibe/StockBoda.worktrees/test-isolation, branch fix/test-environment-isolation, HEAD 4c3ef2e310d49f74c910da4a061c3c7d2b8538af, clean/no staged/untracked files; active plan present. Main has only excluded README unstaged, hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61 unchanged.
+
+A1/A2-1/A2-2 independently approved per user. User-supplied residual READ-ONLY classification concludes additional A2 implementation is needed. Only billing_rate_limits is selected: smallest two-test env/path/limiter migration matching approved admin pattern. This run rechecked the target and production call chain, not the full residual inventory.
+
+| Existing testcase | Imports/env/state/cleanup | Suitability |
+| --- | --- | --- |
+| test_billing_rate_limit_rejects_excessive_purchase_requests | main and core.rate_limit inside body; setUp sys.path append not restored; patched_env restores threshold 2; direct _billing_rate_limiter replacement not restored; no reload/DB paths/temp/connection | A2: memory check only, two allowed calls then 429 + Retry-After; no provider/network/lifespan/background. |
+| test_billing_rate_limit_has_upper_bound | main inside body; same sys.path issue; patched_env restores 999999; no limiter consumption/reload/storage/connection | A2: bounded env integer returns 120, no external/lifecycle path. |
+
+Inventory reported before edits. Reuse storage_fixture/api_module_state through setUp enterContext and restoring limiter patch.object. Helpers remain unchanged; same raw-import gate before main. All five DB paths/cache/temp and test env are inherited from approved fixture. Existing API regression consumes only admin and does not exercise the actual billing patch: add one focused method using the real BillingRateLimitTest lifecycle, consumption, assertion/exception injection, and subsequent identical testcase. Check restored baseline limiter identity/unmodified hits plus existing env/module/path snapshot. Extend existing direct-entry tuple by one name. No new helper or limiter abstraction.
+
+First apply_patch failed to match the UTF-8 BOM at the target start; no changes were applied, confirmed clean. Raw bytes confirmed BOM; a BOM-preserving UTF-8-sig read/write is the different edit method. This is a tooling failure, not a test/product failure.
+
+Four scoped files: billing target, test_api_module_state.py, test_storage_fixture_runner.py and this plan. Validation writes only disposable A1 roots; no persistent data/provider/server/lifespan. request_id, market_rate_limits, auth_routes and remaining A2 untouched/deferred; B1/B2/C/D deferred. No full suite, production/helper/framework changes.
+
+
+## H4-A2-3 verification and closeout — 2026-09-14
+
+Implementation reuses unchanged storage_fixture and api_module_state in setUp with enterContext; the existing limiter replacement is now patch.object registered for cleanup. Cleanup order is limiter patch, API module state, then storage. Every testcase owns accounts/access/journal/review/event DB paths plus cache/temp, with sanitized ALPHAMATE_ENV=test. No direct DB connection is introduced. Main imports only under A1; no startup, lifespan, scheduler or provider execution.
+
+Execution cwd is the dedicated worktree; PY = D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe. Only disposable test-owned roots were written.
+
+| Command/check | Result |
+| --- | --- |
+| `PY -B tests/run_isolated_tests.py tests.test_billing_rate_limits tests.test_api_module_state` | PASS: billing 2, API state 3 (existing 2 + focused billing regression 1). Both reports: expected violations 0, unexpected 0, restored=true, patches_restored=true, cleanup=true. |
+| `PY -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v` | PASS: 14 coordinator tests. Synthetic probe: 9 tests/27 expected/0 unexpected; SQLite: 5 tests/19 expected/0 unexpected. Deliberately swallowed-violation negative child fails as required, cleanup true. |
+| `PY -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit` | PASS: 1 + 3 tests, expected/unexpected 0, restored/patches_restored/cleanup true. |
+| `PY -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v` | PASS: one existing coordinator checks all 8 listed modules, including billing, fail closed without A1 before storage dependencies/files. |
+| Static full test-method AST comparison against starting HEAD | PASS: 2 -> 2 names/bodies identical except precisely the approved assignment-to-restoring-patch substitution; inputs, assertions, expectations and failure semantics unchanged. No skip, duplicate or loss. Initial comparison script incorrectly assumed assignment preceded body imports; corrected to locate the assignment. This was a checker error, not a target test failure. |
+| Scope and whitespace | Only four listed test/plan files differ; production, storage_fixture.py, api_test_modules.py and A1 foundation unchanged. git diff --check PASS. |
+
+The focused regression executes the actual consuming billing testcase lifecycle through success, injected assertion failure and injected exception, then executes the same original testcase with identical user/client/threshold again. Each following case allows two calls then rejects the third; consumed limiter objects are distinct. The original default limiter identity and hits remain unchanged after each lifecycle; existing snapshot checks env/module/sys.path state restoration. Existing API regression also checks setup failure and partial reload exception cleanup. No limiter bypass or new mock/transport framework was needed.
+
+All test commands passed on their first run. API/storage helpers were not changed, so approved A2-2 full 14 and A2-1 storage 42 were not rerun. No full suite, frontend, server, provider or lifecycle verification was performed. Independent read-only static review found no actionable findings in preservation, cleanup ordering, real billing lifecycle regression, direct-entry gate or production scope; reviewer did not import/execute targets or write files. Independent A2-3 execution acceptance remains pending.
+
+Four-file commit allowlist: tests/test_billing_rate_limits.py, tests/test_api_module_state.py, tests/test_storage_fixture_runner.py, docs/exec-plans/active/test-environment-isolation.md. Full staged diff and names must be reviewed before the authorized new commit, subject `test: isolate billing rate limit tests`. No amend or push. Main recheck: sole pre-existing unstaged README, blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61 unchanged.
+
+Remaining A2 candidates including request_id and market_rate_limits require separately authorized classification/migration; auth_routes and other previously deferred modules remain untouched. B1 external/provider/OAuth, B2 lifecycle/background/concurrency, C frontend and D official entrypoint/overall closeout remain deferred. A2/H4 overall is not closed; stop after this commit and request independent billing rate-limit migration verification.
