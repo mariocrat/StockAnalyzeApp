@@ -1,12 +1,12 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; the current authorized step is H4-A2-1 core storage testcase fixture migration only.
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; the current authorized step is A2-2 storage/access-control API testcase fixture migration only.
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
 Branch: `fix/test-environment-isolation`; worktree: `D:/Project/Vibe/StockBoda.worktrees/test-isolation`, initially clean.
-A1 originally allowed only tests foundation/runner/self-tests, minimal Phase A helper extraction, and this plan. Current A2-1 scope allows the five storage test modules, tests-only shared fixture/focused regressions, pure main/AI/consent test-file separation, and this plan; A1 foundation and production files remain unchanged.
+A1 originally allowed only tests foundation/runner/self-tests, minimal Phase A helper extraction, and this plan. A2-1 allowed the five storage test modules, shared fixture/focused regressions and pure main/AI/consent separation. Current A2-2 scope is SAFE me_data_routes/admin_event_routes, their bounded API reload-state helper/regression, the existing direct-entry check target list, and this plan. Production, A1 foundation, A2-1 storage fixture and deferred review_access remain unchanged.
 Main's unstaged `store-assets/google-play/ko-KR/README.md` is excluded; blob hash `e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61`.
 
 ## Decisions
@@ -19,7 +19,7 @@ Main's unstaged `store-assets/google-play/ko-KR/README.md` is excluded; blob has
 
 ## Current Status
 - H4-A1 isolation foundation: independent re-verification approved by the user; final HEAD `bc7ccfb4a26bb76125c74a5696c79751399534be` (preceded by `11312695a17e9a0d71f4186baadb79600cf6ecae`). Historical failures/F1 records below are retained.
-- H4-A2 DB/env/CWD fixture migration: A2-1 core storage implementation, focused execution and independent static review complete; ready for independent execution verification. Other A2 targets deferred.
+- H4-A2 DB/env/CWD fixture migration: A2-1 independently approved at `38d625c9c443c002ada4ade54d79bbd2fd790431`, with no Blocker/High/Major/Minor findings. A2-2 SAFE me_data_routes/admin_event_routes migration and local verification complete; independent static review has no findings. Independent execution verification is next; review_access and remaining A2 deferred.
 - H4-B1 external/filesystem isolation: deferred.
 - H4-B2 startup/background/global lifecycle: deferred.
 - H4-C frontend isolation: deferred.
@@ -37,7 +37,7 @@ Tests may write only disposable synthetic roots and must block external requests
 H4 as a whole is not resolved. Python audit/patch guards are regression boundaries for cooperative tests, not an OS security sandbox against hostile native code. Full async/native transport coverage is B1. Full lifecycle/thread ownership is B2.
 
 ## Next Step
-Complete the explicit staged/full-diff commit gate for `test: isolate core storage test fixtures`, then wait for independent A2-1 execution verification and user direction; no push or further milestone implementation.
+Complete the explicit A2-2 staged/full-diff commit gate for `test: isolate data access api tests`, then wait for independent execution verification/user direction. Do not push or begin deferred modules/phases.
 
 ## Out of Scope
 Remaining A2 and all B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
@@ -255,3 +255,63 @@ Only ten A2-1 files: this plan; tests/storage_fixture.py; tests/test_storage_fix
 Main status rechecked after validation: only the pre-existing unstaged store-assets/google-play/ko-KR/README.md. Its blob hash remains e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. No other worktree was modified. Commit authorized only after scoped staged/full-diff review, with subject `test: isolate core storage test fixtures`; no A1 amend, push, merge or rebase.
 
 Deferred: the four main/AI/consent tests moved unchanged to tests/test_main_ai_review_history_consent.py were not executed. Remaining A2 includes auth_routes, oauth_login, me_data_routes, review_access, billing_readiness, admin_event_routes, other main/API/AI/market/cache and release-validator test isolation. All B1 external/filesystem, B2 startup/background/global lifecycle, C frontend and D official entrypoint/closeout remain deferred. A2-1 is ready to request independent execution verification; H4/A2 overall are not complete.
+
+
+## H4-A2-2 start and read-only candidate inventory — 2026-09-14
+
+User accepted A2-1 independent verification: approved, no Blocker/High/Major/Minor finding. Preflight matches dedicated worktree D:/Project/Vibe/StockBoda.worktrees/test-isolation, branch fix/test-environment-isolation, HEAD 38d625c9c443c002ada4ade54d79bbd2fd790431, clean/no staged/untracked files. A1 commits 11312695a17e9a0d71f4186baadb79600cf6ecae and bc7ccfb4a26bb76125c74a5696c79751399534be and this active plan are present. Main has only the protected README unstaged; hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61 unchanged.
+
+Inventory was reported to the user before any file change:
+
+| Candidate | Count/imports/DBs | Original env/global/cleanup | Classification |
+| --- | --- | --- | --- |
+| tests/test_me_data_routes.py | 3 tests; core.account_store, core.journal, core.access_control, core.review_history, main; summary uses accounts/journal; export adds access/review; deletion indirectly uses all five DBs | TemporaryDirectory per test, partial paths, direct unrestored env and sys.path mutation; account/core/main reloads; no direct SQLite connections or explicit function mocks | SAFE FOR A2-2: direct route and OpenAPI calls, no provider, transport, thread, lifespan or background execution. Use storage_fixture full paths and explicit synthetic dev-login scenario; restore reload/import state. |
+| tests/test_review_access.py | 6 tests; backend.core.account_store/access_control; main in 2 tests; accounts/access plus journal/review/events in AI route case | TemporaryDirectory; patch.dict env with in-context direct assignments; core/main reload, sys.path not restored; AI/chart replacements restored in finally; 3 direct SQLite connections use closing; ThreadPoolExecutor/Barrier/Events with two actual workers | DEFER TO LATER A2/B1/B2 as an intact module: one test executes both AI route types and another tests concurrent example seeding. Do not split, migrate or run it in this bundle. Other four storage tests remain with the deferred module; no test deletion or skip. |
+| tests/test_admin_event_routes.py | 11 tests; main, core.access_control, core.rate_limit, fastapi; accounts/access/events and cache; main not reloaded per test originally | setUp sys.path append never restored; partial TemporaryDirectory contexts, local patched_env restores only named settings; repeated main admin/callback limiter assignments not restored; existing sync_google_play_purchase_order_status patch restores; 3 helper-created SQLite connections close in finally | SAFE FOR A2-2: direct routes/config helpers, no HTTP server. Provider sync is already mocked at route dependency with asserted call args; no transport/mock redesign. Cache-status reads only get_cached_theme_returns -> local empty cache; no warmup/fetch/thread call. |
+
+Main import audit: validate_configuration, credential-safe logger filter installation, yfinance logger level change, locks/limiter/cache/app object allocation and route registration occur at import. initialize_yfinance_cache and scheduler/thread startup are inside lifespan and will not be called. core.data_fetcher cached-status reads are local and use cache_directory; no fallback provider call. Imported OAuth/AI modules define provider functions but selected routes do not invoke them. No existing library/private data was read for this inventory.
+
+Plan: keep tests/storage_fixture.py and A1/Phase A infrastructure unchanged. Add only a tests-only context for the observed main/core reload, sys.path, and logger side effects; it composes with storage_fixture and does not allocate storage, start/disable startup, or patch transport/provider behavior. Register core/main dictionary restoration before reloading so per-case locks, rate limiters, app/OpenAPI cache and env-derived constants are discarded. Main/core initial imports happen under the approved A1 guard with module-default test configuration. Preserve existing real SQLite assertions and local provider mock. Admin production short-token policy remains an inner restoring env context calling only the pure token guard, with all storage paths still explicitly owned; no environment policy change.
+
+Validation writes only disposable A1 roots, no production/private files or external calls. SAFE modules run sequentially; a network violation reclassifies the affected module to B1, no extra provider mocks/allowlist/startup bypass. Minimum A1 regressions follow. Shared storage fixture is not planned to change, so accepted A2-1 evidence is retained; API-specific regression is justified by observed unrestored limiter/reload/logger/sys.path state. All other A2 and B1/B2/C/D implementations deferred.
+
+A2-2 me_data_routes first isolated run PASS: 3 tests, 0 expected/unexpected violations, restored/patches_restored/cleanup true. The main import needed no network mock or lifecycle bypass. All three original route/assertion bodies retained; fixture makes synthetic dev-login authorization explicit. Proceeding to admin_event_routes; review_access remains unchanged/unexecuted.
+
+
+## H4-A2-2 verification and closeout — 2026-09-14
+
+### Migrated scope and state ownership
+- me_data_routes: 3 original tests, full storage_fixture per test context, explicit local synthetic dev-login setting, privacy-version override limited to its original summary scenario. Direct route/OpenAPI assertions unchanged.
+- admin_event_routes: 11 original tests, storage_fixture and api_module_state entered with TestCase.enterContext in setUp; cleanup runs even if setUp or a testcase fails. Old partial DB/cache directories removed. Development setup uses the test environment. The existing short-admin-token production policy context remains unchanged and calls only _require_admin_token; its explicit owned path set is never removed. Limiter assignments now restoring patch.object contexts; three helper-created SQLite connections still close in finally. Existing provider sync patch and assert_called_once_with arguments unchanged.
+- api_test_modules: small test-only helper composes with the approved storage fixture, allocates no storage and changes no guard. Initial main/core imports establish sanitized module defaults under A1; dependencies stay loaded. Before each reload, module dictionaries are saved/restored with patch.dict; per-case app/OpenAPI cache, locks, limiters and import-time consent constants are replaced and restored. sys.path, uvicorn.error/ancestor-handler filters and yfinance logger level restore on success/failure. No lifespan invocation, startup bypass, provider mock or transport patch added.
+- The direct-entry coordinator adds only the two newly migrated names to its existing target tuple. A2-1 fixture and its existing tests remain unchanged; A2-1 independent acceptance is retained.
+
+### Executed checks
+Execution cwd: D:/Project/Vibe/StockBoda.worktrees/test-isolation, branch fix/test-environment-isolation, starting HEAD 38d625c9c443c002ada4ade54d79bbd2fd790431 plus scoped A2-2 diff. PY = D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe, all Python runs use -B. Writes only to disposable test roots; no production/private data read or actual provider/network call.
+
+| Command/check | Result |
+| --- | --- |
+| `PY -B tests/run_isolated_tests.py tests.test_me_data_routes` | PASS, 3 tests, 0 expected/0 unexpected violations; restored, patches_restored and cleanup true. |
+| `PY -B tests/run_isolated_tests.py tests.test_admin_event_routes` | PASS, 11 tests, 0 expected/0 unexpected violations; restored, patches_restored and cleanup true. |
+| `PY -B tests/run_isolated_tests.py tests.test_api_module_state` | PASS, 2 focused tests, 0 expected/0 unexpected violations; restored, patches_restored and cleanup true. |
+| `PY -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v` | PASS, existing direct-entry check now covers 7 modules (old 5 + new 2); all reject a forged test env without A1 before storage dependencies/files. No DB-backed target body runs directly. |
+| `PY -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v` | PASS, 14 tests. Synthetic 9-test child: 27 expected/0 unexpected; SQLite 5-test child: 19 expected/0 unexpected. Deliberately swallowed violations each fail the negative child as required, with cleanup true. |
+| `PY -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit` | PASS, 1 + 3 tests, 0 expected/0 unexpected violations, restoration/patch restoration/cleanup true. |
+| Static AST comparison to starting HEAD | PASS, all 3 + 11 original names/counts/assert calls (including mock call expectations) preserved. Deferred review_access source unchanged. |
+| Production/foundation/storage fixture diff and whitespace | No backend/frontend, A1/Phase A helper/runner, storage_fixture.py or deferred review_access change. git diff --check PASS before staging; full staged diff/allowlist checked separately before commit. |
+
+All A2-2 executions passed on first attempt; no repeated-failure or network-reclassification workaround was used. A2-1 42 storage tests and its unchanged focused fixture suite were not rerun because the shared fixture was not modified. The existing direct-entry check was rerun only because its target list changed. No full discovery/full Python suite, verify_project.ps1, frontend Node suite, server, lifespan, background worker, OAuth/provider/device verification was run.
+
+### Isolation and independent review
+The new regression addresses observed API-specific leakage rather than adding a new framework. It runs synthetic unittest cases through success, assertion failure, body exception and setUp failure, with the same storage/API contexts used by targets. It exercises real limiter state and app.openapi cache, changes auth/callback references with restoring patches, and compares main/core env-derived constants, function/limiter/app identities, sys.path/CWD/env, logger/handler filters and log level to the prior baseline. Each next context has a fresh root, empty OpenAPI cache and fresh limiter. Old containers are absent. A separate partial-main-reload exception verifies dictionary and logger restoration after actual reload initialization and before context entry.
+
+The A2-1 accepted fixture supplies all five DB paths/cache/temp and restores env/CWD/resources; no new DB lifecycle ownership was introduced. API targets retain real storage access and explicit direct-connection cleanup. A1 boundary reports no persistent-path or network violations. These are local static/unit/direct-route/isolated-process results, not HTTP-server, provider or lifespan evidence.
+
+Independent read-only static reviewer reported no actionable findings after inspecting helper cleanup order (test patches, then API state, then storage), partial reload/setup restoration, unchanged assertion/input/provider mock semantics, and bounded production-policy context. Reviewer did not execute/import target modules or modify files. Independent A2-2 execution verification remains pending.
+
+### Git/protection and deferred scope
+Six scoped files: docs/exec-plans/active/test-environment-isolation.md; tests/api_test_modules.py; tests/test_api_module_state.py; tests/test_me_data_routes.py; tests/test_admin_event_routes.py; tests/test_storage_fixture_runner.py. After explicit staged-name/full-diff verification, only the new commit `test: isolate data access api tests` is authorized. No amend/push/merge/rebase or other-worktree edit.
+
+review_access remains unchanged and unexecuted: AI route case belongs to later A2/B1 provider/AI work; concurrent example seeding belongs to B2 concurrency/lifecycle work. No testcase was removed, skipped or split. The already deferred four main/AI/consent tests remain untouched/unexecuted. Remaining A2 auth/OAuth, billing_readiness, AI/OpenAI, market/data-fetch, other main integration and request/background/lifespan tests remain deferred; B1/B2/C/D implementation is not started.
+
+Main protection is checked again at commit handoff: preserve its sole pre-existing unstaged store-assets/google-play/ko-KR/README.md and hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. A2-2 is ready to request independent data-access API verification; overall A2/H4 is not closed.

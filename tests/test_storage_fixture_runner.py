@@ -17,6 +17,8 @@ STORAGE_MODULES = (
     "tests.test_user_journal_storage",
     "tests.test_review_history",
     "tests.test_event_log",
+    "tests.test_me_data_routes",
+    "tests.test_admin_event_routes",
 )
 
 

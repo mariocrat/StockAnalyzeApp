@@ -1,25 +1,23 @@
-import importlib
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import api_module_state
+
 import json
-import os
-import sys
-import tempfile
 import unittest
 
 
 class MeDataRoutesTest(unittest.TestCase):
     def test_data_summary_counts_only_the_session_users_saved_trades(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = os.path.join(tmpdir, "trades.sqlite3")
-            os.environ["ALPHAMATE_PRIVACY_CONSENT_VERSION"] = "ai-review-privacy-summary"
+        with storage_fixture(
+            ALPHAMATE_ALLOW_DEV_ACCESS="true",
+            ALPHAMATE_PRIVACY_CONSENT_VERSION="ai-review-privacy-summary",
+        ), api_module_state() as modules:
 
-            backend_dir = os.path.join(os.getcwd(), "backend")
-            if backend_dir not in sys.path:
-                sys.path.insert(0, backend_dir)
-
-            account_store = importlib.reload(importlib.import_module("core.account_store"))
-            journal = importlib.reload(importlib.import_module("core.journal"))
-            main = importlib.reload(importlib.import_module("main"))
+            account_store = modules.account_store
+            journal = modules.journal
+            main = modules.main
 
             kakao = account_store.login_dev_provider(
                 provider="kakao",
@@ -64,20 +62,11 @@ class MeDataRoutesTest(unittest.TestCase):
             )
 
     def test_delete_me_account_data_is_exposed_as_current_user_only_route(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = os.path.join(tmpdir, "trades.sqlite3")
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
-            os.environ["ALPHAMATE_REVIEW_HISTORY_DB_PATH"] = os.path.join(tmpdir, "review_history.sqlite3")
-            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"), api_module_state() as modules:
 
-            backend_dir = os.path.join(os.getcwd(), "backend")
-            if backend_dir not in sys.path:
-                sys.path.insert(0, backend_dir)
-
-            account_store = importlib.reload(importlib.import_module("core.account_store"))
-            journal = importlib.reload(importlib.import_module("core.journal"))
-            main = importlib.reload(importlib.import_module("main"))
+            account_store = modules.account_store
+            journal = modules.journal
+            main = modules.main
 
             session = account_store.login_dev_provider(
                 provider="naver",
@@ -107,21 +96,13 @@ class MeDataRoutesTest(unittest.TestCase):
             self.assertEqual(1, result["deleted_trades"])
 
     def test_export_me_data_includes_current_user_trades_and_entitlements_without_session_token(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = os.path.join(tmpdir, "trades.sqlite3")
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
-            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"), api_module_state() as modules:
 
-            backend_dir = os.path.join(os.getcwd(), "backend")
-            if backend_dir not in sys.path:
-                sys.path.insert(0, backend_dir)
-
-            account_store = importlib.reload(importlib.import_module("core.account_store"))
-            access_control = importlib.reload(importlib.import_module("core.access_control"))
-            journal = importlib.reload(importlib.import_module("core.journal"))
-            review_history = importlib.reload(importlib.import_module("core.review_history"))
-            main = importlib.reload(importlib.import_module("main"))
+            account_store = modules.account_store
+            access_control = modules.access_control
+            journal = modules.journal
+            review_history = modules.review_history
+            main = modules.main
 
             session = account_store.login_dev_provider(
                 provider="kakao",
