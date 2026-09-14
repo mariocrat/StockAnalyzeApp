@@ -1,8 +1,14 @@
-﻿import os
-import sys
+﻿from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import api_module_state
+
+import os
 import unittest
 from contextlib import contextmanager
 from types import SimpleNamespace
+from unittest.mock import patch
 
 
 @contextmanager
@@ -25,9 +31,8 @@ def patched_env(**values):
 
 class MarketRateLimitTest(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
-        backend_dir = os.path.join(os.getcwd(), "backend")
-        if backend_dir not in sys.path:
-            sys.path.insert(0, backend_dir)
+        self.enterContext(storage_fixture())
+        self.enterContext(api_module_state())
 
     def test_market_rate_limit_has_upper_bound(self):
         with patched_env(ALPHAMATE_MARKET_RATE_LIMIT_PER_MINUTE="999999"):
@@ -40,7 +45,7 @@ class MarketRateLimitTest(unittest.IsolatedAsyncioTestCase):
             import main
             from core.rate_limit import InMemoryRateLimiter
 
-            main._market_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_market_rate_limiter", InMemoryRateLimiter()))
             request = SimpleNamespace(
                 url=SimpleNamespace(path="/api/stock/005930"),
                 headers={},

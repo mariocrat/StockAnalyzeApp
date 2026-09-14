@@ -20,6 +20,9 @@ STORAGE_MODULES = (
     "tests.test_me_data_routes",
     "tests.test_admin_event_routes",
     "tests.test_billing_rate_limits",
+    "tests.test_request_id",
+    "tests.test_market_rate_limits",
+    "tests.test_auth_routes",
 )
 
 

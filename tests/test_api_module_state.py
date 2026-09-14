@@ -33,6 +33,54 @@ def state_snapshot():
 
 
 class ApiModuleStateTest(unittest.TestCase):
+    def test_market_async_lifecycle_restores_state_and_closes_loop(self):
+        import asyncio
+        from tests.test_market_rate_limits import MarketRateLimitTest
+
+        baseline = state_snapshot()
+        original = api._main._market_rate_limiter
+        hits = {key: list(values) for key, values in original._hits.items()}
+        loops = []
+        # unittest creates a policy lazily; keep this nested lifecycle probe's
+        # policy separate from the coordinator's pre-existing loop state.
+        with patch.object(asyncio.events, "_event_loop_policy", None):
+            for outcome in ("success", "assertion", "exception", "setup"):
+                with self.subTest(outcome=outcome):
+                    class ConsumingCase(MarketRateLimitTest):
+                        async def asyncSetUp(case):
+                            loops.append(asyncio.get_running_loop())
+                            if outcome == "setup":
+                                raise RuntimeError("synthetic async setup failure")
+
+                        async def runTest(case):
+                            await case.test_public_market_middleware_rejects_excessive_requests()
+                            case.assertIsNot(original, api._main._market_rate_limiter)
+                            if outcome == "assertion":
+                                case.fail("synthetic assertion after market consumption")
+                            if outcome == "exception":
+                                raise RuntimeError("synthetic exception after market consumption")
+
+                    result = unittest.TestResult()
+                    ConsumingCase("runTest").run(result)
+                    self.assertEqual(1, result.testsRun)
+                    self.assertEqual(int(outcome == "assertion"), len(result.failures))
+                    self.assertEqual(int(outcome in ("exception", "setup")), len(result.errors))
+                    self.assertTrue(loops[-1].is_closed())
+                    self.assertEqual(set(), asyncio.all_tasks(loops[-1]))
+                    self.assertIs(original, api._main._market_rate_limiter)
+                    self.assertEqual(hits, original._hits)
+                    self.assertEqual(baseline, state_snapshot())
+
+                    following = unittest.TestResult()
+                    MarketRateLimitTest(
+                        "test_public_market_middleware_rejects_excessive_requests"
+                    ).run(following)
+                    self.assertTrue(following.wasSuccessful(), following.errors + following.failures)
+                    self.assertIs(original, api._main._market_rate_limiter)
+                    self.assertEqual(hits, original._hits)
+                    self.assertEqual(baseline, state_snapshot())
+        self.assertEqual(4, len({id(loop) for loop in loops}))
+
     def test_billing_limiter_restores_after_consuming_testcase_and_failures(self):
         from tests.test_billing_rate_limits import BillingRateLimitTest
 

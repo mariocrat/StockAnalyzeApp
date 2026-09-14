@@ -1,13 +1,16 @@
-import os
-import sys
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import api_module_state
+
 import unittest
 
 
 class RequestIdTest(unittest.TestCase):
     def setUp(self):
-        backend_dir = os.path.join(os.getcwd(), "backend")
-        if backend_dir not in sys.path:
-            sys.path.insert(0, backend_dir)
+        self.enterContext(storage_fixture())
+        self.enterContext(api_module_state())
 
     def test_accepts_safe_incoming_request_id(self):
         import main
