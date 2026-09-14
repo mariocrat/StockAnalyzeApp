@@ -25,6 +25,10 @@ STORAGE_MODULES = (
     "tests.test_auth_routes",
     "tests.test_journal_batch_limits",
     "tests.test_journal_query_limits",
+    "tests.test_main_ai_review_history_consent",
+    "tests.test_journal_chart_details",
+    "tests.test_ai_review_quality",
+    "tests.test_stock_chart_corporate_actions",
 )
 
 

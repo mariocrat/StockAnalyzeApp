@@ -1,7 +1,7 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; the current authorized step is A2-5 journal limit testcase isolation (batch 13 and query 5).
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; the current authorized step is A2-6 local AI/chart testcase isolation (12 tests).
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
@@ -37,7 +37,7 @@ Tests may write only disposable synthetic roots and must block external requests
 H4 as a whole is not resolved. Python audit/patch guards are regression boundaries for cooperative tests, not an OS security sandbox against hostile native code. Full async/native transport coverage is B1. Full lifecycle/thread ownership is B2.
 
 ## Next Step
-Complete the scoped A2-5 commit gate for `test: isolate journal limit tests`, then request independent verification and wait. No push or next-candidate work.
+Complete the scoped A2-6 commit gate for `test: isolate local ai and chart tests`, then request independent verification and wait. No push or next-candidate work.
 
 ## Out of Scope
 Remaining A2 and all B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
@@ -449,3 +449,41 @@ Four-file commit scope: tests/test_journal_batch_limits.py, tests/test_journal_q
 No query deferral needed. All other A2 candidates, auth lifespan B2 tests, B1 external/provider, B2 lifecycle/background, C frontend and D official entrypoint/overall closeout remain deferred and unexecuted. No full suite. Independent A2-5 execution verification is next; A2/H4 overall remain open.
 
 Independent read-only static review: no actionable findings; confirmed 18-test assertion/input preservation, real session schema/auth compatibility, restoring patches and connection cleanup. Reviewer performed no execution/import/file or Git writes.
+
+
+## H4-A2-6 start and source inventory — 2026-09-14
+A2-5 independently approved by user at 27737521e7f5be18ee56f3a7ae44e91a12d650f7. Preflight: dedicated test-isolation root/branch, expected HEAD, clean/no staged/untracked; active plan present. Main retains sole protected README change, hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. Scope only four candidate modules (12 tests), existing direct-entry target list and this plan. No helper/framework/production changes planned.
+
+| Module | Source assessment |
+| --- | --- |
+| main_ai_review_history_consent (4) | A2 SAFE: existing basic/advanced builder and chart lambdas cut off external calls; real local account/access/history/consent operations. Missing consent rejects before builder. Original partial env/temp directories, reload/sys.path and raw function assignments require restoring fixture lifecycle. |
+| journal_chart_details (4) | A2 SAFE: build_review, marker/outcome arithmetic and interval calculation on supplied trades/candles; no chart fetch or initialize_yfinance_cache call. Only module-level sys.path/import state and testcase ownership needed. |
+| ai_review_quality (3) | A2 SAFE: _trade_episode and _fallback_basic_text use provided trades/snapshots and local build_review/checklist arithmetic. Imported transport definitions are not called; no OpenAI request or chart snapshot fetch. |
+| stock_chart_corporate_actions (1) | A2 SAFE: existing get_stock_ohlcv lambda supplies DataFrame.copy; get_stock_data processes local pandas values thereafter. Existing finally restores provider function; keep fake and assertion semantics. |
+
+Inventory reported before edits. Use approved storage_fixture/api helper, full five DB/cache/temp roots and sanitized env; restore main/core/path/logger state. Consent uses an innermost ExitStack for unchanged builder lambdas so patches close before API module restoration and storage cleanup. Pure function imports use existing restoring import-state context; no mock expansion. Execute each SAFE module separately under A1; network violation means defer, never add provider workarounds. All remaining A2/B1/B2/C/D remain deferred.
+
+
+### A2-6 verification and resumed closeout — 2026-09-15
+Resumed from five authorized unstaged A2-6 files at unchanged HEAD 27737521e7f5be18ee56f3a7ae44e91a12d650f7. Diff matched the earlier implementation exactly; no unrelated edits. User authorized preserving that state. Reused the already completed consent 4, chart details 4 and quality 3 PASS evidence without rerunning them. Completed corporate actions 1 and required regression. All four candidates remain SAFE; no deferred candidate within this batch.
+
+Consent now composes full per-case storage_fixture (dev access and original privacy version scenario), api_module_state and innermost ExitStack restoring the identical AI/chart lambdas. Local auth/purchase/history/consent behavior is unchanged. Pure chart details/quality use the existing _import_state around imports and storage_fixture per testcase; their functions only use supplied values and local variables, so no new reload or patch is needed. Corporate actions uses per-case storage/API contexts and retains its exact OHLCV fake and try/finally restoration. No provider transport, background, lifespan, cache initializer or worker is executed by these paths. No shared helper or production change.
+
+PY = D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe; cwd = dedicated worktree. Tests write only disposable A1-owned paths.
+
+| Command | Result |
+| --- | --- |
+| `PY -B tests/run_isolated_tests.py tests.test_main_ai_review_history_consent` | Previous uninterrupted A2-6 run: 4 PASS; violations/unexpected 0/0; restored/patches_restored/cleanup true |
+| `PY -B tests/run_isolated_tests.py tests.test_journal_chart_details` | Previous run: 4 PASS; violations/unexpected 0/0; restored/patches_restored/cleanup true |
+| `PY -B tests/run_isolated_tests.py tests.test_ai_review_quality` | Previous run: 3 PASS; violations/unexpected 0/0; restored/patches_restored/cleanup true |
+| `PY -B tests/run_isolated_tests.py tests.test_stock_chart_corporate_actions` | Resumed run: 1 PASS; violations/unexpected 0/0; restored/patches_restored/cleanup true |
+| `PY -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v` | 14 PASS; synthetic 9/27 expected/0 unexpected, SQLite 5/19 expected/0 unexpected; swallowed-violation negative probes correctly fail child and clean up |
+| `PY -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit` | 1 + 3 PASS; violations/unexpected 0/0; restored/patches_restored/cleanup true |
+| `PY -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v` | PASS; existing gate coordinator now covers 17 listed modules, rejecting raw import before main/storage dependencies or files |
+| Static normalized full method AST versus starting HEAD | PASS for all 12 names/methods; normalization only fixture/env/import setup and assignment-to-restoring-patch conversion. Assertions, payloads, expected values and every lambda body remain identical. No skips/duplicates/loss. |
+
+No new regression framework: existing approved helper failure-path evidence remains applicable because storage_fixture/api_test_modules are unchanged. Context cleanup handles success/body/setup failure; patch restoration precedes module dictionary restoration and storage cleanup. No observed DB/env/path/module/function leakage. No A2-1 through A2-5 full rerun, no whole Python/frontend suite, no B2 execution and no next candidate.
+
+Six-file commit allowlist: four target modules, tests/test_storage_fixture_runner.py and this plan. Review full staged diff, production/helper exclusion and git diff --cached --check before new commit `test: isolate local ai and chart tests`; no amend/push. Main README remains protected, expected hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61 checked at handoff. Other A2 and B1/B2/C/D remain deferred; independent A2-6 execution acceptance is next.
+
+Independent read-only static review found no actionable findings: confirmed all 12 test semantics, patch/API/storage cleanup order, pure-function import scope and unchanged production/helpers. Reviewer did not execute/import targets or modify files.

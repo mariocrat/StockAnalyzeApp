@@ -1,18 +1,20 @@
-import os
-import sys
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import _import_state
+
 import unittest
 
 
-BACKEND_DIR = os.path.join(os.getcwd(), "backend")
-if BACKEND_DIR not in sys.path:
-    sys.path.insert(0, BACKEND_DIR)
-
-from core.journal import build_review
-from core.journal_chart import _choose_intraday_interval, _markers_for_trades
+with _import_state():
+    from core.journal import build_review
+    from core.journal_chart import _choose_intraday_interval, _markers_for_trades
 
 
 class JournalChartDetailsTest(unittest.TestCase):
     def setUp(self):
+        self.enterContext(storage_fixture())
         self.trades = [
             {
                 "id": 1,

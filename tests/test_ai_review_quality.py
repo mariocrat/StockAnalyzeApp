@@ -1,16 +1,20 @@
-import os
-import sys
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import _import_state
+
 import unittest
 
 
-BACKEND_DIR = os.path.join(os.getcwd(), "backend")
-if BACKEND_DIR not in sys.path:
-    sys.path.insert(0, BACKEND_DIR)
-
-from core.ai_review_v2 import _fallback_basic_text, _trade_episode
+with _import_state():
+    from core.ai_review_v2 import _fallback_basic_text, _trade_episode
 
 
 class AiReviewQualityTest(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(storage_fixture())
+
     def test_basic_episode_keeps_buy_and_sell_for_target_symbol(self):
         trades = [
             {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "087010", "name": "펩트론", "side": "buy", "price": 116900, "quantity": 10},
