@@ -1,7 +1,7 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; the current authorized step is A2-6 local AI/chart testcase isolation (12 tests).
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; the current authorized step is A2-7 local access/config (12 A2 tests and one deferred B2 worker test).
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
@@ -37,7 +37,7 @@ Tests may write only disposable synthetic roots and must block external requests
 H4 as a whole is not resolved. Python audit/patch guards are regression boundaries for cooperative tests, not an OS security sandbox against hostile native code. Full async/native transport coverage is B1. Full lifecycle/thread ownership is B2.
 
 ## Next Step
-Complete the scoped A2-6 commit gate for `test: isolate local ai and chart tests`, then request independent verification and wait. No push or next-candidate work.
+Complete the scoped A2-7 commit gate for `test: isolate local access and config tests`, then request independent verification and wait. No push or next-candidate work.
 
 ## Out of Scope
 Remaining A2 and all B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
@@ -487,3 +487,36 @@ No new regression framework: existing approved helper failure-path evidence rema
 Six-file commit allowlist: four target modules, tests/test_storage_fixture_runner.py and this plan. Review full staged diff, production/helper exclusion and git diff --cached --check before new commit `test: isolate local ai and chart tests`; no amend/push. Main README remains protected, expected hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61 checked at handoff. Other A2 and B1/B2/C/D remain deferred; independent A2-6 execution acceptance is next.
 
 Independent read-only static review found no actionable findings: confirmed all 12 test semantics, patch/API/storage cleanup order, pure-function import scope and unchanged production/helpers. Reviewer did not execute/import targets or modify files.
+
+
+## H4-A2-7 start and source classification — 2026-09-15
+User independently approved A2-6 at 80659e1fb52e64718c1cade642cd1df5253d96be. Preflight matches dedicated worktree/branch/HEAD, clean and no staged/untracked files. Main only protected README unstaged, blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. Scope four candidate modules and one pure B2 split, gate list, plan; no production/shared helper/framework changes.
+
+Source decisions: review_access five tests SAFE: local review session/quota/expiry/credentials and direct login/AI routes, existing basic/advanced/chart fakes and finally blocks fully isolate provider calls. One worker test test_review_example_trades_are_seeded_once_when_logins_overlap is B2: ThreadPoolExecutor, barrier/events/concurrent seeding. Move body and original helper methods unchanged to test_review_access_concurrency.py; never import or execute it in A2. Static 6 = 5 + 1 split check before any runner call.
+
+production_dev_guards three tests SAFE with main imported under A1/test setup, then original production policy context for route auth/dev guards; real synthetic development session setup retains owned paths. No startup or external call. cors_config two and privacy_policy two SAFE pure env/config/HTML functions, restoring named patches over sanitized full testcase environment. Total A2 12 and B2 1. User-facing inventory reported before edits. Selected target commands write only disposable test roots; no B2/whole-suite execution.
+
+
+### A2-7 implementation and validation
+review_access: 6 original tests = 5 A2 + 1 B2 in test_review_access_concurrency.py. Worker body and its two original helper methods are AST-identical; it was separated before any execution and never imported/executed. A2 tests retain real SQLite/session/quota/credential checks and exact AI/chart fake bodies/finally restoration. Existing helper contexts own all five DB/cache/temp paths; explicit test dev access preserves the normal-user scenario. Canonical core module imports ensure original repeated reloads are covered by api_module_state snapshots. All direct SQLite connections retain closing; local synchronous seeding uses its ordinary lock without starting workers.
+
+production_dev_guards: imports/reload ownership move to test-env setUp; original production policy blocks remain production and all 401/403 checks and once-review/once-chart expectations are unchanged. Test-owned paths are preserved throughout. Only inner synthetic development login enables dev access explicitly. No auth/permission mock; chart fake now registered for restoring cleanup. This does not test production startup and does not change production policy. CORS/privacy retain complete original method ASTs, with storage_fixture setUp and pre-import gate added to sanitize host env. No common-helper or production edits, no transport/lifecycle workaround.
+
+PY = D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe, cwd dedicated worktree, starting HEAD 80659e1fb52e64718c1cade642cd1df5253d96be. Every command passed on its first attempt:
+
+| Command | Result |
+| --- | --- |
+| `PY -B tests/run_isolated_tests.py tests.test_review_access` | 5 PASS; expected/unexpected violations 0/0; restored/patches_restored/cleanup true |
+| `PY -B tests/run_isolated_tests.py tests.test_production_dev_guards` | 3 PASS; expected/unexpected 0/0; restored/patches_restored/cleanup true |
+| `PY -B tests/run_isolated_tests.py tests.test_cors_config tests.test_privacy_policy` | Separate A1 children, 2 + 2 PASS; each expected/unexpected 0/0; restored/patches_restored/cleanup true |
+| `PY -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v` | 14 PASS; synthetic 9/27 expected/0 unexpected; SQLite 5/19 expected/0 unexpected; deliberate swallowed-violation child failures correctly detected with cleanup true |
+| `PY -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit` | 1 + 3 PASS; expected/unexpected 0/0; restoration/patch restoration/cleanup true |
+| `PY -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v` | PASS; existing list now 21 modules; raw imports fail before storage/main dependencies/files. Worker module excluded |
+| Static names/counts/assertion/lambda AST comparison | PASS: original 13 = executed A2 12 + deferred B2 1. Worker full body/helpers identical; all assertions and lambda mock inputs/outputs unchanged; no skip/duplicate/loss |
+| git diff --check and production/helper scope | PASS; backend/render/shared storage/API helper unchanged |
+
+State evidence: per-case disposable full path set, named scenario patches over sanitized env, registered cleanup for module/sys.path/logger and function restoration, retained finally/closing blocks. No observed leakage. Approved helper failure-path results remain applicable; helpers unchanged, so no extra helper/full A2 reruns. No provider/network/background/lifespan or whole-suite execution. The only worker test is Deferred to H4-B2; other A2 candidates and B1/B2/C/D remain deferred.
+
+Commit allowlist seven files: test_review_access.py, new test_review_access_concurrency.py, test_production_dev_guards.py, test_cors_config.py, test_privacy_policy.py, test_storage_fixture_runner.py and this plan. Full staged diff/names/whitespace review before `test: isolate local access and config tests`; no amend/push. Main remains unchanged with protected README hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. A2-7 ready for independent execution verification after commit; overall H4 not closed.
+
+Independent read-only static review: no actionable finding. Confirmed review reloads inside snapshots, production 401/403 semantics, isolated dev session, unchanged fake/finally behavior and B2 exclusion. Reviewer did not execute/import tests or write files.

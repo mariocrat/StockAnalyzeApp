@@ -1,11 +1,13 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import api_module_state
+
 import importlib
 import os
 import sqlite3
-import sys
-import tempfile
-import threading
 import unittest
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from contextlib import closing
 from types import SimpleNamespace
@@ -16,7 +18,7 @@ from fastapi import HTTPException
 
 class ReviewAccessTest(unittest.TestCase):
     def _configured_env(self, tmpdir, *, enabled="true", expires_at=None):
-        from backend.core import account_store
+        from core import account_store
 
         return {
             "ALPHAMATE_ACCOUNT_DB_PATH": os.path.join(tmpdir, "accounts.sqlite3"),
@@ -30,15 +32,16 @@ class ReviewAccessTest(unittest.TestCase):
         }
 
     def _load_modules(self):
-        from backend.core import access_control, account_store
+        from core import access_control, account_store
 
         account_store = importlib.reload(account_store)
         access_control = importlib.reload(access_control)
         return account_store, access_control
 
     def test_review_access_is_off_or_expired_by_default(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            from backend.core import account_store
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage, api_module_state() as modules:
+            tmpdir = storage.root
+            from core import account_store
 
             with patch.dict(os.environ, self._configured_env(tmpdir, enabled="false"), clear=False):
                 account_store = importlib.reload(account_store)
@@ -56,8 +59,9 @@ class ReviewAccessTest(unittest.TestCase):
                 self.assertEqual(401, raised.exception.status_code)
 
     def test_review_login_uses_normal_session_and_isolated_pro_quota(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            from backend.core import account_store
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage, api_module_state() as modules:
+            tmpdir = storage.root
+            from core import account_store
 
             env = self._configured_env(tmpdir)
             with patch.dict(os.environ, env, clear=False):
@@ -132,7 +136,8 @@ class ReviewAccessTest(unittest.TestCase):
                     self.assertEqual(2, conn.execute("SELECT COUNT(*) FROM review_entitlement_usage WHERE status = 'reversed'").fetchone()[0])
 
     def test_review_credentials_are_generic_and_normal_user_has_no_review_entitlement(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage, api_module_state() as modules:
+            tmpdir = storage.root
             env = self._configured_env(tmpdir)
             with patch.dict(os.environ, env, clear=False):
                 account_store, access_control = self._load_modules()
@@ -161,7 +166,8 @@ class ReviewAccessTest(unittest.TestCase):
                 self.assertNotEqual("review", normal_entitlements["user"]["auth_mode"])
 
     def test_review_session_loses_access_when_disabled_or_entitlement_expires(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage, api_module_state() as modules:
+            tmpdir = storage.root
             env = self._configured_env(tmpdir)
             with patch.dict(os.environ, env, clear=False):
                 account_store, access_control = self._load_modules()
@@ -195,7 +201,8 @@ class ReviewAccessTest(unittest.TestCase):
                 self.assertEqual(0, entitlements["basic"]["pro_monthly_remaining"])
 
     def test_review_login_route_seeds_examples_and_runs_both_ai_review_types(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage, api_module_state() as modules:
+            tmpdir = storage.root
             env = self._configured_env(tmpdir)
             env.update({
                 "ALPHAMATE_JOURNAL_DB_PATH": os.path.join(tmpdir, "trades.sqlite3"),
@@ -204,9 +211,6 @@ class ReviewAccessTest(unittest.TestCase):
             })
             with patch.dict(os.environ, env, clear=False):
                 account_store, access_control = self._load_modules()
-                backend_dir = os.path.join(os.getcwd(), "backend")
-                if backend_dir not in sys.path:
-                    sys.path.insert(0, backend_dir)
                 import main
 
                 main = importlib.reload(main)
@@ -267,62 +271,6 @@ class ReviewAccessTest(unittest.TestCase):
                     self.assertEqual(0, conn.execute("SELECT COUNT(*) FROM google_play_subscriptions").fetchone()[0])
                     self.assertEqual(0, conn.execute("SELECT COUNT(*) FROM purchase_credit_orders").fetchone()[0])
 
-    def test_review_example_trades_are_seeded_once_when_logins_overlap(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            env = self._configured_env(tmpdir)
-            env["ALPHAMATE_JOURNAL_DB_PATH"] = os.path.join(tmpdir, "trades.sqlite3")
-            with patch.dict(os.environ, env, clear=False):
-                _, _ = self._load_modules()
-                backend_dir = os.path.join(os.getcwd(), "backend")
-                if backend_dir not in sys.path:
-                    sys.path.insert(0, backend_dir)
-                import main
-
-                main = importlib.reload(main)
-                original_count = main.count_trades
-                original_add = main._add_journal_trade
-                start_barrier = threading.Barrier(2)
-                first_add_started = threading.Event()
-                second_count_started = threading.Event()
-                release_first_add = threading.Event()
-                call_lock = threading.Lock()
-                count_calls = {"value": 0}
-                add_calls = {"value": 0}
-
-                def gated_count(*, user_id):
-                    with call_lock:
-                        count_calls["value"] += 1
-                        call_number = count_calls["value"]
-                    result = original_count(user_id=user_id)
-                    if call_number == 2:
-                        second_count_started.set()
-                    return result
-
-                def gated_add(payload, *, user_id=""):
-                    with call_lock:
-                        add_calls["value"] += 1
-                        call_number = add_calls["value"]
-                    if call_number == 1:
-                        first_add_started.set()
-                        release_first_add.wait(timeout=1)
-                    return original_add(payload, user_id=user_id)
-
-                def run_seed():
-                    start_barrier.wait(timeout=1)
-                    return main._ensure_review_example_trades("review-user")
-
-                with patch.object(main, "count_trades", side_effect=gated_count), patch.object(
-                    main, "_add_journal_trade", side_effect=gated_add
-                ):
-                    with ThreadPoolExecutor(max_workers=2) as executor:
-                        futures = [executor.submit(run_seed) for _ in range(2)]
-                        self.assertTrue(first_add_started.wait(timeout=1))
-                        second_count_started.wait(timeout=0.2)
-                        release_first_add.set()
-                        results = [future.result(timeout=2) for future in futures]
-
-                self.assertEqual(2, original_count(user_id="review-user"))
-                self.assertEqual(2, sum(results))
 
 
 if __name__ == "__main__":

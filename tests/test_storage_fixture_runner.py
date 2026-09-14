@@ -29,6 +29,10 @@ STORAGE_MODULES = (
     "tests.test_journal_chart_details",
     "tests.test_ai_review_quality",
     "tests.test_stock_chart_corporate_actions",
+    "tests.test_review_access",
+    "tests.test_production_dev_guards",
+    "tests.test_cors_config",
+    "tests.test_privacy_policy",
 )
 
 

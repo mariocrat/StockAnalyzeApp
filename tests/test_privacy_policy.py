@@ -1,3 +1,7 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
 import os
 import unittest
 from unittest.mock import patch
@@ -6,6 +10,9 @@ from backend.core.privacy_policy import account_deletion_html, privacy_policy_ht
 
 
 class PrivacyPolicyTest(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(storage_fixture())
+
     def test_policy_identifies_service_operator_and_privacy_officer(self):
         env = {
             "ALPHAMATE_PRIVACY_OPERATOR_NAME": "김건희",
