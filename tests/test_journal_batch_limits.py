@@ -1,18 +1,14 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import api_module_state
+
 import importlib
 import os
-import sys
 import unittest
 
 from fastapi import HTTPException
-
-
-def _load_main():
-    backend_dir = os.path.join(os.getcwd(), "backend")
-    if backend_dir not in sys.path:
-        sys.path.insert(0, backend_dir)
-    importlib.reload(importlib.import_module("core.account_store"))
-    importlib.reload(importlib.import_module("core.access_control"))
-    return importlib.reload(importlib.import_module("main"))
 
 
 def _trade(main, index: int, **overrides):
@@ -31,29 +27,20 @@ def _trade(main, index: int, **overrides):
 
 
 class JournalBatchLimitTest(unittest.TestCase):
-    ENV_KEYS = [
-        "ALPHAMATE_JOURNAL_ONCE_MAX_TRADES",
-        "ALPHAMATE_AI_REVIEW_MAX_TRADES",
-        "ALPHAMATE_ALLOW_DEV_ACCESS",
-        "ALPHAMATE_ENV",
-        "ALPHAMATE_ACCOUNT_DB_PATH",
-        "ALPHAMATE_ACCESS_DB_PATH",
-        "ALPHAMATE_JOURNAL_MEMO_MAX_CHARS",
-    ]
-
     def setUp(self):
-        self._previous_env = {key: os.environ.get(key) for key in self.ENV_KEYS}
-
-    def tearDown(self):
-        for key, value in self._previous_env.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
+        self.enterContext(storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"))
+        self.modules = self.enterContext(api_module_state())
+        account = self.modules.account_store
+        session = account.login_dev_provider(
+            provider="kakao", provider_user_id="journal-batch-fixture",
+            display_name="Synthetic batch user",
+        )
+        self.authorization = f"Bearer {session['session_token']}"
+        account.update_journal_storage_setting(authorization=self.authorization, enabled=True)
 
     def test_review_once_rejects_batches_above_configured_limit(self):
         os.environ["ALPHAMATE_JOURNAL_ONCE_MAX_TRADES"] = "2"
-        main = _load_main()
+        main = self.modules.main
         batch = main.JournalBatchIn(trades=[_trade(main, 1), _trade(main, 2), _trade(main, 3)])
 
         with self.assertRaises(HTTPException) as blocked:
@@ -66,43 +53,37 @@ class JournalBatchLimitTest(unittest.TestCase):
         os.environ["ALPHAMATE_JOURNAL_ONCE_MAX_TRADES"] = "999999"
         os.environ["ALPHAMATE_AI_REVIEW_MAX_TRADES"] = "999999"
         os.environ["ALPHAMATE_JOURNAL_MEMO_MAX_CHARS"] = "999999"
-        main = _load_main()
+        main = self.modules.main
 
         self.assertEqual(1000, main._journal_once_max_trades())
         self.assertEqual(200, main._ai_review_max_trades())
         self.assertEqual(5000, main._journal_memo_max_chars())
 
     def test_ai_review_once_rejects_batches_above_ai_limit_before_charging(self):
-        import tempfile
+        os.environ["ALPHAMATE_AI_REVIEW_MAX_TRADES"] = "1"
+        os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+        main = self.modules.main
+        account_store = importlib.import_module("core.account_store")
+        session = account_store.login_dev_provider(
+            provider="kakao",
+            provider_user_id="batch-limit-user",
+            display_name="Batch Limit",
+        )
+        batch = main.JournalAiReviewIn(
+            privacy_consent=True,
+            review_type="basic",
+            trades=[_trade(main, 1), _trade(main, 2)],
+        )
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
-            os.environ["ALPHAMATE_AI_REVIEW_MAX_TRADES"] = "1"
-            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
-            os.environ["ALPHAMATE_ENV"] = "development"
-            main = _load_main()
-            account_store = importlib.import_module("core.account_store")
-            session = account_store.login_dev_provider(
-                provider="kakao",
-                provider_user_id="batch-limit-user",
-                display_name="Batch Limit",
-            )
-            batch = main.JournalAiReviewIn(
-                privacy_consent=True,
-                review_type="basic",
-                trades=[_trade(main, 1), _trade(main, 2)],
-            )
+        with self.assertRaises(HTTPException) as blocked:
+            main.get_journal_ai_review_once(batch, authorization=f"Bearer {session['session_token']}")
 
-            with self.assertRaises(HTTPException) as blocked:
-                main.get_journal_ai_review_once(batch, authorization=f"Bearer {session['session_token']}")
-
-            self.assertEqual(413, blocked.exception.status_code)
-            self.assertIn("AI 복기는 한 번에 최대 1건", blocked.exception.detail)
+        self.assertEqual(413, blocked.exception.status_code)
+        self.assertIn("AI 복기는 한 번에 최대 1건", blocked.exception.detail)
 
     def test_review_once_rejects_oversized_trade_memo(self):
         os.environ["ALPHAMATE_JOURNAL_MEMO_MAX_CHARS"] = "5"
-        main = _load_main()
+        main = self.modules.main
         batch = main.JournalBatchIn(trades=[_trade(main, 1, memo="123456")])
 
         with self.assertRaises(HTTPException) as blocked:
@@ -113,16 +94,16 @@ class JournalBatchLimitTest(unittest.TestCase):
 
     def test_saved_trade_rejects_oversized_memo(self):
         os.environ["ALPHAMATE_JOURNAL_MEMO_MAX_CHARS"] = "5"
-        main = _load_main()
+        main = self.modules.main
 
         with self.assertRaises(HTTPException) as blocked:
-            main.create_journal_trade(_trade(main, 1, memo="123456"))
+            main.create_journal_trade(_trade(main, 1, memo="123456"), authorization=self.authorization)
 
         self.assertEqual(413, blocked.exception.status_code)
         self.assertIn("메모는 최대 5자", blocked.exception.detail)
 
     def test_review_once_returns_bad_request_for_invalid_trade_side(self):
-        main = _load_main()
+        main = self.modules.main
         batch = main.JournalBatchIn(trades=[_trade(main, 1, side="hold")])
 
         with self.assertRaises(HTTPException) as blocked:
@@ -132,25 +113,25 @@ class JournalBatchLimitTest(unittest.TestCase):
         self.assertIn("side must be buy or sell", blocked.exception.detail)
 
     def test_saved_trade_returns_bad_request_for_invalid_quantity(self):
-        main = _load_main()
+        main = self.modules.main
 
         with self.assertRaises(HTTPException) as blocked:
-            main.create_journal_trade(_trade(main, 1, quantity=0))
+            main.create_journal_trade(_trade(main, 1, quantity=0), authorization=self.authorization)
 
         self.assertEqual(400, blocked.exception.status_code)
         self.assertIn("price and quantity must be positive", blocked.exception.detail)
 
     def test_saved_trade_returns_bad_request_for_non_finite_price(self):
-        main = _load_main()
+        main = self.modules.main
 
         with self.assertRaises(HTTPException) as blocked:
-            main.create_journal_trade(_trade(main, 1, price=float("inf")))
+            main.create_journal_trade(_trade(main, 1, price=float("inf")), authorization=self.authorization)
 
         self.assertEqual(400, blocked.exception.status_code)
         self.assertIn("price and quantity must be finite", blocked.exception.detail)
 
     def test_review_once_returns_bad_request_for_negative_fee(self):
-        main = _load_main()
+        main = self.modules.main
         batch = main.JournalBatchIn(trades=[_trade(main, 1, fee=-1)])
 
         with self.assertRaises(HTTPException) as blocked:
@@ -160,16 +141,16 @@ class JournalBatchLimitTest(unittest.TestCase):
         self.assertIn("fee and tax must be non-negative", blocked.exception.detail)
 
     def test_saved_trade_returns_bad_request_for_invalid_trade_date(self):
-        main = _load_main()
+        main = self.modules.main
 
         with self.assertRaises(HTTPException) as blocked:
-            main.create_journal_trade(_trade(main, 1, trade_date="not-a-date"))
+            main.create_journal_trade(_trade(main, 1, trade_date="not-a-date"), authorization=self.authorization)
 
         self.assertEqual(400, blocked.exception.status_code)
         self.assertIn("trade_date must be ISO date or datetime", blocked.exception.detail)
 
     def test_review_once_returns_bad_request_for_invalid_trade_date(self):
-        main = _load_main()
+        main = self.modules.main
         batch = main.JournalBatchIn(trades=[_trade(main, 1, trade_date="2026-99-99")])
 
         with self.assertRaises(HTTPException) as blocked:
@@ -179,16 +160,16 @@ class JournalBatchLimitTest(unittest.TestCase):
         self.assertIn("trade_date must be ISO date or datetime", blocked.exception.detail)
 
     def test_saved_trade_returns_bad_request_for_oversized_stock_name(self):
-        main = _load_main()
+        main = self.modules.main
 
         with self.assertRaises(HTTPException) as blocked:
-            main.create_journal_trade(_trade(main, 1, name="삼성전자" * 50))
+            main.create_journal_trade(_trade(main, 1, name="삼성전자" * 50), authorization=self.authorization)
 
         self.assertEqual(400, blocked.exception.status_code)
         self.assertIn("name must be 120 characters or fewer", blocked.exception.detail)
 
     def test_review_once_returns_bad_request_for_oversized_ticker_and_source(self):
-        main = _load_main()
+        main = self.modules.main
         batch = main.JournalBatchIn(trades=[_trade(main, 1, ticker="0" * 21, source="manual")])
 
         with self.assertRaises(HTTPException) as ticker_blocked:

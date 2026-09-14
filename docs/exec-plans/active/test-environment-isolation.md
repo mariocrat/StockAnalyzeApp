@@ -1,7 +1,7 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; the current authorized step is A2-4 lightweight main/API isolation (12 A2 tests and pure separation of 2 deferred B2 lifespan tests).
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; the current authorized step is A2-5 journal limit testcase isolation (batch 13 and query 5).
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
@@ -37,7 +37,7 @@ Tests may write only disposable synthetic roots and must block external requests
 H4 as a whole is not resolved. Python audit/patch guards are regression boundaries for cooperative tests, not an OS security sandbox against hostile native code. Full async/native transport coverage is B1. Full lifecycle/thread ownership is B2.
 
 ## Next Step
-Report A2-4 local results and the B2 execution-attempt incident; leave seven scoped files unstaged, with no commit/push. Wait for user disposition and independent verification; do not rerun deferred B2 or proceed to another candidate.
+Complete the scoped A2-5 commit gate for `test: isolate journal limit tests`, then request independent verification and wait. No push or next-candidate work.
 
 ## Out of Scope
 Remaining A2 and all B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
@@ -416,3 +416,36 @@ H4-B2 deferred: test_lifespan_skips_theme_warmup_when_disabled_for_render and te
 
 ### Incident acceptance revision and commit authorization
 The user subsequently accepted the disclosed preamble-only invocation: lifecycle/cache/warmup/background execution was not reached, unexpected violations were 0, restoration/cleanup succeeded, and the separated B2 module was not rerun. This supersedes the historical commit hold above. Reuse the existing successful A2 12 and required regression evidence; no new tests or code changes. Commit only the seven scoped files after full staged-diff/whitespace checks with subject `test: isolate lightweight api tests`; no push or next-candidate work.
+
+
+## H4-A2-5 start — 2026-09-14
+User independently approved A2-4 at 7f5c2521d7a81f52f02bc136b0e3435ad3e055b4. Dedicated root/branch match, clean preflight; main only protected README unstaged with unchanged e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. Scope only journal_batch_limits 13 and journal_query_limits 5, existing helpers/gate regression and plan. No production, provider, lifespan, B2 or next-candidate execution.
+
+Source inventory: batch reloads account/access/main, restores a partial env list, and allocates only two temporary DB paths for the AI-size rejection test. Invalid saved-trade cases now require actual authentication before journal validation. Batch is SAFE with full storage/API contexts and real dev-login session + storage opt-in. AI-size route rejects before AI/rate/charge/provider logic. Query has 5 tests with unrestored main function assignments; three saved routes require persistent authentication while two old mocks target optional auth. Query is SAFE if a real SQLite synthetic user-a / Bearer session fixture supplies the existing expected identity, without unconditional auth mocks or altered assertions. Retain existing list/build mocks and inputs, replace only auth setup and restoring patch lifecycle. Existing helpers remain unchanged. Run modules separately after edits; failure twice at same cause stops approach.
+
+
+### A2-5 local verification and auth decision
+Both modules SAFE and included: 13 batch + 5 query = 18 original testcases. All original names/self.assert* call ASTs match starting HEAD; manual diff confirms original trade payloads, invalid values, limit settings, expected results and list/build fake semantics unchanged. Only real auth context is supplied where current saved routes require it. No skip, duplicate, deletion, route/production change or provider bypass.
+
+Batch uses a real local dev-login session with storage opt-in; original AI-size test retains its own batch-limit-user/session and payload. Per-case test environment replaces its old development env/two-path temp setup. Invalid saved-trade inputs still reach the same 400/413 validation; authentication is not mocked. Limits are read at call time, so replacing ad hoc reload with the existing API context does not change scenario settings.
+
+Query seeds a fresh real account DB with active user-a, storage opt-in, and the SHA-256 hash of synthetic token session, unrevoked and expiring one day after setup. Production authenticate_session remains unpatched and validates actual rows. Literal Bearer session and expected user-a remain unchanged; the previously unauthenticated list call receives that same valid context. Obsolete optional-session mocks and the unconditional authenticate_session lambda are removed. Existing list/build replacements retain bodies and are registered with enterContext(patch.object), restoring before API module dictionaries and storage cleanup. The setup connection uses closing and commit; production auth/dev-login connections close in finally. No second fixture framework or common-helper change.
+
+PY = D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe; execution cwd = dedicated worktree, starting HEAD 7f5c2521d7a81f52f02bc136b0e3435ad3e055b4. Each target ran separately in A1, and all commands passed on first attempt:
+
+| Command | Result |
+| --- | --- |
+| `PY -B tests/run_isolated_tests.py tests.test_journal_batch_limits` | 13 PASS; expected/unexpected violations 0/0; restored/patches_restored/cleanup true |
+| `PY -B tests/run_isolated_tests.py tests.test_journal_query_limits` | 5 PASS; expected/unexpected violations 0/0; restored/patches_restored/cleanup true |
+| `PY -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v` | 14 PASS; synthetic 9 tests/27 expected/0 unexpected, SQLite 5/19 expected/0 unexpected; intentional swallowed-violation children correctly fail with cleanup true |
+| `PY -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit` | 1 + 3 PASS; expected/unexpected 0/0, restored/patches_restored/cleanup true |
+| `PY -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v` | PASS; 13 listed modules, including both new targets, reject raw import before storage/main dependencies or files |
+| Static names/count/assertion AST and git diff --check | PASS; 13 + 5 preserved |
+
+State isolation: full five DB/cache/temp paths owned per testcase; sanitized env restored even after setup failure via enterContext. Main/core reload/sys.path/logger restoration uses unchanged approved api_module_state; function patches restore LIFO before module/storage contexts. Existing accepted helper failure-path regression remains applicable and is not rerun because helpers are unchanged. No observed boundary leakage; no actual provider/network/background/lifespan execution. AI-size test stops at first batch guard, before charge/provider code; query charts/review use their existing synthetic builders.
+
+Four-file commit scope: tests/test_journal_batch_limits.py, tests/test_journal_query_limits.py, tests/test_storage_fixture_runner.py, this plan. Production, common helpers and other candidates unchanged. Main README protected hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61; recheck at handoff. Full staged diff/allowlist/whitespace check precedes authorized commit; no amend/push. A2-4 independent approval is retained, including its disclosed and accepted incident history.
+
+No query deferral needed. All other A2 candidates, auth lifespan B2 tests, B1 external/provider, B2 lifecycle/background, C frontend and D official entrypoint/overall closeout remain deferred and unexecuted. No full suite. Independent A2-5 execution verification is next; A2/H4 overall remain open.
+
+Independent read-only static review: no actionable findings; confirmed 18-test assertion/input preservation, real session schema/auth compatibility, restoring patches and connection cleanup. Reviewer performed no execution/import/file or Git writes.
