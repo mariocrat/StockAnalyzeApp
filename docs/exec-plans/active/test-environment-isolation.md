@@ -1,7 +1,7 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; A2-7 is independently accepted; the current authorized step is A2-8 local OpenAI review isolation (16 A2 tests and 11 deferred B1 tests).
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; A2-7 is independently accepted; A2-8 is independently accepted; the current authorized step is A2-9 local OAuth/cache/mobile isolation (19 A2 tests; excluded tests preserved separately).
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
@@ -37,7 +37,7 @@ Tests may write only disposable synthetic roots and must block external requests
 H4 as a whole is not resolved. Python audit/patch guards are regression boundaries for cooperative tests, not an OS security sandbox against hostile native code. Full async/native transport coverage is B1. Full lifecycle/thread ownership is B2.
 
 ## Next Step
-Complete the scoped A2-7 commit gate for `test: isolate local access and config tests`, then request independent verification and wait. No push or next-candidate work.
+Complete the scoped A2-9 commit gate for `test: isolate oauth cache and mobile tests`, then request independent verification and wait. A2-10/11/12 require a later instruction; no push or automatic next-candidate work.
 
 ## Out of Scope
 Remaining A2 and all B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
@@ -564,3 +564,31 @@ Split before execution: tests/test_ai_review_openai_client.py retains 16 A2 test
 - `python -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across 22 A2 target modules. Only the local module was added to the existing gate target list; no deferred B1 import.
 - Production and shared helpers unchanged. No full suite, provider/transport expansion, B1 execution, push or next-candidate work. Remaining A2 candidates and B1/B2/C/D remain deferred; overall H4 is not closed.
 - Commit allowlist: tests/test_ai_review_openai_client.py, tests/test_ai_review_openai_transport.py, tests/test_storage_fixture_runner.py and this plan. Whitespace/full staged diff and Main README preservation checked before commit. Ready for independent A2-8 verification after commit.
+
+
+## H4-A2-9 — OAuth/cache/mobile local isolation
+A2-8 independently approved at 7e96b35d76d631cf903f8f3a150cf525fdee4620. Approved residual inventory: 97 A2 tests to finish in bounded A2-9 through A2-12 batches. Only A2-9 (19 local tests) is authorized now; A2-10/11/12 remain pending, B1/B2/C/D deferred.
+Preflight: expected root/branch/HEAD, clean staged/unstaged/untracked; Main unchanged except protected user README, hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
+Source classification: OAuth 15 = A2 10 (missing-token/config/redirect validation and original fake login with one-time ticket) + B1 5 (timeout, two profiles and two code exchanges). Theme 7 = A2 3 (two corporate-action calculations and file cache save with original calculated-results fake) + B2 4 (bounded executor/futures/worker calculations). Mobile 14 = A2 backend local 6 (cache configuration, direct synthetic route/cache responses and pure dates) + C 6 frontend/mixed source checks + D 1 Render source check + OUT 1 admin source check. No transport/refresh/provider fake redesign; worker-count arithmetic does not launch workers.
+OAuth split preserves every method body and the existing restoring _replace helper. Local setUp uses storage_fixture, _import_state and module snapshot before reload, including fresh ticket dictionary/lock; deferred transport setup/body retained. All five DBs/cache/temp are owned; original nested temp paths remain under the case root. No excluded test is executed.
+
+
+### A2-9 split and validation — 2026-09-15
+| Original module | SAFE A2 retained | Separate excluded module | Excluded count |
+| --- | ---: | --- | ---: |
+| test_oauth_login.py | 10 | test_oauth_login_transport.py | B1 5 |
+| test_theme_cache_memory.py | 3 | test_theme_cache_workers.py | B2 4 |
+| test_mobile_runtime_recovery.py | 6 | test_mobile_runtime_source_checks.py | C 6 / D 1 / OUT 1 |
+
+OAuth B1 names: test_oauth_request_timeout_setting_is_capped, test_kakao_access_token_profile_creates_alphamate_session, test_naver_access_token_profile_creates_alphamate_session, test_kakao_authorization_code_is_exchanged_before_login, test_naver_authorization_code_is_exchanged_before_login.
+Theme B2 names: test_large_theme_fetch_keeps_outstanding_futures_and_results_bounded, test_worker_exception_still_exits_bounded_executor, test_multiple_periods_are_calculated_from_one_bounded_fetch_pass, test_period_returns_use_available_closes_and_exclude_tickers_without_two_rows.
+Mobile C names: test_mobile_layout_stacks_navigation_and_content, test_production_journal_hides_developer_diagnostics, test_oauth_handles_cold_launch_url_once, test_theme_requests_timeout_and_retry, test_empty_journal_does_not_require_an_initial_api_round_trip, test_oauth_success_and_app_failure_stages_are_logged_without_credentials. D: test_render_uses_persistent_cache_and_bounded_workers. OUT: test_admin_can_trigger_and_inspect_initial_theme_cache.
+
+- Each SAFE module executed separately with `python -B tests/run_isolated_tests.py tests.<module>` in order OAuth, Theme, Mobile: 10 PASS, 3 PASS, 6 PASS = 19. Every result: violations/expected/unexpected 0; restored, patches_restored, cleanup true. No failed attempt. Excluded modules were not imported/executed.
+- Full test-method AST comparison against starting HEAD: OAuth 15=10+5, Theme 7=3+4, Mobile 14=6+8; combined 36=19+17. All names, bodies, assertions, inputs, expected values and nested fake definitions are exactly unchanged; no normalization needed, no skip/duplicate/loss.
+- Theme snapshots backend.core.data_fetcher before reload, including the original body-local reload, and restores its globals/cache function objects. Existing calculated-results fake avoids executor/transport while real JSON file saving stays in testcase-owned temporary cache.
+- Mobile uses storage_fixture, _import_state, data_fetcher snapshot/reload and api_module_state. Main reload creates fresh per-case theme cache objects; cleanup clears only the captured fresh cache method before restoring the original main dictionary. Original baseline cache object/content is never cleared or consumed. Data-fetcher globals/functions, sys.path, logger, env and all five DB/cache/temp paths restore through existing cleanup stacks even on exceptions. Existing request/refresh fakes are unchanged; pure date/worker-limit functions launch no worker. Lifespan is never entered.
+- A1 minimum: `python -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v`: 14 PASS (intentional negative probes included). `python -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit`: 1+3 PASS, unexpected 0, restored/patches_restored/cleanup true.
+- Direct gate: `python -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across 25 local targets, adding only these three SAFE modules. No excluded test module was included.
+- No production/shared helper/framework changes; no full suite, B1/B2/C/D/OUT execution or push. Remaining approved inventory after these 19 is 78 A2 tests reserved for A2-10 through A2-12; no automatic continuation.
+- Commit scope: the three local modules, three split excluded modules, existing direct-entry coordinator and this ExecPlan (8 files). Main README preserved at e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. Review full staged diff/names and whitespace before commit; independent verification is requested after commit.
