@@ -33,6 +33,7 @@ STORAGE_MODULES = (
     "tests.test_production_dev_guards",
     "tests.test_cors_config",
     "tests.test_privacy_policy",
+    "tests.test_ai_review_openai_client",
 )
 
 

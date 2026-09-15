@@ -1,7 +1,7 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; the current authorized step is A2-7 local access/config (12 A2 tests and one deferred B2 worker test).
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; A2-7 is independently accepted; the current authorized step is A2-8 local OpenAI review isolation (16 A2 tests and 11 deferred B1 tests).
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
@@ -520,3 +520,47 @@ State evidence: per-case disposable full path set, named scenario patches over s
 Commit allowlist seven files: test_review_access.py, new test_review_access_concurrency.py, test_production_dev_guards.py, test_cors_config.py, test_privacy_policy.py, test_storage_fixture_runner.py and this plan. Full staged diff/names/whitespace review before `test: isolate local access and config tests`; no amend/push. Main remains unchanged with protected README hash e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. A2-7 ready for independent execution verification after commit; overall H4 not closed.
 
 Independent read-only static review: no actionable finding. Confirmed review reloads inside snapshots, production 401/403 semantics, isolated dev session, unchanged fake/finally behavior and B2 exclusion. Reviewer did not execute/import tests or write files.
+
+
+## H4-A2-8 source classification — 2026-09-15
+A2-7 independently approved at bd718d1f300731526ff92324d50e8df22c89f04e. Resumed read-only analysis with clean dedicated worktree/branch/HEAD; no earlier A2-8 edits or executions. Main protected README hash unchanged. Reclassification: A2 16, B1 11 (original OpenAI transport 10 plus QA fallback override test lacking chart/provider fakes). build_advanced_ai_review calls _compact_chart_snapshot and then _contexts_for_trades before its fake OpenAI function; these reach build_journal_charts/get_stock_ohlcv. No new mock is added; defer this testcase intact.
+
+- test_openai_review_retries_transient_rate_limit_once — B1: OpenAI request/urlopen/retry/timeout/env-file boundary
+- test_openai_review_timeout_is_configurable — B1: OpenAI request/urlopen/retry/timeout/env-file boundary
+- test_openai_review_applies_review_specific_output_limits — B1: OpenAI request/urlopen/retry/timeout/env-file boundary
+- test_openai_review_sends_review_specific_reasoning_effort — B1: OpenAI request/urlopen/retry/timeout/env-file boundary
+- test_openai_review_reasoning_effort_override_and_invalid_value_are_safe — B1: OpenAI request/urlopen/retry/timeout/env-file boundary
+- test_openai_review_disables_response_storage — B1: OpenAI request/urlopen/retry/timeout/env-file boundary
+- test_openai_review_output_limits_are_safely_bounded — B1: OpenAI request/urlopen/retry/timeout/env-file boundary
+- test_openai_review_records_token_usage_without_prompt_content — B1: OpenAI request/urlopen/retry/timeout/env-file boundary
+- test_openai_review_runtime_settings_have_upper_bounds — B1: OpenAI request/urlopen/retry/timeout/env-file boundary
+- test_openai_review_reads_api_key_from_explicit_env_file — B1: OpenAI request/urlopen/retry/timeout/env-file boundary
+- test_ai_review_uses_expected_default_model_ids — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_ai_review_model_ids_are_configurable — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_advanced_review_requests_readable_korean_indicator_terms — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_trade_guidance_validator_blocks_future_actionable_advice — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_trade_guidance_validator_allows_retrospective_review_language — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_rule_1_allows_negated_and_retrospective_mentions — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_rule_1_blocks_exact_independent_review_regressions — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_rule_1_blocks_target_term_and_price_notation_combinations — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_rule_1_blocks_trade_action_and_positive_predicate_combinations — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_rule_1_blocks_actionable_recommendations_with_categories — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_safety_rejection_records_only_rule_ids_and_internal_status — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_advanced_review_uses_configurable_fallback_model_after_primary_failure — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_advanced_review_override_can_disable_fallback_for_qa_comparison — B1: unmocked chart/market path before fake OpenAI call
+- test_successful_openai_review_results_expose_plain_string_summaries — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_many_trades_keep_basic_episode_and_advanced_history_scopes_separate — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_advanced_review_targets_only_the_selected_round_trip — A2 SAFE: existing local builder fakes or pure guidance validation
+- test_basic_review_anchors_verdict_and_changes_only_analysis_focus — A2 SAFE: existing local builder fakes or pure guidance validation
+
+Split before execution: tests/test_ai_review_openai_client.py retains 16 A2 tests; tests/test_ai_review_openai_transport.py contains 11 B1 tests with original bodies/setup/teardown/response helper. No B1 import or execution. A2 reuses storage_fixture, _import_state, patch.dict module snapshot before reload and restoring patch.object for original fake expressions. No production/shared helper/framework changes. All five DB/cache/temp paths owned per testcase. Only A2 runner, A1 minimum and direct gate checks allowed; no full suite or next candidate.
+
+
+### A2-8 validation and closeout
+- `python -B tests/run_isolated_tests.py tests.test_ai_review_openai_client`: 16 PASS; violations/expected/unexpected 0; restored, patches_restored and cleanup true. Original local builder fakes prevent OpenAI/chart/market transport; no lifespan/background execution. Per-case owned storage/env and restoring module/function/import state replace the original partial environment cleanup.
+- Static AST comparison against starting HEAD: 27 = 16 A2 + 11 B1, exact name union and disjoint split. Every A2 test method matches after normalizing only restoring patch.object registration back to the original function assignment. Assertions, inputs, expected values and fake bodies therefore match. Every B1 method plus setUp/tearDown/response helper matches exactly. No added skip, duplicate or loss. Deferred B1 retains its original transport patch lifecycle for later B1 migration; it was neither imported nor executed here.
+- `python -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v`: 14 PASS, including intentional negative isolation probes.
+- `python -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit`: 1 + 3 PASS; unexpected 0 and restoration/cleanup true.
+- `python -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across 22 A2 target modules. Only the local module was added to the existing gate target list; no deferred B1 import.
+- Production and shared helpers unchanged. No full suite, provider/transport expansion, B1 execution, push or next-candidate work. Remaining A2 candidates and B1/B2/C/D remain deferred; overall H4 is not closed.
+- Commit allowlist: tests/test_ai_review_openai_client.py, tests/test_ai_review_openai_transport.py, tests/test_storage_fixture_runner.py and this plan. Whitespace/full staged diff and Main README preservation checked before commit. Ready for independent A2-8 verification after commit.
