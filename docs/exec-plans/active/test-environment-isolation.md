@@ -1,7 +1,7 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; A2-7 is independently accepted; A2-8 is independently accepted; A2-9 is independently accepted; the current authorized step is A2-10 local AI safety isolation (17 A2 tests; 2 B1 tests preserved separately).
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; A2-7 is independently accepted; A2-8 is independently accepted; A2-9 is independently accepted; A2-10 is independently accepted; the current authorized step is A2-11 local billing readiness isolation (36 A2, 35 B1 deferred, 1 OUT).
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
@@ -37,7 +37,7 @@ Tests may write only disposable synthetic roots and must block external requests
 H4 as a whole is not resolved. Python audit/patch guards are regression boundaries for cooperative tests, not an OS security sandbox against hostile native code. Full async/native transport coverage is B1. Full lifecycle/thread ownership is B2.
 
 ## Next Step
-Complete the scoped A2-10 commit gate for `test: isolate local ai safety tests`, then request independent verification and wait. A2-11/12 require a later instruction; no push or automatic next-candidate work.
+Complete the scoped A2-11 commit gate for `test: isolate local billing readiness tests`, then request independent verification and wait. A2-12 requires a later instruction; no push or automatic next-candidate work.
 
 ## Out of Scope
 Remaining A2 and all B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
@@ -609,3 +609,95 @@ Local test setup reuses storage_fixture and api_module_state: five DBs/cache/tem
 - State review: body-internal helper reloads happen inside pre-registered main/store snapshots; direct builder/global assignments and idempotency dictionary mutations affect the fresh case objects. Original semaphore, limiter, cache, module functions and logger/path/env state restore via existing cleanup stacks. Real SQLite operations remain within disposable case paths. No actual provider/network/chart generation, background/lifespan or worker execution in A2.
 - Production and shared helpers unchanged. Scope is tests/test_ai_review_safety.py, new tests/test_ai_review_safety_finalization.py, tests/test_storage_fixture_runner.py and this plan. Check full staged diff/names and git diff --check before commit. Main README remains e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
 - B1 two finalization tests remain deferred for chart/provider isolation. Remaining A2 count from the approved 97-test inventory is 61 after A2-9 (19) and A2-10 (17); A2-11/12 and B1/B2/C/D deferred. No full suite/push/next batch. Ready for independent A2-10 verification after the scoped commit.
+
+
+## H4-A2-11 — local billing readiness isolation — 2026-09-16
+A2-10 independently approved at c8ede7169e09726908ca23e6939203e3a94b8436. Preflight matches dedicated root/branch/HEAD, clean index/worktree. Main protected README unchanged at e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
+Source reclassification confirms 72 = A2 36 + B1 35 + OUT 1. Readiness/catalog uses local Credentials.from_service_account_info validation only; no refresh/request follows. Missing purchase configuration rejects before _google_play_headers. The verification_cannot_run testcase has a synthetic valid key but can reach credentials.refresh(Request()), so remains B1. All Google Play purchase/subscription/consume/acknowledge/refund/reconciliation and AdMob/OIDC verification scenarios remain B1 even with existing fakes. RTDN missing/invalid shared token and missing bearer reject before external verification; SSV missing-field rejection occurs before public-key fetch. Voided window is pure arithmetic.
+Split: tests/test_billing_readiness.py retains A2 36; tests/test_billing_provider_verification.py preserves B1 35; tests/test_billing_source_contract.py preserves OUT 1. Excluded modules will not be imported/executed. No mock expansion or ledger/quota/auth assertion change.
+Each A2 case reuses storage_fixture and _import_state plus restoring backend access_control/readiness module dictionaries before reload. Full test-owned DB/cache/temp/env, existing nested temp DB paths and close/finally semantics retained. Readiness path literals/absent path settings are inspected as configuration strings only, with no DB/file access at those values. No production/shared helper/framework changes.
+
+Testcase classification:
+- test_purchase_credit_ledger_schema_tracks_order_balances_and_usage_sources: A2
+- test_purchase_credit_ledger_rejects_incomplete_order_evidence: A2
+- test_purchase_usage_requires_an_existing_order_for_the_same_user: A2
+- test_legacy_test_purchase_balances_are_reset_only_by_explicit_one_time_initialization: A2
+- test_app_readiness_summarizes_deployment_without_secret_values: A2
+- test_app_readiness_rejects_short_admin_token_without_exposing_value: A2
+- test_app_readiness_reports_missing_settings_by_section: A2
+- test_production_readiness_rejects_local_or_relative_data_paths: A2
+- test_app_readiness_rejects_placeholder_release_values: A2
+- test_app_readiness_rejects_unsafe_release_cors_origins: A2
+- test_app_readiness_accepts_capacitor_android_https_origin: A2
+- test_product_catalog_exposes_public_ids_and_readiness_only: A2
+- test_product_catalog_matches_current_review_offers: A2
+- test_ad_policy_caps_ads_per_advanced_ticket_setting: A2
+- test_google_play_readiness_rejects_invalid_service_account_json: A2
+- test_google_play_readiness_rejects_malformed_service_account_key: A2
+- test_production_readiness_requires_google_play_product_ids: A2
+- test_production_readiness_requires_purchase_token_encryption_key: A2
+- test_production_readiness_rejects_duplicate_google_play_product_ids: A2
+- test_production_readiness_requires_strong_rtdn_shared_token: A2
+- test_production_readiness_rejects_placeholder_rtdn_oidc_settings: A2
+- test_basic_and_advanced_rewarded_ad_progress_are_separate: A2
+- test_basic_rewarded_ad_does_not_consume_purchased_pass: A2
+- test_google_play_purchase_code_does_not_claim_subscription_verification_is_missing: OUT
+- test_google_play_purchase_requires_server_configuration: A2
+- test_google_play_purchase_does_not_grant_when_verification_cannot_run: B1
+- test_verified_google_play_consumable_grants_credits_once: B1
+- test_google_play_consumable_rejects_non_processed_order: B1
+- test_google_play_purchase_verification_loads_actual_order_amount: B1
+- test_purchase_credits_are_consumed_fifo_and_record_order_source: A2
+- test_basic_purchase_credit_is_consumed_after_free_credits: A2
+- test_purchase_credit_refund_restores_the_same_order: A2
+- test_purchase_credit_consumption_rolls_back_when_wallet_save_fails: A2
+- test_purchase_credit_consumption_rolls_back_when_snapshot_fails: A2
+- test_google_play_full_refund_revokes_only_the_matching_order_once: B1
+- test_google_play_canceled_order_revokes_remaining_credit_without_refund_amount: B1
+- test_failed_review_refund_does_not_restore_credit_to_refunded_order: B1
+- test_google_play_order_verification_reads_full_refund_details: B1
+- test_google_play_purchase_stored_fields_are_length_limited: B1
+- test_google_play_consumable_consume_failure_can_be_retried_without_duplicate_credits: B1
+- test_google_play_purchase_rejects_wrong_product: B1
+- test_verified_google_play_subscription_enables_pro_plan: B1
+- test_google_play_subscription_stored_fields_are_length_limited: B1
+- test_unacknowledged_google_play_subscription_is_acknowledged_before_pro_plan: B1
+- test_failed_subscription_acknowledgement_does_not_enable_pro_plan: B1
+- test_google_play_subscription_token_cannot_be_reused_by_another_user: B1
+- test_expired_google_play_subscription_does_not_enable_pro: B1
+- test_active_google_play_subscription_uses_pro_review_quota: B1
+- test_pro_advanced_quota_is_consumed_before_purchased_pass: B1
+- test_pro_billing_cycle_renewal_preserves_purchased_passes: B1
+- test_canceled_pro_remains_active_until_play_expiry_without_resetting_quota: B1
+- test_grace_period_keeps_pro_until_play_expiry: B1
+- test_payment_hold_disables_pro_even_before_previous_expiry: B1
+- test_inactive_subscription_refresh_disables_previous_pro_plan: B1
+- test_rtdn_subscription_notification_refreshes_stored_subscription: B1
+- test_rtdn_requires_shared_token: A2
+- test_rtdn_shared_token_uses_constant_time_compare: A2
+- test_rtdn_rejects_short_shared_token_in_production: A2
+- test_rtdn_requires_oidc_when_configured: A2
+- test_rtdn_accepts_valid_oidc_claims: B1
+- test_admob_ssv_records_reward_once: B1
+- test_admob_reward_status_can_be_polled_without_consuming_reward: B1
+- test_admob_ssv_stored_fields_are_length_limited: B1
+- test_admob_ssv_rejects_wrong_ad_unit: B1
+- test_admob_ssv_accepts_signed_numeric_ad_unit_identifier: B1
+- test_admob_ssv_accepts_console_verification_probe_without_recording_reward: B1
+- test_pending_admob_reward_is_consumed_for_basic_review: B1
+- test_pending_admob_reward_waits_until_immediate_free_credits_are_exhausted: B1
+- test_admob_ssv_signature_requires_required_fields: A2
+- test_admob_ssv_signature_content_decodes_percent_encoded_reward_text: A2
+- test_voided_purchase_reconciliation_defaults_to_thirty_day_window: A2
+- test_voided_purchase_reconciliation_handles_chargebacks_partial_refunds_and_item_failures: B1
+
+
+### A2-11 validation and closeout
+- `python -B tests/run_isolated_tests.py tests.test_billing_readiness`: 36 PASS; violations/expected/unexpected 0; restored, patches_restored, cleanup true. No failed test attempt. B1/OUT modules were not imported or executed.
+- Full AST comparison against starting HEAD proves 72 = 36 + 35 + 1, unique exact name union, identical entire testcase bodies and original fake_service_account_json/patched_env helpers. Ledger integrity, explicit initialization, FIFO, refund-to-same-order, quota and rollback assertions/inputs/expected values unchanged; no skips or mock changes.
+- No credential refresh, provider verification, HTTP/network, background or lifespan execution in A2. Local RSA/key validation is preserved; no real credentials/config files used. Readiness path placeholders remain inert strings, never accessed as storage. SQLite connections keep original try/finally closing and test-owned temp paths.
+- Per-case sanitized storage environment and existing import/logger state contexts restore after success/failure. Backend access_control/readiness snapshots precede reload, so fresh locks/cache/globals and the test-local hmac replacement restore to their original references. Existing local rollback patches retain their context managers. Shared helpers and production remain unchanged.
+- A1 minimum `python -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v`: 14 PASS (intentional negative probes included). `python -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit`: 1+3 PASS; unexpected 0 and restoration/cleanup true.
+- Direct gate `python -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across 27 local targets, adding only tests.test_billing_readiness. No B1/OUT execution or whole suite.
+- Commit allowlist: tests/test_billing_readiness.py, tests/test_billing_provider_verification.py, tests/test_billing_source_contract.py, tests/test_storage_fixture_runner.py and this plan. git diff --check passed; full staged review/check and Main README preservation required before commit. README blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
+- Remaining approved A2 inventory: 25 reserved for A2-12 (97 - 19 - 17 - 36). B1/OUT tests preserved, B2/C/D deferred; no push or automatic continuation. Ready for independent A2-11 verification after commit.
