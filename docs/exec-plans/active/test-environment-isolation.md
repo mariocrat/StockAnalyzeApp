@@ -1,7 +1,7 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; A2-7 is independently accepted; A2-8 is independently accepted; the current authorized step is A2-9 local OAuth/cache/mobile isolation (19 A2 tests; excluded tests preserved separately).
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; A2-7 is independently accepted; A2-8 is independently accepted; A2-9 is independently accepted; the current authorized step is A2-10 local AI safety isolation (17 A2 tests; 2 B1 tests preserved separately).
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
@@ -37,7 +37,7 @@ Tests may write only disposable synthetic roots and must block external requests
 H4 as a whole is not resolved. Python audit/patch guards are regression boundaries for cooperative tests, not an OS security sandbox against hostile native code. Full async/native transport coverage is B1. Full lifecycle/thread ownership is B2.
 
 ## Next Step
-Complete the scoped A2-9 commit gate for `test: isolate oauth cache and mobile tests`, then request independent verification and wait. A2-10/11/12 require a later instruction; no push or automatic next-candidate work.
+Complete the scoped A2-10 commit gate for `test: isolate local ai safety tests`, then request independent verification and wait. A2-11/12 require a later instruction; no push or automatic next-candidate work.
 
 ## Out of Scope
 Remaining A2 and all B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
@@ -592,3 +592,20 @@ Mobile C names: test_mobile_layout_stacks_navigation_and_content, test_productio
 - Direct gate: `python -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across 25 local targets, adding only these three SAFE modules. No excluded test module was included.
 - No production/shared helper/framework changes; no full suite, B1/B2/C/D/OUT execution or push. Remaining approved inventory after these 19 is 78 A2 tests reserved for A2-10 through A2-12; no automatic continuation.
 - Commit scope: the three local modules, three split excluded modules, existing direct-entry coordinator and this ExecPlan (8 files). Main README preserved at e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61. Review full staged diff/names and whitespace before commit; independent verification is requested after commit.
+
+
+## H4-A2-10 — local AI safety isolation
+A2-9 independently approved at d1c73791628b40854a64c2377f0c63d3ac6f0ce8. Preflight matches expected dedicated root/branch/HEAD and clean index/worktree. Main retains only the protected README unstaged; blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
+Final source classification: 19 = A2 17 + B1 2. test_finalization_failure_refunds_general_access_and_cleans_history_and_pending_key and test_finalization_failure_refunds_review_quota_exactly_once remain B1: enabled storage reaches _save_ai_review_history_if_enabled -> build_journal_charts without a chart fake. They are moved to test_ai_review_safety_finalization.py with original bodies, helpers and setup/teardown; neither is imported/executed here.
+A2 route tests use original local builder fakes; synthetic dev users retain original storage-off default, so history returns before chart/provider access. Other tests cover disabled route, validation/limits, local semaphore, credit state and idempotency without network or workers. No new fake/provider bypass, auth weakening or production change.
+Local test setup reuses storage_fixture and api_module_state: five DBs/cache/temp under each owned root, full sanitized env, main/stores snapshot before original helper reloads, sys.path/logger restoration. Reload creates fresh semaphore/limiter/cache/lock objects; original main dictionary and function references restore after body or setup failure. The legacy core.ai_review module has a restoring dictionary snapshot for its one original reload test. Original helpers and testcase bodies remain unchanged, including synthetic input/session and rate/concurrency settings.
+
+
+### A2-10 validation and closeout — 2026-09-15
+- `python -B tests/run_isolated_tests.py tests.test_ai_review_safety`: 17 PASS; violations/expected/unexpected 0; restored/patches_restored/cleanup true. No failed attempt. B1 finalization module never imported or executed.
+- Full test-method AST comparison against starting HEAD: 19 = 17 local + 2 deferred, disjoint exact name union. All test bodies/assertions/inputs/expected values/nested fakes and all original module helper ASTs match exactly. Deferred setup/teardown is unchanged; no skip, duplicate or loss.
+- A1 minimum `python -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v`: 14 PASS including intentional negative probes. `python -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit`: 1+3 PASS, unexpected 0 and restoration/cleanup true.
+- Direct gate `python -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across 26 local modules. Only tests.test_ai_review_safety was added; B1 module excluded.
+- State review: body-internal helper reloads happen inside pre-registered main/store snapshots; direct builder/global assignments and idempotency dictionary mutations affect the fresh case objects. Original semaphore, limiter, cache, module functions and logger/path/env state restore via existing cleanup stacks. Real SQLite operations remain within disposable case paths. No actual provider/network/chart generation, background/lifespan or worker execution in A2.
+- Production and shared helpers unchanged. Scope is tests/test_ai_review_safety.py, new tests/test_ai_review_safety_finalization.py, tests/test_storage_fixture_runner.py and this plan. Check full staged diff/names and git diff --check before commit. Main README remains e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
+- B1 two finalization tests remain deferred for chart/provider isolation. Remaining A2 count from the approved 97-test inventory is 61 after A2-9 (19) and A2-10 (17); A2-11/12 and B1/B2/C/D deferred. No full suite/push/next batch. Ready for independent A2-10 verification after the scoped commit.
