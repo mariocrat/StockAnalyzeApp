@@ -1,3 +1,10 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from unittest.mock import patch
+import sys
+
 import os
 import tempfile
 import unittest
@@ -32,6 +39,11 @@ def write_env_file(text: str) -> str:
 
 
 class ReleaseAlignmentTest(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(storage_fixture())
+        # The validator may add the repository to sys.path on first import.
+        self.enterContext(patch.object(sys, "path", list(sys.path)))
+
     def test_rejects_when_no_release_settings_can_be_compared(self):
         backend_env = write_env_file("")
         frontend_env = write_env_file("")

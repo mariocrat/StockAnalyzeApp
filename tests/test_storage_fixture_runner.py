@@ -39,6 +39,10 @@ STORAGE_MODULES = (
     "tests.test_mobile_runtime_recovery",
     "tests.test_ai_review_safety",
     "tests.test_billing_readiness",
+    "tests.test_backend_release_check",
+    "tests.test_release_alignment",
+    "tests.test_release_env_file_setup",
+    "tests.test_release_secret_generation",
 )
 
 

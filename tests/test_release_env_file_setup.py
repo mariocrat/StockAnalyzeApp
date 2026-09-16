@@ -1,3 +1,7 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
 import importlib.util
 import tempfile
 import unittest
@@ -16,6 +20,9 @@ def load_module():
 
 
 class ReleaseEnvFileSetupTest(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(storage_fixture())
+
     def test_creates_private_release_env_files_from_templates(self):
         module = load_module()
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -88,22 +95,6 @@ class ReleaseEnvFileSetupTest(unittest.TestCase):
             self.assertEqual(2, result["skipped"])
             self.assertEqual(0, result["updated"])
 
-    def test_double_click_batch_runs_release_env_setup_script(self):
-        batch = (ROOT / "prepare_release_env_files.bat").read_text(encoding="utf-8")
-
-        self.assertIn("scripts\\create_release_env_files.py", batch)
-        self.assertIn(".venv\\Scripts\\python.exe", batch)
-        self.assertTrue(batch.isascii())
-        self.assertIn("pause", batch.lower())
-
-    def test_release_env_setup_script_uses_korean_owner_messages(self):
-        script = SCRIPT.read_text(encoding="utf-8")
-
-        self.assertIn("다음: .env.release 파일을 열고 실제 운영용 값을 채우세요.", script)
-        self.assertIn("GitHub에 올리지 마세요.", script)
-        self.assertIn("추가함:", script)
-        self.assertNotIn("Next: open", script)
-        self.assertNotIn("Do not commit", script)
 
 
 if __name__ == "__main__":

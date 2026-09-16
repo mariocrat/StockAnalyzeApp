@@ -1,7 +1,7 @@
 # H4 test environment isolation
 
 ## Goal
-Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; A2-7 is independently accepted; A2-8 is independently accepted; A2-9 is independently accepted; A2-10 is independently accepted; the current authorized step is A2-11 local billing readiness isolation (36 A2, 35 B1 deferred, 1 OUT).
+Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; A2-7 is independently accepted; A2-8 is independently accepted; A2-9 is independently accepted; A2-10 is independently accepted; A2-11 is independently accepted; the current authorized step is A2-12 local release isolation (25 A2, 8 D deferred).
 
 ## Scope
 Base main/origin/main: `f2cc8e8cf4fe5a422897ec41758eb07d04d9488f`, ahead/behind 0/0.
@@ -37,7 +37,7 @@ Tests may write only disposable synthetic roots and must block external requests
 H4 as a whole is not resolved. Python audit/patch guards are regression boundaries for cooperative tests, not an OS security sandbox against hostile native code. Full async/native transport coverage is B1. Full lifecycle/thread ownership is B2.
 
 ## Next Step
-Complete the scoped A2-11 commit gate for `test: isolate local billing readiness tests`, then request independent verification and wait. A2-12 requires a later instruction; no push or automatic next-candidate work.
+Complete the scoped A2-12 commit gate for `test: isolate local release tests`, then request independent verification and wait. No automatic H4 closeout, deferred-phase work or push.
 
 ## Out of Scope
 Remaining A2 and all B1/B2/C/D implementation; testcase-per-process; broad file-read sandbox; worker 2 / reverse-order full-suite; H1 frontend/Android environment separation; H5/H6/H7; new CI; production/config/provider access; frontend/package.json/verify_project.ps1 changes; other worktrees and main edits.
@@ -701,3 +701,68 @@ Testcase classification:
 - Direct gate `python -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across 27 local targets, adding only tests.test_billing_readiness. No B1/OUT execution or whole suite.
 - Commit allowlist: tests/test_billing_readiness.py, tests/test_billing_provider_verification.py, tests/test_billing_source_contract.py, tests/test_storage_fixture_runner.py and this plan. git diff --check passed; full staged review/check and Main README preservation required before commit. README blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
 - Remaining approved A2 inventory: 25 reserved for A2-12 (97 - 19 - 17 - 36). B1/OUT tests preserved, B2/C/D deferred; no push or automatic continuation. Ready for independent A2-11 verification after commit.
+
+
+## H4-A2-12 — local release isolation — 2026-09-16
+- A2-11 independently approved by the user at 4278b6f5e9302bbdf1e466079e1dde3a7581a1f1. A2-12 preflight confirmed this HEAD, fix/test-environment-isolation, the assigned test-isolation worktree and clean status. Main has only the protected README modification; blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
+- Current-source classification: backend_release_check 15 = 11 A2 + 4 D; release_alignment 7 A2; release_env_file_setup 5 = 3 A2 + 2 D; release_secret_generation 6 = 4 A2 + 2 D. Total 33 = 25 A2 + 8 D, with no loss, duplication or skip.
+- D source/docs/wrapper assertions move unchanged to test_backend_release_check_docs.py, test_release_env_file_setup_docs.py and test_release_secret_generation_docs.py. Those modules were not imported or executed. This is test-scope separation, not a product behavior change.
+- All four A2 modules reuse require_storage_boundary and storage_fixture in TestCase.enterContext. Each testcase owns the five DB paths, cache/config/temp and CWD; the fixture clears host configuration and restores env/CWD/temp even on failure. Alignment additionally restores sys.path with the existing context-managed patch pattern because its validator can insert the repository path. No shared helper or A1 foundation changes; the existing direct-entry coordinator only adds four local target names.
+- Release validators are local calculations/report formatting; configuration is supplied synthetically in memory or explicit owned env files. Production-looking data paths and report paths are inert validation strings, not accessed as storage. RSA service-account material is generated synthetically in memory for format validation; no Google auth refresh, credential/provider verification or network transport is invoked.
+- File-generation tests load tracked script source without calling main, and pass explicit testcase-owned roots. They create their own example templates and release files. No actual private release env, credentials, secret/signing files are read or changed; generated secret values stay in memory and are not printed. Ordinary tracked source/dependency reads are allowed. No wrapper, lifespan, worker or background execution.
+- Static full testcase AST and original helper AST comparisons against starting HEAD passed across all 33 tests. Names, entire bodies, assertions, inputs/expected values and fake semantics are unchanged. No new mocks or authentication/provider bypasses.
+
+### A2-12 testcase classification
+
+tests/test_backend_release_check.py:
+- test_format_owner_release_readiness_report_hides_secret_values: A2 SAFE
+- test_owner_release_report_shows_top_level_release_errors: A2 SAFE
+- test_owner_release_report_explains_missing_oauth_redirect_uri_inputs: A2 SAFE
+- test_owner_release_report_explains_unsafe_data_storage_paths: A2 SAFE
+- test_owner_release_report_explains_missing_data_storage_path_inputs: A2 SAFE
+- test_owner_release_report_explains_missing_billing_ad_and_legal_inputs: A2 SAFE
+- test_owner_release_report_lists_all_next_actions: A2 SAFE
+- test_rejects_missing_production_backend_settings_without_secret_values: A2 SAFE
+- test_rejects_missing_production_oauth_redirect_uris: A2 SAFE
+- test_accepts_complete_production_backend_settings: A2 SAFE
+- test_accepts_complete_settings_from_explicit_env_file: A2 SAFE
+
+tests/test_backend_release_check_docs.py:
+- test_backend_env_example_documents_release_check_settings: D deferred
+- test_backend_release_env_template_is_production_focused: D deferred
+- test_gitignore_blocks_filled_release_env_files: D deferred
+- test_release_readiness_report_uses_release_env_files_when_present: D deferred
+
+tests/test_release_alignment.py:
+- test_rejects_when_no_release_settings_can_be_compared: A2 SAFE
+- test_accepts_matching_backend_and_frontend_release_settings: A2 SAFE
+- test_release_alignment_report_uses_readable_korean: A2 SAFE
+- test_rejects_backend_oauth_app_scheme_that_differs_from_android_package_identity: A2 SAFE
+- test_rejects_backend_oauth_app_scheme_that_differs_from_backend_package_even_without_frontend_value: A2 SAFE
+- test_rejects_mismatched_backend_and_frontend_release_settings: A2 SAFE
+- test_rejects_frontend_package_name_that_differs_from_fixed_android_package_identity: A2 SAFE
+
+tests/test_release_env_file_setup.py:
+- test_creates_private_release_env_files_from_templates: A2 SAFE
+- test_does_not_overwrite_existing_private_values_but_appends_new_template_keys: A2 SAFE
+- test_keeps_existing_private_release_env_files_when_template_keys_are_current: A2 SAFE
+
+tests/test_release_env_file_setup_docs.py:
+- test_double_click_batch_runs_release_env_setup_script: D deferred
+- test_release_env_setup_script_uses_korean_owner_messages: D deferred
+
+tests/test_release_secret_generation.py:
+- test_generates_long_distinct_release_secret_values: A2 SAFE
+- test_formats_output_without_writing_secret_files: A2 SAFE
+- test_fills_empty_backend_release_secret_values_without_overwriting_existing_values: A2 SAFE
+- test_fill_result_uses_korean_owner_messages: A2 SAFE
+
+tests/test_release_secret_generation_docs.py:
+- test_double_click_batch_runs_secret_generation_script: D deferred
+- test_owner_docs_mention_secret_generation_helper: D deferred
+
+### A2-12 validation
+- Individually executed with `python -B tests/run_isolated_tests.py`: tests.test_backend_release_check 11 PASS; tests.test_release_alignment 7 PASS; tests.test_release_env_file_setup 3 PASS; tests.test_release_secret_generation 4 PASS. All four: violations 0 (expected/unexpected 0), restored true, patches_restored true, cleanup true. No failed target attempts.
+- A1 minimum `python -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v`: 14 PASS, including intentional negative probes. `python -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit`: 1 + 3 PASS, unexpected 0 and restoration/cleanup true.
+- Direct-entry coordinator `python -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across 31 local targets. All raw target imports fail closed before resource access. git diff --check passed; full staged diff/check and explicit nine-file allowlist review required before commit. No full suite or deferred D execution. Production, shared storage/API helpers and A1 guard/runner unchanged.
+- The approved residual 97-test A2 plan has now executed 19 + 17 + 36 + 25 local tests in A2-9 through A2-12. Independent approval of A2-12 remains pending; this does not close H4. Existing B1/B2/C and D official wrappers/docs/orchestration/closeout remain deferred, as do source-only OUT items. This batch adds eight preserved D tests; no D/OUT validation is claimed.
