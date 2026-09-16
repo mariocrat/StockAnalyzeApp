@@ -1,5 +1,44 @@
 # H4 test environment isolation
 
+## H4-B1 subscription transport batch 2 — 2026-09-17
+
+- Purchase/credential/refund batch 1 (12) independently verified and approved by the user at `68a0e01d9817687a25673de72d6df5173599a44d`. Preflight confirmed that HEAD, fix/test-environment-isolation, assigned worktree and clean full Git status. Main retains only protected README modification, blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
+- Approved residual four-batch plan remains: batch 1 complete; batch 2 subscription/acknowledge/RTDN/OIDC 15 authorized now; AdMob 8 and chart/market + AI finalization 3 deferred. Exact source classification: 23 provider tests = 15 selected + 8 unchanged AdMob tests; no worker/lifecycle or extra provider boundary found. After this batch, remaining B1 is 11.
+- Source inventory (original names and entire bodies preserved):
+  - test_verified_google_play_subscription_enables_pro_plan: subscription verification/refresh/quota.
+  - test_google_play_subscription_stored_fields_are_length_limited: subscription verification/refresh/quota.
+  - test_unacknowledged_google_play_subscription_is_acknowledged_before_pro_plan: acknowledge.
+  - test_failed_subscription_acknowledgement_does_not_enable_pro_plan: acknowledge.
+  - test_google_play_subscription_token_cannot_be_reused_by_another_user: subscription verification/refresh/quota.
+  - test_expired_google_play_subscription_does_not_enable_pro: subscription verification/refresh/quota.
+  - test_active_google_play_subscription_uses_pro_review_quota: subscription verification/refresh/quota.
+  - test_pro_advanced_quota_is_consumed_before_purchased_pass: subscription verification/refresh/quota.
+  - test_pro_billing_cycle_renewal_preserves_purchased_passes: subscription verification/refresh/quota.
+  - test_canceled_pro_remains_active_until_play_expiry_without_resetting_quota: subscription verification/refresh/quota.
+  - test_grace_period_keeps_pro_until_play_expiry: subscription verification/refresh/quota.
+  - test_payment_hold_disables_pro_even_before_previous_expiry: subscription verification/refresh/quota.
+  - test_inactive_subscription_refresh_disables_previous_pro_plan: subscription verification/refresh/quota.
+  - test_rtdn_subscription_notification_refreshes_stored_subscription: RTDN/OIDC.
+  - test_rtdn_accepts_valid_oidc_claims: RTDN/OIDC.
+- Subscription boundary: existing _verify_google_play_subscription fakes keep real local product/package checks, token ownership, subscription persistence, expiry/hold/grace/cancellation decisions and quota accounting. No HTTP fake is present in these original bodies; the provider function seam is preserved. Pending acknowledgement is explicit only in the two ack cases; other original fake responses retain the production default acknowledged state.
+- Acknowledge boundary: original separate _acknowledge_google_play_subscription fakes return True with captured kwargs or False. The original product/call-count/acknowledged assertions and 503/free-plan failure assertions stay unchanged; no credential call or A1 denial is used to produce failure.
+- RTDN boundary: real shared-token comparison and base64/JSON notification decoding feed real sync_google_play_subscription_token and owned DB updates, with original _verify_google_play_subscription fake. Sanitized env has no OIDC audience/email in this case, so the real OIDC helper returns without certificate fetch.
+- OIDC boundary: the separate claims testcase retains its original _verify_rtdn_oidc_token lambda and audience/email/email_verified values plus Bearer test-jwt input. Real shared-token validation/notification routing produces status test and oidc_verified true. This proves routing with synthetic claims, not live JWT signature/certificate verification. No new auth bypass or transport fake added.
+- Isolation: reuse require_storage_boundary, storage_fixture and _import_state. Snapshot backend account_store and access_control dictionaries before reload and body-local reload/assignments; cleanup restores functions/globals/locks even after setup or assertion failures. Account snapshot is needed for the real two-user token ownership testcase. All five DB paths/cache/temp/config/env/CWD are owned; SQLite operations and original connection finally blocks remain real and unchanged.
+- Scope: new test_billing_subscription_transport.py, original provider split module, existing direct-entry target list, this plan. Read-only inspection/AST/Git checks; runner/regression/state probes create/remove synthetic owned temporary storage. A1 guard/allowlist, production/shared helpers, Main/README unchanged. No full suite, AdMob/chart/finalization execution or push; same-cause two-failure stop applies. Validation follows below.
+
+### B1 subscription batch 2 validation and handoff
+
+- Interpreter `D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe -B`; no install. `tests/run_isolated_tests.py tests.test_billing_subscription_transport`: **15 PASS** on first run; violations/unexpected **0**, restored/patches_restored/cleanup **true**. Actual Google/Play/OIDC/external network **0** with unchanged A1 guards. No credential refresh/certificate request or denied network call was consumed as an expected failure.
+- AST proof against starting HEAD: exact disjoint **23 = 15 + 8** name union; all complete testcase bodies and both original helpers identical. Provider/acknowledge/OIDC fakes, inputs, request-related arguments, quota/ownership/state expectations and assertions unchanged. No skips or new fakes.
+- Local SQLite evidence: Pro quota 35/25, advanced consumption to 24, Pro-before-purchased priority, renewal without loss of purchased passes, cancellation until expiry without quota reset, grace/hold/expired states, token ownership across two real synthetic local accounts and RTDN stored-subscription transition all PASS with original persistence/assertions. Live Google responses and JWT signature/certificate verification are not claimed.
+- In-memory state probe under unchanged isolated_module/protected_paths: all 15 cases individually PASS. After every case, full dictionary keys/value identities for backend/core account_store/access_control plus requests/time/urllib.request match baseline. Env/sys.path/CWD/tempfile/temp contents/logger state, Google Request.__call__/Credentials.refresh/id_token.verify_oauth2_token and A1 Session.request restore. Synthetic assertion failures after the original failed-ack and OIDC bodies, and setup failure after both module reloads, also restore state. Violations 0; boundary patches restored and owned container cleanup true; deferred provider module not imported. No shared framework changes or extra test files.
+- A1 minimum `-m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v`: **14 PASS**, including intentional fail-closed probes separate from target violations. `tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit`: **1 + 3 PASS**, unexpected 0 and restored/patches_restored/cleanup true.
+- Direct gate `-m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across **35** targets, adding only the subscription module. No full suite or deferred AdMob/chart/finalization execution. No failed implementation/probe attempt.
+- git diff --check PASS; explicit four-file staged-name/full-diff/whitespace review before `test: isolate billing subscription transport tests`. Production/shared helpers/A1 guard/allowlist changed: no. Main README status/hash rechecked at handoff; no push or other worktree modifications.
+- Git tooling incident: first scoped stage escalation was rejected because the automatic approval-review model was at capacity, not a test or risk finding. Read-only scope/index/Main preservation checks passed; the identical scoped stage retry succeeded. No bypass or second same-cause failure.
+- Remaining B1 **11** = AdMob 8 + chart/market/AI finalization 3. Batch 2 ready for independent verification after commit, not independently approved or overall H4 complete. Wait for user direction.
+
 ## H4-B1 purchase transport batch 1 — 2026-09-16
 
 - OpenAI transport migration independently approved by the user at `9ffa999ae8c84aba909489a41b7d8dacedbef3bc`; approved read-only residual classification is 38. Preflight confirms that HEAD, fix/test-environment-isolation, assigned worktree and clean full status. Main has only its protected README change, blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
