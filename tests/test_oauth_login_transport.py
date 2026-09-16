@@ -1,3 +1,9 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import _import_state
+import importlib
 import os
 import tempfile
 import unittest
@@ -6,12 +12,16 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 
+with _import_state():
+    from backend.core import oauth_login as _oauth_login
+
+
 class OAuthTransportTest(unittest.TestCase):
     def setUp(self):
-        # Restore this test's process settings even when assertions fail.
-        environment = patch.dict(os.environ)
-        environment.start()
-        self.addCleanup(environment.stop)
+        self.enterContext(storage_fixture())
+        self.enterContext(_import_state())
+        self.enterContext(patch.dict(_oauth_login.__dict__))
+        importlib.reload(_oauth_login)
 
     def _replace(self, target, name, value):
         replacement = patch.object(target, name, value)
