@@ -34,6 +34,7 @@ STORAGE_MODULES = (
     "tests.test_cors_config",
     "tests.test_privacy_policy",
     "tests.test_ai_review_openai_client",
+    "tests.test_ai_review_openai_transport",
     "tests.test_oauth_login",
     "tests.test_oauth_login_transport",
     "tests.test_theme_cache_memory",

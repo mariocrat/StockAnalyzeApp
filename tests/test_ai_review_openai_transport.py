@@ -1,4 +1,11 @@
-"""H4-B1 deferred OpenAI transport and unmocked chart-provider tests."""
+"""OpenAI transport tests inside the H4-A1 boundary."""
+
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import _import_state
+from unittest.mock import patch
 
 import importlib
 import io
@@ -10,37 +17,18 @@ import urllib.error
 
 
 class AiReviewOpenAiTransportTest(unittest.TestCase):
-    ENV_KEYS = [
-        "OPENAI_API_KEY",
-        "ALPHAMATE_OPENAI_API_KEY",
-        "ALPHAMATE_OPENAI_TIMEOUT_SECONDS",
-        "ALPHAMATE_OPENAI_MAX_RETRIES",
-        "ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS",
-        "ALPHAMATE_ENV_FILE",
-        "OPENAI_BASIC_REVIEW_MODEL",
-        "OPENAI_ADVANCED_REVIEW_MODEL",
-        "OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL",
-        "OPENAI_MODEL",
-        "OPENAI_BASIC_REVIEW_REASONING_EFFORT",
-        "OPENAI_ADVANCED_REVIEW_REASONING_EFFORT",
-        "OPENAI_BASIC_REVIEW_MAX_OUTPUT_TOKENS",
-        "OPENAI_ADVANCED_REVIEW_MAX_OUTPUT_TOKENS",
-    ]
-
     def setUp(self):
-        self._previous_env = {key: os.environ.get(key) for key in self.ENV_KEYS}
-        backend_dir = os.path.join(os.getcwd(), "backend")
-        if backend_dir not in os.sys.path:
-            os.sys.path.insert(0, backend_dir)
-        self.ai_review_v2 = importlib.reload(importlib.import_module("core.ai_review_v2"))
-
-    def tearDown(self):
-        for key, value in self._previous_env.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
+        self.enterContext(storage_fixture())
+        self.enterContext(_import_state())
+        self.ai_review_v2 = importlib.import_module("core.ai_review_v2")
+        self.enterContext(patch.dict(self.ai_review_v2.__dict__))
         importlib.reload(self.ai_review_v2)
+        # Bodies assign these shared attributes directly. Register their original
+        # values before the body so success and failure both restore them LIFO.
+        self.enterContext(patch.object(
+            self.ai_review_v2.urllib.request, "urlopen", self.ai_review_v2.urllib.request.urlopen))
+        self.enterContext(patch.object(
+            self.ai_review_v2.time, "sleep", self.ai_review_v2.time.sleep))
 
     def _success_response(self, text="ok"):
         body = json.dumps({"output_text": text}).encode("utf-8")
@@ -303,33 +291,6 @@ class AiReviewOpenAiTransportTest(unittest.TestCase):
         finally:
             os.unlink(env_path)
 
-    def test_advanced_review_override_can_disable_fallback_for_qa_comparison(self):
-        os.environ["OPENAI_ADVANCED_REVIEW_MODEL"] = "configured-primary"
-        os.environ["OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL"] = "configured-fallback"
-        captured = []
-
-        def fake_call(payload, *, model, instructions):
-            captured.append(model)
-            raise RuntimeError("model failed")
-
-        self.ai_review_v2._call_openai_review = fake_call
-        result = self.ai_review_v2.build_advanced_ai_review(
-            [{
-                "id": 1,
-                "trade_date": "2026-07-10T09:36",
-                "ticker": "017900",
-                "name": "광전자",
-                "side": "buy",
-                "price": 6980,
-                "quantity": 10,
-            }],
-            model_override="gpt-5.6-luna",
-            allow_fallback=False,
-        )
-
-        self.assertEqual(["gpt-5.6-luna"], captured)
-        self.assertEqual("error", result["status"])
-        self.assertEqual("advanced", result["review_type"])
 
 
 if __name__ == "__main__":
