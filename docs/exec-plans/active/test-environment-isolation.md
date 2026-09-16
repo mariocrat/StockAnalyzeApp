@@ -1,5 +1,19 @@
 # H4 test environment isolation
 
+## H4-A2 closeout — 2026-09-16
+
+This is the current status and next-step record. Earlier A1/A2 entries below are retained in full as chronological evidence; their then-current pending, withheld or next-batch statements do not override this closeout.
+
+- The user independently approved A2-1 through A2-12. A2-12 implementation HEAD: `161a9958976e7dddd6886eb5a75599efd2e8839c` (`test: isolate local release tests`). H4-A2 migration is complete and approved: **225 tests**.
+- The user's final residual inventory confirms **remaining A2: 0**. This closeout records that approved inventory; it does not claim a new inventory audit or test execution.
+- Remaining inventory: **B1 53 / B2 7 / C 22 / D 85 / OUT 20**. These categories remain incomplete or outside the A2 scope; no completion or validation of them is implied.
+- D follow-up: the final inventory identified stale `phase_a_environment` references to transport testcases on the old `OAuthLoginTest` class. Correct those references for the split transport tests and validate the affected orchestration in a separately authorized D task. No reference/code correction or transport test execution is performed here.
+- **Only H4-A2 is closed; H4 as a whole is not complete.** B1 external/provider boundaries, B2 lifecycle/background isolation, C frontend work, D entrypoint/orchestration/verification work and OUT disposition remain unresolved.
+- Closeout preflight confirmed `D:/Project/Vibe/StockBoda.worktrees/test-isolation`, branch `fix/test-environment-isolation`, starting HEAD above and a clean worktree. This task changes only this ExecPlan; no production, shared helper or test files change, and no tests are rerun.
+- Main and its existing unstaged `store-assets/google-play/ko-KR/README.md` are preserved; README blob: `e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61`.
+- Next step: commit this document-only closeout as `docs: close A2 test isolation migration`, then wait for user direction. No new migration, B1 implementation, other phase work or push is authorized by this closeout.
+
+
 ## Goal
 Install isolation before each explicitly selected test module is imported or discovered in its own child process. H4-A1 is independently accepted; A2-1 is independently accepted; A2-2 is independently accepted; A2-3 is independently accepted; A2-4 is independently accepted; A2-5 is independently accepted; A2-6 is independently accepted; A2-7 is independently accepted; A2-8 is independently accepted; A2-9 is independently accepted; A2-10 is independently accepted; A2-11 is independently accepted; the current authorized step is A2-12 local release isolation (25 A2, 8 D deferred).
 
