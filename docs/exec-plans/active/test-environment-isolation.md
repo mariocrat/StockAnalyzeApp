@@ -1,5 +1,35 @@
 # H4 test environment isolation
 
+## H4-B1 AdMob SSV/reward batch 3 — 2026-09-17
+
+- Subscription/acknowledge/RTDN-OIDC 15 independently verified and approved by the user at `edba742a554a31be8b4dabf962d590a0a7b57fcd`. Preflight confirms that HEAD, fix/test-environment-isolation, assigned worktree and clean full status. Main has only protected README modification; blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
+- Source confirms exactly eight remaining cases in tests.test_billing_provider_verification. Keep this module/class and all original testcase bodies/helpers in place; no split, rename or extra fake needed. Scope only this module, existing direct-entry target list and this plan. No unexpected provider/worker/lifecycle boundary.
+- Exact inventory:
+  - test_admob_ssv_records_reward_once
+  - test_admob_reward_status_can_be_polled_without_consuming_reward
+  - test_admob_ssv_stored_fields_are_length_limited
+  - test_admob_ssv_rejects_wrong_ad_unit
+  - test_admob_ssv_accepts_signed_numeric_ad_unit_identifier
+  - test_admob_ssv_accepts_console_verification_probe_without_recording_reward
+  - test_pending_admob_reward_is_consumed_for_basic_review
+  - test_pending_admob_reward_waits_until_immediate_free_credits_are_exhausted
+- All eight retain their original _verify_admob_ssv_signature lambda and raw query/input/returned parameter dictionaries. record_admob_ssv_reward calls this seam first. The real signature helper would parse raw parameters, call _load_admob_public_keys (cached requests.get of _admob_key_url with timeout 10), decode key/signature and verify ECDSA/SHA256. These paths stay behind the existing fake; no token refresh/key lookup or crypto verification is needed. No network-guard failure may substitute for the expected wrong-ad-unit 403.
+- Product behavior remains real: ad-unit matching including signed numeric identifier, console verification probe without insertion, field truncation, duplicate transaction handling, polling without consumption, pending reward consumption and signup/free-credit priority all use test-owned SQLite. This is local behavior after synthetic verified parameters, not proof of raw SSV signature parsing or live cryptographic validity. No production policy/parameter expectation changes.
+- Reuse require_storage_boundary/storage_fixture/_import_state; snapshot backend access_control dictionary before reload to restore original functions, locks, key cache and timestamp after body-local reloads/assignments. Existing patched_env and connection try/finally remain unchanged. All five DB paths/cache/config/temp/env/CWD isolated per testcase. No new HTTP/crypto/provider fake; A1 guard/allowlist and production/shared helpers unchanged.
+- Inspection/AST/Git commands read-only; selected runner/regressions/state probe create/remove only synthetic owned temp storage. No full suite, chart/finalization execution, other worktree write or push; same-cause two-failure stop applies. Validation follows below. Remaining B1 after this batch: **3**, chart/market + AI finalization, unexecuted.
+
+### B1 AdMob batch 3 validation and handoff
+
+- Interpreter `D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe -B`; no install. `tests/run_isolated_tests.py tests.test_billing_provider_verification`: **8 PASS**, first run; violations/unexpected **0**, restored/patches_restored/cleanup **true**. Actual AdMob/Google/external network **0** with unchanged A1 guards; no denied access consumed as an expected test failure.
+- AST comparison with starting HEAD: all eight complete testcase bodies/names and both original helper ASTs identical. Inputs, expected values, lambda fakes and assertions unchanged; no new skip or provider/crypto fake.
+- Local SQLite reward evidence: duplicate transaction returns already_recorded, repeated polling preserves pending, length caps hold, wrong ad unit yields original 403, numeric identifier matches, console probe inserts no reward, earned reward is consumed after free credits, and signup credits leave pending reward untouched. Original assertions all PASS; no live SSV cryptographic validation claimed.
+- In-memory state probe inside unchanged isolated_module/protected_paths: all eight cases individually PASS. Exact module dictionary keys/value identities restored for backend/core access_control, core account_store, requests/time/urllib.request and crypto serialization/hashes/ec; env/sys.path/CWD/tempfile/temp contents/logger/Session.request/profiler state match baseline. Key cache/timestamp/lock and original verifier identity restored through module snapshot. Injected assertion failures after wrong-ad-unit rejection and reward consumption plus setup failure after reload also restore state. Violations 0, outer patches restored and container cleanup true.
+- Read-only Python call profiling during the eight probe cases observed **0** calls to the real _load_admob_public_keys, _verify_admob_ssv_signature, _admob_content_to_verify and _google_play_access_token functions. Observer restored after every case; it neither supplies return values nor changes the fake/guard boundaries.
+- A1 minimum `-m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v`: **14 PASS**, including intentional negative probes separate from target violations. `tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit`: **1 + 3 PASS**; unexpected 0 and restored/patches_restored/cleanup true.
+- Direct gate `-m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across **36** targets, adding only the now-isolated AdMob module. No full suite or chart/finalization execution; no failed implementation/probe attempt.
+- git diff --check PASS; explicit three-file staged names/full diff/whitespace review before `test: isolate admob ssv transport tests`. Production/shared helper/A1 guard/allowlist changes: none. Main README status/hash rechecked at handoff; no push or other worktree changes.
+- Remaining B1 **3**: chart/market + AI finalization, unexecuted. AdMob batch ready to request independent verification after commit; no overall H4 completion or automatic continuation.
+
 ## H4-B1 subscription transport batch 2 — 2026-09-17
 
 - Purchase/credential/refund batch 1 (12) independently verified and approved by the user at `68a0e01d9817687a25673de72d6df5173599a44d`. Preflight confirmed that HEAD, fix/test-environment-isolation, assigned worktree and clean full Git status. Main retains only protected README modification, blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.

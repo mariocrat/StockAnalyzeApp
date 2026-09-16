@@ -43,6 +43,7 @@ STORAGE_MODULES = (
     "tests.test_billing_readiness",
     "tests.test_billing_purchase_transport",
     "tests.test_billing_subscription_transport",
+    "tests.test_billing_provider_verification",
     "tests.test_backend_release_check",
     "tests.test_release_alignment",
     "tests.test_release_env_file_setup",

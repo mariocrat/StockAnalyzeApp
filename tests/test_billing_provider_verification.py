@@ -1,4 +1,10 @@
-"""H4-B1 deferred Google Play, AdMob and OIDC provider/verification tests."""
+"""Remaining AdMob SSV/reward provider tests inside H4-A1."""
+
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import _import_state
 
 import base64
 import datetime
@@ -52,8 +58,17 @@ def patched_env(**values):
                 os.environ[key] = value
 
 
-class BillingProviderVerificationTest(unittest.TestCase):
+with _import_state():
+    from backend.core import access_control as _access_control
 
+
+class BillingProviderVerificationTest(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(storage_fixture())
+        self.enterContext(_import_state())
+        # Restore body-local reloads, provider functions and key-cache globals.
+        self.enterContext(patch.dict(_access_control.__dict__))
+        importlib.reload(_access_control)
 
     def test_admob_ssv_records_reward_once(self):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
