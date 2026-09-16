@@ -1,4 +1,11 @@
-"""H4-B1 deferred finalization tests with unmocked chart-provider storage paths."""
+"""Finalization refunds and cleanup inside the H4-A1 boundary."""
+
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import api_module_state
+from unittest.mock import patch
 
 import importlib
 import os
@@ -84,31 +91,14 @@ def _load_review_main_with_temp_state(tmpdir):
 
 
 class AiReviewSafetyFinalizationTest(unittest.TestCase):
-    ENV_KEYS = [
-        "ALPHAMATE_ACCOUNT_DB_PATH",
-        "ALPHAMATE_ACCESS_DB_PATH",
-        "ALPHAMATE_REVIEW_HISTORY_DB_PATH",
-        "ALPHAMATE_ALLOW_DEV_ACCESS",
-        "ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE",
-        "ALPHAMATE_AI_REVIEW_MAX_CONCURRENT",
-        "ALPHAMATE_AI_REVIEW_IDEMPOTENCY_TTL_SECONDS",
-        "ALPHAMATE_REVIEW_ACCESS_ENABLED",
-        "ALPHAMATE_REVIEW_ACCESS_ID",
-        "ALPHAMATE_REVIEW_ACCESS_PASSWORD_HASH",
-        "ALPHAMATE_REVIEW_ACCESS_EXPIRES_AT",
-        "ALPHAMATE_REVIEW_BASIC_QUOTA",
-        "ALPHAMATE_REVIEW_ADVANCED_QUOTA",
-    ]
-
     def setUp(self):
-        self._previous_env = {key: os.environ.get(key) for key in self.ENV_KEYS}
-
-    def tearDown(self):
-        for key, value in self._previous_env.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
+        self.enterContext(storage_fixture())
+        self.enterContext(api_module_state())
+        # Original helpers reload main, so patch its import source first.
+        # Persistence/refunds stay real; no chart provider is needed to save history.
+        charts = importlib.import_module("core.journal_chart")
+        self.enterContext(patch.object(
+            charts, "build_journal_charts", return_value={"charts": []}))
 
     def test_finalization_failure_refunds_general_access_and_cleans_history_and_pending_key(self):
         with tempfile.TemporaryDirectory() as tmpdir:

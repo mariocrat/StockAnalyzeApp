@@ -1,4 +1,12 @@
-"""H4-B1 deferred chart-provider boundary before the OpenAI fallback override."""
+"""Chart/market seams inside the H4-A1 boundary."""
+
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import _import_state
+from unittest.mock import patch
+import pandas as pd
 
 import importlib
 import io
@@ -10,37 +18,17 @@ import urllib.error
 
 
 class AiReviewChartProviderTest(unittest.TestCase):
-    ENV_KEYS = [
-        "OPENAI_API_KEY",
-        "ALPHAMATE_OPENAI_API_KEY",
-        "ALPHAMATE_OPENAI_TIMEOUT_SECONDS",
-        "ALPHAMATE_OPENAI_MAX_RETRIES",
-        "ALPHAMATE_OPENAI_RETRY_BACKOFF_SECONDS",
-        "ALPHAMATE_ENV_FILE",
-        "OPENAI_BASIC_REVIEW_MODEL",
-        "OPENAI_ADVANCED_REVIEW_MODEL",
-        "OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL",
-        "OPENAI_MODEL",
-        "OPENAI_BASIC_REVIEW_REASONING_EFFORT",
-        "OPENAI_ADVANCED_REVIEW_REASONING_EFFORT",
-        "OPENAI_BASIC_REVIEW_MAX_OUTPUT_TOKENS",
-        "OPENAI_ADVANCED_REVIEW_MAX_OUTPUT_TOKENS",
-    ]
-
     def setUp(self):
-        self._previous_env = {key: os.environ.get(key) for key in self.ENV_KEYS}
-        backend_dir = os.path.join(os.getcwd(), "backend")
-        if backend_dir not in os.sys.path:
-            os.sys.path.insert(0, backend_dir)
-        self.ai_review_v2 = importlib.reload(importlib.import_module("core.ai_review_v2"))
-
-    def tearDown(self):
-        for key, value in self._previous_env.items():
-            if value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = value
+        self.enterContext(storage_fixture())
+        self.enterContext(_import_state())
+        self.ai_review_v2 = importlib.import_module("core.ai_review_v2")
+        self.enterContext(patch.dict(self.ai_review_v2.__dict__))
         importlib.reload(self.ai_review_v2)
+        # Empty synthetic charts exercise the local OHLCV-context fallback too.
+        self.enterContext(patch.object(
+            self.ai_review_v2, "build_journal_charts", return_value={"charts": []}))
+        self.enterContext(patch.object(
+            self.ai_review_v2, "get_stock_ohlcv", side_effect=lambda *args: pd.DataFrame()))
 
     def _success_response(self, text="ok"):
         body = json.dumps({"output_text": text}).encode("utf-8")

@@ -40,6 +40,8 @@ STORAGE_MODULES = (
     "tests.test_theme_cache_memory",
     "tests.test_mobile_runtime_recovery",
     "tests.test_ai_review_safety",
+    "tests.test_ai_review_chart_provider",
+    "tests.test_ai_review_safety_finalization",
     "tests.test_billing_readiness",
     "tests.test_billing_purchase_transport",
     "tests.test_billing_subscription_transport",

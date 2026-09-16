@@ -1,5 +1,23 @@
 # H4 test environment isolation
 
+## H4-B1 final chart/market and finalization batch — 2026-09-17
+
+- AdMob SSV/reward 8 independently verified and approved by user at f170e331b9b1f95845f274c9bbe1192665b9b361. Preflight: matching HEAD, fix/test-environment-isolation, clean assigned worktree; Main only protected README modification (blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61).
+- Source inventory: test_advanced_review_override_can_disable_fallback_for_qa_comparison; test_finalization_failure_refunds_general_access_and_cleans_history_and_pending_key; test_finalization_failure_refunds_review_quota_exactly_once. Exactly 3; no worker/lifespan boundary.
+- Chart case retains original OpenAI failure fake and model/fallback assertions. Patch core.ai_review_v2 consumer aliases build_journal_charts to synthetic empty charts and get_stock_ohlcv to a fresh empty DataFrame, preserving local context fallback without yfinance/FDR.
+- Finalization cases retain original review fakes and complete test bodies. Patch core.journal_chart.build_journal_charts before original helpers reload main and bind its consumer alias. Real test-owned SQLite access/quota/refund/history operations and pending/idempotency cleanup remain intact, including successful retry/replay and exactly-once refund assertions.
+- Reuse storage_fixture, _import_state/api_module_state and direct-entry gate. Snapshot module dictionaries before reload; enterContext restores provider/functions/env/DB paths on success, test failure and setup failure. No production/shared helper/A1 guard/allowlist changes.
+- Validation commands only create/remove synthetic owned temporary storage; no full suite, other worktree writes, live provider calls or push. Same-cause two-failure stop applies. All 3 passed; B1 implementation residual **0**, independent approval and B1 closeout remain separate. No automatic closeout.
+
+
+### Final B1 batch validation and handoff
+
+- `D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe -B tests/run_isolated_tests.py tests.test_ai_review_chart_provider tests.test_ai_review_safety_finalization`: **1 + 2 PASS**, first execution; each report violations/unexpected **0**, restored/patches_restored/cleanup **true**. Actual external network **0** under unchanged A1 guard; no guard denial consumed as expected failure.
+- AST comparison against starting HEAD confirms complete original testcase bodies/names/inputs/assertions and original loader/batch helpers identical. General signup-credit refund, history/pending cleanup, retry/replay, single successful debit/history row, review quota 100 and one reversed usage row remain real SQLite assertions.
+- In-memory bounded state probe: same 3 cases successful plus 3 forced assertion failures after original bodies and 2 forced setup reload failures, all restoration checks PASS. Nine module dictionaries restored by key/value identity (main, five stores, ai_review_v2, journal_chart, data_fetcher); env/sys.path/CWD/temp/temp-child listings and urlopen/sleep restored. Outer patches/restoration/cleanup true. Read-only profile observer records **0** entries into original build_journal_charts/get_stock_ohlcv; boundary violations **0**. Observer restored in finally. No persisted probe module or additional provider testcase.
+- Minimum A1 regression: `-m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v`: **14 PASS** (intentional negative guard probes retain expected failures/violations). Direct-entry coordinator testcase: **PASS**, 38 guarded module targets including these two, with no dependency/storage import escape. Isolated smoke/rate-limit: **1 + 3 PASS**, unexpected 0, restored/patches_restored/cleanup true.
+- `git diff --check`: PASS. Scope limited to two target test modules, existing direct-entry inventory and this ExecPlan; production/shared helpers/guard/allowlist unchanged. Main/README protected; no full suite, push, next batch or B1 closeout. Ready for independent verification of this final batch; B1 remaining implementation cases **0**.
+
 ## H4-B1 AdMob SSV/reward batch 3 — 2026-09-17
 
 - Subscription/acknowledge/RTDN-OIDC 15 independently verified and approved by the user at `edba742a554a31be8b4dabf962d590a0a7b57fcd`. Preflight confirms that HEAD, fix/test-environment-isolation, assigned worktree and clean full status. Main has only protected README modification; blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61.
