@@ -1,3 +1,7 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
 import unittest
 from pathlib import Path
 
@@ -6,6 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AppSplashUiTest(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(storage_fixture())
+
     def test_app_renders_centered_pulsing_logo_splash(self):
         app = (ROOT / "frontend" / "src" / "App.jsx").read_text(encoding="utf-8")
         css = (ROOT / "frontend" / "src" / "App.css").read_text(encoding="utf-8")

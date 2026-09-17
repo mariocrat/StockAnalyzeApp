@@ -1,3 +1,7 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
 import unittest
 from pathlib import Path
 
@@ -5,6 +9,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class AppAdDisplayWiringTest(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(storage_fixture())
+
     def test_app_wires_resume_and_chart_detail_ads_through_policy(self):
         app = (ROOT / "frontend" / "src" / "App.jsx").read_text(encoding="utf-8")
         stock_chart = (ROOT / "frontend" / "src" / "components" / "StockChart.jsx").read_text(encoding="utf-8")

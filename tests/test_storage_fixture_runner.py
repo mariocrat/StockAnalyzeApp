@@ -12,6 +12,9 @@ from tests.run_isolated_tests import REPOSITORY, run_module
 
 
 STORAGE_MODULES = (
+    "tests.test_app_ad_display_wiring",
+    "tests.test_app_splash_ui",
+    "tests.test_android_icon_alignment",
     "tests.test_account_store",
     "tests.test_access_control_persistence",
     "tests.test_user_journal_storage",
