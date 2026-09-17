@@ -1,5 +1,22 @@
 # H4 test environment isolation
 
+## H4-B2 closeout — 2026-09-17
+
+- Goal/scope: migrate the existing lifecycle/background/concurrency inventory into A1 module-per-child isolation, preserving testcase inputs, assertions and production behavior. All **7 tests** are migrated and independently verified with user approval:
+
+| Batch | Completed | Independently approved revision |
+| --- | ---: | --- |
+| Auth lifespan | 2 | `6b2e785295c772cd6e6ecd6cf015cc4042855926` |
+| Review concurrency | 1 | `08280be92f68b939af7af560313d9f74be69b7c6` |
+| Theme workers | 4 | `3c5767fe9ee7dc8c8658d68d94eb5de2786f2f2e` |
+| **Total** | **7** | **All approved** |
+
+- Cleanup is verified within testcase execution/cleanup, not delegated to child exit: Auth checks loop/task completion and shutdown stop events with non-running FakeThread; real executors check worker termination before provider/session patches and module/env/temp cleanup. Fake executors verify executor/Future/results contracts only, not real worker joins. Production scheduler/warmup join behavior remains outside this migration scope.
+- Actual external network/provider access remained **0**. Production code, shared helpers, A1 guard/allowlist and B1 isolation were unchanged.
+- Final read-only source inventory at `3c5767fe9ee7dc8c8658d68d94eb5de2786f2f2e` is approved: **B2 remaining 0**, with no loss, duplicates, newly discovered omissions or incorrect C/D/OUT classification. This closeout records accepted evidence; no new tests are run.
+- **H4-B2 is closed; H4 as a whole is not complete. Next phase is C**, not started here. The full suite has **not** been run; push has **not** been performed.
+- This entry supersedes historical pending B2 handoff statements. Existing A1/A2/B1 and batch records are preserved unchanged. Only this ExecPlan is modified; Main's protected README and all other worktrees remain untouched.
+
 ## H4-B2 theme workers batch — 2026-09-17
 
 - User independently approved Review concurrency 1 at `08280be92f68b939af7af560313d9f74be69b7c6`; preflight confirms that HEAD, assigned worktree/branch and clean full status. Only the four existing Theme worker testcases are authorized.
