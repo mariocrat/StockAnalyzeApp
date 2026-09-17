@@ -23,6 +23,7 @@ STORAGE_MODULES = (
     "tests.test_request_id",
     "tests.test_market_rate_limits",
     "tests.test_auth_routes",
+    "tests.test_auth_lifespan",
     "tests.test_journal_batch_limits",
     "tests.test_journal_query_limits",
     "tests.test_main_ai_review_history_consent",
