@@ -1,5 +1,25 @@
 # H4 test environment isolation
 
+## H4-B1 closeout — 2026-09-17
+
+- User independently approved all six batches and the final read-only inventory at HEAD `837eda5b7abc173823d6a79fed28026e98e2811a`. This closeout supersedes earlier pending B1 handoff statements; historical A1/A2 and batch records remain unchanged.
+- Goal/scope: migrate the 53 provider/transport testcases remaining after A2 into the existing A1 isolated runner, preserving HTTP/request/timeout/retry/error and real test-owned DB/entitlement/refund semantics.
+
+| Batch | Completed | Independent verification |
+| --- | ---: | --- |
+| OAuth transport | 5 | Approved |
+| OpenAI transport | 10 | Approved |
+| Billing purchase/credential/refund | 12 | Approved |
+| Subscription/acknowledge/RTDN-OIDC | 15 | Approved |
+| AdMob SSV | 8 | Approved |
+| Chart/market + AI finalization | 3 | Approved |
+| **Total** | **53** | **All approved** |
+
+- Isolation principle: explicit synthetic transport/provider boundaries keep actual external network/provider calls at **0**; guard-denied calls are not consumed as expected failures. Success/failure paths restore patches and owned state; local DB product assertions remain real. A1 guard/allowlist and production/shared helpers were not changed.
+- Approved source inventory: **B1 remaining 0**, with no loss, duplicates, newly discovered omissions or incorrect B2/C/D/OUT classification. This document records the completed inventory review; no new tests are run for closeout.
+- **H4-B1 is closed; H4 as a whole is not complete. Next stage is B2** lifecycle/background isolation, not started by this documentation task. C/D/OUT disposition remains separate.
+- The full suite has **not** been run; push has **not** been performed. Only this ExecPlan is changed. Main's protected README and all other worktrees remain untouched.
+
 ## H4-B1 final chart/market and finalization batch — 2026-09-17
 
 - AdMob SSV/reward 8 independently verified and approved by user at f170e331b9b1f95845f274c9bbe1192665b9b361. Preflight: matching HEAD, fix/test-environment-isolation, clean assigned worktree; Main only protected README modification (blob e672a49f8cbf2da1d0c7492ff0e9c30b20b02a61).
