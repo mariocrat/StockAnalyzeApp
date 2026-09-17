@@ -40,6 +40,7 @@ STORAGE_MODULES = (
     "tests.test_oauth_login",
     "tests.test_oauth_login_transport",
     "tests.test_theme_cache_memory",
+    "tests.test_theme_cache_workers",
     "tests.test_mobile_runtime_recovery",
     "tests.test_ai_review_safety",
     "tests.test_ai_review_chart_provider",
