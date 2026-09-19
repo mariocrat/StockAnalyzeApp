@@ -1,5 +1,16 @@
 # H4 test environment isolation
 
+## H4-D closeout — 2026-09-20
+
+- Goal/scope: isolate release/documentation/static checks and Phase A runtime/orchestration while preserving real source reads, SQLite/application behavior and original assertions; keep writes in owned temporary storage and block unintended private/external/tool access.
+- All five D batches are independently approved: release/setup/wrapper static **26**; documentation/policy/Render/static **32**; Harness/Environment **16**; Application **9**; OAuth cleanup/orchestration **2**. Total: **static 58 + runtime 27 = 85 completed**.
+- Phase A and A1 audit hooks initially consumed the same internal socketpair setup state twice. Separately authorized foundation changes share only the exact test-owned socket/endpoint and distinct observer approvals within the existing context/token; no general network permission or broad allowlist was added. Two failed attempts were stopped; raw-byte diagnosis identified Windows unbound getsockname WinError 10022 in the probe before its observer call. The probe was corrected to use synthetic endpoints, without expanding the guards.
+- Foundation probe **3 PASS** and subsequent A1 core/smoke/direct-entry **16 PASS** were independently approved. General network/socket/bind/connect/DNS/subprocess blocking, sensitive-path/filesystem boundaries and SQLite ATTACH/VACUUM/backup escape blocking remained intact; observer state did not leak. Foundation and Harness/Environment commits were independently approved before Application migration. Historical blocker and validation records below remain unchanged.
+- OAuth orchestration now explicitly selects **OAuthTransportTest 5 + OAuthLoginTest 1**, replacing stale pre-split references under the real A1 import/storage gates. Forward/reverse execution and assertion-failure cleanup remain in-process checks, not child-exit cleanup. Final two cases and their independent verification are approved.
+- Final read-only current-source inventory at **3e25af89eed1935b27d2bbaab690a225d3a87258** is approved: **D remaining 0**, no omissions, duplicates or incorrect C/OUT reclassification; no stale OAuth testcase references remain. Mobile C/OUT, signing C 8/D wrapper 1 and brand OUT 6 remain separate. Diagnostic runner and external raw bytes are outside inventory and this commit.
+- **H4-D is closed. A2/B1/B2/C/D implementation phases are complete, but H4 as a whole is not complete.** The full suite and H4 final verification/closeout have not been performed. Next stage is separately authorized H4-wide final verification; this documentation task runs no tests and does not begin that stage.
+- Push has not been performed. This closeout adds only this section to the ExecPlan; existing A1/A2/B1/B2/C and detailed D records, diagnostic files, Main/protected README and other worktrees are preserved.
+
 ## H4-D final OAuth cleanup/orchestration — 2026-09-19
 
 - Application 9 independently approved at 0996ed2fad054738a40d4426d6b1438da42ffd34; D approved 83/85, remaining two cleanup/orchestration cases. Preserve diagnostic runner/raw bytes; no production/foundation/shared-helper/legacy-runner edits, push or automatic closeout.
