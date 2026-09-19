@@ -12,6 +12,12 @@ from tests.run_isolated_tests import REPOSITORY, run_module
 
 
 STORAGE_MODULES = (
+    "tests.test_quick_verify_docs",
+    "tests.test_owner_facing_messages",
+    "tests.test_policy_documentation",
+    "tests.test_render_blueprint",
+    "tests.test_secret_scan_output",
+    "tests.test_mobile_render_source_checks",
     "tests.test_android_release_verification",
     "tests.test_backend_release_check_docs",
     "tests.test_release_env_file_setup_docs",

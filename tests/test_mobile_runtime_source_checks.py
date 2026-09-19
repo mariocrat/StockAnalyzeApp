@@ -1,4 +1,4 @@
-"""Deferred D Render (1), OUT admin-source (1); C moved to test_mobile_source_checks."""
+"""OUT admin-source (1); C and D moved to dedicated source-check modules."""
 
 import os
 import sys
@@ -17,14 +17,6 @@ BACKEND = ROOT / "backend"
 
 
 class MobileRuntimeSourceChecksTest(unittest.TestCase):
-    def test_render_uses_persistent_cache_and_bounded_workers(self):
-        blueprint = (ROOT / "render.yaml").read_text(encoding="utf-8")
-
-        self.assertIn("ALPHAMATE_CACHE_DIR", blueprint)
-        self.assertIn("/var/data/alphamate/cache", blueprint)
-        self.assertIn("ALPHAMATE_THEME_FETCH_WORKERS", blueprint)
-        self.assertIn("ALPHAMATE_WARM_CACHE_ON_STARTUP", blueprint)
-
     def test_admin_can_trigger_and_inspect_initial_theme_cache(self):
         source = (BACKEND / "main.py").read_text(encoding="utf-8")
 

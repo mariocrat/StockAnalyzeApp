@@ -1,3 +1,5 @@
+"""H4-D mobile Render source contract; C and OUT remain separate."""
+
 from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
@@ -12,7 +14,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class SecretScanOutputTest(unittest.TestCase):
+class MobileRuntimeSourceChecksTest(unittest.TestCase):
     def setUp(self):
         baseline = (dict(os.environ), Path.cwd(), tempfile.tempdir, list(sys.path))
         modules = dict(sys.modules)
@@ -32,26 +34,14 @@ class SecretScanOutputTest(unittest.TestCase):
         if container is not None:
             self.assertFalse(container.exists())
 
-    def test_secret_scan_uses_korean_owner_messages(self):
-        script = (ROOT / "scripts" / "check_no_tracked_secrets.py").read_text(encoding="utf-8")
+    def test_render_uses_persistent_cache_and_bounded_workers(self):
+        blueprint = (ROOT / "render.yaml").read_text(encoding="utf-8")
 
-        self.assertIn("Git 추적 파일에서 비밀값 패턴을 찾지 못했습니다.", script)
-        self.assertIn("Git 추적 파일에서 비밀값으로 보이는 패턴을 찾았습니다:", script)
-        self.assertNotIn("No tracked secret patterns found.", script)
-        self.assertNotIn("Potential tracked secrets found:", script)
+        self.assertIn("ALPHAMATE_CACHE_DIR", blueprint)
+        self.assertIn("/var/data/alphamate/cache", blueprint)
+        self.assertIn("ALPHAMATE_THEME_FETCH_WORKERS", blueprint)
+        self.assertIn("ALPHAMATE_WARM_CACHE_ON_STARTUP", blueprint)
 
-
-    def test_secret_scan_covers_release_credential_patterns(self):
-        script = (ROOT / "scripts" / "check_no_tracked_secrets.py").read_text(encoding="utf-8")
-
-        self.assertIn("OpenAI API key", script)
-        self.assertIn("Google/Gemini API key", script)
-        self.assertIn("AIza", script)
-        self.assertIn("Google private key block", script)
-        self.assertIn("Google service account JSON", script)
-        self.assertIn("hard-coded password assignment", script)
-        self.assertIn("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", script)
-        self.assertIn("PRIVATE KEY", script)
 
 if __name__ == "__main__":
     unittest.main()
