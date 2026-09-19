@@ -1,5 +1,23 @@
 # H4 test environment isolation
 
+## H4-C closeout — 2026-09-19
+
+- Goal/scope: isolate frontend source/static, image-asset and synthetic Android signing checks under the existing A1 runner while preserving real production source/asset reads and assertion semantics. All **23 testcases** are migrated and independently verified with user approval:
+
+| Batch | Completed | Independently approved revision |
+| --- | ---: | --- |
+| Frontend assets (ads 3, splash 2, icon 3) | 8 | `23a944f0d3d0396ed577caa9bebe2cc8a6155fe0` |
+| Mobile source/static | 6 | `e991c36761535743fefee9b77edb831dbdba81f3` |
+| Android signing | 8 | `9febc0bfc6901fd28d14b5956e95f3f13a9c0c6c` |
+| Favicon asset | 1 | `ad376efbf2bd6e661f599292c5e3eb51410630c2` |
+| **Total** | **23** | **All approved** |
+
+- Testcase repo/worktree writes and asset changes remain **0**; actual external network/provider access remains **0**. Signing uses synthetic configuration only: actual private env/credential/user HOME/keystore access and keytool execution **0**; main/create_upload_key are not invoked. Bytecode is disabled before dynamic import.
+- Writes are confined to testcase-owned disposable temp workspaces. Cleanup restores env/CWD/temp/import state and releases fresh signing modules; image cases close source/intermediate/result handles and restore Pillow registries/cache state before testcase exit. Accepted batch records below contain validation evidence and limits; this closeout does not rerun tests.
+- Final inventory review discovered the previously omitted favicon PNG comparison and the user classified it as C. Its completed migration corrects C from **22 to 23**. The approved final read-only inventory at the favicon revision confirms **C remaining 0**, with no loss, duplicates, additional omissions or incorrect classification. Mobile D/OUT 2, signing D wrapper 1 and brand-image OUT 6 remain separate and unchanged.
+- **H4-C is closed; H4 as a whole is not complete. Next phase is D.** The full suite has **not** been run; push has **not** been performed. This entry supersedes historical pending C approval/inventory statements; existing A1/A2/B1/B2 and batch records remain unchanged.
+- This task changes only this ExecPlan. Preflight confirms the favicon HEAD, assigned branch/worktree and clean status. Main's protected README and all other worktrees remain untouched. Commit this documentation-only closeout as `docs: close C frontend isolation`, then wait; no D implementation or push is authorized here.
+
 ## H4-C favicon inventory correction and batch — 2026-09-19
 
 - User independently approved the original C 22 (assets 8, mobile 6, signing 8). Read-only residual inventory found one missed C testcase, test_favicon_uses_the_official_light_app_icon_pixels. User confirmed C classification: **final C inventory is corrected to 23**. Prior statements of zero remaining at 22 are superseded by this correction.
