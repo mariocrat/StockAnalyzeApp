@@ -1,3 +1,9 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+import sys
+from pathlib import Path
 import json
 import os
 import tempfile
@@ -40,9 +46,31 @@ def patched_env(**values):
                 os.environ[key] = value
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
 class BackendReleaseCheckDocsTest(unittest.TestCase):
+    def setUp(self):
+        baseline = (dict(os.environ), Path.cwd(), tempfile.tempdir, list(sys.path))
+        modules = dict(sys.modules)
+        namespace = dict(vars(sys.modules[__name__]))
+        self.addCleanup(self._assert_restored, baseline, modules, namespace)
+        fixture = self.enterContext(storage_fixture())
+        self._case_container = fixture.root.parent
+
+    def _assert_restored(self, baseline, modules, namespace):
+        self.assertEqual((dict(os.environ), Path.cwd(), tempfile.tempdir, list(sys.path)), baseline)
+        self.assertEqual(set(sys.modules), set(modules))
+        self.assertTrue(all(sys.modules[name] is module for name, module in modules.items()))
+        current = vars(sys.modules[__name__])
+        self.assertEqual(set(current), set(namespace))
+        self.assertTrue(all(current[name] is value for name, value in namespace.items()))
+        container = self.__dict__.pop("_case_container", None)
+        if container is not None:
+            self.assertFalse(container.exists())
+
     def test_backend_env_example_documents_release_check_settings(self):
-        with open(".env.example", encoding="utf-8") as env_file:
+        with open(ROOT / ".env.example", encoding="utf-8") as env_file:
             example = env_file.read()
 
         required_names = [
@@ -91,7 +119,7 @@ class BackendReleaseCheckDocsTest(unittest.TestCase):
             self.assertIn(name, example)
 
     def test_backend_release_env_template_is_production_focused(self):
-        with open(".env.release.example", encoding="utf-8") as env_file:
+        with open(ROOT / ".env.release.example", encoding="utf-8") as env_file:
             template = env_file.read()
 
         required_names = [
@@ -146,7 +174,7 @@ class BackendReleaseCheckDocsTest(unittest.TestCase):
         self.assertNotIn("ALPHAMATE_DEV_AUTH_TOKEN", template)
 
     def test_gitignore_blocks_filled_release_env_files(self):
-        with open(".gitignore", encoding="utf-8") as gitignore_file:
+        with open(ROOT / ".gitignore", encoding="utf-8") as gitignore_file:
             gitignore = gitignore_file.read()
 
         ignored_names = [
@@ -170,7 +198,7 @@ class BackendReleaseCheckDocsTest(unittest.TestCase):
             self.assertIn(name, gitignore)
 
     def test_release_readiness_report_uses_release_env_files_when_present(self):
-        with open("release_readiness_report.bat", encoding="utf-8") as report_file:
+        with open(ROOT / "release_readiness_report.bat", encoding="utf-8") as report_file:
             script = report_file.read()
 
         self.assertIn(".env.release", script)
