@@ -12,6 +12,7 @@ from tests.run_isolated_tests import REPOSITORY, run_module
 
 
 STORAGE_MODULES = (
+    "tests.test_phase_a_runtime_environment",
     "tests.test_quick_verify_docs",
     "tests.test_owner_facing_messages",
     "tests.test_policy_documentation",
