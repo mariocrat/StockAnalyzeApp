@@ -1,5 +1,20 @@
 # H4 test environment isolation
 
+## H4-D final OAuth cleanup/orchestration — 2026-09-19
+
+- Application 9 independently approved at 0996ed2fad054738a40d4426d6b1438da42ffd34; D approved 83/85, remaining two cleanup/orchestration cases. Preserve diagnostic runner/raw bytes; no production/foundation/shared-helper/legacy-runner edits, push or automatic closeout.
+- Stale reference cause: pre-split OAuthLoginTest references for timeout/profile/code-exchange now belong to OAuthTransportTest. Map the exact six scenarios to transport five/local one, retain forward/reverse order and original restoration assertions; exercise assertion-failure cleanup with both existing classes.
+- Gate before dependency imports; import source modules by alias inside A1 storage_fixture. Replace legacy runtime nesting with A1 storage contexts, leaving both source fixtures/gates unchanged. Reuse runtime._OwnedCase; observe env/CWD/path/modules/namespaces/OAuth functions/tickets/temp-directory inventory and violation count after each nested run before outer restoration can hide leaks.
+- Run the two orchestration cases, A1 minimum regression and direct-entry gate; count actual inventory. Stop on a new blocker. Results pending.
+
+### Final batch local results
+
+- `D:/Project/Vibe/StockBoda/.venv/Scripts/python.exe -B tests/run_isolated_tests.py tests.test_phase_a_environment`: **2 PASS**, failures/errors **0**, violations/unexpected **0/0**, restored/patches_restored/cleanup **true**. Forward/reverse execution ran the unchanged transport five plus local ticket case twice (12 nested runs); assertion-failure probes exercised both source fixtures with exactly one intentional failure/no errors each. No skip or broad OAuth module execution.
+- Immediate post-run observations pass before outer restoration: original five OAuth/requests function identities, env/CWD/sys.path/temp, sys.modules identities and package/core/main/current-module namespace identities, OAuth tickets, owned temp-directory inventory and violation count. Existing _OwnedCase verifies final outer state and directory removal before child exit. Real SQLite remains in synthetic storage; actual external OAuth/network/provider/private/HOME access and unintended tool execution **0**, based on existing guarded paths and unchanged transport fakes.
+- A1 minimum runner/results/SQLite regressions **14 PASS** plus direct-entry gate **1 PASS**. AST inspection counted **63 unique actual inventory entries**, not a forced target. Intentional swallowed-violation children still fail as expected; regression suite passed. No full suite, legacy Phase A runner, previous D batch or separate OAuth suite executed.
+- Only the cleanup module, direct-entry inventory and this ExecPlan changed. Original OAuth transport/local test modules, production, foundation/socketpair and shared helpers unchanged. Diagnostic runner/stdout.bin/stderr.bin hashes unchanged and excluded. Main/protected README/other worktrees untouched; git diff --check passed.
+- D implemented/locally verified **85/85; remaining 0**. Final two await independent approval; this is not D closeout or full-suite evidence. Authorized scoped commit follows verification; no push or automatic closeout.
+
 ## H4-D batch 4 Application — 2026-09-19
 
 - Batch 3 foundation and Harness 5/Environment 11 independently approved at 64326027b09d19561ea7dae830b3da23b9218c9a; D complete 74/85, remaining Application 9 and OAuth cleanup/orchestration 2.
