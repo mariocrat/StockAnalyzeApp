@@ -170,7 +170,7 @@ class Boundary:
 
     def audit(self, event, args):
         if event in {"socket.connect", "socket.bind"}:
-            if not _socketpair_operation(event, args):
+            if not _socketpair_operation(event, args, observer="a1"):
                 self.deny("network")
         elif event in {"socket.getaddrinfo", "socket.gethostbyname", "socket.gethostbyaddr",
                        "socket.getnameinfo", "socket.sendto", "socket.sendmsg"}:

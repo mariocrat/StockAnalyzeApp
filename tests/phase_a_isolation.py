@@ -16,23 +16,34 @@ _active_root = None
 _socketpair_setup = ContextVar("phase_a_socketpair_setup", default=None)
 
 
-def _socketpair_operation(event, args):
+def _socketpair_operation(event, args, *, observer):
     """Allow only the ephemeral listener/peer used by Python's socketpair."""
     setup = _socketpair_setup.get()
-    if setup is None:
+    if setup is None or observer not in {"phase-a", "a1"}:
         return False
     sock, address = args
     if not isinstance(address, tuple) or address[0] not in {"127.0.0.1", "::1"}:
         return False
     if sock.type != socket.SOCK_STREAM:
         return False
+    # Two installed hooks inspect one OS operation. Each may approve it once,
+    # only for the same socket and endpoint inside this socketpair token.
+    approved = setup.get(event)
+    if approved is not None:
+        owned_socket, owned_address, observers = approved
+        if sock is not owned_socket or address != owned_address or observer in observers:
+            return False
+        observers.add(observer)
+        return True
     if event == "socket.bind" and address[1] == 0 and "listener" not in setup:
         setup["listener"] = sock
+        setup[event] = (sock, address, {observer})
         return True
     if event == "socket.connect" and "listener" in setup and not setup.get("connected"):
         listener = setup["listener"]
         if address[:2] == listener.getsockname()[:2]:
             setup["connected"] = True
+            setup[event] = (sock, address, {observer})
             return True
     return False
 
@@ -41,7 +52,7 @@ def _audit(event, args):
     if _active_root is None:
         return
     if event in {"socket.connect", "socket.bind"}:
-        if _socketpair_operation(event, args):
+        if _socketpair_operation(event, args, observer="phase-a"):
             return
         raise AssertionError(f"Phase A harness: external/local operation blocked: {event}")
     if event in {"socket.getaddrinfo", "socket.gethostbyname", "socket.gethostbyaddr", "socket.getnameinfo", "socket.sendto", "socket.sendmsg"}:
