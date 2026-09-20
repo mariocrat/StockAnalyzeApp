@@ -66,7 +66,7 @@ class _OwnedCase:
         guards = (phase._active_root, phase._socketpair_setup.get(),
                   socket.socketpair, sqlite3.connect, requests.sessions.Session.request,
                   curl_requests.Session.request)
-        count = len(BOUNDARY.violations)
+        count = BOUNDARY.unexpected
         self.addCleanup(self._assert_restored, baseline, modules, namespaces,
                         own_namespace, policy, guards, count)
         stack = self.enterContext(ExitStack())
@@ -95,7 +95,7 @@ class _OwnedCase:
         self.assertEqual((phase._active_root, phase._socketpair_setup.get(),
                           socket.socketpair, sqlite3.connect, requests.sessions.Session.request,
                           curl_requests.Session.request), guards)
-        self.assertEqual(len(BOUNDARY.violations), count)
+        self.assertEqual(BOUNDARY.unexpected, count)
         container = self.__dict__.pop("_case_container", None)
         if container is not None:
             self.assertFalse(container.exists())
@@ -157,7 +157,7 @@ class PhaseAHarnessTest(_OwnedCase, unittest.TestCase):
         )
         with isolated_runtime():
             for event, args in events:
-                with self.subTest(event=event), self.assertRaisesRegex(AssertionError, event):
+                with self.subTest(event=event), BOUNDARY.expect_violation("network"), self.assertRaisesRegex(AssertionError, event):
                     sys.audit(event, *args)
 
     def test_socketpair_works_but_arbitrary_loopback_is_blocked(self):
@@ -170,7 +170,7 @@ class PhaseAHarnessTest(_OwnedCase, unittest.TestCase):
                 self.assertEqual(right.recv(8), b"internal")
             for host in ("127.0.0.1", "127.0.0.2", "::1"):
                 for event in ("socket.connect", "socket.bind", "socket.sendto"):
-                    with self.subTest(host=host, event=event), self.assertRaises(AssertionError):
+                    with self.subTest(host=host, event=event), BOUNDARY.expect_violation("network"), self.assertRaises(AssertionError):
                         sys.audit(event, None, (host, 12345))
     def test_event_loop_and_asgi_messages(self):
         async def exercise():
@@ -192,19 +192,19 @@ class PhaseAHarnessTest(_OwnedCase, unittest.TestCase):
 
     def test_outbound_dns_http_and_non_temp_database_are_blocked(self):
         with isolated_runtime() as root:
-            with self.assertRaisesRegex(AssertionError, "external"):
+            with BOUNDARY.expect_violation("network"), self.assertRaisesRegex(AssertionError, "external"):
                 socket.getaddrinfo("provider.invalid", 443)
             with socket.socket() as outbound:
-                with self.assertRaisesRegex(AssertionError, "external"):
+                with BOUNDARY.expect_violation("network"), self.assertRaisesRegex(AssertionError, "external"):
                     outbound.connect(("192.0.2.1", 443))
             import requests
             from curl_cffi import requests as curl_requests
             for transport in (requests, curl_requests):
-                with self.assertRaisesRegex(AssertionError, "network blocked"):
+                with BOUNDARY.expect_violation("network"), self.assertRaisesRegex(AssertionError, "network blocked"):
                     transport.get("https://provider.invalid")
-            with self.assertRaisesRegex(AssertionError, "outside temporary root"):
+            with BOUNDARY.expect_violation("write"), self.assertRaisesRegex(AssertionError, "outside temporary root"):
                 sqlite3.connect(root.parent / "blocked-synthetic.sqlite3")
-            with self.assertRaisesRegex(AssertionError, "outside temporary root"):
+            with BOUNDARY.expect_violation("write"), self.assertRaisesRegex(AssertionError, "outside temporary root"):
                 (root.parent / "blocked-synthetic.txt").write_text("blocked", encoding="utf-8")
             with closing(sqlite3.connect(root / "allowed.sqlite3")) as connection:
                 self.assertEqual(connection.execute("SELECT 1").fetchone(), (1,))

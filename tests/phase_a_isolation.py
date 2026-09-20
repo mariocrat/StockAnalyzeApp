@@ -13,7 +13,26 @@ from backend.core.env import DB_FILES
 
 
 _active_root = None
+_violation_observer = None
 _socketpair_setup = ContextVar("phase_a_socketpair_setup", default=None)
+
+
+@contextmanager
+def observe_violations(observer):
+    """Record denials before this earlier hook raises; never replay an audit event."""
+    global _violation_observer
+    previous = _violation_observer
+    _violation_observer = observer
+    try:
+        yield
+    finally:
+        _violation_observer = previous
+
+
+def _deny(kind, message):
+    if _violation_observer is not None:
+        _violation_observer(kind)
+    raise AssertionError(message)
 
 
 def _socketpair_operation(event, args, *, observer):
@@ -54,17 +73,19 @@ def _audit(event, args):
     if event in {"socket.connect", "socket.bind"}:
         if _socketpair_operation(event, args, observer="phase-a"):
             return
-        raise AssertionError(f"Phase A harness: external/local operation blocked: {event}")
+        _deny("network", f"Phase A harness: external/local operation blocked: {event}")
     if event in {"socket.getaddrinfo", "socket.gethostbyname", "socket.gethostbyaddr", "socket.getnameinfo", "socket.sendto", "socket.sendmsg"}:
-        raise AssertionError(f"Phase A harness: external DNS/datagram blocked: {event}")
+        _deny("network", f"Phase A harness: external DNS/datagram blocked: {event}")
     if event in {"subprocess.Popen", "os.system"}:
-        raise AssertionError("Phase A harness: subprocess blocked")
+        _deny("subprocess", "Phase A harness: subprocess blocked")
     paths = []
+    kind = "write"
     if event == "sqlite3.connect":
         paths = [args[0]]
     elif event == "open":
         path, mode, flags = args
         writing = flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND)
+        kind = "write" if writing else "sensitive-read"
         if writing or (isinstance(path, (str, bytes)) and str(path).lower().endswith((".db", ".sqlite", ".sqlite3"))):
             paths = [path]
     elif event in {"os.mkdir", "os.remove", "os.rmdir", "os.chmod", "os.truncate"}:
@@ -76,7 +97,7 @@ def _audit(event, args):
             continue
         path = Path(os.fsdecode(raw)).resolve()
         if not path.is_relative_to(_active_root):
-            raise AssertionError("Phase A harness: filesystem/DB access outside temporary root")
+            _deny(kind, "Phase A harness: filesystem/DB access outside temporary root")
 
 
 sys.addaudithook(_audit)
@@ -110,7 +131,7 @@ def isolated_runtime():
 
 
 def _blocked_network():
-    raise AssertionError("network blocked")
+    _deny("network", "network blocked")
 
 
 def install_network_patches(stack, blocked):

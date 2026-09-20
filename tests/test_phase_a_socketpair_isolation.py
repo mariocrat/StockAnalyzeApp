@@ -112,21 +112,21 @@ class SocketpairCompositionTest(unittest.TestCase):
                 for event, args in events:
                     with self.subTest(nested=nested, event=event):
                         if nested:
-                            with self.assertRaisesRegex(AssertionError, event):
+                            with BOUNDARY.expect_violation("network"), self.assertRaisesRegex(AssertionError, event):
                                 sys.audit(event, *args)
                         else:
                             with BOUNDARY.expect_violation("network"):
                                 sys.audit(event, *args)
                 for event in ("subprocess.Popen", "os.system"):
                     if nested:
-                        with self.assertRaisesRegex(AssertionError, "Phase A harness: subprocess blocked"):
+                        with BOUNDARY.expect_violation("subprocess"), self.assertRaisesRegex(AssertionError, "Phase A harness: subprocess blocked"):
                             sys.audit(event, "synthetic-never-launched")
                     else:
                         with BOUNDARY.expect_violation("subprocess"):
                             sys.audit(event, "synthetic-never-launched")
                 for get in (requests.get, curl_requests.get):
                     if nested:
-                        with self.assertRaisesRegex(AssertionError, "network blocked"):
+                        with BOUNDARY.expect_violation("network"), self.assertRaisesRegex(AssertionError, "network blocked"):
                             get("https://synthetic.invalid")
                     else:
                         with BOUNDARY.expect_violation("network"):

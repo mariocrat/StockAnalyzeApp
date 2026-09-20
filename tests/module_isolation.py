@@ -17,6 +17,7 @@ from unittest.mock import patch
 from backend.core import env as configuration
 from backend.core.env import DB_FILES, REPOSITORY_ROOT, validate_configuration
 from scripts.create_release_env_files import RELEASE_ENV_FILES
+from tests import phase_a_isolation as phase_a
 from tests.phase_a_isolation import _socketpair_operation, install_network_patches
 
 
@@ -68,24 +69,51 @@ class ProtectedPaths:
         return {"roots": sorted(map(str, self.roots)), "files": sorted(map(str, self.files))}
 
 
-def checkout_roots():
-    """Include the owning checkout using Git metadata only; never inspect private data."""
-    roots = {REPOSITORY_ROOT}
-    git_pointer = REPOSITORY_ROOT / ".git"
-    if git_pointer.is_file():
-        pointer = git_pointer.read_text(encoding="utf-8").strip()
-        if not pointer.startswith("gitdir: "):
-            raise ValueError("invalid worktree metadata")
-        git_dir = (REPOSITORY_ROOT / pointer.removeprefix("gitdir: ")).resolve()
-        common = (git_dir / "commondir").read_text(encoding="utf-8").strip()
-        roots.add((git_dir / common).resolve().parent)
-    return roots
+def checkout_roots(repository=None):
+    """Resolve registered checkouts through Git metadata, never directory-name guesses."""
+    repository = Path(repository if repository is not None else REPOSITORY_ROOT).resolve()
+
+    def metadata_path(file, prefix=""):
+        value = file.read_text(encoding="utf-8").strip()
+        if not value.startswith(prefix) or not value[len(prefix):].strip():
+            raise ValueError()
+        path = Path(value[len(prefix):].strip())
+        if path.drive and not path.is_absolute():
+            raise ValueError()
+        return (file.parent / path).resolve()
+
+    try:
+        pointer = repository / ".git"
+        git_dir = pointer.resolve() if pointer.is_dir() else metadata_path(pointer, "gitdir: ")
+        common = git_dir if pointer.is_dir() else metadata_path(git_dir / "commondir")
+        if common.name != ".git" or not common.is_dir():
+            raise ValueError()
+        roots = {common.parent}
+        registrations = common / "worktrees"
+        if registrations.exists():
+            for entry in registrations.iterdir():
+                # Only immediate Git registration directories, not linked external trees.
+                if not entry.is_dir() or entry.resolve().parent != registrations.resolve():
+                    raise ValueError()
+                sibling_pointer = metadata_path(entry / "gitdir")
+                if sibling_pointer.name != ".git":
+                    raise ValueError()
+                if (metadata_path(sibling_pointer, "gitdir: ") != entry.resolve()
+                        or metadata_path(entry / "commondir") != common):
+                    raise ValueError()
+                roots.add(sibling_pointer.parent)
+        if repository not in roots:
+            raise ValueError()
+        return roots
+    except (OSError, UnicodeError, ValueError, RuntimeError):
+        raise ValueError("invalid worktree metadata") from None
 
 
 def protected_paths(host):
     """Reuse pure resolver calculations: no _settings(), env/DB/credential file reads."""
     protected = ProtectedPaths()
-    for repository in checkout_roots():
+    repositories = checkout_roots()
+    for repository in repositories:
         for environment in ("production", "development"):
             # Explicit settings bypass _settings(), which may read a selected private env.
             defaults = configuration._validated_paths({"ALPHAMATE_ENV": environment})
@@ -94,8 +122,11 @@ def protected_paths(host):
                 protected.add_root(mapped if name == "ALPHAMATE_CACHE_DIR" else mapped.parent)
         for _, target in RELEASE_ENV_FILES:
             protected.add_file(repository / target)
-        # frontend/scripts/validate-release-env.js defaults to frontend CWD/.env.
-        protected.add_file(repository / "frontend" / ".env")
+        protected.add_root(repository / "release-private")
+        for directory in (repository, repository / "backend", repository / "frontend"):
+            for filename in (".env", ".env.local", ".env.release", ".env.release.local",
+                             ".env.production", ".env.production.local"):
+                protected.add_file(directory / filename)
     for name in (*DB_FILES, "ALPHAMATE_CACHE_DIR", "ALPHAMATE_ENV_FILE"):
         value = host.get(name, "").strip()
         if value:
@@ -108,10 +139,15 @@ def protected_paths(host):
                 protected.add_file(path)
     # These callers use Path(value) relative to process CWD, unlike env._resolve_path.
     # access_control.py and backend/scripts/validate_release_alignment.py are the sources.
-    for name in ("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE", "ALPHAMATE_FRONTEND_ENV_FILE"):
+    for name in ("GOOGLE_PLAY_SERVICE_ACCOUNT_FILE", "ALPHAMATE_FRONTEND_ENV_FILE",
+                 "GOOGLE_APPLICATION_CREDENTIALS", "ALPHAMATE_ANDROID_KEYSTORE_FILE"):
         value = host.get(name, "").strip()
         if value:
             protected.add_file(Path(value))
+            if name == "ALPHAMATE_ANDROID_KEYSTORE_FILE" and not Path(value).is_absolute():
+                # Python's key generator uses CWD; Gradle file() uses the app project.
+                for repository in repositories:
+                    protected.add_file(repository / "frontend" / "android" / "app" / value)
     return protected
 
 
@@ -127,9 +163,12 @@ class Boundary:
         self.acknowledged = set()
         self.patches_restored = False
 
-    def deny(self, kind):
+    def record(self, kind):
         # Never record path/URL/environment contents: category is sufficient evidence.
         self.violations.append(kind)
+
+    def deny(self, kind):
+        self.record(kind)
         raise IsolationViolation("isolation blocked: " + kind)
 
     @property
@@ -258,8 +297,10 @@ def isolated_module(root, protected=None, *, boundary=None):
         raise RuntimeError("nested module isolation is not supported")
     boundary = boundary if boundary is not None else Boundary(root, protected)
     old_cwd = Path.cwd()
-    originals = [(socket, "socketpair", socket.socketpair), (socket, "has_ipv6", socket.has_ipv6)]
+    originals = [(socket, "socketpair", socket.socketpair), (socket, "has_ipv6", socket.has_ipv6),
+                 (phase_a, "_violation_observer", phase_a._violation_observer)]
     with ExitStack() as stack:
+        stack.enter_context(phase_a.observe_violations(boundary.record))
         stack.enter_context(patch.dict(os.environ, sanitized_environment(os.environ, boundary.root), clear=True))
         stack.enter_context(patch.object(sys, "dont_write_bytecode", True))
         stack.enter_context(patch.object(tempfile, "tempdir", str(boundary.root / "temp")))
