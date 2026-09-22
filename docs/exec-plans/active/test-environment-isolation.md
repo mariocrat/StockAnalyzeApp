@@ -1,5 +1,33 @@
 # H4 test environment isolation
 
+## Stage 3 official wrapper integration — 2026-09-22
+
+- Starting HEAD: 8c0c5675f9c96efe3cf55d8096c422f735d62975; Stage 1/2 independently approved. Historical records below remain unchanged.
+- Scope: verify_project.ps1/BAT, TESTING/quick_verify docs, this plan, existing coordinator/docs regression assertions and one synthetic PowerShell wrapper regression. No production, package, Foundation or coordinator implementation changes.
+- Explicit TestOnly/BuildChecks mode; explicit absolute approved Python 3.11+ and Node 24+; no PATH/venv fallback. Both compatibility probes precede any suite/build. TestOnly dispatches only the approved Python and Node coordinators in sanitized child env/owned temp.
+- BuildChecks retains compileall, tracked secret scan, lint and general Vite build only. Tests move to TestOnly. No release/deploy/signing workflow added; BuildChecks is not H4 isolation or test approval.
+- Preserve Python 464 direct (35 / 393 / 22 plus Stage 1 cohort 14), child probes 18; Node 17/128. Add assertions to existing Python testcase IDs, not inventory cohorts. Synthetic PS dispatch checks remain separately invoked.
+- Validation plan: synthetic negative arguments/compatibility/dispatch and BAT args/CWD/exit; guarded docs regression plus minimal existing wrapper source regression. No full Python/Node/TestOnly or actual BuildChecks, no commit/push. Stop after two same-material failures. Results pending; no H4 closeout claim.
+
+### Stage 3 local validation — HOLD
+
+- Guarded docs regression: first run 6 PASS / 1 FAIL (case-sensitive raw wording); after wording correction 7 PASS, violations/unexpected 0, restored/patches_restored/cleanup true. UTF-8 diagnostic decoding was also selected explicitly for the retry.
+- Synthetic wrapper regression failed twice. Second run confirmed 13 argument/version/dispatch/failure-propagation scenarios PASS and reached BAT after harmless real Python/Node probes. Primary failure: BAT exit-code assertion. Finally also failed removing its temp root because Windows reported it in use. BAT argument/CWD/exit contract and complete wrapper regression cleanup remain unverified.
+- Stop rule applied: no third wrapper run or further implementation fix. The additional existing FullTestEntrypointTest assertion has not been executed. Official full TestOnly is NOT ready for approval; diagnose BAT harness/exit behavior and Windows handle lifetime using a separately approved different approach.
+- Failed-run owned temp roots: h4-wrapper-regression-dee8b2192b004b6c805b8399299c340d and h4-wrapper-regression-0379af2fe32a4c3a8a23e4d2871cddd3 under the task user's temp directory. Do not claim cleanup success; no broad deletion attempted.
+- No whole Python/Node suite, actual BuildChecks, production/Stage1/Stage2 implementation edit, commit or push. Diagnostic file and external raw files remain excluded.
+
+### Stage 3 follow-up resolution and current status — 2026-09-22
+
+- **Current status: Stage 3 implementation/regression PASS — official full TestOnly pending.** The HOLD, unverified BAT/cleanup, unexecuted static assertion and not-ready statements above describe the earlier failed attempts; they remain intact as historical evidence, not the current status.
+- The BAT regression now launches an explicit absolute cmd.exe with /d /s /c instead of PowerShell's implicit BAT dispatch. BAT chcp uses the absolute %SystemRoot%/System32/chcp.com path; ERRORLEVEL capture and exit /b semantics are unchanged. No PATH/PATHEXT fallback or injection, guard relaxation, sleep or deletion retry was introduced.
+- BAT exit codes 0/1/2/7 all PASS. Each synthetic stub actually executed, space-containing arguments and external CWD were preserved. Process WaitForExit, complete stdout/stderr consumption, stream close and Process dispose precede cleanup.
+- After the separately approved BAT-only check, the authorized complete reduced wrapper regression ran exactly once: **18 PASS**. Guarded docs regression **7 PASS** and wrapper static assertion **1 PASS** are the latest results; no test rerun is part of this documentation/commit step.
+- The latest execution left **0 new temporary roots**. The two earlier failed-run roots and the separate diagnosis root are preserved; their historical lock ownership is not claimed resolved by this follow-up. The excluded diagnostic Python file and external raw files remain untouched.
+- TestOnly and BuildChecks separation is complete. TestOnly requires explicit Mode and absolute approved PythonPath/NodePath, rejects missing/invalid/incompatible inputs before suites, and invokes only the approved coordinators. Raw unittest discover is not used; install/build/Gradle/keytool/signing/deploy are not TestOnly execution steps.
+- Coverage remains Python **464 direct**, child probes **18**, baseline H4 **35 / 393 / 22** plus Stage 1 **14** in its separate cohort; Node **17 entrypoints / 128 direct testcases**.
+- Official full TestOnly, the complete Python/Node suites and actual BuildChecks have **not** been executed in Stage 3. Full TestOnly requires separate authorization; these reduced PASS results do not close H4 or constitute build/release approval. No production, Foundation, Stage 1/2 coordinator implementation or package change; no push.
+
 ## H4-D closeout — 2026-09-20
 
 - Goal/scope: isolate release/documentation/static checks and Phase A runtime/orchestration while preserving real source reads, SQLite/application behavior and original assertions; keep writes in owned temporary storage and block unintended private/external/tool access.

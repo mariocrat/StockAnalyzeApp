@@ -502,6 +502,20 @@ class FullTestEntrypointTest(unittest.TestCase):
         self.assertFalse(root.exists())
 
     def test_live_role_or_classification_tampering_fails_closed(self):
+        # Stage 3 static wrapper contract; synthetic process checks are in the
+        # explicit PS regression, not another primary Python inventory cohort.
+        wrapper = (runner.REPOSITORY / "scripts/verify_project.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("$Mode -cnotin @('TestOnly', 'BuildChecks')", wrapper)
+        self.assertIn("$start.EnvironmentVariables.Clear()", wrapper)
+        self.assertIn("Resolve-Executable $PythonPath 'python.exe'", wrapper)
+        self.assertIn("Resolve-Executable $NodePath 'node.exe'", wrapper)
+        branch = wrapper.split("if ($Mode -ceq 'TestOnly') {", 1)[1].split("\n    else {", 1)[0]
+        self.assertEqual(branch.count("Require-Success (Invoke-IsolatedTool"), 2)
+        self.assertIn("'--all'", branch)
+        self.assertIn("'--node-all'", branch)
+        for prohibited in ("npm", "compileall", "build", "Gradle", "keytool", "discover"):
+            self.assertNotIn(prohibited, branch)
+        self.assertNotIn("unittest discover", wrapper)
         manifest = json.loads((runner.REPOSITORY / "tests/test_inventory.json").read_text(encoding="utf-8"))
         for field, value in (("execution_role", "coordinator"), ("h4_classification", "migrated")):
             changed = copy.deepcopy(manifest)

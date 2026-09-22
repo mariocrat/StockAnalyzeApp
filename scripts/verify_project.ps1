@@ -1,82 +1,136 @@
-﻿Set-StrictMode -Version Latest
+﻿param([string]$Mode, [string]$PythonPath, [string]$NodePath)
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 [Console]::OutputEncoding = $utf8NoBom
 $OutputEncoding = $utf8NoBom
+$root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$root = Resolve-Path (Join-Path $scriptDir "..")
-$python = Join-Path $root ".venv\Scripts\python.exe"
-$frontend = Join-Path $root "frontend"
-
-if (-not (Test-Path $python)) {
-    throw "Python venv를 찾을 수 없습니다. 경로: $python"
+function Resolve-Executable {
+    param([string]$Value, [string]$Name)
+    if (-not $Value -or $Value -notmatch '^(?:[A-Za-z]:[\\/]|\\\\[^\\]+\\[^\\]+\\)' -or
+        [IO.Path]::GetFileName($Value) -ine $Name -or -not (Test-Path -LiteralPath $Value -PathType Leaf)) {
+        throw "An explicit existing absolute $Name path is required; no PATH or worktree fallback."
+    }
+    return (Resolve-Path -LiteralPath $Value).ProviderPath
 }
 
-if (-not (Test-Path $frontend)) {
-    throw "frontend 폴더를 찾을 수 없습니다. 경로: $frontend"
+function ConvertTo-NativeArgument {
+    param([string]$Value)
+    return '"' + [regex]::Replace([regex]::Replace($Value, '(\\*)"', '$1$1\"'), '(\\+)$', '$1$1') + '"'
+}
+
+function Invoke-IsolatedTool {
+    param([string]$Executable, [string[]]$Arguments, [string]$OwnedRoot, [switch]$Probe)
+    $start = New-Object Diagnostics.ProcessStartInfo
+    $start.FileName = $Executable
+    $start.Arguments = ($Arguments | ForEach-Object { ConvertTo-NativeArgument $_ }) -join ' '
+    $start.WorkingDirectory = $OwnedRoot
+    $start.UseShellExecute = $false
+    $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $start.StandardOutputEncoding = $utf8NoBom
+    $start.StandardErrorEncoding = $utf8NoBom
+    $start.EnvironmentVariables.Clear()
+    foreach ($key in @('SystemRoot', 'WINDIR', 'COMSPEC', 'SYSTEMDRIVE')) {
+        $value = [Environment]::GetEnvironmentVariable($key)
+        if ($value) { $start.EnvironmentVariables[$key] = $value }
+    }
+    foreach ($key in @('HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP', 'TMPDIR')) {
+        $start.EnvironmentVariables[$key] = $OwnedRoot
+    }
+    $start.EnvironmentVariables['PYTHONUTF8'] = '1'
+    $process = New-Object Diagnostics.Process
+    $process.StartInfo = $start
+    try {
+        if (-not $process.Start()) { throw 'Cannot start approved executable.' }
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        if ($Probe -and -not $process.WaitForExit(30000)) {
+            $process.Kill()
+            $process.WaitForExit()
+            throw 'Executable compatibility probe timed out.'
+        }
+        $process.WaitForExit()
+        return [pscustomobject]@{ Code = $process.ExitCode; Output = $stdout.Result; Error = $stderr.Result }
+    }
+    finally { $process.Dispose() }
+}
+
+function Require-Success {
+    param($Result)
+    if ($Result.Output) { Write-Host $Result.Output }
+    if ($Result.Error) { [Console]::Error.WriteLine($Result.Error) }
+    if ($Result.Code -ne 0) { throw "Verification child failed: $($Result.Code)" }
 }
 
 function Run-Step {
-    param(
-        [string]$Name,
-        [scriptblock]$Command
-    )
-
-    Write-Host ""
-    Write-Host "==> $Name" -ForegroundColor Cyan
+    param([string]$Name, [scriptblock]$Command)
+    Write-Host "==> $Name"
     & $Command
-    if ($LASTEXITCODE -ne 0) {
-        throw "$Name 단계가 실패했습니다. 오류 코드: $LASTEXITCODE"
-    }
+    if ($LASTEXITCODE -ne 0) { throw "$Name failed: $LASTEXITCODE" }
 }
 
-$oldViteAppName = $env:VITE_APP_NAME
-$oldNpmUpdateNotifier = $env:npm_config_update_notifier
-$oldPythonUtf8 = $env:PYTHONUTF8
-
+$ownedRoot = $null
+$exitCode = 0
 try {
-    $env:npm_config_update_notifier = "false"
-    $env:PYTHONUTF8 = "1"
-
-    Push-Location $root
-    Run-Step "백엔드 테스트" { & $python -m unittest discover -s tests }
-    Run-Step "백엔드 컴파일 확인" { & $python -m compileall backend }
-    Run-Step "Git 추적 파일 비밀값 검사" { & $python scripts\check_no_tracked_secrets.py }
-    Pop-Location
-
-    Push-Location $frontend
-    Run-Step "프론트 출시 설정 테스트" { & npm.cmd run test:release-env }
-    Run-Step "프론트 Android 브랜딩 테스트" { & npm.cmd run test:android-branding }
-    Run-Step "프론트 Android Billing Library 버전 테스트" { & npm.cmd run test:android-billing }
-    Run-Step "프론트 모바일 결제 테스트" { & npm.cmd run test:mobile-billing }
-    Run-Step "프론트 모바일 AdMob 테스트" { & npm.cmd run test:mobile-admob }
-    Run-Step "프론트 사용자 오류 로그 테스트" { & npm.cmd run test:client-events }
-    Run-Step "프론트 API 오류 요청 ID 테스트" { & npm.cmd run test:api-errors }
-    Run-Step "프론트 OAuth 앱 복귀 테스트" { & npm.cmd run test:oauth-app-return }
-    Run-Step "프론트 앱 뒤로가기 테스트" { & npm.cmd run test:app-navigation }
-    Run-Step "프론트 AI 복기 중복 요청 방지 테스트" { & npm.cmd run test:ai-idempotency }
-    Run-Step "프론트 스플래시 로딩 정책 테스트" { & npm.cmd run test:splash-loading }
-    Run-Step "프론트 차트 레이아웃 테스트" { & npm.cmd run test:chart-layout }
-    Run-Step "프론트 매매복기 모바일 UX 테스트" { & npm.cmd run test:journal-mobile-ux }
-    Run-Step "프론트 복기 대상 선택 테스트" { & npm.cmd run test:review-selection }
-    Run-Step "프론트 AI 복기 표시 형식 테스트" { & npm.cmd run test:ai-format }
-    Run-Step "프론트 사용자 안내 문구 테스트" { & npm.cmd run test:user-messages }
-    Run-Step "프론트 린트" { & npm.cmd run lint }
-    if (-not $env:VITE_APP_NAME) {
-        $env:VITE_APP_NAME = "StockBoda"
+    if ($Mode -cnotin @('TestOnly', 'BuildChecks')) { throw 'Explicit -Mode TestOnly or -Mode BuildChecks is required.' }
+    $python = Resolve-Executable $PythonPath 'python.exe'
+    $node = Resolve-Executable $NodePath 'node.exe'
+    $ownedRoot = Join-Path ([IO.Path]::GetTempPath()) ('stockboda-wrapper-' + [guid]::NewGuid().ToString('N'))
+    $null = New-Item -ItemType Directory -Path $ownedRoot
+    $pythonProbe = Invoke-IsolatedTool $python @('-I', '-B', '-c', "import sys, sqlite3, unittest; print('H4_PYTHON:'+str(sys.version_info.major)+'.'+str(sys.version_info.minor))") $ownedRoot -Probe
+    if ($pythonProbe.Code -ne 0 -or $pythonProbe.Output.Trim() -notmatch '^H4_PYTHON:3\.(1[1-9]|[2-9][0-9])$') {
+        throw 'Compatible Python 3.11+ is required.'
     }
-    Run-Step "프론트 운영 빌드" { & npm.cmd run build }
-    Pop-Location
-
-    Write-Host ""
-    Write-Host "프로젝트 전체 검증을 통과했습니다." -ForegroundColor Green
+    $nodeProbe = Invoke-IsolatedTool $node @('--permission', '--test-isolation=none', '--version') $ownedRoot -Probe
+    if ($nodeProbe.Code -ne 0 -or $nodeProbe.Output.Trim() -notmatch '^v(2[4-9]|[3-9][0-9])\.\d+\.\d+$') {
+        throw 'Compatible Node 24+ is required.'
+    }
+    if ($Mode -ceq 'TestOnly') {
+        $coordinator = Join-Path $root 'tests\run_isolated_tests.py'
+        Require-Success (Invoke-IsolatedTool $python @('-I', '-B', $coordinator, '--all') $ownedRoot)
+        Require-Success (Invoke-IsolatedTool $python @('-I', '-B', $coordinator, '--node-all', '--node-executable', $node) $ownedRoot)
+    }
+    else {
+        # BuildChecks is NOT the H4 boundary or release/deploy approval.
+        $npm = Join-Path (Split-Path -Parent $node) 'npm.cmd'
+        if (-not (Test-Path -LiteralPath $npm -PathType Leaf)) { throw 'npm.cmd must exist beside approved Node.' }
+        $oldEnvironment = @{}
+        foreach ($key in @('VITE_APP_NAME', 'npm_config_update_notifier', 'PYTHONUTF8', 'PATH')) {
+            $oldEnvironment[$key] = [Environment]::GetEnvironmentVariable($key)
+        }
+        Push-Location $root
+        try {
+            $env:PYTHONUTF8 = "1"
+            $env:npm_config_update_notifier = 'false'
+            $env:PATH = (Split-Path -Parent $node) + [IO.Path]::PathSeparator + $env:PATH
+            Run-Step "Backend compile check" { & $python -m compileall backend }
+            Run-Step "Tracked secret scan" { & $python scripts\check_no_tracked_secrets.py }
+            Set-Location (Join-Path $root 'frontend')
+            Run-Step "Frontend lint" { & $npm run lint }
+            if (-not $env:VITE_APP_NAME) { $env:VITE_APP_NAME = 'StockBoda' }
+            Run-Step "Frontend production build" { & $npm run build }
+        }
+        finally {
+            Pop-Location
+            foreach ($key in $oldEnvironment.Keys) { [Environment]::SetEnvironmentVariable($key, $oldEnvironment[$key]) }
+        }
+    }
+}
+catch {
+    [Console]::Error.WriteLine($_.Exception.Message)
+    $exitCode = 2
 }
 finally {
-    while ((Get-Location).Path -ne $root.Path -and (Get-Location).Path.StartsWith($root.Path)) {
-        Pop-Location
+    if ($ownedRoot) {
+        try {
+            $tempBase = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+            if (-not ([IO.Path]::GetFullPath($ownedRoot).StartsWith($tempBase)) -or (Split-Path -Leaf $ownedRoot) -notlike 'stockboda-wrapper-*') { throw 'Unsafe cleanup path' }
+            Remove-Item -LiteralPath $ownedRoot -Recurse -Force
+        }
+        catch { [Console]::Error.WriteLine('Wrapper temporary cleanup failed.'); $exitCode = 2 }
     }
-    $env:VITE_APP_NAME = $oldViteAppName
-    $env:npm_config_update_notifier = $oldNpmUpdateNotifier
-    $env:PYTHONUTF8 = $oldPythonUtf8
 }
+exit $exitCode

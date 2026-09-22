@@ -38,11 +38,16 @@ class QuickVerifyDocsTest(unittest.TestCase):
     def test_double_click_verify_batch_is_ascii_safe_wrapper(self):
         batch = (ROOT / "verify_project.bat").read_text(encoding="utf-8")
 
-        self.assertIn("chcp 65001 >nul", batch)
+        self.assertIn('"%SystemRoot%\\System32\\chcp.com" 65001 >nul', batch)
         self.assertIn("scripts\\verify_project.ps1", batch)
         self.assertTrue(batch.isascii())
         self.assertIn("Project verification passed.", batch)
         self.assertIn("Project verification failed.", batch)
+        self.assertIn('"%~dp0scripts\\verify_project.ps1" %*', batch)
+        self.assertIn('set "verify_exit=%errorlevel%"', batch)
+        self.assertIn('exit /b %verify_exit%', batch)
+        self.assertNotIn('cd /d', batch)
+        self.assertNotIn('pause', batch.lower())
 
     def test_verify_project_script_forces_utf8_console_output(self):
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8-sig")
@@ -87,21 +92,17 @@ class QuickVerifyDocsTest(unittest.TestCase):
 
     def test_verify_project_runs_every_frontend_safety_test_script(self):
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8-sig")
-
-        for npm_script in (
-            "test:release-env",
-            "test:android-branding",
-            "test:android-billing",
-            "test:mobile-billing",
-            "test:mobile-admob",
-            "test:client-events",
-            "test:api-errors",
-            "test:oauth-app-return",
-            "test:ai-idempotency",
-            "test:splash-loading",
-        ):
-            with self.subTest(npm_script=npm_script):
-                self.assertIn(f"npm.cmd run {npm_script}", script)
+        self.assertIn("tests\\run_isolated_tests.py", script)
+        self.assertIn("'--node-all', '--node-executable', $node", script)
+        self.assertNotIn("npm.cmd run test:", script)
+        self.assertNotIn("unittest discover", script)
+        for name in ("TESTING.md", "quick_verify.md"):
+            docs = (ROOT / "docs" / name).read_text(encoding="utf-8")
+            for value in ("-Mode TestOnly", "-Mode BuildChecks", "-PythonPath", "-NodePath",
+                          "464", "18", "17", "128", "35 / 393 / 22", "14",
+                          "run_phase_a_tests.py", "exit 2", "diagnose_phase_a_probe.py",
+                          "raw", "network", "install", "signing"):
+                self.assertIn(value, docs)
 
     def test_quick_verify_docs_list_every_project_verification_step(self):
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8")

@@ -1,46 +1,77 @@
 # StockBoda Testing
 
 담당: 안전한 검증 환경, 명령의 부작용, 완료 증거.
-근거: [verify_project.ps1](../scripts/verify_project.ps1), [frontend scripts](../frontend/package.json), [테스트 예시](../tests/test_me_data_routes.py).
+근거: [wrapper](../scripts/verify_project.ps1), [coordinator](../tests/run_isolated_tests.py), [manifest](../tests/test_inventory.json).
 
-## 먼저 실행 안전성을 확인한다
+## 공식 H4 TestOnly
 
-**현재 backend 전체 테스트와 Android debug wrapper는 격리된 기본 검증 경로가 아니다.**
+Mode는 반드시 명시합니다. 생략 또는 잘못된 값은 test/build 시작 전에 실패합니다.
+Python 3.11+와 Node 24+의 승인된 기존 실행기를 **절대경로**로 지정합니다.
+PATH fallback이나 worktree .venv 자동 선택은 없습니다. 실행기 부재·상대경로·버전/기능 비호환은 사전 실패합니다.
+실행기 및 필요한 Python 의존성 준비는 별도 승인 작업이며 wrapper는 설치하지 않습니다.
 
-일부 테스트는 사용하는 DB 전체를 임시 경로로 설정하지 않고 os.environ을 원복하지 않는다(H4). 공통 env loader와 매매 DB loader도 다르다(H3). 일반 cache의 `ALPHAMATE_CACHE_DIR`과 별개로 `journal_chart.py`는 `backend/.cache/yfinance`를 사용하며 module import 중 해당 디렉터리 생성과 yfinance cache 설정이라는 filesystem side effect가 발생할 수 있다. 따라서 `ALPHAMATE_ENV_FILE`이나 단일 cache 환경변수 하나를 설정하는 것으로 전체가 안전하게 격리되었다고 판단하지 않는다.
+```powershell
+& "<worktree>\scripts\verify_project.ps1" `
+  -Mode TestOnly `
+  -PythonPath "<approved absolute python.exe>" `
+  -NodePath "<approved absolute node.exe>"
+```
 
-DB 기반 검증을 허용하기 전에 모든 연결 경로를 추적하고 아래 조건을 확보한다.
+위 placeholder는 실제 승인된 경로로 대체합니다. 특정 PC 경로는 계약이 아닙니다.
+BAT도 동일한 인자를 그대로 전달합니다. 호출 CWD에 의존하지 않으며 PowerShell exit code를 보존합니다.
+Mode 없는 더블클릭 실행은 실패합니다.
 
-- 계정·권한·매매·복기·로그 DB 다섯 경로와 cache를 폐기 가능한 테스트 디렉터리로 지정하고 최종 해석 결과를 검사한다.
-- process 환경과 root/backend 환경파일 fallback에서 운영 자격증명·데이터 경로가 들어오지 않게 한다. 비밀값은 출력하지 않는다.
-- 테스트가 설정을 덮어쓰는 경우까지 검사하고 fixture 종료 시 원복한다. 테스트 순서나 다른 테스트 실행 여부에 의존하지 않게 한다.
-- 외부 네트워크는 기본 차단하고 mock을 사용한다. 실제 서비스 검증은 대상·계정·상태 변경·비용을 확인한 별도 작업으로 분리한다.
-- 애플리케이션 module import, lifespan, DB 조회 함수도 초기화·scheduler·schema 변경을 일으킬 수 있다.
+```powershell
+.\verify_project.bat -Mode TestOnly -PythonPath "<approved absolute python.exe>" -NodePath "<approved absolute node.exe>"
+```
 
-이는 필요한 후속 구현 조건이며 현재 공통 fixture나 자동 네트워크 차단이 구현되어 있다는 뜻이 아니다. 조건을 확보하지 못하면 순수 함수·소스 검사로 제한하고 DB 기반 결과는 미검증으로 보고한다.
+TestOnly 호출 구조:
+1. 두 실행기의 격리된 compatibility probe.
+2. 지정 Python으로 `-I -B tests/run_isolated_tests.py --all`.
+3. 같은 Python으로 `-I -B tests/run_isolated_tests.py --node-all --node-executable <approved absolute node.exe>`.
 
-## Governance 문서 검증의 한계
+Python direct **464** = 기존 H4 **35 / 393 / 22** (A1/foundation/helper / migrated / OUT) + Stage 1 **14** 별도 cohort.
+Child probe **18**은 direct와 별도 집계합니다.
+Node **17 entrypoint / 128 direct testcase**, `test:mobile-bundle` 포함.
+Manifest/source/execution 누락·중복·extra 및 예상 밖 skip은 실패입니다. Nested evidence는 direct에 중복 합산하지 않습니다.
 
-기존 documentation tests는 새 governance 정본을 자동으로 검증하지 않으며, 일부는 기존 reference/historical 문구를 고정한다. Governance 변경은 링크·경로, 필수 section, 문서 간 상호참조와 별도 문서 검증으로 확인한다. 기존 문서 테스트가 통과해도 새 governance coverage가 보장되는 것은 아니다.
+Raw `unittest discover`는 공식 경로가 아닙니다. Target import 전에 필요한 A1 boundary를 설치하는 승인 coordinator를 사용합니다.
+`tests/run_phase_a_tests.py`는 deprecated이며 target import 전 **exit 2**로 종료합니다.
+`tests/diagnose_phase_a_probe.py`는 공식 inventory/실행 대상이 아닙니다.
 
-## 명령과 부작용
+TestOnly 중 실제 private env/credential/HOME/keystore 접근, external provider/network/DNS,
+npm install/package download, production build, Gradle/keytool, deploy/signing은 금지됩니다.
+Child env는 정제하고 HOME/TEMP는 test-owned 경로를 사용합니다. Repo/persistent write는 허용하지 않습니다.
+Test infrastructure의 명시적 Python/Node child와 승인된 synthetic socketpair 계약은 유지합니다.
+Billing fixture는 integrity 검증된 13.17.2 배포물의 고정 source snapshot이며 runtime download는 없습니다.
+이는 실제 설치된 plugin이나 Android 산출물 검증을 대신하지 않습니다.
 
-명령은 확인한 repository root 또는 명시한 frontend 디렉터리에서 실행한다. PowerShell의 npm.ps1 제한이 있으면 npm.cmd를 사용한다. 도구가 없을 때 임의 설치하지 말고 설치의 범위·권한을 확인한다.
+## BuildChecks는 별도 경로
 
-| 명령 | 효과 / 사용 조건 |
-| --- | --- |
-| git --no-optional-locks status --short, git diff --check | Git 상태·공백 검사; 기존 diff도 포함됨 |
-| .\.venv\Scripts\python.exe -B -m unittest tests.test_cors_config tests.test_rate_limit | 확인 시점의 순수 환경/메모리 테스트; 변경 전 테스트 본문 재확인 |
-| .\.venv\Scripts\python.exe -B -m unittest tests.test_policy_documentation tests.test_quick_verify_docs tests.test_secret_scan_output | 문서·검증기 소스 계약 검사; 문서 작업에 사용 |
-| .\.venv\Scripts\python.exe -B scripts\check_no_tracked_secrets.py | 추적 파일만 검사. 미추적 신규 문서와 전체 Git history는 별도 확인 |
-| frontend에서 node --test scripts/<선택한 파일>.test.js | 파일별 부작용 확인. validate-release-env / validate-mobile-bundle 테스트는 임시 파일 생성 |
-| frontend에서 npm.cmd run lint | lint; --fix 없이 실행 |
-| .\.venv\Scripts\python.exe -m unittest discover -s tests | DB·임시 파일·환경 변경 가능. H3/H4 격리 조건 확보 전 일상 실행 금지 |
-| verify_project.bat | 전체 테스트, bytecode, secret scan, frontend 검사·dist 생성. 문서 변경만을 위해 실행하지 않음 |
-| frontend에서 npm.cmd run build | dist 생성; Android 출시 설정 검사나 .env.release 로딩을 뜻하지 않음 |
-| Android 검증 wrapper | dist 생성, Capacitor sync, Gradle 및 APK/AAB 생성. 추적 Gradle 변경과 API 환경 확인 필요 |
+```powershell
+& "<worktree>\scripts\verify_project.ps1" -Mode BuildChecks -PythonPath "<approved absolute python.exe>" -NodePath "<approved absolute node.exe>"
+```
 
-명령 표의 .venv는 해당 worktree에 별도로 준비되어 있다는 전제다. 새 worktree에는 ignored runtime·의존성·private env·아티팩트가 자동으로 복사되지 않는다. 필요한 실행기를 확인하고 승인 없이 main의 설정·DB·도구 디렉터리를 복사하지 않는다. 기존 .venv/Node/JDK/SDK의 존재는 clean install이나 build 성공의 증거가 아니다. -B는 Python bytecode만 막으며 DB·네트워크 쓰기를 막지 않는다.
+BuildChecks에만 기존 네 검사를 둡니다:
+
+- Backend compile check: `python -m compileall backend` (bytecode 쓰기).
+- Tracked secret scan: `scripts/check_no_tracked_secrets.py` (추적 파일 검사).
+- Frontend lint: 승인 Node 옆의 `npm.cmd run lint`.
+- Frontend production build: 같은 `npm.cmd run build` (dist 생성).
+
+기존 VITE_APP_NAME 미설정 시 StockBoda 기본값은 유지하고 CWD/env를 종료 시 복구합니다.
+기존 테스트 단계는 TestOnly로 이동했으며 BuildChecks 통과는 테스트 통과가 아닙니다.
+BuildChecks는 H4 격리 경계가 아니고 host env 및 기존 dependency tree를 사용할 수 있습니다.
+npm lifecycle/build 설정의 부작용을 먼저 검토해야 하며 필요한 의존성 부재 시 임의 설치하지 않습니다.
+이 wrapper는 release/deploy/signing 승인이나 Android build 경로가 아닙니다.
+기존 일반 Vite build를 release 전용 workflow로 확장하지 않았습니다.
+
+## 검증 상태와 범위
+
+Stage 1/2는 독립 검증 승인 완료입니다. Stage 3는 wrapper/docs 연결 및 축소 regression 단계이며, 공식 전체 TestOnly와 BuildChecks는 아직 실행하지 않았습니다. 전체 H4 closeout은 별도 승인 실행 및 결과 확인 후 판단합니다.
+Android debug/release wrapper와 임의 raw module 실행에 H4 TestOnly 보장이 자동 적용되지 않습니다. -B는 bytecode만 막으며 DB/network 격리를 대신하지 않습니다.
+
+축소 문서 검증은 승인 Python으로 `-I -B tests/run_isolated_tests.py tests.test_quick_verify_docs`를 사용합니다. Wrapper synthetic 검증은 `tests/verify_project_wrapper_regression.ps1`에 명시적 PythonPath/NodePath를 전달하며, 실제 coordinator 대신 synthetic dispatch를 검사합니다.
 
 ## 변경별 검증 수준
 
