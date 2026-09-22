@@ -22,6 +22,251 @@ from tests import run_isolated_tests as runner
 from tests.module_isolation import sanitized_environment
 
 
+def node_regression_suite(executable):
+    """Explicit Stage 2 synthetic cohort, invoked by --node-regressions only.
+
+    These nested coordinator checks are not new Python primary inventory IDs or
+    Node package cases. The approved 450+14 Python cohort remains unchanged.
+    """
+    executable = runner.node_executable(executable)
+
+    class NodeCoordinatorRegression(unittest.TestCase):
+        def setUp(self):
+            self.owned = tempfile.TemporaryDirectory(prefix="h4-node-fixture-")
+            self.addCleanup(self.owned.cleanup)
+            self.frontend = Path(self.owned.name) / "frontend"
+            (self.frontend / "scripts").mkdir(parents=True)
+
+        def fixture(self, body, names=("synthetic",)):
+            file = "scripts/synthetic.test.js"
+            (self.frontend / "package.json").write_text(json.dumps({"type": "module", "scripts": {
+                "test:synthetic": "node --test " + file}}), encoding="utf-8")
+            source = "import test from 'node:test';\nimport assert from 'node:assert/strict';\n" + body
+            (self.frontend / file).write_text(source, encoding="utf-8")
+            return {"name": "test:synthetic", "file": file, "command": "node --test " + file,
+                    "profile": "standard", "cases": list(names), "sha256": inventory.node_source_hash(source),
+                    "reads": ["package.json", file], "release_eval_sha256": []}
+
+        def launch(self, spec, **kwargs):
+            result = runner.run_node_entry(spec, executable, frontend=self.frontend, **kwargs)
+            self.assertTrue(result["cleanup"], result)
+            self.assertFalse(Path(result["root"]).exists())
+            return result
+
+        def test_inventory_package_source_manifest_exact_and_fail_closed(self):
+            live = inventory.load_node_inventory()
+            self.assertEqual(len(live), 17)
+            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 128)
+            self.assertIn("test:mobile-bundle", live)
+            spec = self.fixture("test('synthetic', () => {});\n")
+            manifest = {"version": 1, "entries": [spec]}
+            self.assertEqual(len(inventory.validate_node_inventory(self.frontend, manifest)), 1)
+            for fault in ("missing", "duplicate", "extra", "hash", "case", "shell"):
+                broken = copy.deepcopy(manifest)
+                if fault == "missing": broken["entries"] = []
+                elif fault == "duplicate": broken["entries"] *= 2
+                elif fault == "extra": broken["entries"][0]["name"] = "test:extra"
+                elif fault == "hash": broken["entries"][0]["sha256"] = "0" * 64
+                elif fault == "case": broken["entries"][0]["cases"] = ["absent"]
+                else:
+                    package = {"type": "module", "scripts": {spec["name"]: spec["command"] + " && npm run build"}}
+                    (self.frontend / "package.json").write_text(json.dumps(package), encoding="utf-8")
+                with self.subTest(fault=fault), self.assertRaises(inventory.InventoryError):
+                    inventory.validate_node_inventory(self.frontend, broken)
+            for private in (".env", "release-private/secret.js", "../private.js", "src/credential.json"):
+                with self.assertRaises(inventory.InventoryError):
+                    inventory.node_source_path(self.frontend, private)
+            with self.assertRaises(ValueError):
+                runner.node_executable("node")
+
+        def test_reporter_nested_coverage_environment_and_restoration(self):
+            body = """
+import fs from 'node:fs';
+import path from 'node:path';
+test('outer', async t => {
+  for (const key of ['PATH','NODE_OPTIONS','GOOGLE_APPLICATION_CREDENTIALS','OPENAI_API_KEY','ALPHAMATE_ANDROID_KEYSTORE_FILE']) assert.equal(process.env[key], undefined);
+  assert.equal(process.env.HOME, path.join(process.cwd(), 'home'));
+  fs.writeFileSync(path.join(process.env.TEMP, 'owned'), 'synthetic');
+  assert.equal(fs.readFileSync(path.join(process.env.TEMP, 'owned'), 'utf8'), 'synthetic');
+  await t.test('nested', () => {});
+});
+test('restoration', () => {
+  process.chdir(process.env.TEMP);
+  process.env.SYNTHETIC_MUTATION = 'owned';
+  fs.existsSync = () => false;
+});
+"""
+            spec = self.fixture(body, ("outer", "restoration"))
+            hostile = {key: "synthetic-host-value" for key in ("PATH", "NODE_OPTIONS", "GOOGLE_APPLICATION_CREDENTIALS", "OPENAI_API_KEY", "ALPHAMATE_ANDROID_KEYSTORE_FILE")}
+            hostile.update({key: value for key, value in os.environ.items() if key.upper() in {"SYSTEMROOT", "WINDIR", "COMSPEC", "SYSTEMDRIVE"}})
+            result = self.launch(spec, host=hostile)
+            self.assertTrue(result["passed"], result)
+            self.assertEqual(len(result["cases"]), 2)
+            self.assertEqual(len(result["nested"]), 1)
+            self.assertTrue(result["restored"] and result["patches_restored"])
+            aggregate = runner.coordinate_node({spec["name"]: spec}, executable, launch=lambda *args: result)
+            self.assertTrue(aggregate["passed"], aggregate)
+            self.assertEqual(aggregate["coverage"]["observed"], 2)
+            for fault in ("duplicate", "missing", "extra"):
+                malformed = copy.deepcopy(result)
+                if fault == "duplicate": malformed["cases"] *= 2
+                elif fault == "missing": malformed["cases"].pop()
+                else: malformed["cases"][0]["id"] = "extra"
+                self.assertTrue(runner.check_node_report(spec, malformed))
+
+        def test_guard_blocks_synthetic_private_network_dns_and_tools_before_access(self):
+            body = """
+import fs from 'node:fs';
+import path from 'node:path';
+import dns from 'node:dns';
+import net from 'node:net';
+import childProcess from 'node:child_process';
+test('synthetic', () => {
+  const outside = path.join(process.cwd(), '..', 'synthetic-never-opened');
+  for (const name of ['frontend/.env', 'home/credentials.json', 'release-private/upload.jks']) {
+    assert.throws(() => fs.readFileSync(path.join(outside, name)), /isolation blocked/);
+  }
+  assert.throws(() => fs.writeFileSync(path.join(outside, 'write'), 'blocked'), /isolation blocked/);
+  assert.throws(() => dns.lookup('synthetic.invalid'), /isolation blocked/);
+  assert.throws(() => net.connect(9, '192.0.2.1'), /isolation blocked/);
+  assert.throws(() => fetch('https://synthetic.invalid'), /isolation blocked/);
+  assert.throws(() => childProcess.spawnSync('synthetic-never-launched'), /isolation blocked/);
+});
+"""
+            result = self.launch(self.fixture(body))
+            self.assertFalse(result["passed"])
+            self.assertEqual(result["unexpected"], 8)
+            self.assertEqual(result["cases"][0]["status"], "PASS")
+            self.assertTrue(result["restored"] and result["patches_restored"])
+
+        def test_fail_skip_setup_crash_and_timeout_propagate(self):
+            for name, body in (
+                ("assertion", "test('synthetic', () => assert.fail('synthetic'));"),
+                ("skip", "test('synthetic', {skip:'synthetic'}, () => {});"),
+                ("setup", "throw new Error('synthetic setup');\ntest('synthetic', () => {});"),
+                ("crash", "process.exit(7);\ntest('synthetic', () => {});"),
+                ("timeout", "test('synthetic', () => new Promise(() => { setInterval(() => {}, 1000); }));"),
+            ):
+                with self.subTest(name=name):
+                    result = self.launch(self.fixture(body), timeout=1 if name == "timeout" else 30)
+                    self.assertFalse(result["passed"], result)
+                    if name == "assertion": self.assertEqual(result["cases"][0]["status"], "FAIL")
+                    if name == "skip": self.assertEqual(result["cases"][0]["status"], "SKIP")
+                    if name == "timeout": self.assertEqual(result["coordinator_error"], "TimeoutExpired")
+
+        def test_malformed_missing_duplicate_protocol_and_cleanup_failure(self):
+            spec = self.fixture("test('synthetic', () => {});")
+            for value in ("", runner.NODE_REPORT_PREFIX + "{", runner.NODE_REPORT_PREFIX + "{}\n" * 2):
+                with self.assertRaises(ValueError):
+                    runner.parse_node_report(value, spec)
+            with self.assertRaises(ValueError):
+                runner.parse_node_report((runner.NODE_REPORT_PREFIX + json.dumps({"name": spec["name"], "file": spec["file"]}) + "\n") * 2, spec)
+            with self.assertRaises(ValueError):
+                runner.parse_node_report(runner.NODE_REPORT_PREFIX + '{"name":"test:synthetic","name":"test:synthetic"}', spec)
+            native_cleanup = tempfile.TemporaryDirectory.cleanup
+
+            def cleanup_failure(owned):
+                native_cleanup(owned)
+                raise OSError("synthetic cleanup failure after removal")
+
+            with patch.object(tempfile.TemporaryDirectory, "cleanup", cleanup_failure):
+                result = runner.run_node_entry(spec, executable, frontend=self.frontend)
+            self.assertFalse(result["passed"])
+            self.assertFalse(result["cleanup"])
+            self.assertEqual(result["cleanup_error"], "OSError")
+            self.assertFalse(Path(result["root"]).exists())
+
+        def test_missing_dependency_fails_before_node_launch(self):
+            spec = self.fixture("test('synthetic', () => {});")
+            spec["reads"].append("scripts/missing-source.js")
+            with patch.object(runner.subprocess, "run", side_effect=AssertionError("must fail before execution")):
+                result = self.launch(spec)
+            self.assertFalse(result["passed"])
+            self.assertEqual(result["coordinator_error"], "FileNotFoundError")
+
+        def billing_snapshot(self):
+            spec = copy.deepcopy(inventory.load_node_inventory()["test:android-billing"])
+            for relative in (*spec["reads"], "package-lock.json", spec["fixture"]["source"]):
+                target = self.frontend / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((inventory.REPOSITORY / "frontend" / relative).read_bytes())
+            self.assertFalse((self.frontend / "node_modules").exists())
+            return spec
+
+        def test_billing_fixture_provenance_fails_closed_before_launch(self):
+            for fault in ("missing", "sha", "version", "integrity", "resolved", "destination", "metadata"):
+                with self.subTest(fault=fault):
+                    spec = self.billing_snapshot()
+                    fixture = self.frontend / spec["fixture"]["source"]
+                    if fault == "missing":
+                        fixture.unlink()
+                    elif fault == "sha":
+                        content = fixture.read_bytes()
+                        fixture.write_bytes(bytes([content[0] ^ 1]) + content[1:])
+                    elif fault in ("version", "integrity", "resolved"):
+                        lock_path = self.frontend / "package-lock.json"
+                        lock = json.loads(lock_path.read_bytes())
+                        lock["packages"]["node_modules/capacitor-plugin-cdv-purchase"][fault] = "synthetic-mismatch"
+                        lock_path.write_bytes(json.dumps(lock).encode("utf-8"))
+                    elif fault == "destination":
+                        spec["fixture"]["destination"] = "../synthetic-escape/build.gradle"
+                    else:
+                        del spec["fixture"]
+                    with self.assertRaises((inventory.InventoryError, FileNotFoundError)):
+                        inventory.validated_node_fixture(self.frontend, spec)
+                    with patch.object(runner.subprocess, "run", side_effect=AssertionError("no process on invalid fixture")) as launch:
+                        result = self.launch(spec)
+                        launch.assert_not_called()
+                    self.assertFalse(result["passed"], result)
+                    self.assertEqual(result["coordinator_error"], "FileNotFoundError" if fault == "missing" else "InventoryError")
+
+        def test_billing_fixture_runs_original_assertions_offline(self):
+            import socket
+
+            spec = self.billing_snapshot()
+            destination, content = inventory.validated_node_fixture(self.frontend, spec)
+            self.assertEqual(destination, inventory.NODE_PLUGIN_SOURCE)
+            self.assertEqual(len(content), 1345)
+            self.assertEqual(inventory.hashlib.sha256(content).hexdigest(), spec["fixture"]["sha256"])
+            native_run = runner.subprocess.run
+            commands = []
+
+            def node_only(command, **options):
+                self.assertEqual(command[0], str(executable))
+                commands.append(command)
+                if command[1:] != ["--version"]:
+                    self.assertIn("--permission", command)
+                    self.assertNotIn("--allow-child-process", command)
+                    self.assertEqual(command[-1], spec["file"])
+                    copied = Path(options["cwd"]) / destination
+                    self.assertEqual(copied.read_bytes(), content)
+                return native_run(command, **options)
+
+            with patch.object(socket, "getaddrinfo", side_effect=AssertionError("offline DNS")), \
+                    patch.object(socket.socket, "connect", side_effect=AssertionError("offline network")), \
+                    patch.object(runner.subprocess, "run", side_effect=node_only):
+                result = self.launch(spec)
+            self.assertEqual(len(commands), 2)  # Node version + one test; no npm/tool/install.
+            self.assertTrue(result["passed"], result)
+            self.assertEqual([case["id"] for case in result["cases"]], [spec["file"] + "::" + spec["cases"][0]])
+            self.assertEqual(result["cases"][0]["status"], "PASS")
+            self.assertEqual(result["unexpected"], 0)
+            self.assertTrue(result["restored"] and result["patches_restored"])
+            self.assertFalse((self.frontend / "node_modules").exists())
+
+        def test_existing_release_and_bundle_contracts_under_outer_guard(self):
+            entries = inventory.load_node_inventory()
+            for name in ("test:release-env", "test:mobile-bundle"):
+                with self.subTest(name=name):
+                    result = runner.run_node_entry(entries[name], executable)
+                    self.assertTrue(result["passed"], result)
+                    self.assertEqual(len(result["cases"]), len(entries[name]["cases"]))
+                    self.assertTrue(result["restored"] and result["patches_restored"] and result["cleanup"])
+                    self.assertFalse(Path(result["root"]).exists())
+
+    return unittest.defaultTestLoader.loadTestsFromTestCase(NodeCoordinatorRegression)
+
+
 def entry(module="tests.synthetic_target", role="guarded"):
     return {"module": module, "h4_classification": "OUT", "execution_role": role,
             "cohort": "baseline", "cases": ["Case.test_body"], "skips": {}}

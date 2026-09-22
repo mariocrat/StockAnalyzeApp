@@ -5,6 +5,8 @@ from collections import Counter
 import json
 import os
 from pathlib import Path
+import hashlib
+import re
 
 
 REPOSITORY = Path(__file__).resolve().parents[1]
@@ -167,3 +169,129 @@ def inventory_summary(entries):
             "added_classification": dict(additions), "direct": sum(baseline.values()) + sum(additions.values()),
             "child_probes": probes, "modules": len(entries), "missing": 0, "duplicates": 0,
             "expected_skips": sum(len(expected_skips(entry)) for entry in entries.values())}
+
+
+NODE_COMMAND = re.compile(r"node --test (scripts/[A-Za-z0-9_-]+\.test\.js)\Z")
+NODE_SUPPORT = ("scripts/test-result-reporter.mjs", "scripts/test-entrypoint-guard.mjs")
+NODE_PLUGIN_SOURCE = "node_modules/capacitor-plugin-cdv-purchase/android/build.gradle"
+NODE_BILLING_FIXTURE = {
+    "package": "capacitor-plugin-cdv-purchase",
+    "version": "13.17.2",
+    "resolved": "https://registry.npmjs.org/capacitor-plugin-cdv-purchase/-/capacitor-plugin-cdv-purchase-13.17.2.tgz",
+    "integrity": "sha512-Iarfd5ZV2fzuiNRRqJR+JoX8JxPrMZVAAYyMwaaR/W7PmpsXDypD6wYO6wWsHJ7D3/XbRXbJftHSdzvMRvJldA==",
+    "member": "package/android/build.gradle",
+    "source": "scripts/fixtures/cdv-purchase-13.17.2/android/build.gradle",
+    "destination": NODE_PLUGIN_SOURCE,
+    "size": 1345,
+    "sha256": "177796cb397239621bbefcff7638a37d4c74c5e64fbb241f28e20a94f2b056d0",
+}
+
+
+def validated_node_fixture(frontend, entry):
+    """Offline, byte-exact pinned dependency contract; never install or fetch.
+
+    Return the same verified bytes that the coordinator must copy. This is a
+    release-source snapshot check, not evidence about an installed Android build.
+    """
+    if entry["name"] != "test:android-billing":
+        if "fixture" in entry:
+            raise InventoryError("unexpected Node fixture mapping")
+        return None
+    provenance = entry.get("fixture")
+    if provenance != NODE_BILLING_FIXTURE:
+        raise InventoryError("Node fixture provenance/destination mismatch")
+    lock_path = Path(frontend) / "package-lock.json"
+    if lock_path.is_symlink() or not lock_path.resolve().is_relative_to(Path(frontend).resolve()):
+        raise InventoryError("Node lockfile escapes frontend")
+    lock = json.loads(lock_path.read_bytes(), object_pairs_hook=_unique_object)
+    package = lock.get("packages", {}).get("node_modules/" + provenance["package"], {})
+    if any(package.get(key) != provenance[key] for key in ("version", "resolved", "integrity")):
+        raise InventoryError("Node fixture lockfile mismatch")
+    content = node_source_path(frontend, provenance["source"]).read_bytes()
+    if len(content) != provenance["size"] or hashlib.sha256(content).hexdigest() != provenance["sha256"]:
+        raise InventoryError("Node fixture bytes mismatch")
+    return provenance["destination"], content
+
+
+def node_source_path(frontend, relative):
+    """An exact manifest source path, never an env/private tree or a directory copy."""
+    if not isinstance(relative, str) or "\\" in relative or ".." in relative.split("/"):
+        raise InventoryError("invalid Node source path")
+    path = Path(relative)
+    special = {"package.json", "capacitor.config.json", ".env.example", ".env.release.example"}
+    source = (relative.startswith(("scripts/", "src/", "android/")) or relative in {"index.html", "vite.config.js"})
+    if (path.is_absolute() or not (relative in special or source and path.suffix in
+            {".js", ".mjs", ".jsx", ".css", ".html", ".xml", ".java", ".gradle"})
+            or any(part.startswith(".") for part in path.parts) and relative not in special):
+        raise InventoryError("non-source Node read rejected")
+    frontend = Path(frontend).resolve()
+    target = frontend / path
+    if target.is_symlink() or not target.resolve().is_relative_to(frontend):
+        raise InventoryError("Node source escapes frontend")
+    return target
+
+
+def node_source_hash(source):
+    return hashlib.sha256(source.replace("\r\n", "\n").encode("utf-8")).hexdigest()
+
+
+def node_case_names(source):
+    # Reviewed literal top-level declarations; the source hash locks the entire
+    # grammar/content, including aliases or dynamic code not matched here.
+    literals = re.findall(r'''^test\(("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')\s*,''', source, re.MULTILINE)
+    names = [ast.literal_eval(value) for value in literals]
+    if not names or len(names) != len(set(names)):
+        raise InventoryError("empty/duplicate Node source testcase")
+    return names
+
+
+def load_node_inventory(repository=REPOSITORY):
+    repository = Path(repository)
+    manifest = json.loads((repository / "tests/test_inventory.json").read_text(encoding="utf-8"),
+                          object_pairs_hook=_unique_object)
+    return validate_node_inventory(repository / "frontend", manifest["node"])
+
+
+def validate_node_inventory(frontend, manifest):
+    frontend = Path(frontend)
+    package = json.loads((frontend / "package.json").read_text(encoding="utf-8"), object_pairs_hook=_unique_object)
+    scripts = {name: command for name, command in package["scripts"].items() if name.startswith("test:")}
+    if manifest.get("version") != 1 or not scripts:
+        raise InventoryError("invalid Node inventory")
+    entries, files = {}, set()
+    for entry in manifest["entries"]:
+        name = entry["name"]
+        command = scripts.get(name)
+        match = NODE_COMMAND.fullmatch(command) if isinstance(command, str) else None
+        if (not match or name in entries or entry["file"] in files or match[1] != entry["file"]
+                or entry["command"] != command):
+            raise InventoryError("Node entrypoint missing/duplicate/command mismatch")
+        source = node_source_path(frontend, entry["file"]).read_text(encoding="utf-8")
+        if node_source_hash(source) != entry["sha256"] or node_case_names(source) != entry["cases"]:
+            raise InventoryError("Node source/manifest testcase mismatch")
+        profile = "release" if name in {"test:release-env", "test:mobile-bundle"} else "standard"
+        if entry["profile"] != profile:
+            raise InventoryError("invalid Node isolation profile")
+        reads = entry["reads"]
+        if len(reads) != len(set(reads)) or not {"package.json", entry["file"]} <= set(reads):
+            raise InventoryError("invalid Node source snapshot")
+        for relative in reads:
+            node_source_path(frontend, relative)  # No private reads to validate the boundary.
+        validated_node_fixture(frontend, entry)
+        if profile == "standard" and entry["release_eval_sha256"]:
+            raise InventoryError("standard tests cannot launch children")
+        entries[name] = entry
+        files.add(entry["file"])
+    source_files = {"scripts/" + path.name for path in (frontend / "scripts").glob("*.test.js")}
+    if set(entries) != set(scripts) or files != source_files:
+        raise InventoryError("Node source/package/manifest missing or extra entrypoint")
+    return entries
+
+
+def node_inventory_summary(entries, frontend=None):
+    missing = []
+    if frontend is not None:
+        missing = sorted({relative for entry in entries.values() for relative in entry["reads"]
+                          if not node_source_path(frontend, relative).is_file()})
+    return {"entrypoints": len(entries), "direct": sum(len(entry["cases"]) for entry in entries.values()),
+            "missing": 0, "duplicate": 0, "extra": 0, "missing_source_dependencies": missing}

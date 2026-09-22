@@ -26,6 +26,7 @@ REPOSITORY = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY))
 from tests.module_isolation import Boundary, IsolationViolation, isolated_module, sanitized_environment, protected_paths, ProtectedPaths
 from tests.isolation_inventory import COORDINATORS, InventoryError, expected_skips, inventory_summary, load_inventory
+from tests.isolation_inventory import NODE_SUPPORT, load_node_inventory, node_inventory_summary, node_source_path, node_source_hash, validated_node_fixture, _unique_object
 
 # Script and imported runner must share the evidence collector in coordinator children.
 if __name__ == "__main__":
@@ -379,6 +380,163 @@ def coordinate(entries, *, guarded=run_module, coordinator=run_coordinator_modul
             "passed": bool(reports) and not issues}
 
 
+NODE_REPORT_PREFIX = "NODE_TEST_RESULT "
+
+
+def node_environment(root, host=None):
+    host = os.environ if host is None else host
+    values = {key: value for key, value in host.items() if key.upper() in {"SYSTEMROOT", "WINDIR", "COMSPEC", "SYSTEMDRIVE"}}
+    values.update(HOME=str(root / "home"), USERPROFILE=str(root / "home"),
+                  APPDATA=str(root / "config"), LOCALAPPDATA=str(root / "config"),
+                  TEMP=str(root / "tmp"), TMP=str(root / "tmp"), TMPDIR=str(root / "tmp"),
+                  STOCKBODA_NODE_COORDINATOR_ROOT=str(root))
+    return values
+
+
+def node_executable(value):
+    path = Path(value)
+    if not path.is_absolute() or path.name.lower() not in {"node.exe", "node"} or not path.is_file():
+        raise ValueError("an explicit absolute Node executable is required; no PATH fallback")
+    return path.resolve()
+
+
+def check_node_report(entry, report):
+    issues = []
+    if not isinstance(report, dict):
+        return ["malformed Node report"]
+    records = report.get("cases")
+    if not isinstance(records, list) or any(not isinstance(record, dict) or not isinstance(record.get("id"), str)
+                                           or record.get("status") not in ("PASS", "FAIL", "SKIP") for record in records):
+        return ["malformed Node cases"]
+    expected = {entry["file"] + "::" + name for name in entry["cases"]}
+    actual = Counter(record["id"] for record in records)
+    if not records or set(actual) != expected:
+        issues.append("missing/extra/zero Node testcase")
+    if any(count != 1 for count in actual.values()):
+        issues.append("duplicate Node testcase")
+    if any(record["status"] != "PASS" for record in records):
+        issues.append("failed or unexpected skipped Node testcase")
+    if report.get("name") != entry["name"] or report.get("file") != entry["file"] or type(report.get("version")) is not int or report["version"] != 1:
+        issues.append("Node identity/version mismatch")
+    nested = report.get("nested")
+    if not isinstance(nested, list) or any(not isinstance(record, dict) or not isinstance(record.get("id"), str)
+                                          or record.get("status") not in ("PASS", "FAIL", "SKIP") for record in nested):
+        issues.append("malformed nested Node evidence")
+    if report.get("errors") != [] or report.get("violations") != [] or type(report.get("unexpected")) is not int or report["unexpected"] != 0:
+        issues.append("Node error or isolation violation")
+    if any(report.get(key) is not True for key in ("passed", "summary", "restored", "patches_restored", "cleanup")):
+        issues.append("Node result/restoration/cleanup failure")
+    if report.get("returncode") != 0 or report.get("coordinator_error"):
+        issues.append("Node process/coordinator failure")
+    return issues
+
+
+def parse_node_report(stdout, entry):
+    lines = [line[len(NODE_REPORT_PREFIX):] for line in stdout.splitlines() if line.startswith(NODE_REPORT_PREFIX)]
+    if len(lines) != 1:
+        raise ValueError("missing or duplicate Node report")
+    payload = json.loads(lines[0], object_pairs_hook=_unique_object)
+    if not isinstance(payload, dict) or payload.get("name") != entry["name"] or payload.get("file") != entry["file"]:
+        raise ValueError("malformed Node report identity")
+    if {"cleanup", "root", "returncode", "coordinator_error", "stderr", "issues"} & payload.keys():
+        raise ValueError("Node child supplied parent-owned fields")
+    return payload
+
+
+def run_node_entry(entry, executable, *, frontend=None, host=None, timeout=120):
+    """Snapshot exact sources, launch one explicit file, always remove our root."""
+    executable = node_executable(executable)
+    frontend = REPOSITORY / "frontend" if frontend is None else Path(frontend)
+    report = {"name": entry["name"], "file": entry["file"], "passed": False, "cases": [],
+              "cleanup": False, "restored": False, "patches_restored": False, "returncode": None}
+    owned = None
+    try:
+        owned = tempfile.TemporaryDirectory(prefix="stockboda-h4-node-")
+        root = Path(owned.name).resolve()
+        report["root"] = str(root)
+        for directory in ("home", "config", "tmp"):
+            (root / directory).mkdir()
+        if node_source_hash(node_source_path(frontend, entry["file"]).read_text(encoding="utf-8")) != entry["sha256"]:
+            raise InventoryError("Node source changed before snapshot")
+        fixture = validated_node_fixture(frontend, entry)
+        for relative in entry["reads"]:
+            source = node_source_path(frontend, relative)
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(source.read_bytes())
+        if fixture is not None:
+            relative, content = fixture
+            destination = root / relative
+            if destination.exists() or not destination.resolve().is_relative_to(root):
+                raise InventoryError("Node fixture destination collision/escape")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+            if destination.read_bytes() != content:
+                raise InventoryError("Node fixture copy mismatch")
+        for relative in NODE_SUPPORT:
+            destination = root / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes((REPOSITORY / "frontend" / relative).read_bytes())
+        (root / ".node-test-config.json").write_text(json.dumps({key: entry[key] for key in
+            ("name", "file", "profile", "release_eval_sha256")}), encoding="utf-8")
+        env = node_environment(root, host)
+        version = subprocess.run([str(executable), "--version"], cwd=root, env=env,
+                                 capture_output=True, text=True, encoding="utf-8", timeout=15)
+        if version.returncode or not re.fullmatch(r"v(?:2[4-9]|[3-9][0-9])\.\d+\.\d+\s*", version.stdout):
+            raise ValueError("Node 24+ with native permissions and test isolation control is required")
+        command = [str(executable), "--permission", f"--allow-fs-read={root}", f"--allow-fs-write={root}"]
+        if entry["profile"] == "release":
+            command.append("--allow-child-process")
+        command += ["--import", (root / NODE_SUPPORT[1]).as_uri(), "--test", "--test-isolation=none",
+                    "--test-reporter=" + (root / NODE_SUPPORT[0]).as_uri(), entry["file"]]
+        process = subprocess.run(command, cwd=root, env=env, capture_output=True, text=True,
+                                 encoding="utf-8", timeout=timeout)
+        report.update(returncode=process.returncode, stderr=process.stderr)
+        report.update(parse_node_report(process.stdout, entry))
+    except Exception as error:
+        report.update(passed=False, coordinator_error=type(error).__name__)
+    finally:
+        if owned is not None:
+            try:
+                owned.cleanup()
+                report["cleanup"] = not root.exists()
+            except Exception as error:
+                report.update(cleanup=False, cleanup_error=type(error).__name__)
+        report["issues"] = check_node_report(entry, report)
+        report["passed"] = not report["issues"]
+    return report
+
+
+def coordinate_node(entries, executable, *, launch=run_node_entry):
+    executable = node_executable(executable)
+    reports = {name: launch(entry, executable) for name, entry in entries.items()}
+    issues = {name: problems for name, entry in entries.items() if (problems := check_node_report(entry, reports[name]))}
+    cases = [record for report in reports.values() if isinstance(report, dict)
+             for record in (report.get("cases") if isinstance(report.get("cases"), list) else [])
+             if isinstance(record, dict) and isinstance(record.get("id"), str)]
+    actual = Counter(record["id"] for record in cases)
+    expected = {entry["file"] + "::" + case for entry in entries.values() for case in entry["cases"]}
+    coverage = {"expected": len(expected), "observed": sum(actual.values()), "missing": sorted(expected - actual.keys()),
+                "extra": sorted(actual.keys() - expected), "duplicate": sorted(key for key, count in actual.items() if count != 1)}
+    return {"scope": "Node only", "entrypoints": len(entries), "reports": reports, "issues": issues,
+            "coverage": coverage, "counts": {status: sum(record.get("status") == status for record in cases)
+                                               for status in ("PASS", "FAIL", "SKIP")},
+            "passed": bool(entries) and not issues and not any(coverage[key] for key in ("missing", "extra", "duplicate"))}
+
+
+def run_node_regressions(executable):
+    executable = node_executable(executable)
+    with tempfile.TemporaryDirectory(prefix="stockboda-node-regressions-") as temp:
+        root = Path(temp).resolve()
+        process = subprocess.run([sys.executable, "-I", "-B", str(Path(__file__).resolve()),
+                                  "--node-regression-child", "--node-executable", str(executable)],
+                                 cwd=root, env=sanitized_environment(os.environ, root / "runtime"),
+                                 capture_output=True, text=True, encoding="utf-8", timeout=180)
+        print(process.stdout, end="")
+        print(process.stderr, file=sys.stderr, end="")
+    return process.returncode
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("modules", nargs="*")
@@ -387,7 +545,43 @@ def main():
     parser.add_argument("--root", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--all", action="store_true", help="run the complete Python inventory (no Node/build)")
     parser.add_argument("--inventory-only", action="store_true", help="validate source/manifest without importing targets")
+    parser.add_argument("--node-inventory-only", action="store_true")
+    parser.add_argument("--node-all", action="store_true")
+    parser.add_argument("--node-entrypoint", action="append", default=[])
+    parser.add_argument("--node-executable", type=Path)
+    parser.add_argument("--node-regressions", action="store_true", help="synthetic Stage 2 checks only; no full suite")
+    parser.add_argument("--node-regression-child", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    node_modes = sum((args.node_inventory_only, args.node_all, bool(args.node_entrypoint), args.node_regressions, args.node_regression_child))
+    if node_modes:
+        if node_modes != 1 or args.modules or args.root or any((args.child, args.coordinator_child, args.all, args.inventory_only)):
+            parser.error("choose one Python or Node execution mode")
+        if not args.node_inventory_only and args.node_executable is None:
+            parser.error("--node-executable requires an explicit absolute Node path")
+        if args.node_regression_child:
+            from tests.test_full_test_entrypoint import node_regression_suite
+            result = unittest.TextTestRunner(verbosity=2, resultclass=CaseResult, failfast=True).run(node_regression_suite(args.node_executable))
+            print("NODE_REGRESSION_RESULT " + json.dumps(result_fields(result)))
+            return 0 if result.wasSuccessful() and result.testsRun else 1
+        if args.node_regressions:
+            return run_node_regressions(args.node_executable)
+        try:
+            entries = load_node_inventory()
+            if args.node_inventory_only:
+                print(json.dumps(node_inventory_summary(entries, REPOSITORY / "frontend"), sort_keys=True))
+                return 0
+            if args.node_entrypoint:
+                if len(args.node_entrypoint) != len(set(args.node_entrypoint)) or any(name not in entries for name in args.node_entrypoint):
+                    raise InventoryError("missing/duplicate Node entrypoint selection")
+                entries = {name: entries[name] for name in args.node_entrypoint}
+            report = coordinate_node(entries, args.node_executable)
+            print("NODE_SUITE_RESULT " + json.dumps(report))
+            return 0 if report["passed"] else 1
+        except (ValueError, KeyError, TypeError, OSError) as error:
+            print("Node coordinator failed: " + type(error).__name__, file=sys.stderr)
+            return 2
+    if args.node_executable is not None:
+        parser.error("--node-executable requires a Node execution mode")
     if sum((args.child, args.coordinator_child, args.all, args.inventory_only)) > 1:
         parser.error("choose one execution mode")
     if "tests.diagnose_phase_a_probe" in args.modules:

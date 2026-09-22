@@ -1284,5 +1284,433 @@
       ],
       "skips": {}
     }
-  ]
+  ],
+  "node": {
+    "version": 1,
+    "entries": [
+      {
+        "name": "test:android-branding",
+        "command": "node --test scripts/android-branding.test.js",
+        "file": "scripts/android-branding.test.js",
+        "profile": "standard",
+        "cases": [
+          "Android app label is injected from release branding settings",
+          "Android Manifest declares OAuth app return deep link for the package scheme",
+          "Android registers the native App Open ad plugin and pins Google Mobile Ads"
+        ],
+        "sha256": "cb8905b9fe44011293b9280e8009c3e29601774e2f14433ebb05e33c4d6b92db",
+        "reads": [
+          "android/app/build.gradle",
+          "android/app/src/main/AndroidManifest.xml",
+          "android/app/src/main/java/com/mariocrat/stockanalyze/AlphaMateAppOpenPlugin.java",
+          "android/app/src/main/java/com/mariocrat/stockanalyze/MainActivity.java",
+          "android/app/src/main/res/values/strings.xml",
+          "capacitor.config.json",
+          "index.html",
+          "package.json",
+          "scripts/android-branding.test.js",
+          "vite.config.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:android-billing",
+        "command": "node --test scripts/android-billing-version.test.js",
+        "file": "scripts/android-billing-version.test.js",
+        "profile": "standard",
+        "cases": [
+          "Google Play Billing client is version 8 or newer for Play Store updates"
+        ],
+        "sha256": "c6283da0de3981cea3c356942340567b035a70cf5368b27528e0c803b504a7c4",
+        "reads": [
+          "package.json",
+          "scripts/android-billing-version.test.js"
+        ],
+        "fixture": {
+          "package": "capacitor-plugin-cdv-purchase",
+          "version": "13.17.2",
+          "resolved": "https://registry.npmjs.org/capacitor-plugin-cdv-purchase/-/capacitor-plugin-cdv-purchase-13.17.2.tgz",
+          "integrity": "sha512-Iarfd5ZV2fzuiNRRqJR+JoX8JxPrMZVAAYyMwaaR/W7PmpsXDypD6wYO6wWsHJ7D3/XbRXbJftHSdzvMRvJldA==",
+          "member": "package/android/build.gradle",
+          "source": "scripts/fixtures/cdv-purchase-13.17.2/android/build.gradle",
+          "destination": "node_modules/capacitor-plugin-cdv-purchase/android/build.gradle",
+          "size": 1345,
+          "sha256": "177796cb397239621bbefcff7638a37d4c74c5e64fbb241f28e20a94f2b056d0"
+        },
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:mobile-billing",
+        "command": "node --test scripts/mobile-billing-policy.test.js",
+        "file": "scripts/mobile-billing-policy.test.js",
+        "profile": "standard",
+        "cases": [
+          "does not finish Google Play transactions after server finalization",
+          "does not finish Google Play transactions while server consume is pending",
+          "builds Google Play recovery candidates from local receipts without duplicates",
+          "selects the configured Pro launch offer even when it is not first",
+          "falls back to the normal Pro base plan when the launch offer is unavailable",
+          "keeps the first Google Play offer for one-time products"
+        ],
+        "sha256": "bb33f4dbe4c5d05ab4ff0b9577d0b555ef4929d15ca6fde3154e2ee3aab44a5b",
+        "reads": [
+          "package.json",
+          "scripts/mobile-billing-policy.test.js",
+          "src/mobile/billingPolicy.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:mobile-admob",
+        "command": "node --test scripts/mobile-admob-policy.test.js",
+        "file": "scripts/mobile-admob-policy.test.js",
+        "profile": "standard",
+        "cases": [
+          "blocks the Google rewarded test ad unit in production",
+          "allows a real rewarded ad unit in production for a logged-in user",
+          "keeps the rewarded test ad unit available in development",
+          "suppresses every non-rewarded ad for Pro users",
+          "shows bottom banner only for free users in the native app",
+          "shows app open ad on resume only after a meaningful break and cooldown",
+          "shows chart detail interstitial every third entry for free users",
+          "shows the review archive interstitial on first entry and then every third entry",
+          "QA builds show the chart detail test ad on first entry while production keeps its cooldown",
+          "checks every interstitial placement before reporting production readiness"
+        ],
+        "sha256": "7d614f3077a61abc581cfc9ab4fb84ca2c1df5d20d34d530c01c24ad724b7393",
+        "reads": [
+          "package.json",
+          "scripts/mobile-admob-policy.test.js",
+          "src/App.jsx",
+          "src/mobile/admobPolicy.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:client-events",
+        "command": "node --test scripts/client-event-log.test.js",
+        "file": "scripts/client-event-log.test.js",
+        "profile": "standard",
+        "cases": [
+          "buildClientEventPayload redacts secret-like details before sending",
+          "buildClientEventPayload sanitizes credential text without masking metrics",
+          "buildClientEventPayload bounds adversarial message and detail sanitization",
+          "buildClientEventPayload redacts a credential crossing the truncation boundary",
+          "buildClientEventPayload fails closed for multiline quoted credentials beyond the limit",
+          "buildClientEventPayload keeps truncation boundaries credential-safe",
+          "reportClientEvent posts with auth header and never throws when reporting fails",
+          "installGlobalClientEventReporting reports unhandled window errors once",
+          "installGlobalClientEventReporting reports unhandled promise rejections",
+          "getStoredAuthSessionToken reads only the saved session token",
+          "frontend source avoids direct console error logging"
+        ],
+        "sha256": "44eeadd92b76690f3c6f3e576619713c4d4e20c79443e503cfb24fb44614a3d1",
+        "reads": [
+          "package.json",
+          "scripts/client-event-log.test.js",
+          "src/App.jsx",
+          "src/components/StockChart.jsx",
+          "src/utils/clientEventLog.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:api-errors",
+        "command": "node --test scripts/api-error-request-id.test.js",
+        "file": "scripts/api-error-request-id.test.js",
+        "profile": "standard",
+        "cases": [
+          "appendRequestIdToMessage adds a short support id once",
+          "requestIdFromAxiosError reads response headers case-insensitively",
+          "requestIdFromAxiosError ignores unsafe or oversized request ids",
+          "retryAfterSecondsFromAxiosError reads safe retry-after values",
+          "appendRetryAfterToMessage explains when the user can retry once",
+          "installAxiosRequestIdMessages appends request id to axios error detail"
+        ],
+        "sha256": "42ddd2d20e04f87d31865b2f24c40a10eef05127dfa5b510118b7f5777ede676",
+        "reads": [
+          "package.json",
+          "scripts/api-error-request-id.test.js",
+          "src/utils/apiErrorRequestId.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:oauth-app-return",
+        "command": "node --test scripts/oauth-app-return.test.js",
+        "file": "scripts/oauth-app-return.test.js",
+        "profile": "standard",
+        "cases": [
+          "parses package scheme OAuth app return ticket without exposing provider tokens",
+          "ignores unsupported OAuth app return URLs",
+          "native OAuth uses an in-app browser and closes it after the app callback"
+        ],
+        "sha256": "532d140a04cd7f7fe386c34f2559f5f8967fe7826132749ccfa57c4a83dfd28c",
+        "reads": [
+          "package.json",
+          "scripts/oauth-app-return.test.js",
+          "src/components/TradingJournal.jsx",
+          "src/utils/oauthAppReturn.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:app-navigation",
+        "command": "node --test scripts/app-navigation.test.js",
+        "file": "scripts/app-navigation.test.js",
+        "profile": "standard",
+        "cases": [
+          "billing and refund policy is available from account management and the purchase area",
+          "back navigation unwinds app views before asking to exit",
+          "nested fullscreen or history view can consume a back request",
+          "account management lives in a dismissible drawer without exposing a user id"
+        ],
+        "sha256": "967cd32fe53d7308e8cd548287b7102e438a1a3a5ed1230e3a3f3a8b8ab056a8",
+        "reads": [
+          "package.json",
+          "scripts/app-navigation.test.js",
+          "src/components/TradingJournal.jsx",
+          "src/utils/appNavigation.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:ai-idempotency",
+        "command": "node --test scripts/ai-review-idempotency.test.js",
+        "file": "scripts/ai-review-idempotency.test.js",
+        "profile": "standard",
+        "cases": [
+          "builds the same AI review idempotency key for an exact retry of one request",
+          "uses a new key for an intentional rerun while keeping review types separate"
+        ],
+        "sha256": "37f89e86289724dd2aae75350983da92b74593edd94e8c8757774a6dd512e608",
+        "reads": [
+          "package.json",
+          "scripts/ai-review-idempotency.test.js",
+          "src/utils/aiReviewIdempotency.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:ai-format",
+        "command": "node --test scripts/ai-review-format.test.js",
+        "file": "scripts/ai-review-format.test.js",
+        "profile": "standard",
+        "cases": [
+          "splits a dense general review into readable sections and checklist items",
+          "keeps legacy unstructured review text as a safe fallback",
+          "turns an advanced markdown review into readable blocks",
+          "uses compact MA labels in review copy"
+        ],
+        "sha256": "71fdfbae8536f327a048ea8fc9bedde6e83dcdaf448803f160037aa7daa0807f",
+        "reads": [
+          "package.json",
+          "scripts/ai-review-format.test.js",
+          "src/utils/aiReviewFormat.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:splash-loading",
+        "command": "node --test scripts/splash-loading-policy.test.js",
+        "file": "scripts/splash-loading-policy.test.js",
+        "profile": "standard",
+        "cases": [
+          "splash waits for initial theme loading with bounded timing"
+        ],
+        "sha256": "45469adbf5529560ec65e8f6ab5cf24e11431201d85655d9fa324e63fbbcea60",
+        "reads": [
+          "package.json",
+          "scripts/splash-loading-policy.test.js",
+          "src/App.jsx"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:chart-layout",
+        "command": "node --test scripts/chart-layout.test.js",
+        "file": "scripts/chart-layout.test.js",
+        "profile": "standard",
+        "cases": [
+          "tooltip flips inside every chart edge",
+          "pane layout only allocates selected indicator panes",
+          "pane stretch factors keep indicators equal and the price pane dominant",
+          "indicator layout and drawings are controlled above each stock chart",
+          "horizontal drawings use the thinner line and common Korean label"
+        ],
+        "sha256": "b61564dec5d8049ba18cfb0cc33f9529108d5ed75ce4711ae681507b1a5f9395",
+        "reads": [
+          "package.json",
+          "scripts/chart-layout.test.js",
+          "src/App.jsx",
+          "src/components/StockChart.jsx",
+          "src/utils/chartLayout.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:journal-mobile-ux",
+        "command": "node --test scripts/journal-mobile-ux.test.js",
+        "file": "scripts/journal-mobile-ux.test.js",
+        "profile": "standard",
+        "cases": [
+          "account management is reachable from both primary views",
+          "mobile chart controls use compact named grid areas",
+          "review UI hides internal model ids and consent versions",
+          "trade time supports native selection and direct numeric entry",
+          "account data export uses Android share sheet and explains the backup location",
+          "saved review can restore only its selected trade episode for another review",
+          "AI review sends only the explicitly selected trade episode",
+          "mobile entitlement balances remain in a compact three-column grid",
+          "ad reward and Pro subscription policies use a scan-friendly hierarchy",
+          "advanced review shortage opens a Korean pass dialog instead of an inline AI error",
+          "journal notices use a Korean popup and never render raw messages inline",
+          "advanced review terminology and rewarded-ad ticket action are user-facing",
+          "reviewer access is backend-gated and does not expose credentials in config",
+          "mobile header uses a graphical wordmark and masks scrolling content",
+          "theme and chart divider follows the collapsible mobile sidebar",
+          "general review reruns use a fresh request while rapid double taps stay locked",
+          "general review balance distinguishes immediate free uses from rewarded-ad capacity",
+          "rewarded review waits for server-side verification without consuming it while polling",
+          "saved journal entry does not reveal stock details until a review is selected or completed",
+          "successful AI review is not replaced by a failed follow-up refresh",
+          "AI review loading is prominent and selected chart follows trade selection",
+          "review output removes internal evidence labels and hides consumed one-time trial balances",
+          "review picker shows recent trades, supports search, and QA requests carry the target trade id",
+          "account changes clear the previous account journal workspace before loading tenant data",
+          "review archive entry uses a throttled interstitial policy"
+        ],
+        "sha256": "7e1169986c8fad64ce71fe4b3d9efc2417679c115900fae9be42e446df29928e",
+        "reads": [
+          "package.json",
+          "scripts/journal-mobile-ux.test.js",
+          "src/App.css",
+          "src/App.jsx",
+          "src/components/TradingJournal.jsx"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:review-selection",
+        "command": "node --test scripts/review-trade-selection.test.js",
+        "file": "scripts/review-trade-selection.test.js",
+        "profile": "standard",
+        "cases": [
+          "buy and sell fills are grouped into one completed trade episode",
+          "different stocks and repeated round trips remain separately selectable",
+          "selecting one saved trade never includes a newly entered different stock",
+          "the picker shows only the five most recent trade episodes by default",
+          "the picker searches older trades by stock name, code, and date range"
+        ],
+        "sha256": "5e7902a8e9714872fbf83c36fde5d9a51e6a1e08573b936109d2c23ddfb7802b",
+        "reads": [
+          "package.json",
+          "scripts/review-trade-selection.test.js",
+          "src/utils/reviewTradeSelection.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:user-messages",
+        "command": "node --test scripts/user-message.test.js",
+        "file": "scripts/user-message.test.js",
+        "profile": "standard",
+        "cases": [
+          "converts raw AdMob publisher errors into a Korean user message",
+          "keeps clear Korean notices while removing technical URLs",
+          "removes support request identifiers from Korean user notices",
+          "replaces unknown English errors with a safe Korean fallback",
+          "localizes advanced review access errors",
+          "keeps deliberate Korean debug guidance even when it names AdMob",
+          "shows app-level failures in a Korean popup instead of inline technical text"
+        ],
+        "sha256": "95b99af8ae48df6fd961fa11b121516fcced53a9ed58e078186b586acb3f197c",
+        "reads": [
+          "package.json",
+          "scripts/user-message.test.js",
+          "src/App.jsx",
+          "src/utils/userMessage.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:release-env",
+        "command": "node --test scripts/validate-release-env.test.js",
+        "file": "scripts/validate-release-env.test.js",
+        "profile": "release",
+        "cases": [
+          "rejects localhost API and enabled dev tools for release builds",
+          "rejects placeholder release URLs and AdMob ad unit IDs",
+          "rejects all-zero AdMob publisher placeholder Android app IDs even when app digits differ",
+          "rejects all-zero AdMob publisher placeholder ad unit IDs even when unit digits differ",
+          "rejects malformed production AdMob ad unit IDs",
+          "rejects duplicate production AdMob ad unit IDs across placements",
+          "requires public OAuth settings for release builds",
+          "rejects invalid or local OAuth redirect URLs for release builds",
+          "rejects release package name that differs from fixed Android app identity",
+          "requires separate production ad unit IDs for app open and interstitial placements",
+          "accepts production release settings without exposing secret requirements",
+          "owner frontend release report counts banner ad unit as part of AdMob readiness",
+          "requires Android signing settings for release builds",
+          "owner frontend release report points local signing setup to the helper batch",
+          "requires valid Android version settings for release builds",
+          "rejects missing Android keystore file for release builds",
+          "frontend env example documents release check settings",
+          "frontend env templates do not document server-only secrets",
+          "frontend release env template is production focused",
+          "release env loader accepts an explicit frontend env file",
+          "formats owner frontend release report without exposing secret values",
+          "owner frontend release report explains placeholder OAuth redirect URLs",
+          "owner frontend release report lists all next actions",
+          "owner frontend release report includes app name and version inputs",
+          "release env module can be imported from node eval without running the CLI guard",
+          "owner frontend release report CLI prints report and hides secret values",
+          "raw frontend release env CLI prints Korean pass and fail headings",
+          "package script exposes owner release report command",
+          "mobile release check uses owner-facing release report before building",
+          "release fixtures restore temp env CWD and module state after success assertion and setup failure",
+          "release boundary blocks non-owned private reads writes network and tools before access",
+          "release child excludes hostile host environment and cannot read outside its workspace"
+        ],
+        "sha256": "a0ee8038e4f6b7b0a7c690757589b02c9e80d25f3ca52dae346d4f5bc0a523fe",
+        "reads": [
+          ".env.example",
+          ".env.release.example",
+          "package.json",
+          "scripts/owner-release-report.js",
+          "scripts/release-test-isolation.mjs",
+          "scripts/validate-mobile-bundle.js",
+          "scripts/validate-release-env.js",
+          "scripts/validate-release-env.test.js"
+        ],
+        "release_eval_sha256": [
+          "71b1bf26716f18170f76713aa1f11530dc7d939d2741095b96684689bd02d639",
+          "d8b0e9b217924251e76a7f4be0ba871a20806abb7560050ba55d8d043e9cd253"
+        ]
+      },
+      {
+        "name": "test:mobile-bundle",
+        "command": "node --test scripts/validate-mobile-bundle.test.js",
+        "file": "scripts/validate-mobile-bundle.test.js",
+        "profile": "release",
+        "cases": [
+          "accepts a bundle that targets the release API",
+          "rejects a mobile bundle that still targets localhost",
+          "bundle fixtures restore temp env CWD and module state after success assertion and setup failure"
+        ],
+        "sha256": "69ab9d4eb1c44f8289bea92dcaa0637b71d1e87bfcaec035d2526b9a36a7c5b2",
+        "reads": [
+          ".env.example",
+          ".env.release.example",
+          "package.json",
+          "scripts/owner-release-report.js",
+          "scripts/release-test-isolation.mjs",
+          "scripts/validate-mobile-bundle.js",
+          "scripts/validate-mobile-bundle.test.js",
+          "scripts/validate-release-env.js"
+        ],
+        "release_eval_sha256": []
+      }
+    ]
+  }
 }
