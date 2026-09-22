@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 import unittest
 
-from tests.run_isolated_tests import run_module
+from tests.run_isolated_tests import REPOSITORY, run_module
 
 
 class IsolationRunnerTest(unittest.TestCase):
@@ -18,7 +18,7 @@ class IsolationRunnerTest(unittest.TestCase):
             host[key] = "SYNTHETIC_HOST_SECRET"
         # Path values are synthetic, nonexistent, and never read.
         for key in ("ALPHAMATE_ENV_FILE", "ALPHAMATE_FRONTEND_ENV_FILE", "GOOGLE_PLAY_SERVICE_ACCOUNT_FILE"):
-            host[key] = str(Path.cwd() / "synthetic-never-opened" / key)
+            host[key] = str(REPOSITORY / "synthetic-never-opened" / key)
         result = run_module("tests.isolation_probes", host)
         self.assertTrue(result["passed"], result)
         self.assertEqual(result["tests"], 9)

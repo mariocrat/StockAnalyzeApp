@@ -1,0 +1,1288 @@
+{
+  "version": 1,
+  "baseline_head": "6039646c53082ba1fe1acb8c06b0ca4126b2a936",
+  "modules": [
+    {
+      "module": "tests.isolation_phase_a_swallowed_probe",
+      "h4_classification": null,
+      "execution_role": "probe",
+      "cohort": "probe",
+      "cases": [
+        "SwallowedPhaseAProbe.test_caught_audit_and_transport_denials_remain_unexpected"
+      ],
+      "skips": {},
+      "owner": "tests.test_isolation_foundation.FoundationIsolationTest.test_swallowed_phase_denials_fail_the_real_child",
+      "expected": {
+        "passed": false,
+        "returncode": 1,
+        "unexpected": 4,
+        "violation_kinds": [
+          "network",
+          "subprocess",
+          "write",
+          "network"
+        ]
+      }
+    },
+    {
+      "module": "tests.isolation_probes",
+      "h4_classification": null,
+      "execution_role": "probe",
+      "cohort": "probe",
+      "cases": [
+        "IsolationProbes.test_all_db_cache_and_temp_paths_are_owned",
+        "IsolationProbes.test_host_environment_is_removed_before_import",
+        "IsolationProbes.test_network_calls_never_reach_transport",
+        "IsolationProbes.test_owned_sensitive_looking_files_are_allowed",
+        "IsolationProbes.test_parent_path_metadata_without_application_env",
+        "IsolationProbes.test_sensitive_reads_precede_open",
+        "IsolationProbes.test_socketpair_owned_resources_are_closed",
+        "IsolationProbes.test_unmatched_expectation_does_not_hide_violation",
+        "IsolationProbes.test_write_is_blocked_before_file_creation"
+      ],
+      "skips": {},
+      "owner": "tests.test_isolation_runner.IsolationRunnerTest.test_synthetic_boundaries_and_sanitized_child",
+      "expected": {
+        "passed": true,
+        "returncode": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "module": "tests.isolation_smoke",
+      "h4_classification": null,
+      "execution_role": "probe",
+      "cohort": "probe",
+      "cases": [
+        "ImportSmoke.test_runtime_and_dependency_reads_under_guard"
+      ],
+      "skips": {},
+      "owner": null,
+      "expected": {
+        "passed": true,
+        "returncode": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "module": "tests.isolation_sqlite_probes",
+      "h4_classification": null,
+      "execution_role": "probe",
+      "cohort": "probe",
+      "cases": [
+        "SQLiteIsolationProbe.test_attach_is_denied_for_all_standard_connect_aliases",
+        "SQLiteIsolationProbe.test_backup_destination_cannot_open_outside_root",
+        "SQLiteIsolationProbe.test_custom_factories_cannot_run_sql_before_authorizer",
+        "SQLiteIsolationProbe.test_owned_crud_commit_close_and_backup",
+        "SQLiteIsolationProbe.test_vacuum_into_is_denied_by_same_authorizer"
+      ],
+      "skips": {},
+      "owner": "tests.test_isolation_sqlite.SQLiteIsolationTest.test_sqlite_boundaries_and_normal_operations",
+      "expected": {
+        "passed": true,
+        "returncode": 0,
+        "unexpected": 0
+      }
+    },
+    {
+      "module": "tests.isolation_sqlite_swallowed_probe",
+      "h4_classification": null,
+      "execution_role": "probe",
+      "cohort": "probe",
+      "cases": [
+        "SwallowedSQLiteProbe.test_application_catches_database_error"
+      ],
+      "skips": {},
+      "owner": "tests.test_isolation_sqlite.SQLiteIsolationTest.test_swallowed_attach_fails_child_without_creating_target",
+      "expected": {
+        "passed": false,
+        "returncode": 1,
+        "unexpected": 1,
+        "violation_kinds": [
+          "sqlite-attach"
+        ]
+      }
+    },
+    {
+      "module": "tests.isolation_swallowed_probe",
+      "h4_classification": null,
+      "execution_role": "probe",
+      "cohort": "probe",
+      "cases": [
+        "SwallowedProbe.test_application_reports_success"
+      ],
+      "skips": {},
+      "owner": "tests.test_isolation_runner.IsolationRunnerTest.test_swallowed_import_violation_fails_child",
+      "expected": {
+        "passed": false,
+        "returncode": 1,
+        "unexpected": 1,
+        "violation_kinds": [
+          "write"
+        ]
+      }
+    },
+    {
+      "module": "tests.test_access_control_persistence",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AccessControlPersistenceTest.test_advanced_review_without_ticket_returns_korean_guidance",
+        "AccessControlPersistenceTest.test_first_oauth_login_advanced_ticket_is_granted_only_once",
+        "AccessControlPersistenceTest.test_purchased_advanced_credits_survive_module_reload",
+        "AccessControlPersistenceTest.test_rewarded_ads_can_be_claimed_toward_advanced_ticket"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_account_store",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AccountStoreTest.test_access_wallets_are_separated_by_login_session_user",
+        "AccountStoreTest.test_current_privacy_consent_version_is_length_limited",
+        "AccountStoreTest.test_delete_user_account_data_removes_server_side_user_records",
+        "AccountStoreTest.test_journal_storage_setting_can_be_changed_for_session_user",
+        "AccountStoreTest.test_privacy_consent_can_be_recorded_for_session_user",
+        "AccountStoreTest.test_privacy_consent_version_is_length_limited",
+        "AccountStoreTest.test_provider_login_reuses_user_and_authenticates_session",
+        "AccountStoreTest.test_provider_login_stored_fields_are_length_limited"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_admin_event_routes",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AdminEventRoutesTest.test_admin_and_client_event_rate_limits_have_upper_bounds",
+        "AdminEventRoutesTest.test_admin_can_lock_unlock_and_adjust_purchase_credit_order",
+        "AdminEventRoutesTest.test_admin_can_query_and_sync_purchase_credit_order",
+        "AdminEventRoutesTest.test_admin_event_route_rejects_short_admin_token_in_production",
+        "AdminEventRoutesTest.test_admin_event_route_requires_admin_token",
+        "AdminEventRoutesTest.test_admin_operational_events_reports_effective_limit",
+        "AdminEventRoutesTest.test_admin_operational_events_route_is_registered",
+        "AdminEventRoutesTest.test_admin_purchase_credit_order_routes_are_registered",
+        "AdminEventRoutesTest.test_admin_rate_limit_rejects_excessive_requests",
+        "AdminEventRoutesTest.test_admin_theme_cache_status_is_token_protected",
+        "AdminEventRoutesTest.test_external_callback_rate_limit_rejects_excessive_requests"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_ai_review_chart_provider",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AiReviewChartProviderTest.test_advanced_review_override_can_disable_fallback_for_qa_comparison"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_ai_review_openai_client",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AiReviewOpenAiClientTest.test_advanced_review_requests_readable_korean_indicator_terms",
+        "AiReviewOpenAiClientTest.test_advanced_review_targets_only_the_selected_round_trip",
+        "AiReviewOpenAiClientTest.test_advanced_review_uses_configurable_fallback_model_after_primary_failure",
+        "AiReviewOpenAiClientTest.test_ai_review_model_ids_are_configurable",
+        "AiReviewOpenAiClientTest.test_ai_review_uses_expected_default_model_ids",
+        "AiReviewOpenAiClientTest.test_basic_review_anchors_verdict_and_changes_only_analysis_focus",
+        "AiReviewOpenAiClientTest.test_many_trades_keep_basic_episode_and_advanced_history_scopes_separate",
+        "AiReviewOpenAiClientTest.test_rule_1_allows_negated_and_retrospective_mentions",
+        "AiReviewOpenAiClientTest.test_rule_1_blocks_actionable_recommendations_with_categories",
+        "AiReviewOpenAiClientTest.test_rule_1_blocks_exact_independent_review_regressions",
+        "AiReviewOpenAiClientTest.test_rule_1_blocks_target_term_and_price_notation_combinations",
+        "AiReviewOpenAiClientTest.test_rule_1_blocks_trade_action_and_positive_predicate_combinations",
+        "AiReviewOpenAiClientTest.test_safety_rejection_records_only_rule_ids_and_internal_status",
+        "AiReviewOpenAiClientTest.test_successful_openai_review_results_expose_plain_string_summaries",
+        "AiReviewOpenAiClientTest.test_trade_guidance_validator_allows_retrospective_review_language",
+        "AiReviewOpenAiClientTest.test_trade_guidance_validator_blocks_future_actionable_advice"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_ai_review_openai_transport",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AiReviewOpenAiTransportTest.test_openai_review_applies_review_specific_output_limits",
+        "AiReviewOpenAiTransportTest.test_openai_review_disables_response_storage",
+        "AiReviewOpenAiTransportTest.test_openai_review_output_limits_are_safely_bounded",
+        "AiReviewOpenAiTransportTest.test_openai_review_reads_api_key_from_explicit_env_file",
+        "AiReviewOpenAiTransportTest.test_openai_review_reasoning_effort_override_and_invalid_value_are_safe",
+        "AiReviewOpenAiTransportTest.test_openai_review_records_token_usage_without_prompt_content",
+        "AiReviewOpenAiTransportTest.test_openai_review_retries_transient_rate_limit_once",
+        "AiReviewOpenAiTransportTest.test_openai_review_runtime_settings_have_upper_bounds",
+        "AiReviewOpenAiTransportTest.test_openai_review_sends_review_specific_reasoning_effort",
+        "AiReviewOpenAiTransportTest.test_openai_review_timeout_is_configurable"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_ai_review_quality",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AiReviewQualityTest.test_basic_episode_keeps_buy_and_sell_for_target_symbol",
+        "AiReviewQualityTest.test_fallback_checklist_uses_trade_specific_chart_metrics",
+        "AiReviewQualityTest.test_fallback_uses_actual_prices_and_does_not_praise_recording"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_ai_review_safety",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AiReviewSafetyTest.test_ai_review_concurrency_guard_rejects_when_server_is_busy",
+        "AiReviewSafetyTest.test_ai_review_error_refunds_consumed_basic_credit",
+        "AiReviewSafetyTest.test_ai_review_idempotency_cache_has_maximum_size",
+        "AiReviewSafetyTest.test_ai_review_idempotency_cache_key_does_not_expose_request_tokens",
+        "AiReviewSafetyTest.test_ai_review_idempotency_key_prevents_duplicate_charge",
+        "AiReviewSafetyTest.test_ai_review_idempotency_key_rejects_different_payload_without_charging",
+        "AiReviewSafetyTest.test_ai_review_idempotency_ttl_has_upper_bound",
+        "AiReviewSafetyTest.test_ai_review_max_concurrent_has_upper_bound",
+        "AiReviewSafetyTest.test_ai_review_rate_limit_has_upper_bound",
+        "AiReviewSafetyTest.test_ai_review_rate_limit_rejects_repeated_user_requests",
+        "AiReviewSafetyTest.test_ai_review_rejects_unknown_review_type_without_charging",
+        "AiReviewSafetyTest.test_daily_free_balance_does_not_include_ad_only_capacity",
+        "AiReviewSafetyTest.test_idempotency_abort_does_not_remove_completed_result",
+        "AiReviewSafetyTest.test_legacy_ai_review_get_endpoint_is_disabled",
+        "AiReviewSafetyTest.test_legacy_ai_review_module_does_not_keep_direct_openai_client",
+        "AiReviewSafetyTest.test_openai_text_is_plain_string_and_idempotency_replay_is_cached",
+        "AiReviewSafetyTest.test_two_intentional_basic_reviews_consume_two_available_free_credits"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_ai_review_safety_finalization",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AiReviewSafetyFinalizationTest.test_finalization_failure_refunds_general_access_and_cleans_history_and_pending_key",
+        "AiReviewSafetyFinalizationTest.test_finalization_failure_refunds_review_quota_exactly_once"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_android_icon_alignment",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AndroidIconAlignmentTest.test_adaptive_icon_uses_a_light_background_for_the_dark_foreground",
+        "AndroidIconAlignmentTest.test_launcher_foreground_art_is_centered_in_canvas",
+        "AndroidIconAlignmentTest.test_native_splash_images_have_an_opaque_light_background"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_android_release_verification",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AndroidReleaseVerificationTest.test_admob_qa_batch_runs_registered_device_qa_script",
+        "AndroidReleaseVerificationTest.test_admob_qa_script_uses_every_real_ad_unit_on_registered_test_devices",
+        "AndroidReleaseVerificationTest.test_android_verification_powershell_scripts_keep_utf8_bom_for_windows_powershell",
+        "AndroidReleaseVerificationTest.test_android_verification_scripts_explain_missing_local_tools",
+        "AndroidReleaseVerificationTest.test_android_verification_scripts_force_utf8_console_output",
+        "AndroidReleaseVerificationTest.test_android_verification_scripts_suppress_npm_update_notices",
+        "AndroidReleaseVerificationTest.test_debug_apk_scripts_use_google_demo_ads_instead_of_placeholder_publishers",
+        "AndroidReleaseVerificationTest.test_double_click_batch_runs_android_debug_verification_script",
+        "AndroidReleaseVerificationTest.test_double_click_batch_runs_android_release_verification_script",
+        "AndroidReleaseVerificationTest.test_oauth_debug_batch_runs_safe_oauth_apk_script",
+        "AndroidReleaseVerificationTest.test_oauth_debug_script_loads_only_public_release_settings",
+        "AndroidReleaseVerificationTest.test_release_verification_checks_release_env_before_local_tools",
+        "AndroidReleaseVerificationTest.test_release_verification_script_loads_frontend_release_env_and_builds_aab"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_android_signing_checks",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AndroidSigningChecksTest.test_android_upload_key_result_uses_korean_owner_messages",
+        "AndroidSigningChecksTest.test_builds_keytool_upload_key_command_without_printing_passwords",
+        "AndroidSigningChecksTest.test_default_pkcs12_passwords_match",
+        "AndroidSigningChecksTest.test_fills_empty_frontend_release_signing_values_without_overwriting_existing_values",
+        "AndroidSigningChecksTest.test_reads_existing_frontend_release_signing_values_after_fill",
+        "AndroidSigningChecksTest.test_replaces_stale_project_private_keystore_path_after_workspace_move",
+        "AndroidSigningChecksTest.test_replaces_template_secure_keystore_path_with_private_project_path",
+        "AndroidSigningChecksTest.test_status_output_does_not_include_generated_passwords"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_android_upload_key_generation",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AndroidUploadKeyGenerationTest.test_double_click_batch_runs_android_upload_key_script_as_ascii_safe_wrapper"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_api_module_state",
+      "h4_classification": "A1/foundation/helper",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ApiModuleStateTest.test_billing_limiter_restores_after_consuming_testcase_and_failures",
+        "ApiModuleStateTest.test_market_async_lifecycle_restores_state_and_closes_loop",
+        "ApiModuleStateTest.test_partial_reload_failure_restores_modules_and_logger_filters",
+        "ApiModuleStateTest.test_route_state_and_patches_restore_after_each_testcase_outcome"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_app_ad_display_wiring",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AppAdDisplayWiringTest.test_app_wires_resume_and_chart_detail_ads_through_policy",
+        "AppAdDisplayWiringTest.test_non_blocking_ad_failures_are_reported_to_client_events",
+        "AppAdDisplayWiringTest.test_pro_plan_changes_are_lifted_for_global_ad_suppression"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_app_splash_ui",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AppSplashUiTest.test_app_renders_centered_pulsing_logo_splash",
+        "AppSplashUiTest.test_public_app_icon_asset_exists_for_splash"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_auth_lifespan",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AuthLifespanTest.test_lifespan_can_enable_theme_warmup_for_manual_prewarming",
+        "AuthLifespanTest.test_lifespan_skips_theme_warmup_when_disabled_for_render"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_auth_routes",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "AuthRoutesTest.test_account_deletion_page_is_public_korean_html",
+        "AuthRoutesTest.test_auth_rate_limit_has_upper_bound",
+        "AuthRoutesTest.test_auth_rate_limit_rejects_excessive_login_requests",
+        "AuthRoutesTest.test_auth_routes_are_registered",
+        "AuthRoutesTest.test_health_payload_does_not_expose_settings",
+        "AuthRoutesTest.test_health_payload_exposes_only_short_render_revision",
+        "AuthRoutesTest.test_privacy_policy_is_public_korean_html",
+        "AuthRoutesTest.test_public_landing_page_is_public_korean_html"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_backend_release_check",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "BackendReleaseCheckTest.test_accepts_complete_production_backend_settings",
+        "BackendReleaseCheckTest.test_accepts_complete_settings_from_explicit_env_file",
+        "BackendReleaseCheckTest.test_format_owner_release_readiness_report_hides_secret_values",
+        "BackendReleaseCheckTest.test_owner_release_report_explains_missing_billing_ad_and_legal_inputs",
+        "BackendReleaseCheckTest.test_owner_release_report_explains_missing_data_storage_path_inputs",
+        "BackendReleaseCheckTest.test_owner_release_report_explains_missing_oauth_redirect_uri_inputs",
+        "BackendReleaseCheckTest.test_owner_release_report_explains_unsafe_data_storage_paths",
+        "BackendReleaseCheckTest.test_owner_release_report_lists_all_next_actions",
+        "BackendReleaseCheckTest.test_owner_release_report_shows_top_level_release_errors",
+        "BackendReleaseCheckTest.test_rejects_missing_production_backend_settings_without_secret_values",
+        "BackendReleaseCheckTest.test_rejects_missing_production_oauth_redirect_uris"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_backend_release_check_docs",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "BackendReleaseCheckDocsTest.test_backend_env_example_documents_release_check_settings",
+        "BackendReleaseCheckDocsTest.test_backend_release_env_template_is_production_focused",
+        "BackendReleaseCheckDocsTest.test_gitignore_blocks_filled_release_env_files",
+        "BackendReleaseCheckDocsTest.test_release_readiness_report_uses_release_env_files_when_present"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_batch_wrappers",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "BatchWrapperTest.test_root_batch_wrappers_are_ascii_safe_for_cmd"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_billing_provider_verification",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "BillingProviderVerificationTest.test_admob_reward_status_can_be_polled_without_consuming_reward",
+        "BillingProviderVerificationTest.test_admob_ssv_accepts_console_verification_probe_without_recording_reward",
+        "BillingProviderVerificationTest.test_admob_ssv_accepts_signed_numeric_ad_unit_identifier",
+        "BillingProviderVerificationTest.test_admob_ssv_records_reward_once",
+        "BillingProviderVerificationTest.test_admob_ssv_rejects_wrong_ad_unit",
+        "BillingProviderVerificationTest.test_admob_ssv_stored_fields_are_length_limited",
+        "BillingProviderVerificationTest.test_pending_admob_reward_is_consumed_for_basic_review",
+        "BillingProviderVerificationTest.test_pending_admob_reward_waits_until_immediate_free_credits_are_exhausted"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_billing_purchase_transport",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "BillingPurchaseTransportTest.test_failed_review_refund_does_not_restore_credit_to_refunded_order",
+        "BillingPurchaseTransportTest.test_google_play_canceled_order_revokes_remaining_credit_without_refund_amount",
+        "BillingPurchaseTransportTest.test_google_play_consumable_consume_failure_can_be_retried_without_duplicate_credits",
+        "BillingPurchaseTransportTest.test_google_play_consumable_rejects_non_processed_order",
+        "BillingPurchaseTransportTest.test_google_play_full_refund_revokes_only_the_matching_order_once",
+        "BillingPurchaseTransportTest.test_google_play_order_verification_reads_full_refund_details",
+        "BillingPurchaseTransportTest.test_google_play_purchase_does_not_grant_when_verification_cannot_run",
+        "BillingPurchaseTransportTest.test_google_play_purchase_rejects_wrong_product",
+        "BillingPurchaseTransportTest.test_google_play_purchase_stored_fields_are_length_limited",
+        "BillingPurchaseTransportTest.test_google_play_purchase_verification_loads_actual_order_amount",
+        "BillingPurchaseTransportTest.test_verified_google_play_consumable_grants_credits_once",
+        "BillingPurchaseTransportTest.test_voided_purchase_reconciliation_handles_chargebacks_partial_refunds_and_item_failures"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_billing_rate_limits",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "BillingRateLimitTest.test_billing_rate_limit_has_upper_bound",
+        "BillingRateLimitTest.test_billing_rate_limit_rejects_excessive_purchase_requests"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_billing_readiness",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "BillingReadinessTest.test_ad_policy_caps_ads_per_advanced_ticket_setting",
+        "BillingReadinessTest.test_admob_ssv_signature_content_decodes_percent_encoded_reward_text",
+        "BillingReadinessTest.test_admob_ssv_signature_requires_required_fields",
+        "BillingReadinessTest.test_app_readiness_accepts_capacitor_android_https_origin",
+        "BillingReadinessTest.test_app_readiness_rejects_placeholder_release_values",
+        "BillingReadinessTest.test_app_readiness_rejects_short_admin_token_without_exposing_value",
+        "BillingReadinessTest.test_app_readiness_rejects_unsafe_release_cors_origins",
+        "BillingReadinessTest.test_app_readiness_reports_missing_settings_by_section",
+        "BillingReadinessTest.test_app_readiness_summarizes_deployment_without_secret_values",
+        "BillingReadinessTest.test_basic_and_advanced_rewarded_ad_progress_are_separate",
+        "BillingReadinessTest.test_basic_purchase_credit_is_consumed_after_free_credits",
+        "BillingReadinessTest.test_basic_rewarded_ad_does_not_consume_purchased_pass",
+        "BillingReadinessTest.test_google_play_purchase_requires_server_configuration",
+        "BillingReadinessTest.test_google_play_readiness_rejects_invalid_service_account_json",
+        "BillingReadinessTest.test_google_play_readiness_rejects_malformed_service_account_key",
+        "BillingReadinessTest.test_legacy_test_purchase_balances_are_reset_only_by_explicit_one_time_initialization",
+        "BillingReadinessTest.test_product_catalog_exposes_public_ids_and_readiness_only",
+        "BillingReadinessTest.test_product_catalog_matches_current_review_offers",
+        "BillingReadinessTest.test_production_readiness_rejects_duplicate_google_play_product_ids",
+        "BillingReadinessTest.test_production_readiness_rejects_local_or_relative_data_paths",
+        "BillingReadinessTest.test_production_readiness_rejects_placeholder_rtdn_oidc_settings",
+        "BillingReadinessTest.test_production_readiness_requires_google_play_product_ids",
+        "BillingReadinessTest.test_production_readiness_requires_purchase_token_encryption_key",
+        "BillingReadinessTest.test_production_readiness_requires_strong_rtdn_shared_token",
+        "BillingReadinessTest.test_purchase_credit_consumption_rolls_back_when_snapshot_fails",
+        "BillingReadinessTest.test_purchase_credit_consumption_rolls_back_when_wallet_save_fails",
+        "BillingReadinessTest.test_purchase_credit_ledger_rejects_incomplete_order_evidence",
+        "BillingReadinessTest.test_purchase_credit_ledger_schema_tracks_order_balances_and_usage_sources",
+        "BillingReadinessTest.test_purchase_credit_refund_restores_the_same_order",
+        "BillingReadinessTest.test_purchase_credits_are_consumed_fifo_and_record_order_source",
+        "BillingReadinessTest.test_purchase_usage_requires_an_existing_order_for_the_same_user",
+        "BillingReadinessTest.test_rtdn_rejects_short_shared_token_in_production",
+        "BillingReadinessTest.test_rtdn_requires_oidc_when_configured",
+        "BillingReadinessTest.test_rtdn_requires_shared_token",
+        "BillingReadinessTest.test_rtdn_shared_token_uses_constant_time_compare",
+        "BillingReadinessTest.test_voided_purchase_reconciliation_defaults_to_thirty_day_window"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_billing_source_contract",
+      "h4_classification": "OUT",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "BillingSourceContractTest.test_google_play_purchase_code_does_not_claim_subscription_verification_is_missing"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_billing_subscription_transport",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "BillingSubscriptionTransportTest.test_active_google_play_subscription_uses_pro_review_quota",
+        "BillingSubscriptionTransportTest.test_canceled_pro_remains_active_until_play_expiry_without_resetting_quota",
+        "BillingSubscriptionTransportTest.test_expired_google_play_subscription_does_not_enable_pro",
+        "BillingSubscriptionTransportTest.test_failed_subscription_acknowledgement_does_not_enable_pro_plan",
+        "BillingSubscriptionTransportTest.test_google_play_subscription_stored_fields_are_length_limited",
+        "BillingSubscriptionTransportTest.test_google_play_subscription_token_cannot_be_reused_by_another_user",
+        "BillingSubscriptionTransportTest.test_grace_period_keeps_pro_until_play_expiry",
+        "BillingSubscriptionTransportTest.test_inactive_subscription_refresh_disables_previous_pro_plan",
+        "BillingSubscriptionTransportTest.test_payment_hold_disables_pro_even_before_previous_expiry",
+        "BillingSubscriptionTransportTest.test_pro_advanced_quota_is_consumed_before_purchased_pass",
+        "BillingSubscriptionTransportTest.test_pro_billing_cycle_renewal_preserves_purchased_passes",
+        "BillingSubscriptionTransportTest.test_rtdn_accepts_valid_oidc_claims",
+        "BillingSubscriptionTransportTest.test_rtdn_subscription_notification_refreshes_stored_subscription",
+        "BillingSubscriptionTransportTest.test_unacknowledged_google_play_subscription_is_acknowledged_before_pro_plan",
+        "BillingSubscriptionTransportTest.test_verified_google_play_subscription_enables_pro_plan"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_brand_image_assets",
+      "h4_classification": "OUT",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "BrandImageAssetsTest.test_capture_guide_describes_the_approved_mobile_workflow",
+        "BrandImageAssetsTest.test_generated_screenshots_match_their_raw_sources",
+        "BrandImageAssetsTest.test_play_feature_uses_the_official_wordmark_pixels",
+        "BrandImageAssetsTest.test_play_icon_matches_the_dedicated_console_source",
+        "BrandImageAssetsTest.test_play_screenshot_uses_the_official_horizontal_logo_pixels",
+        "BrandImageAssetsTest.test_raw_screenshots_are_native_play_resolution"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_cors_config",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "CorsConfigTest.test_cors_origins_can_be_overridden_by_environment",
+        "CorsConfigTest.test_default_cors_origins_include_local_web_and_capacitor"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_credential_safe_logging",
+      "h4_classification": "OUT",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "CredentialRedactionPerformanceTest.test_adversarial_non_matches_have_bounded_linear_sanity",
+        "CredentialRedactionPerformanceTest.test_bounded_multiline_quoted_credentials_fail_closed",
+        "CredentialRedactionPerformanceTest.test_truncation_boundaries_do_not_expose_credential_content",
+        "CredentialRedactionPerformanceTest.test_uvicorn_filter_multiline_inputs_avoid_quadratic_scaling",
+        "CredentialSafeHttpSummaryTest.test_admob_ssv_query_reaches_endpoint_but_not_summary",
+        "CredentialSafeHttpSummaryTest.test_formatted_chained_exception_log_redacts_credentials",
+        "CredentialSafeHttpSummaryTest.test_oauth_callback_query_reaches_endpoint_but_not_summary",
+        "CredentialSafeHttpSummaryTest.test_owned_uvicorn_starts_disable_default_access_log",
+        "CredentialSafeHttpSummaryTest.test_summary_logging_failure_does_not_change_response",
+        "CredentialSafeHttpSummaryTest.test_summary_logging_failure_does_not_replace_endpoint_exception",
+        "CredentialSafeHttpSummaryTest.test_unknown_route_never_falls_back_to_raw_path"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_event_log",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "EventLogTest.test_api_failure_event_helper_records_without_authorization_token",
+        "EventLogTest.test_event_log_redacts_credentials_but_preserves_operational_fields",
+        "EventLogTest.test_event_log_redacts_secret_like_details",
+        "EventLogTest.test_event_log_truncates_deeply_nested_detail_values",
+        "EventLogTest.test_event_log_truncates_oversized_detail_keys",
+        "EventLogTest.test_event_log_truncates_oversized_detail_values",
+        "EventLogTest.test_event_log_truncates_oversized_details_json",
+        "EventLogTest.test_event_log_truncates_oversized_top_level_fields",
+        "EventLogTest.test_http_exception_message_is_safe_for_event_log",
+        "EventLogTest.test_list_events_can_filter_by_event_id_and_created_range",
+        "EventLogTest.test_list_events_can_filter_by_level_and_event_type",
+        "EventLogTest.test_list_events_can_filter_by_request_id",
+        "EventLogTest.test_list_events_can_filter_by_user_path_and_status_code",
+        "EventLogTest.test_list_events_can_offset_for_next_page",
+        "EventLogTest.test_list_events_omits_raw_details_json_from_results",
+        "EventLogTest.test_list_events_survives_invalid_details_json_rows",
+        "EventLogTest.test_list_events_treats_request_id_like_wildcards_literally",
+        "EventLogTest.test_long_user_agent_is_bounded_before_sanitizing_and_boundary_secret_is_redacted",
+        "EventLogTest.test_purge_configured_retention_skips_without_setting",
+        "EventLogTest.test_purge_configured_retention_uses_environment_setting",
+        "EventLogTest.test_purge_events_older_than_rejects_excessive_retention_days",
+        "EventLogTest.test_purge_events_older_than_retention_days_keeps_recent_events",
+        "EventLogTest.test_summarize_events_groups_recent_events",
+        "EventLogTest.test_summarize_events_groups_status_codes_and_users",
+        "EventLogTest.test_summarize_events_reports_sample_offset",
+        "EventLogTest.test_summarize_events_uses_the_same_filters_as_event_lookup"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_favicon_asset",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "FaviconAssetTest.test_favicon_uses_the_official_light_app_icon_pixels"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_full_test_entrypoint",
+      "h4_classification": "A1/foundation/helper",
+      "execution_role": "coordinator",
+      "cohort": "stage1",
+      "cases": [
+        "FullTestEntrypointTest.test_child_protocol_errors_and_timeout_still_cleanup",
+        "FullTestEntrypointTest.test_coordinator_separates_primary_coverage_and_expected_negative_probe",
+        "FullTestEntrypointTest.test_expected_skip_requires_exact_id_reason_and_condition",
+        "FullTestEntrypointTest.test_legacy_exit_two_before_any_target_or_application_import",
+        "FullTestEntrypointTest.test_live_inventory_preserves_baseline_and_counts_source_probes",
+        "FullTestEntrypointTest.test_live_role_or_classification_tampering_fails_closed",
+        "FullTestEntrypointTest.test_manifest_rejects_missing_duplicate_zero_and_invalid_skip",
+        "FullTestEntrypointTest.test_missing_duplicate_or_wrong_negative_probe_fails",
+        "FullTestEntrypointTest.test_real_a1_child_has_import_boundary_and_cleanup",
+        "FullTestEntrypointTest.test_real_coordinator_child_collects_owned_probe_evidence",
+        "FullTestEntrypointTest.test_result_records_subtests_and_class_setup_errors",
+        "FullTestEntrypointTest.test_role_dispatch_cannot_select_general_unguarded_target",
+        "FullTestEntrypointTest.test_runtime_identity_count_skip_and_lifecycle_fail_closed",
+        "FullTestEntrypointTest.test_source_inventory_is_static_and_excludes_diagnostic_before_read"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_isolation_foundation",
+      "h4_classification": "A1/foundation/helper",
+      "execution_role": "coordinator",
+      "cohort": "baseline",
+      "cases": [
+        "FoundationIsolationTest.test_invalid_worktree_metadata_fails_closed_without_private_reads",
+        "FoundationIsolationTest.test_nested_phase_denials_are_recorded_once_before_the_original_assertion",
+        "FoundationIsolationTest.test_observer_restores_after_body_and_bootstrap_failure",
+        "FoundationIsolationTest.test_registered_defaults_signing_credentials_and_owned_files",
+        "FoundationIsolationTest.test_relative_credential_and_keystore_paths_match_consumers",
+        "FoundationIsolationTest.test_standalone_phase_a_keeps_assertion_without_an_a1_observer",
+        "FoundationIsolationTest.test_swallowed_phase_denials_fail_the_real_child",
+        "FoundationIsolationTest.test_worktree_discovery_from_main_and_linked_metadata_only"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_isolation_results",
+      "h4_classification": "A1/foundation/helper",
+      "execution_role": "coordinator",
+      "cohort": "baseline",
+      "cases": [
+        "ResultHandlingTest.test_assertion_failure_is_not_an_isolation_violation",
+        "ResultHandlingTest.test_bootstrap_violation_is_counted",
+        "ResultHandlingTest.test_cleanup_exception_after_restoration_fails",
+        "ResultHandlingTest.test_expected_scope_does_not_consume_multiple_violations",
+        "ResultHandlingTest.test_import_failure_is_in_child_report",
+        "ResultHandlingTest.test_parent_cleanup_failure_is_in_module_result",
+        "ResultHandlingTest.test_registry_uses_resolver_without_reading_selected_env",
+        "ResultHandlingTest.test_runtime_violation_cannot_be_swallowed"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_isolation_runner",
+      "h4_classification": "A1/foundation/helper",
+      "execution_role": "coordinator",
+      "cohort": "baseline",
+      "cases": [
+        "IsolationRunnerTest.test_rate_limiter_has_unique_clean_roots",
+        "IsolationRunnerTest.test_swallowed_import_violation_fails_child",
+        "IsolationRunnerTest.test_synthetic_boundaries_and_sanitized_child"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_isolation_sqlite",
+      "h4_classification": "A1/foundation/helper",
+      "execution_role": "coordinator",
+      "cohort": "baseline",
+      "cases": [
+        "SQLiteIsolationTest.test_pre_bootstrap_connect_alias_is_fail_closed_and_restored",
+        "SQLiteIsolationTest.test_sqlite_boundaries_and_normal_operations",
+        "SQLiteIsolationTest.test_swallowed_attach_fails_child_without_creating_target"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_journal_batch_limits",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "JournalBatchLimitTest.test_ai_review_once_rejects_batches_above_ai_limit_before_charging",
+        "JournalBatchLimitTest.test_journal_workload_settings_have_upper_bounds",
+        "JournalBatchLimitTest.test_review_once_rejects_batches_above_configured_limit",
+        "JournalBatchLimitTest.test_review_once_rejects_oversized_trade_memo",
+        "JournalBatchLimitTest.test_review_once_returns_bad_request_for_invalid_trade_date",
+        "JournalBatchLimitTest.test_review_once_returns_bad_request_for_invalid_trade_side",
+        "JournalBatchLimitTest.test_review_once_returns_bad_request_for_negative_fee",
+        "JournalBatchLimitTest.test_review_once_returns_bad_request_for_oversized_ticker_and_source",
+        "JournalBatchLimitTest.test_saved_trade_rejects_oversized_memo",
+        "JournalBatchLimitTest.test_saved_trade_returns_bad_request_for_invalid_quantity",
+        "JournalBatchLimitTest.test_saved_trade_returns_bad_request_for_invalid_trade_date",
+        "JournalBatchLimitTest.test_saved_trade_returns_bad_request_for_non_finite_price",
+        "JournalBatchLimitTest.test_saved_trade_returns_bad_request_for_oversized_stock_name"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_journal_chart_details",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "JournalChartDetailsTest.test_intraday_interval_matches_holding_time",
+        "JournalChartDetailsTest.test_same_candle_keeps_buy_and_sell_markers",
+        "JournalChartDetailsTest.test_sell_marker_includes_realized_profit_and_return",
+        "JournalChartDetailsTest.test_symbol_review_includes_dates_and_cost_breakdown"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_journal_query_limits",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "JournalQueryLimitTest.test_journal_query_settings_have_upper_bounds",
+        "JournalQueryLimitTest.test_journal_trades_query_limit_is_capped",
+        "JournalQueryLimitTest.test_review_history_query_limit_is_capped",
+        "JournalQueryLimitTest.test_saved_journal_chart_uses_analysis_limit",
+        "JournalQueryLimitTest.test_saved_journal_review_uses_analysis_limit"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_main_ai_review_history_consent",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "MainAiReviewHistoryConsentTest.test_ai_review_once_does_not_save_history_when_storage_is_off",
+        "MainAiReviewHistoryConsentTest.test_ai_review_once_records_privacy_consent_for_authenticated_user",
+        "MainAiReviewHistoryConsentTest.test_ai_review_once_rejects_missing_privacy_consent",
+        "MainAiReviewHistoryConsentTest.test_ai_review_once_saves_history_for_authenticated_storage_user"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_market_rate_limits",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "MarketRateLimitTest.test_market_rate_limit_has_upper_bound",
+        "MarketRateLimitTest.test_public_market_middleware_rejects_excessive_requests"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_me_data_routes",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "MeDataRoutesTest.test_data_summary_counts_only_the_session_users_saved_trades",
+        "MeDataRoutesTest.test_delete_me_account_data_is_exposed_as_current_user_only_route",
+        "MeDataRoutesTest.test_export_me_data_includes_current_user_trades_and_entitlements_without_session_token"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_mobile_render_source_checks",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "MobileRuntimeSourceChecksTest.test_render_uses_persistent_cache_and_bounded_workers"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_mobile_runtime_recovery",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "MobileRuntimeRecoveryTest.test_cache_directory_and_worker_limit_are_configurable",
+        "MobileRuntimeRecoveryTest.test_daily_theme_refresh_targets_after_market_close_kst",
+        "MobileRuntimeRecoveryTest.test_production_cache_miss_returns_quick_preparing_response",
+        "MobileRuntimeRecoveryTest.test_stale_theme_cache_is_returned_while_latest_close_is_calculated",
+        "MobileRuntimeRecoveryTest.test_theme_basis_switches_to_today_after_market_data_is_ready",
+        "MobileRuntimeRecoveryTest.test_theme_cache_key_tracks_resolved_period_dates"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_mobile_runtime_source_checks",
+      "h4_classification": "OUT",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "MobileRuntimeSourceChecksTest.test_admin_can_trigger_and_inspect_initial_theme_cache"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_mobile_source_checks",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "MobileRuntimeSourceChecksTest.test_empty_journal_does_not_require_an_initial_api_round_trip",
+        "MobileRuntimeSourceChecksTest.test_mobile_layout_stacks_navigation_and_content",
+        "MobileRuntimeSourceChecksTest.test_oauth_handles_cold_launch_url_once",
+        "MobileRuntimeSourceChecksTest.test_oauth_success_and_app_failure_stages_are_logged_without_credentials",
+        "MobileRuntimeSourceChecksTest.test_production_journal_hides_developer_diagnostics",
+        "MobileRuntimeSourceChecksTest.test_theme_requests_timeout_and_retry"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_oauth_login",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "OAuthLoginTest.test_oauth_app_redirect_uses_one_time_app_ticket_without_session_token",
+        "OAuthLoginTest.test_oauth_code_login_requires_provider_configuration",
+        "OAuthLoginTest.test_oauth_config_status_rejects_invalid_or_local_redirect_uris",
+        "OAuthLoginTest.test_oauth_config_status_rejects_placeholder_redirect_uris",
+        "OAuthLoginTest.test_oauth_config_status_reports_missing_server_settings",
+        "OAuthLoginTest.test_oauth_config_status_reports_ready_server_settings",
+        "OAuthLoginTest.test_oauth_login_requires_access_token",
+        "OAuthLoginTest.test_production_oauth_code_rejects_invalid_server_redirect_uri",
+        "OAuthLoginTest.test_production_oauth_code_rejects_redirect_uri_mismatch",
+        "OAuthLoginTest.test_production_oauth_code_requires_server_redirect_uri"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_oauth_login_transport",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "OAuthTransportTest.test_kakao_access_token_profile_creates_alphamate_session",
+        "OAuthTransportTest.test_kakao_authorization_code_is_exchanged_before_login",
+        "OAuthTransportTest.test_naver_access_token_profile_creates_alphamate_session",
+        "OAuthTransportTest.test_naver_authorization_code_is_exchanged_before_login",
+        "OAuthTransportTest.test_oauth_request_timeout_setting_is_capped"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_owner_facing_messages",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "OwnerFacingMessagesTest.test_release_owner_scripts_do_not_contain_mojibake_or_replacement_characters"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_phase_a_application",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "PhaseAApplicationTest.test_asgi_auth_failure_never_reaches_stored_journal",
+        "PhaseAApplicationTest.test_asgi_ownership_and_storage_opt_in",
+        "PhaseAApplicationTest.test_cache_import_is_pure_and_initialization_uses_test_root",
+        "PhaseAApplicationTest.test_debug_callback_scheme_preserves_code_state_and_ticket_contract",
+        "PhaseAApplicationTest.test_dev_login_and_default_token_require_opt_in",
+        "PhaseAApplicationTest.test_invalid_import_precedes_application_imports_and_persistent_effects",
+        "PhaseAApplicationTest.test_lifespan_validates_before_cache_and_background",
+        "PhaseAApplicationTest.test_missing_oauth_configuration_does_not_create_stored_identity",
+        "PhaseAApplicationTest.test_once_analysis_does_not_access_stored_journal"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_phase_a_environment",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "PhaseAOAuthCleanupTest.test_oauth_cleanup_runs_after_an_assertion_failure",
+        "PhaseAOAuthCleanupTest.test_oauth_mocks_restore_in_both_orders"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_phase_a_runtime_environment",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "PhaseAEnvironmentTest.test_bad_selected_files_fail_without_values_in_exception",
+        "PhaseAEnvironmentTest.test_cwd_does_not_choose_env_or_storage",
+        "PhaseAEnvironmentTest.test_dev_access_matrix",
+        "PhaseAEnvironmentTest.test_drive_relative_paths_cannot_depend_on_drive_cwd",
+        "PhaseAEnvironmentTest.test_environment_defaults_preserve_production_and_separate_development",
+        "PhaseAEnvironmentTest.test_environment_values_and_normalization",
+        "PhaseAEnvironmentTest.test_invalid_configuration_cannot_open_any_database",
+        "PhaseAEnvironmentTest.test_missing_empty_unknown_never_fall_back",
+        "PhaseAEnvironmentTest.test_selected_file_is_exclusive_for_all_database_modules",
+        "PhaseAEnvironmentTest.test_test_dev_access_requires_complete_isolation",
+        "PhaseAEnvironmentTest.test_test_paths_require_explicit_values_and_reject_escape_collision",
+        "PhaseAHarnessTest.test_environment_is_restored",
+        "PhaseAHarnessTest.test_event_loop_and_asgi_messages",
+        "PhaseAHarnessTest.test_external_socket_audit_events_are_blocked",
+        "PhaseAHarnessTest.test_outbound_dns_http_and_non_temp_database_are_blocked",
+        "PhaseAHarnessTest.test_socketpair_works_but_arbitrary_loopback_is_blocked"
+      ],
+      "skips": {
+        "PhaseAEnvironmentTest.test_drive_relative_paths_cannot_depend_on_drive_cwd": {
+          "when": "non_windows",
+          "reason": "Windows drive-relative path contract"
+        }
+      }
+    },
+    {
+      "module": "tests.test_phase_a_socketpair_isolation",
+      "h4_classification": "A1/foundation/helper",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "SocketpairCompositionTest.test_network_and_subprocess_remain_blocked_with_and_without_phase_a",
+        "SocketpairCompositionTest.test_owned_socketpair_and_exception_restore_token",
+        "SocketpairCompositionTest.test_permission_is_exact_and_each_observer_is_one_shot"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_policy_documentation",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "PolicyDocumentationTest.test_ad_display_policy_explains_resume_app_open_format",
+        "PolicyDocumentationTest.test_ai_monetization_plan_matches_ad_free_pro_policy",
+        "PolicyDocumentationTest.test_ai_monetization_plan_mentions_current_admob_integration_status",
+        "PolicyDocumentationTest.test_ai_monetization_plan_uses_clean_korean_labels",
+        "PolicyDocumentationTest.test_owner_dashboard_prioritizes_real_release_inputs",
+        "PolicyDocumentationTest.test_owner_facing_release_docs_do_not_contain_broken_korean",
+        "PolicyDocumentationTest.test_recent_development_history_notes_do_not_contain_broken_korean",
+        "PolicyDocumentationTest.test_release_checklist_documents_split_ad_units",
+        "PolicyDocumentationTest.test_release_checklist_lists_every_project_verification_step",
+        "PolicyDocumentationTest.test_release_checklist_uses_fixed_android_package_name",
+        "PolicyDocumentationTest.test_release_checklist_uses_korean_final_verification_labels",
+        "PolicyDocumentationTest.test_security_docs_describe_sqlite_backed_entitlement_wallet",
+        "PolicyDocumentationTest.test_security_docs_match_current_admob_sdk_status",
+        "PolicyDocumentationTest.test_security_docs_match_current_oauth_code_flow"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_privacy_policy",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "PrivacyPolicyTest.test_account_deletion_page_uses_public_operator_brand",
+        "PrivacyPolicyTest.test_policy_identifies_service_operator_and_privacy_officer"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_private_release_setup",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "PrivateReleaseSetupTest.test_double_click_batch_runs_private_release_setup_steps_in_order",
+        "PrivateReleaseSetupTest.test_private_release_setup_batch_is_ascii_safe_wrapper",
+        "PrivateReleaseSetupTest.test_private_release_setup_reports_server_app_alignment_without_failing_setup"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_production_dev_guards",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ProductionDevGuardsTest.test_dev_login_is_disabled_in_production",
+        "ProductionDevGuardsTest.test_dev_token_and_dev_purchase_are_disabled_in_production",
+        "ProductionDevGuardsTest.test_persistent_journal_routes_require_auth_in_production"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_quick_verify_docs",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "QuickVerifyDocsTest.test_double_click_verify_batch_is_ascii_safe_wrapper",
+        "QuickVerifyDocsTest.test_owner_docs_avoid_stale_workspace_paths",
+        "QuickVerifyDocsTest.test_quick_verify_docs_list_every_project_verification_step",
+        "QuickVerifyDocsTest.test_quick_verify_docs_show_powershell_batch_invocation",
+        "QuickVerifyDocsTest.test_verify_project_powershell_script_keeps_utf8_bom_for_windows_powershell",
+        "QuickVerifyDocsTest.test_verify_project_runs_every_frontend_safety_test_script",
+        "QuickVerifyDocsTest.test_verify_project_script_forces_utf8_console_output"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_rate_limit",
+      "h4_classification": "OUT",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "RateLimitTest.test_allows_until_limit_then_returns_retry_after",
+        "RateLimitTest.test_prunes_expired_keys_when_key_count_exceeds_cap",
+        "RateLimitTest.test_prunes_old_attempts_after_window"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_release_alignment",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReleaseAlignmentTest.test_accepts_matching_backend_and_frontend_release_settings",
+        "ReleaseAlignmentTest.test_rejects_backend_oauth_app_scheme_that_differs_from_android_package_identity",
+        "ReleaseAlignmentTest.test_rejects_backend_oauth_app_scheme_that_differs_from_backend_package_even_without_frontend_value",
+        "ReleaseAlignmentTest.test_rejects_frontend_package_name_that_differs_from_fixed_android_package_identity",
+        "ReleaseAlignmentTest.test_rejects_mismatched_backend_and_frontend_release_settings",
+        "ReleaseAlignmentTest.test_rejects_when_no_release_settings_can_be_compared",
+        "ReleaseAlignmentTest.test_release_alignment_report_uses_readable_korean"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_release_env_file_setup",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReleaseEnvFileSetupTest.test_creates_private_release_env_files_from_templates",
+        "ReleaseEnvFileSetupTest.test_does_not_overwrite_existing_private_values_but_appends_new_template_keys",
+        "ReleaseEnvFileSetupTest.test_keeps_existing_private_release_env_files_when_template_keys_are_current"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_release_env_file_setup_docs",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReleaseEnvFileSetupDocsTest.test_double_click_batch_runs_release_env_setup_script",
+        "ReleaseEnvFileSetupDocsTest.test_release_env_setup_script_uses_korean_owner_messages"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_release_secret_generation",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReleaseSecretGenerationTest.test_fill_result_uses_korean_owner_messages",
+        "ReleaseSecretGenerationTest.test_fills_empty_backend_release_secret_values_without_overwriting_existing_values",
+        "ReleaseSecretGenerationTest.test_formats_output_without_writing_secret_files",
+        "ReleaseSecretGenerationTest.test_generates_long_distinct_release_secret_values"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_release_secret_generation_docs",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReleaseSecretGenerationDocsTest.test_double_click_batch_runs_secret_generation_script",
+        "ReleaseSecretGenerationDocsTest.test_owner_docs_mention_secret_generation_helper"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_render_blueprint",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "RenderBlueprintTest.test_env_example_mentions_render_blueprint_without_real_secrets",
+        "RenderBlueprintTest.test_render_blueprint_defines_starter_web_service",
+        "RenderBlueprintTest.test_render_blueprint_keeps_secrets_out_of_git",
+        "RenderBlueprintTest.test_render_blueprint_mounts_one_persistent_disk_for_sqlite",
+        "RenderBlueprintTest.test_render_blueprint_publishes_confirmed_privacy_contact",
+        "RenderBlueprintTest.test_render_blueprint_uses_confirmed_production_urls",
+        "RenderBlueprintTest.test_render_setup_guide_is_written_for_non_developers"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_request_id",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "RequestIdTest.test_accepts_safe_incoming_request_id",
+        "RequestIdTest.test_replaces_missing_or_unsafe_request_id"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_review_access",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReviewAccessTest.test_review_access_is_off_or_expired_by_default",
+        "ReviewAccessTest.test_review_credentials_are_generic_and_normal_user_has_no_review_entitlement",
+        "ReviewAccessTest.test_review_login_route_seeds_examples_and_runs_both_ai_review_types",
+        "ReviewAccessTest.test_review_login_uses_normal_session_and_isolated_pro_quota",
+        "ReviewAccessTest.test_review_session_loses_access_when_disabled_or_entitlement_expires"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_review_access_concurrency",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReviewAccessConcurrencyTest.test_review_example_trades_are_seeded_once_when_logins_overlap"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_review_history",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReviewHistoryStoreTest.test_clear_review_history_removes_only_requested_user",
+        "ReviewHistoryStoreTest.test_review_history_is_isolated_by_user_and_returns_detail"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_secret_scan_output",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "SecretScanOutputTest.test_secret_scan_covers_release_credential_patterns",
+        "SecretScanOutputTest.test_secret_scan_uses_korean_owner_messages"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_stock_chart_corporate_actions",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "StockChartCorporateActionTest.test_chart_keeps_post_consolidation_price_and_adjusts_older_prices"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_storage_fixture",
+      "h4_classification": "A1/foundation/helper",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "StorageFixtureTest.test_consecutive_testcases_after_success_and_failures",
+        "StorageFixtureTest.test_context_exception_restores_and_sanitizes_module_environment",
+        "StorageFixtureTest.test_rejects_invalid_active_environment_before_storage_creation",
+        "StorageFixtureTest.test_rejects_isolation_overrides_before_allocating_storage"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_storage_fixture_runner",
+      "h4_classification": "A1/foundation/helper",
+      "execution_role": "coordinator",
+      "cohort": "baseline",
+      "cases": [
+        "StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files",
+        "StorageFixtureRunnerTest.test_focused_fixture_regression_in_sanitized_child"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_theme_cache_memory",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ThemeCacheMemoryTests.test_gradual_market_move_is_not_treated_as_corporate_action",
+        "ThemeCacheMemoryTests.test_reverse_split_is_normalized_before_return_calculation",
+        "ThemeCacheMemoryTests.test_warm_cache_writes_separate_period_results_without_close_history_file"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_theme_cache_workers",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ThemeCacheWorkerTests.test_large_theme_fetch_keeps_outstanding_futures_and_results_bounded",
+        "ThemeCacheWorkerTests.test_multiple_periods_are_calculated_from_one_bounded_fetch_pass",
+        "ThemeCacheWorkerTests.test_period_returns_use_available_closes_and_exclude_tickers_without_two_rows",
+        "ThemeCacheWorkerTests.test_worker_exception_still_exits_bounded_executor"
+      ],
+      "skips": {}
+    },
+    {
+      "module": "tests.test_user_journal_storage",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "UserJournalStorageTest.test_clear_trades_removes_only_the_requested_user_records",
+        "UserJournalStorageTest.test_saved_trades_are_visible_only_to_their_owner"
+      ],
+      "skips": {}
+    }
+  ]
+}
