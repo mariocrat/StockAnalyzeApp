@@ -184,7 +184,7 @@ def launch_module(module, host=None, *, coordinator=False):
         container = Path(owned.name).resolve()
         root = container / "runtime"
         report["root"] = str(root)
-        command = [sys.executable, "-I", "-B", str(Path(__file__).resolve()),
+        command = [sys.executable, "-I", "-X", "utf8", "-B", str(Path(__file__).resolve()),
                    "--coordinator-child" if coordinator else "--child", module, "--root", str(root)]
         process = subprocess.run(command, cwd=container, env=sanitized_environment(host, root),
                                  input=json.dumps(protected_paths(host).metadata()),
@@ -374,7 +374,14 @@ def coordinate(entries, *, guarded=run_module, coordinator=run_coordinator_modul
             "reports": reports, "probes": probes, "issues": issues,
             "violations": total(guarded_reports, "violations"), "unexpected": total(guarded_reports, "unexpected"),
             "probe_violations": total([r for r in probes.values() if isinstance(r, dict)], "violations"),
-            "probe_unexpected": total([r for r in probes.values() if isinstance(r, dict)], "unexpected"),
+            # Child-local unexpected attempts are required by negative probe contracts.
+            # Count only matched contracts here; malformed/missing probes remain failures.
+            "probe_expected_negative_raw_violations": total([
+                report for module, report in probes.items()
+                if module not in issues and entries[module]["expected"]["passed"] is False
+            ], "unexpected"),
+            "probe_contract_mismatch": sum(entry["execution_role"] == "probe" and entry["module"] in issues
+                                           for entry in entries.values()),
             **{key: bool(reports) and complete and all(isinstance(report, dict) and report.get(key) is True for report in lifecycle)
                for key in ("restored", "patches_restored", "cleanup")},
             "passed": bool(reports) and not issues}

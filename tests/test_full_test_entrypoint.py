@@ -411,7 +411,32 @@ class FullTestEntrypointTest(unittest.TestCase):
         self.assertEqual(result["coverage"]["duplicates"], [])
         self.assertEqual(result["probe_coverage"]["missing"], [])
         self.assertEqual(result["unexpected"], 0)
-        self.assertEqual(result["probe_unexpected"], 1)
+        self.assertEqual(result["probe_expected_negative_raw_violations"], 1)
+        self.assertEqual(result["probe_contract_mismatch"], 0)
+        self.assertNotIn("probe_unexpected", result)
+
+        # Use the reviewed 4+1+1 manifest contracts without executing a full suite.
+        negatives = [copy.deepcopy(spec) for spec in inventory.load_inventory().values()
+                     if spec["execution_role"] == "probe" and not spec["expected"]["passed"]]
+        self.assertEqual(sorted(spec["expected"]["unexpected"] for spec in negatives), [1, 1, 4])
+        parent = report(owner)
+        parent["nested_reports"] = []
+        for spec in negatives:
+            spec["owner"] = owner["module"] + ".Case.test_body"
+            child = report(spec)
+            child.update(spec["expected"])
+            child.update(tests=len(spec["cases"]), violations=len(child["violation_kinds"]),
+                         cases=[{"id": spec["module"] + "." + case, "status": "PASS", "finished": True}
+                                for case in spec["cases"]])
+            parent["nested_reports"].append({"owner": spec["owner"], "report": child})
+        result = runner.coordinate({spec["module"]: spec for spec in [owner, *negatives]},
+                                   coordinator=lambda module: parent,
+                                   guarded=lambda module: self.fail("unexpected direct probe launch"))
+        self.assertTrue(result["passed"], result)
+        self.assertEqual(result["probe_expected_negative_raw_violations"], 6)
+        self.assertEqual(result["probe_contract_mismatch"], 0)
+        self.assertEqual(result["unexpected"], 0)
+        self.assertTrue(all(result[key] for key in ("restored", "patches_restored", "cleanup")))
 
     def test_missing_duplicate_or_wrong_negative_probe_fails(self):
         for fault in ("missing", "duplicate", "wrong-outcome", "wrong-owner"):
@@ -428,6 +453,8 @@ class FullTestEntrypointTest(unittest.TestCase):
             result = runner.coordinate({owner["module"]: owner, target["module"]: target}, coordinator=lambda module: parent)
             self.assertFalse(result["passed"], fault)
             self.assertIn(target["module"], result["issues"])
+            self.assertEqual(result["probe_contract_mismatch"], 1)
+            self.assertEqual(result["probe_expected_negative_raw_violations"], 0)
 
     def test_role_dispatch_cannot_select_general_unguarded_target(self):
         with patch.object(runner, "launch_module", side_effect=AssertionError("must reject before launch")):
@@ -462,6 +489,7 @@ class FullTestEntrypointTest(unittest.TestCase):
         for fault in ("missing", "duplicate", "malformed", "forged-root", "timeout"):
             def launch(*args, **kwargs):
                 roots.append(Path(kwargs["cwd"]))
+                self.assertEqual(args[0][1:5], ["-I", "-X", "utf8", "-B"])
                 self.assertEqual(kwargs["env"]["HOME"], str(roots[-1] / "runtime"))
                 self.assertNotIn("ARBITRARY_PROVIDER_SECRET", kwargs["env"])
                 if fault == "timeout":
@@ -478,6 +506,43 @@ class FullTestEntrypointTest(unittest.TestCase):
                 result = runner.run_module("tests.synthetic_target", host={"ARBITRARY_PROVIDER_SECRET": "synthetic"})
             self.assertFalse(result["passed"], fault)
             self.assertTrue(result["cleanup"], result)
+
+        # Run a real failing synthetic child through the same launcher/decoder.
+        # -I ignores PYTHONUTF8, so the command-line flag must carry this contract.
+        native_run = subprocess.run
+        korean = "합성 실패: 한국어 stderr 보존"
+        body = "import unittest\nclass Case(unittest.TestCase):\n def test_body(self):\n  self.fail(" + repr(korean) + ")\n"
+        code = (
+            "import sys, json, types\nfrom pathlib import Path\n"
+            "assert sys.flags.isolated == 1 and sys.flags.utf8_mode == 1\n"
+            f"sys.path.insert(0, {str(runner.REPOSITORY)!r})\n"
+            "from tests import run_isolated_tests as runner\n"
+            "module = types.ModuleType('tests.synthetic_target')\n"
+            f"exec({body!r}, module.__dict__)\n"
+            "sys.modules[module.__name__] = module\n"
+            "raise SystemExit(runner.child(module.__name__, Path(sys.argv[1]), "
+            "runner.ProtectedPaths(**json.loads(sys.stdin.read()))))\n"
+        )
+
+        def launch_korean(command, **options):
+            self.assertEqual(command[1:5], ["-I", "-X", "utf8", "-B"])
+            self.assertEqual(options["encoding"], "utf-8")
+            self.assertNotIn("errors", options)
+            options["env"].pop("PYTHONUTF8", None)
+            roots.append(Path(options["cwd"]))
+            return native_run([*command[:5], "-c", code, command[-1]], **options)
+
+        with patch.object(runner.subprocess, "run", side_effect=launch_korean):
+            result = runner.run_module("tests.synthetic_target")
+        self.assertFalse(result["passed"], result)
+        self.assertEqual(result["returncode"], 1)
+        self.assertEqual(result["failures"], 1)
+        self.assertEqual(result["cases"][0]["status"], "FAIL")
+        self.assertIn(korean, result["stderr"])
+        self.assertNotIn("UnicodeDecodeError", result["stderr"])
+        self.assertNotIn("coordinator_error", result)
+        self.assertEqual(result["unexpected"], 0)
+        self.assertTrue(all(result[key] for key in ("restored", "patches_restored", "cleanup")))
         self.assertTrue(all(not root.exists() for root in roots))
 
     def test_legacy_exit_two_before_any_target_or_application_import(self):
@@ -511,6 +576,7 @@ class FullTestEntrypointTest(unittest.TestCase):
         self.assertIn("Resolve-Executable $NodePath 'node.exe'", wrapper)
         branch = wrapper.split("if ($Mode -ceq 'TestOnly') {", 1)[1].split("\n    else {", 1)[0]
         self.assertEqual(branch.count("Require-Success (Invoke-IsolatedTool"), 2)
+        self.assertEqual(branch.count("@('-I', '-X', 'utf8', '-B', $coordinator"), 2)
         self.assertIn("'--all'", branch)
         self.assertIn("'--node-all'", branch)
         for prohibited in ("npm", "compileall", "build", "Gradle", "keytool", "discover"):

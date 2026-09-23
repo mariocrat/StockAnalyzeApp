@@ -55,6 +55,8 @@ class QuickVerifyDocsTest(unittest.TestCase):
         self.assertIn("[Console]::OutputEncoding", script)
         self.assertIn("$OutputEncoding", script)
         self.assertIn("$env:PYTHONUTF8 = \"1\"", script)
+        branch = script.split("if ($Mode -ceq 'TestOnly') {", 1)[1].split("\n    else {", 1)[0]
+        self.assertEqual(branch.count("@('-I', '-X', 'utf8', '-B', $coordinator"), 2)
 
     def test_quick_verify_docs_show_powershell_batch_invocation(self):
         docs = (ROOT / "docs" / "quick_verify.md").read_text(encoding="utf-8")

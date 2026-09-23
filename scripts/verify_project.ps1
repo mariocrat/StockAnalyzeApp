@@ -80,7 +80,7 @@ try {
     $node = Resolve-Executable $NodePath 'node.exe'
     $ownedRoot = Join-Path ([IO.Path]::GetTempPath()) ('stockboda-wrapper-' + [guid]::NewGuid().ToString('N'))
     $null = New-Item -ItemType Directory -Path $ownedRoot
-    $pythonProbe = Invoke-IsolatedTool $python @('-I', '-B', '-c', "import sys, sqlite3, unittest; print('H4_PYTHON:'+str(sys.version_info.major)+'.'+str(sys.version_info.minor))") $ownedRoot -Probe
+    $pythonProbe = Invoke-IsolatedTool $python @('-I', '-X', 'utf8', '-B', '-c', "import sys, sqlite3, unittest; print('H4_PYTHON:'+str(sys.version_info.major)+'.'+str(sys.version_info.minor))") $ownedRoot -Probe
     if ($pythonProbe.Code -ne 0 -or $pythonProbe.Output.Trim() -notmatch '^H4_PYTHON:3\.(1[1-9]|[2-9][0-9])$') {
         throw 'Compatible Python 3.11+ is required.'
     }
@@ -90,8 +90,8 @@ try {
     }
     if ($Mode -ceq 'TestOnly') {
         $coordinator = Join-Path $root 'tests\run_isolated_tests.py'
-        Require-Success (Invoke-IsolatedTool $python @('-I', '-B', $coordinator, '--all') $ownedRoot)
-        Require-Success (Invoke-IsolatedTool $python @('-I', '-B', $coordinator, '--node-all', '--node-executable', $node) $ownedRoot)
+        Require-Success (Invoke-IsolatedTool $python @('-I', '-X', 'utf8', '-B', $coordinator, '--all') $ownedRoot)
+        Require-Success (Invoke-IsolatedTool $python @('-I', '-X', 'utf8', '-B', $coordinator, '--node-all', '--node-executable', $node) $ownedRoot)
     }
     else {
         # BuildChecks is NOT the H4 boundary or release/deploy approval.

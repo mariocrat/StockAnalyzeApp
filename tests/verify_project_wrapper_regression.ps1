@@ -141,16 +141,18 @@ function Invoke-IsolatedTool {
         Assert-Contract ($calls.Count -eq $case.Calls) ($case.Name + ': dispatch count')
         foreach ($call in $calls) { Assert-Contract (-not (Test-Path -LiteralPath $call.owned)) 'wrapper temp residue' }
         if ($case.Name -eq 'success') {
-            Assert-Contract (($calls[2].arguments -join '|') -eq ('-I|-B|' + (Join-Path $copy 'tests/run_isolated_tests.py') + '|--all')) 'Python coordinator contract'
-            Assert-Contract (($calls[3].arguments -join '|') -eq ('-I|-B|' + (Join-Path $copy 'tests/run_isolated_tests.py') + '|--node-all|--node-executable|' + $node)) 'Node coordinator contract'
+            Assert-Contract (($calls[2].arguments -join '|') -eq ('-I|-X|utf8|-B|' + (Join-Path $copy 'tests/run_isolated_tests.py') + '|--all')) 'Python coordinator contract'
+            Assert-Contract (($calls[3].arguments -join '|') -eq ('-I|-X|utf8|-B|' + (Join-Path $copy 'tests/run_isolated_tests.py') + '|--node-all|--node-executable|' + $node)) 'Node coordinator contract'
             Assert-Contract ($calls[2].executable -eq $py -and $calls[3].executable -eq $py) 'absolute Python dispatch'
         }
         $passed++
         Write-Output ("PASS: " + $case.Name)
     }
     # Exercise the real launcher with harmless interpreter probes only.
-    $probe = Invoke-IsolatedTool $PythonPath @('-I','-B','-c', "import os; assert 'PATH' not in os.environ; assert 'PYTHONPATH' not in os.environ; assert 'NODE_OPTIONS' not in os.environ; assert os.environ['HOME']==os.getcwd(); print('clean')") $owned -Probe
+    $probe = Invoke-IsolatedTool $PythonPath @('-I','-X','utf8','-B','-c', "import os, sys; assert sys.flags.isolated == 1 and sys.flags.utf8_mode == 1; assert 'PATH' not in os.environ; assert 'PYTHONPATH' not in os.environ; assert 'NODE_OPTIONS' not in os.environ; assert os.environ['HOME']==os.getcwd(); print('clean')") $owned -Probe
     Assert-Contract ($probe.Code -eq 0 -and $probe.Output.Trim() -eq 'clean') ('real sanitized Python probe: ' + $probe.Error)
+    $probe = Invoke-IsolatedTool $PythonPath @('-I','-X','utf8','-B','-c', "import sys; print('\ud55c\uad6d\uc5b4 stderr', file=sys.stderr); sys.exit(7)") $owned -Probe
+    Assert-Contract ($probe.Code -eq 7 -and $probe.Error.Trim() -eq ((-join [char[]]@(0xd55c,0xad6d,0xc5b4)) + ' stderr')) 'Korean failure stderr/exit contract'
     $probe = Invoke-IsolatedTool $NodePath @('--permission','--test-isolation=none','--version') $owned -Probe
     Assert-Contract ($probe.Code -eq 0 -and $probe.Output.Trim() -match '^v24\.') 'real Node probe'
     $passed++
