@@ -24,13 +24,15 @@ Mode 없는 더블클릭 실행은 실패합니다.
 
 TestOnly 호출 구조:
 1. 두 실행기의 격리된 compatibility probe.
-2. 지정 Python으로 `-I -B tests/run_isolated_tests.py --all`.
-3. 같은 Python으로 `-I -B tests/run_isolated_tests.py --node-all --node-executable <approved absolute node.exe>`.
+2. 지정 Python으로 `-I -X utf8 -B tests/run_isolated_tests.py --all`.
+3. 같은 Python으로 `-I -X utf8 -B tests/run_isolated_tests.py --node-all --node-executable <approved absolute node.exe>`.
 
 Python direct **464** = 기존 H4 **35 / 393 / 22** (A1/foundation/helper / migrated / OUT) + Stage 1 **14** 별도 cohort.
 Child probe **18**은 direct와 별도 집계합니다.
 Node **17 entrypoint / 128 direct testcase**, `test:mobile-bundle` 포함.
 Manifest/source/execution 누락·중복·extra 및 예상 밖 skip은 실패입니다. Nested evidence는 direct에 중복 합산하지 않습니다.
+
+최종 closeout 상태: H4 test environment isolation closeout 완료. 공식 TestOnly exit code **0**; Python **464/464 PASS**, child probe **18/18 계약 PASS**, Node **17/17 entrypoint / 128/128 direct PASS**입니다. Expected negative raw ledger 6, probe contract mismatch 0, suite unexpected 0이며 restoration/cleanup 지표는 모두 true, repo pollution은 0입니다.
 
 raw `unittest discover`는 공식 경로가 아닙니다. Target import 전에 필요한 A1 boundary를 설치하는 승인 coordinator를 사용합니다.
 `tests/run_phase_a_tests.py`는 deprecated이며 target import 전 **exit 2**로 종료합니다.

@@ -28,6 +28,33 @@
 - Coverage remains Python **464 direct**, child probes **18**, baseline H4 **35 / 393 / 22** plus Stage 1 **14** in its separate cohort; Node **17 entrypoints / 128 direct testcases**.
 - Official full TestOnly, the complete Python/Node suites and actual BuildChecks have **not** been executed in Stage 3. Full TestOnly requires separate authorization; these reduced PASS results do not close H4 or constitute build/release approval. No production, Foundation, Stage 1/2 coordinator implementation or package change; no push.
 
+## Official H4 TestOnly findings and resolution — 2026-09-23
+
+The Stage 3 HOLD and its failed wrapper-attempt records above remain unchanged historical evidence. The first official full TestOnly run subsequently exposed three integration/reporting findings; none changed the A1 guard, Stage 1/2 isolation semantics, or negative-probe contract.
+
+### First official run — findings
+
+- The wrapper exited **2** and the Python coordinator exited **1**. Python direct coverage was **463 PASS / 1 FAIL / 0 ERROR / 0 SKIP** of 464, with missing/duplicate/extra/unexpected skip all 0. The first failure was `tests.test_policy_documentation.PolicyDocumentationTest.test_release_checklist_lists_every_project_verification_step`: the assertion expected the four canonical BuildChecks labels (`Backend compile check`, `Tracked secret scan`, `Frontend lint`, `Frontend production build`), while the release checklist then contained only equivalent Korean wording. Node had not started.
+- The coordinator reader thread raised `UnicodeDecodeError` while decoding child stderr as UTF-8, losing diagnostic text. This was a separate reporting/encoding finding, not the policy testcase's assertion cause.
+- All **18/18** child probes individually passed and suite-level unexpected violations were 0, but the aggregate displayed `probe_unexpected=6`. Diagnosis confirmed these were the manifest's intentional expected negative raw ledger (**4+1+1**), not unexpected isolation violations; the summary label obscured the distinction.
+
+### Finding fixes and independent regression verification
+
+- The release checklist retained its existing Korean/history text and added the four canonical English BuildChecks labels. The original policy testcase ID, body and assertion were unchanged and passed.
+- Python wrapper/coordinator and module-child invocations explicitly use `-I -X utf8` (with `-B` where applicable); `-I` remains enabled and no error-decoding fallback was added. A Korean-stderr synthetic case, malformed report and failure-reporting checks passed in the existing regression IDs.
+- The summary now distinguishes expected negative probe raw violations from probe contract mismatch and suite-level unexpected violations. The **4+1+1** negative contract and guard behavior remain unchanged.
+- Independently verified scoped regressions: policy testcase **1 PASS**; UTF-8/malformed/failure reporting **7 PASS**; negative-probe owner **3 PASS**; wrapper **18 PASS**; docs **7 PASS**. Python direct inventory remained **464**, with no testcase-ID or manifest-ID change. `restored`, `patches_restored` and `cleanup` were true; wrapper temp residue was 0. These integration fixes were committed at **9fff3f3e84ce26f663f41619d37a4eb101bfbc32**.
+
+## H4 final technical verification — 2026-09-23
+
+**Recorded status before closeout documentation: H4 technical verification complete — closeout documentation pending.** At commit `9fff3f3e84ce26f663f41619d37a4eb101bfbc32`, the official full TestOnly ran once and returned exit code **0** with overall PASS.
+
+- Python direct: **464 PASS / 0 FAIL / 0 ERROR / 0 SKIP**; missing/duplicate/extra/unexpected skip all **0**. H4 classification remains A1/foundation/helper **35**, migrated A2+B1+B2+C+D **393**, OUT **22**, plus Stage 1 cohort **14** = **464**.
+- Child probes: **18/18** contract PASS; expected negative raw ledger **6 (4+1+1)**, probe contract mismatch **0**, suite-level unexpected **0**. No unexpected isolation violation.
+- Node: **17/17 entrypoints PASS**, direct testcase **128 PASS / 0 FAIL / 0 SKIP**; missing/duplicate/extra/unexpected skip all **0**.
+- Lifecycle: `restored=true`, `patches_restored=true`, `cleanup=true`; Node temp cleanup succeeded. Test-owned temp residue and repository pollution were **0**.
+- At that point, the independent verdict was **Approved — H4 technical verification complete; closeout may proceed**; the closeout commit and final closeout verification remained pending then.
+
 ## H4-D closeout — 2026-09-20
 
 - Goal/scope: isolate release/documentation/static checks and Phase A runtime/orchestration while preserving real source reads, SQLite/application behavior and original assertions; keep writes in owned temporary storage and block unintended private/external/tool access.
@@ -1220,3 +1247,15 @@ tests/test_release_secret_generation_docs.py:
 - A1 minimum `python -B -m unittest tests.test_isolation_runner tests.test_isolation_results tests.test_isolation_sqlite -v`: 14 PASS, including intentional negative probes. `python -B tests/run_isolated_tests.py tests.isolation_smoke tests.test_rate_limit`: 1 + 3 PASS, unexpected 0 and restoration/cleanup true.
 - Direct-entry coordinator `python -B -m unittest tests.test_storage_fixture_runner.StorageFixtureRunnerTest.test_direct_import_fails_before_storage_dependencies_or_files -v`: PASS across 31 local targets. All raw target imports fail closed before resource access. git diff --check passed; full staged diff/check and explicit nine-file allowlist review required before commit. No full suite or deferred D execution. Production, shared storage/API helpers and A1 guard/runner unchanged.
 - The approved residual 97-test A2 plan has now executed 19 + 17 + 36 + 25 local tests in A2-9 through A2-12. Independent approval of A2-12 remains pending; this does not close H4. Existing B1/B2/C and D official wrappers/docs/orchestration/closeout remain deferred, as do source-only OUT items. This batch adds eight preserved D tests; no D/OUT validation is claimed.
+
+## H4 test environment isolation closeout — 2026-09-23
+
+**Status: H4 test environment isolation closeout complete.** This final record supersedes prior pending/hold status as of the verification commit below; all earlier failure and remediation history remains preserved above.
+
+- Final verification HEAD: `9fff3f3e84ce26f663f41619d37a4eb101bfbc32`. Official full TestOnly exit code **0**; complete run **PASS**.
+- Python direct **464/464 PASS**, with FAIL/ERROR/SKIP **0** and missing/duplicate/extra/unexpected skip **0**. H4 classification: A1/foundation/helper **35**, migrated A2+B1+B2+C+D **393**, OUT **22**, plus Stage 1 cohort **14**.
+- Child probes **18/18 contract PASS**; expected negative raw ledger **6 (4+1+1)**, probe contract mismatch **0**, suite unexpected **0**.
+- Node **17/17 entrypoints PASS**, **128/128 direct testcase PASS**; FAIL/SKIP/missing/duplicate/extra/unexpected skip **0**.
+- `restored=true`; `patches_restored=true`; `cleanup=true`; Node temp cleanup succeeded. Repository pollution **0**.
+- Independent final verdict: **H4 전체 기술 검증 완료, closeout 진행 가능**; the closeout action recorded here is complete.
+- The untracked temporary Phase A/socketpair diagnostic `tests/diagnose_phase_a_probe.py` was removed; it was not in official inventory or TestOnly. Three external diagnostic temp artifacts remain preserved outside the repository as non-blocking artifacts; they were not accessed, changed, or deleted. External `stdout.bin`/`stderr.bin` were likewise left untouched.

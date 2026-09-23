@@ -27,8 +27,9 @@ Mode 없는 더블클릭 실행은 실패합니다.
 
 TestOnly 호출 구조:
 1. 두 실행기의 격리된 compatibility probe.
-2. 지정 Python으로 `-I -B tests/run_isolated_tests.py --all`.
-3. 같은 Python으로 `-I -B tests/run_isolated_tests.py --node-all --node-executable <approved absolute node.exe>`.
+2. 지정 Python으로 `-I -X utf8 -B tests/run_isolated_tests.py --all`.
+3. 같은 Python으로 `-I -X utf8 -B tests/run_isolated_tests.py --node-all --node-executable <approved absolute node.exe>`.
+Python coordinator와 module child는 모두 `-I -X utf8`로 실행되어 UTF-8 stdout/stderr를 사용합니다.
 
 Python direct **464** = 기존 H4 **35 / 393 / 22** (A1/foundation/helper / migrated / OUT) + Stage 1 **14** 별도 cohort.
 Child probe **18**은 direct와 별도 집계합니다.
@@ -68,10 +69,18 @@ npm lifecycle/build 설정의 부작용을 먼저 검토해야 하며 필요한 
 
 ## 검증 상태와 범위
 
-Stage 1/2는 독립 검증 승인 완료입니다. Stage 3는 wrapper/docs 연결 및 축소 regression 단계이며, 공식 전체 TestOnly와 BuildChecks는 아직 실행하지 않았습니다. 전체 H4 closeout은 별도 승인 실행 및 결과 확인 후 판단합니다.
+**H4 test environment isolation closeout complete.** 공식 전체 TestOnly는 exit code **0**, 전체 PASS로 최종 승인됐고 closeout 문서화와 최종 확인도 완료됐습니다.
+
+- Python direct **464 PASS** (FAIL/ERROR/SKIP 0); missing/duplicate/extra/unexpected skip 모두 0.
+- H4 classification은 A1/foundation/helper **35**, migrated A2+B1+B2+C+D **393**, OUT **22**이며, Stage 1 신규 cohort **14**를 별도로 더해 464입니다.
+- Child probe **18/18 계약 PASS**. Expected negative raw ledger **6 (4+1+1)**, probe contract mismatch **0**, suite-level unexpected **0**.
+- Node entrypoint **17/17 PASS**, direct testcase **128 PASS** (FAIL/SKIP 0); missing/duplicate/extra/unexpected skip 모두 0.
+- `restored`, `patches_restored`, `cleanup` 모두 true; Node temp cleanup 성공, test-owned temp 잔여와 repo pollution은 0입니다.
+
+Stage 1/2 및 Foundation isolation 의미는 유지됐습니다. BuildChecks는 이번 H4 TestOnly에 포함되지 않았으며, 별도 실행·승인을 의미하지 않습니다.
 Android debug/release wrapper와 임의 raw module 실행에 H4 TestOnly 보장이 자동 적용되지 않습니다. -B는 bytecode만 막으며 DB/network 격리를 대신하지 않습니다.
 
-축소 문서 검증은 승인 Python으로 `-I -B tests/run_isolated_tests.py tests.test_quick_verify_docs`를 사용합니다. Wrapper synthetic 검증은 `tests/verify_project_wrapper_regression.ps1`에 명시적 PythonPath/NodePath를 전달하며, 실제 coordinator 대신 synthetic dispatch를 검사합니다.
+축소 문서 검증은 승인 Python으로 `-I -X utf8 -B tests/run_isolated_tests.py tests.test_quick_verify_docs`를 사용합니다. Wrapper synthetic 검증은 `tests/verify_project_wrapper_regression.ps1`에 명시적 PythonPath/NodePath를 전달하며, 실제 coordinator 대신 synthetic dispatch를 검사합니다.
 
 ## 변경별 검증 수준
 
