@@ -7,6 +7,11 @@ import { fileURLToPath } from 'node:url'
 export default defineConfig(({ mode }) => {
   const root = dirname(fileURLToPath(import.meta.url))
   const env = loadEnv(mode, root, '')
+  if (env.VITE_ANDROID_OAUTH_APP_SCHEME === 'com.mariocrat.stockanalyze.debug') {
+    const required = ['VITE_KAKAO_REST_API_KEY', 'VITE_NAVER_CLIENT_ID', 'VITE_KAKAO_REDIRECT_URI', 'VITE_NAVER_REDIRECT_URI']
+    const missing = required.filter(key => !env[key]?.trim())
+    if (missing.length) throw new Error(`Debug OAuth build requires: ${missing.join(', ')}`)
+  }
   const appName = env.VITE_APP_NAME || 'StockBoda'
 
   return {

@@ -339,7 +339,7 @@ export default function TradingJournal({
   const [feeRate, setFeeRate] = useState(DEFAULT_FEE_RATE);
   const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE);
   const [feeFree, setFeeFree] = useState(false);
-  const [authSession, setAuthSession] = useState(loadStoredAuth);
+  const [authSession, setAuthSessionState] = useState(loadStoredAuth);
   const [oauthServerStatus, setOauthServerStatus] = useState(null);
   const [reviewAccessId, setReviewAccessId] = useState('');
   const [reviewAccessPassword, setReviewAccessPassword] = useState('');
@@ -356,6 +356,7 @@ export default function TradingJournal({
   const [reviewTargetFrom, setReviewTargetFrom] = useState('');
   const [reviewTargetTo, setReviewTargetTo] = useState('');
   const stockSearchSeq = useRef(0);
+  const authSessionGenerationRef = useRef(0);
   const suppressStockSearchRef = useRef(false);
   const entitlementSectionRef = useRef(null);
   const tradeChartSectionRef = useRef(null);
@@ -421,6 +422,11 @@ export default function TradingJournal({
     return () => window.removeEventListener(APP_BACK_REQUEST_EVENT, handleBackRequest);
   }, [accountPanelOpen, activeReviewHistory, journalSubView, message, onCloseAccountPanel, reviewAccessDialog]);
   const handledOAuthReturnUrlRef = useRef('');
+
+  const setAuthSession = (nextSession) => {
+    authSessionGenerationRef.current += 1;
+    setAuthSessionState(nextSession);
+  };
 
   const activeAuthToken = authSession?.session_token || DEV_AUTH_TOKEN;
   const authHeaders = { Authorization: `Bearer ${activeAuthToken}` };
@@ -666,9 +672,10 @@ export default function TradingJournal({
   };
 
   const loadEntitlements = async (tokenOverride = '') => {
+    const requestGeneration = authSessionGenerationRef.current;
     const token = tokenOverride || activeAuthToken;
     if (!token) {
-      setEntitlements(null);
+      if (requestGeneration === authSessionGenerationRef.current) setEntitlements(null);
       return;
     }
     try {
@@ -676,9 +683,9 @@ export default function TradingJournal({
         params: { entitlement_token: DEV_ENTITLEMENT_TOKEN },
         headers: { Authorization: `Bearer ${token}` },
       });
-      setEntitlements(res.data || null);
+      if (requestGeneration === authSessionGenerationRef.current) setEntitlements(res.data || null);
     } catch {
-      setEntitlements(null);
+      if (requestGeneration === authSessionGenerationRef.current) setEntitlements(null);
     }
   };
 
@@ -945,13 +952,16 @@ export default function TradingJournal({
       // Local logout still clears the development session.
     } finally {
       localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(OAUTH_STATE_KEY);
       setAuthSession(null);
       setDataSummary(null);
+      setEntitlements(null);
       resetJournalWorkspace();
       if (onEntitlementsChange) onEntitlementsChange({ plan: DEV_ACCESS_PLAN === 'pro' ? 'pro' : 'free' });
-      await loadEntitlements(DEV_AUTH_TOKEN);
       setMessage('로그아웃했습니다.');
       setAuthLoading(false);
+      // Never reuse the logged-out render's token or block login on a refresh.
+      if (DEV_AUTH_TOKEN) void loadEntitlements(DEV_AUTH_TOKEN);
     }
   };
 

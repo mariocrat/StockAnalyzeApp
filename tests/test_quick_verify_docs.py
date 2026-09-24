@@ -96,7 +96,7 @@ class QuickVerifyDocsTest(unittest.TestCase):
         from tests.isolation_inventory import load_node_inventory, node_inventory_summary
 
         live = node_inventory_summary(load_node_inventory())
-        self.assertEqual((live["entrypoints"], live["direct"]), (18, 149))
+        self.assertEqual((live["entrypoints"], live["direct"]), (20, 160))
         current_node_contract = f"Node **{live['entrypoints']} entrypoint / {live['direct']} direct testcase**"
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("tests\\run_isolated_tests.py", script)

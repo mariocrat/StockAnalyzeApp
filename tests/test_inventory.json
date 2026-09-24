@@ -1457,6 +1457,48 @@
         "release_eval_sha256": []
       },
       {
+        "name": "test:oauth-initial-state",
+        "command": "node --test scripts/oauth-initial-state.test.js",
+        "file": "scripts/oauth-initial-state.test.js",
+        "profile": "standard",
+        "cases": [
+          "Debug scheme guard rejects each missing public OAuth setting",
+          "kakao: public config enables fresh login independently of server fetch timing",
+          "naver: public config enables fresh login independently of server fetch timing",
+          "kakao: ready server cannot compensate for missing packaged public credentials",
+          "naver: ready server cannot compensate for missing packaged public credentials"
+        ],
+        "sha256": "0adad098ef7473b16a66903021ca27544fc6ebf2810301a4a688f39e164a35e9",
+        "reads": [
+          "package.json",
+          "scripts/oauth-initial-state.test.js",
+          "src/components/TradingJournal.jsx",
+          "vite.config.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:oauth-logout",
+        "command": "node --test scripts/oauth-logout.test.js",
+        "file": "scripts/oauth-logout.test.js",
+        "profile": "standard",
+        "cases": [
+          "kakao release scheme: logout enables login and accepts a fresh same-provider ticket",
+          "kakao Debug scheme: logout enables login and accepts a fresh same-provider ticket",
+          "naver release scheme: logout enables login and accepts a fresh same-provider ticket",
+          "naver Debug scheme: logout enables login and accepts a fresh same-provider ticket",
+          "failed logout request still releases local login controls",
+          "slow development entitlement refresh does not hold the auth loading flag"
+        ],
+        "sha256": "a4391d65e72462831b25a6826b9fe59292b8cfeac40e9bec395a317d6699d242",
+        "reads": [
+          "package.json",
+          "scripts/oauth-logout.test.js",
+          "src/components/TradingJournal.jsx"
+        ],
+        "release_eval_sha256": []
+      },
+      {
         "name": "test:app-navigation",
         "command": "node --test scripts/app-navigation.test.js",
         "file": "scripts/app-navigation.test.js",
