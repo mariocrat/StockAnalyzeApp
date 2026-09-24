@@ -1,3 +1,10 @@
+from core.http_access_log import install_credential_safe_error_logging
+from core.env import env_value, is_production, validate_configuration
+
+# Fail before application imports can initialize storage or background work.
+install_credential_safe_error_logging()
+validate_configuration()
+
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -23,7 +30,7 @@ from core.metrics import calculate_theme_rankings, get_stocks_in_theme
 from core.utils import get_chosung
 from core.journal import add_trade, list_trades, count_trades, delete_trade, clear_trades, build_review, normalize_trade
 from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
-from core.journal_chart import build_journal_charts
+from core.journal_chart import build_journal_charts, initialize_yfinance_cache
 from core.review_history import add_review_history, list_review_history, get_review_history, delete_review_history
 from core.access_control import (
     apply_dev_purchase,
@@ -48,8 +55,8 @@ from core.oauth_login import create_oauth_app_error_redirect, create_oauth_app_r
 from core.cors import allowed_cors_origins
 from core.readiness import get_app_readiness
 from core.rate_limit import InMemoryRateLimiter
-from core.env import env_value
 from core.event_log import list_events, purge_configured_retention, purge_events_older_than, record_api_exception, record_api_failure, record_event, summarize_events
+from core.http_access_log import CredentialSafeHttpSummaryMiddleware, install_credential_safe_error_logging
 
 from contextlib import asynccontextmanager
 import copy
@@ -299,9 +306,7 @@ def _optional_session_user(authorization: Optional[str]):
 
 
 def _persistent_journal_user(authorization: Optional[str]):
-    if str(env_value("ALPHAMATE_ENV") or "").strip().lower() == "production":
-        return authenticate_session(authorization)
-    return _optional_session_user(authorization)
+    return authenticate_session(authorization)
 
 
 def _journal_user_id_if_enabled(authorization: Optional[str]) -> str:
@@ -500,6 +505,9 @@ def _theme_cache_scheduler(stop_event: threading.Event):
 
 @asynccontextmanager
 async def lifespan(app):
+    install_credential_safe_error_logging()
+    validate_configuration()
+    initialize_yfinance_cache()
     scheduler_stop = threading.Event()
     if _warm_cache_on_startup():
         threading.Thread(target=_warm_cache, daemon=True).start()
@@ -514,6 +522,8 @@ async def lifespan(app):
 
 app = FastAPI(title="Stock Analysis API", lifespan=lifespan)
 
+install_credential_safe_error_logging()
+app.add_middleware(CredentialSafeHttpSummaryMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_cors_origins(),
@@ -947,7 +957,7 @@ def _require_admin_token(authorization: Optional[str]) -> bool:
     configured = env_value("ALPHAMATE_ADMIN_TOKEN")
     if not configured:
         raise HTTPException(status_code=503, detail="Admin event log access is not configured.")
-    if env_value("ALPHAMATE_ENV").lower() == "production" and len(configured) < ADMIN_TOKEN_MIN_LENGTH:
+    if is_production() and len(configured) < ADMIN_TOKEN_MIN_LENGTH:
         raise HTTPException(status_code=503, detail="Admin token must be at least 32 characters in production.")
     token = _bearer_value(authorization)
     if not token:
@@ -1269,7 +1279,7 @@ def _get_themes_cached(period: str, start_date: Optional[str], end_date: Optiona
                         record["Data Status"] = "updating"
                         record["Expected End Date"] = end_date
                     return records
-                if env_value("ALPHAMATE_ENV").lower() == "production":
+                if is_production():
                     _schedule_theme_cache_refresh(start_date, end_date)
                     raise HTTPException(
                         status_code=503,
@@ -1278,7 +1288,7 @@ def _get_themes_cached(period: str, start_date: Optional[str], end_date: Optiona
                 df = get_theme_returns_historical(start_date, end_date, period=period)
         else:
             df = get_cached_theme_returns(start_date, end_date)
-            if df.empty and env_value("ALPHAMATE_ENV").lower() == "production":
+            if df.empty and is_production():
                 _schedule_custom_theme_cache_refresh(start_date, end_date)
                 raise HTTPException(
                     status_code=503,
@@ -1576,11 +1586,9 @@ def get_journal_trades(
 ):
     safe_limit = _safe_journal_query_limit(limit, default=500)
     user = _persistent_journal_user(authorization)
-    if user:
-        if not user.get("journal_storage_enabled"):
-            return []
-        return list_trades(limit=safe_limit, user_id=user["id"])
-    return list_trades(limit=safe_limit)
+    if not user.get("journal_storage_enabled"):
+        return []
+    return list_trades(limit=safe_limit, user_id=user["id"])
 
 
 @app.post("/api/journal/trades")
@@ -1590,11 +1598,9 @@ def create_journal_trade(
 ):
     _enforce_trade_text_limits([trade])
     user = _persistent_journal_user(authorization)
-    if user:
-        if not user.get("journal_storage_enabled"):
-            raise HTTPException(status_code=403, detail="매매 이력 저장을 먼저 켜야 합니다.")
-        return _add_journal_trade(trade.model_dump(), user_id=user["id"])
-    return _add_journal_trade(trade.model_dump())
+    if not user.get("journal_storage_enabled"):
+        raise HTTPException(status_code=403, detail="매매 이력 저장을 먼저 켜야 합니다.")
+    return _add_journal_trade(trade.model_dump(), user_id=user["id"])
 
 
 @app.delete("/api/journal/trades/{trade_id}")
@@ -1603,31 +1609,23 @@ def remove_journal_trade(
     authorization: Optional[str] = Header(default=None),
 ):
     user = _persistent_journal_user(authorization)
-    if user:
-        deleted_count = delete_trade(trade_id, user_id=user["id"])
-    else:
-        deleted_count = delete_trade(trade_id)
+    deleted_count = delete_trade(trade_id, user_id=user["id"])
     return {"ok": True, "deleted_count": deleted_count}
 
 
 @app.delete("/api/journal/trades")
 def remove_all_journal_trades(authorization: Optional[str] = Header(default=None)):
     user = _persistent_journal_user(authorization)
-    if user:
-        deleted_count = clear_trades(user_id=user["id"])
-    else:
-        deleted_count = clear_trades()
+    deleted_count = clear_trades(user_id=user["id"])
     return {"ok": True, "deleted_count": deleted_count}
 
 
 @app.get("/api/journal/review")
 def get_journal_review(authorization: Optional[str] = Header(default=None)):
     user = _persistent_journal_user(authorization)
-    if user:
-        if not user.get("journal_storage_enabled"):
-            return build_review([])
-        return build_review(list_trades(limit=_saved_journal_analysis_max_trades(), user_id=user["id"]))
-    return build_review()
+    if not user.get("journal_storage_enabled"):
+        return build_review([])
+    return build_review(list_trades(limit=_saved_journal_analysis_max_trades(), user_id=user["id"]))
 
 
 @app.post("/api/journal/review-once")
@@ -1879,10 +1877,7 @@ def get_journal_ai_review_once(
 def get_journal_charts(authorization: Optional[str] = Header(default=None)):
     user = _persistent_journal_user(authorization)
     limit = _saved_journal_analysis_max_trades()
-    if user:
-        trades = list_trades(limit=limit, user_id=user["id"]) if user.get("journal_storage_enabled") else []
-    else:
-        trades = list_trades(limit=limit)
+    trades = list_trades(limit=limit, user_id=user["id"]) if user.get("journal_storage_enabled") else []
     return build_journal_charts(trades)
 
 
@@ -2042,4 +2037,4 @@ def get_macro(start_date: str, end_date: str):
     return {"data": df.to_dict(orient="records")}
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, access_log=False)

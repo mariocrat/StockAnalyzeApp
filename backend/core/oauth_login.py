@@ -6,9 +6,11 @@ from fastapi import HTTPException
 from urllib.parse import urlencode, urlparse
 
 try:
+    from core.env import is_production
     from core.account_store import _env_value, get_review_access_status, login_provider_identity
     from core.access_control import grant_first_login_advanced_review
 except ModuleNotFoundError:
+    from backend.core.env import is_production
     from backend.core.account_store import _env_value, get_review_access_status, login_provider_identity
     from backend.core.access_control import grant_first_login_advanced_review
 
@@ -69,7 +71,7 @@ def _redirect_uri_problem(value: str) -> str:
 
 
 def _is_production() -> bool:
-    return _env_value("ALPHAMATE_ENV").lower() == "production"
+    return is_production()
 
 
 def _exchange_json(url: str, payload: dict, headers: dict | None = None) -> dict:

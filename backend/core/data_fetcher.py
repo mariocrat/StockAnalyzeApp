@@ -3,11 +3,15 @@ import yfinance as yf
 from cachetools.func import ttl_cache
 import datetime
 import json
-import os
 import re
 import threading
 import time
 from pathlib import Path
+
+try:
+    from core.env import cache_directory, env_value
+except ModuleNotFoundError:
+    from backend.core.env import cache_directory, env_value
 
 
 DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache"
@@ -16,15 +20,14 @@ CORPORATE_ACTION_FACTORS = (2, 3, 4, 5, 10, 20, 50, 100)
 
 
 def _cache_dir() -> Path:
-    configured = os.environ.get("ALPHAMATE_CACHE_DIR", "").strip()
-    path = Path(configured) if configured else DEFAULT_CACHE_DIR
+    path = cache_directory()
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
 def _theme_fetch_workers(ticker_count: int) -> int:
     try:
-        configured = int(os.environ.get("ALPHAMATE_THEME_FETCH_WORKERS", "8"))
+        configured = int(env_value("ALPHAMATE_THEME_FETCH_WORKERS") or "8")
     except ValueError:
         configured = 8
     return min(max(2, configured), 16, max(2, ticker_count))

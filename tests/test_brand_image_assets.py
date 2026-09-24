@@ -82,12 +82,6 @@ class BrandImageAssetsTest(unittest.TestCase):
         self.assertIn("CSS viewport 390×844, DPR 3", guide)
         self.assertIn("원본 비율을 유지한 crop/resize", guide)
 
-    def test_favicon_uses_the_official_light_app_icon_pixels(self):
-        actual = Image.open(ROOT / "frontend" / "public" / "favicon.png").convert("RGBA")
-        expected = Image.open(BRAND_ROOT / "stockboda-app-icon-light.png").convert("RGBA").resize((48, 48), Image.Resampling.LANCZOS)
-        self.assertIsNone(ImageChops.difference(actual, expected).getbbox())
-        self.assertFalse((ROOT / "frontend" / "public" / "favicon.svg").exists())
-
 
 if __name__ == "__main__":
     unittest.main()

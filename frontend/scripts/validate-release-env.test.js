@@ -1,15 +1,13 @@
-import test from 'node:test';
+import { test, ownedTempDir, spawnSync, checkFailureCleanup } from './release-test-isolation.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
-import { spawnSync } from 'node:child_process';
 
 import { formatOwnerFrontendReleaseReport, releaseEnvFromProcess, validateReleaseEnv } from './validate-release-env.js';
 
 function validReleaseEnv(overrides = {}) {
-  const keystoreFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'alphamate-release-')), 'upload.jks');
+  const keystoreFile = path.join(ownedTempDir('alphamate-release-'), 'upload.jks');
   fs.writeFileSync(keystoreFile, 'test keystore placeholder');
   return {
     VITE_ALPHAMATE_ENV: 'production',
@@ -246,7 +244,7 @@ test('requires valid Android version settings for release builds', () => {
 
 test('rejects missing Android keystore file for release builds', () => {
   const result = validateReleaseEnv(validReleaseEnv({
-    ALPHAMATE_ANDROID_KEYSTORE_FILE: 'D:/secure/missing-upload-key.jks',
+    ALPHAMATE_ANDROID_KEYSTORE_FILE: path.join(ownedTempDir('missing-keystore-'), 'missing-upload-key.jks'),
   }));
 
   assert.equal(result.ok, false);
@@ -340,7 +338,7 @@ test('frontend release env template is production focused', () => {
 });
 
 test('release env loader accepts an explicit frontend env file', () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'alphamate-frontend-env-'));
+  const tempDir = ownedTempDir('alphamate-frontend-env-');
   const envPath = path.join(tempDir, '.env.release');
   fs.writeFileSync(envPath, [
     'VITE_APP_NAME=ReleaseFileAlphaMate',
@@ -467,7 +465,7 @@ test('owner frontend release report CLI prints report and hides secret values', 
   });
   const result = spawnSync(process.execPath, [script], {
     cwd: process.cwd(),
-    env: { ...process.env, ...env },
+    env,
     encoding: 'utf8',
   });
 
@@ -481,7 +479,7 @@ test('raw frontend release env CLI prints Korean pass and fail headings', () => 
   const script = path.resolve(process.cwd(), 'scripts/validate-release-env.js');
   const passed = spawnSync(process.execPath, [script], {
     cwd: process.cwd(),
-    env: { ...process.env, ...validReleaseEnv() },
+    env: validReleaseEnv(),
     encoding: 'utf8',
   });
 
@@ -490,7 +488,7 @@ test('raw frontend release env CLI prints Korean pass and fail headings', () => 
 
   const failed = spawnSync(process.execPath, [script], {
     cwd: process.cwd(),
-    env: { ...process.env, ...validReleaseEnv({ VITE_API_BASE: 'http://127.0.0.1:8002' }) },
+    env: validReleaseEnv({ VITE_API_BASE: 'http://127.0.0.1:8002' }),
     encoding: 'utf8',
   });
 
@@ -509,4 +507,41 @@ test('mobile release check uses owner-facing release report before building', ()
   const pkg = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf8'));
 
   assert.equal(pkg.scripts['mobile:release:check'], 'npm run release:report && npm run mobile:build');
+});
+
+test('release fixtures restore temp env CWD and module state after success assertion and setup failure', () => {
+  checkFailureCleanup();
+});
+
+test('release boundary blocks non-owned private reads writes network and tools before access', (workspace) => {
+  const outside = path.join(workspace.root, '..', 'synthetic-never-opened');
+  for (const relative of ['frontend/.env', 'release-private/upload.jks', 'home/credentials.json']) {
+    workspace.expectBlocked('filesystem', () => fs.readFileSync(path.join(outside, relative)));
+  }
+  workspace.expectBlocked('filesystem', () => fs.writeFileSync(path.join(outside, 'write'), 'blocked'));
+  workspace.expectBlocked('network', () => fetch('https://synthetic.invalid'));
+});
+
+test('release child excludes hostile host environment and cannot read outside its workspace', (workspace) => {
+  process.env.NODE_OPTIONS = '--import=synthetic-never-loaded';
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = path.join(workspace.root, '..', 'synthetic-credentials.json');
+  process.env.ALPHAMATE_FRONTEND_ENV_FILE = path.join(workspace.root, '..', 'synthetic-private.env');
+  process.env.OPENAI_API_KEY = 'SYNTHETIC_HOST_SECRET';
+  const result = spawnSync(process.execPath, ['-e', `
+    const assert = require('node:assert/strict');
+    const fs = require('node:fs');
+    const path = require('node:path');
+    for (const key of ['NODE_OPTIONS', 'GOOGLE_APPLICATION_CREDENTIALS', 'OPENAI_API_KEY', 'PATH']) {
+      assert.equal(process.env[key], undefined);
+    }
+    assert.equal(process.env.HOME, path.join(process.cwd(), 'home'));
+    assert.equal(fs.existsSync(process.env.ALPHAMATE_FRONTEND_ENV_FILE), true);
+    assert.throws(() => fs.readFileSync(path.join(process.cwd(), '..', 'synthetic-private.env')));
+    assert.throws(() => require('node:child_process').execSync('synthetic-never-launched'));
+    assert.throws(() => require('node:dns').lookup('synthetic.invalid'));
+    console.log('synthetic denials observed');
+  `], { cwd: process.cwd(), encoding: 'utf8' });
+  // Swallowed boundary violations fail the child despite its successful assertions.
+  assert.equal(result.status, 1, result.stderr);
+  assert.match(result.stdout, /synthetic denials observed/);
 });

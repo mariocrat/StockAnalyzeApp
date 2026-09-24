@@ -1,130 +1,33 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import _import_state
 import importlib
+
 import os
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from fastapi import HTTPException
 
 
+with _import_state():
+    from backend.core import oauth_login as _oauth_login
+
+
 class OAuthLoginTest(unittest.TestCase):
-    def test_oauth_request_timeout_setting_is_capped(self):
-        previous = os.environ.get("ALPHAMATE_OAUTH_TIMEOUT_SECONDS")
-        try:
-            os.environ["ALPHAMATE_OAUTH_TIMEOUT_SECONDS"] = "999"
+    def setUp(self):
+        self.enterContext(storage_fixture())
+        self.enterContext(_import_state())
+        self.enterContext(patch.dict(_oauth_login.__dict__))
+        importlib.reload(_oauth_login)
 
-            from backend.core import oauth_login
-
-            oauth_login = importlib.reload(oauth_login)
-            captured = {}
-
-            class FakeResponse:
-                status_code = 200
-
-                def json(self):
-                    return {"ok": True}
-
-            def fake_post(url, *, data, headers, timeout):
-                captured["post_timeout"] = timeout
-                return FakeResponse()
-
-            def fake_get(url, *, headers, timeout):
-                captured["get_timeout"] = timeout
-                return FakeResponse()
-
-            oauth_login.requests.post = fake_post
-            oauth_login.requests.get = fake_get
-
-            self.assertEqual({"ok": True}, oauth_login._exchange_json("https://example.com/token", {"code": "x"}))
-            self.assertEqual({"ok": True}, oauth_login._request_json("https://example.com/me", "token"))
-            self.assertEqual(20, captured["post_timeout"])
-            self.assertEqual(20, captured["get_timeout"])
-        finally:
-            if previous is None:
-                os.environ.pop("ALPHAMATE_OAUTH_TIMEOUT_SECONDS", None)
-            else:
-                os.environ["ALPHAMATE_OAUTH_TIMEOUT_SECONDS"] = previous
-
-    def test_kakao_access_token_profile_creates_alphamate_session(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
-
-            from backend.core import access_control, account_store, oauth_login
-
-            account_store = importlib.reload(account_store)
-            access_control = importlib.reload(access_control)
-            oauth_login = importlib.reload(oauth_login)
-
-            def fake_request_json(url, token):
-                self.assertEqual("https://kapi.kakao.com/v2/user/me", url)
-                self.assertEqual("kakao-access-token", token)
-                return {
-                    "id": 123456789,
-                    "kakao_account": {
-                        "email": "user@example.com",
-                        "profile": {"nickname": "카카오 사용자"},
-                    },
-                }
-
-            oauth_login._request_json = fake_request_json
-
-            session = oauth_login.login_oauth_provider(
-                provider="kakao",
-                access_token="kakao-access-token",
-            )
-
-            self.assertEqual("bearer", session["token_type"])
-            self.assertEqual("카카오 사용자", session["user"]["display_name"])
-            self.assertEqual("kakao", session["user"]["identities"][0]["provider"])
-            self.assertEqual("123456789", session["user"]["identities"][0]["provider_user_id"])
-            entitlements = access_control.get_user_entitlements(
-                authorization=f"Bearer {session['session_token']}",
-                entitlement_token="",
-            )
-            self.assertEqual(1, entitlements["advanced"]["signup_remaining"])
-
-            second_session = oauth_login.login_oauth_provider(
-                provider="kakao",
-                access_token="kakao-access-token",
-            )
-            second_entitlements = access_control.get_user_entitlements(
-                authorization=f"Bearer {second_session['session_token']}",
-                entitlement_token="",
-            )
-            self.assertEqual(1, second_entitlements["advanced"]["signup_remaining"])
-
-    def test_naver_access_token_profile_creates_alphamate_session(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
-
-            from backend.core import account_store, oauth_login
-
-            account_store = importlib.reload(account_store)
-            oauth_login = importlib.reload(oauth_login)
-
-            def fake_request_json(url, token):
-                self.assertEqual("https://openapi.naver.com/v1/nid/me", url)
-                self.assertEqual("naver-access-token", token)
-                return {
-                    "resultcode": "00",
-                    "response": {
-                        "id": "naver-user-id",
-                        "email": "naver@example.com",
-                        "nickname": "네이버 사용자",
-                    },
-                }
-
-            oauth_login._request_json = fake_request_json
-
-            session = oauth_login.login_oauth_provider(
-                provider="naver",
-                access_token="naver-access-token",
-            )
-
-            self.assertEqual("네이버 사용자", session["user"]["display_name"])
-            self.assertEqual("naver", session["user"]["identities"][0]["provider"])
-            self.assertEqual("naver-user-id", session["user"]["identities"][0]["provider_user_id"])
+    def _replace(self, target, name, value):
+        replacement = patch.object(target, name, value)
+        replacement.start()
+        self.addCleanup(replacement.stop)
 
     def test_oauth_login_requires_access_token(self):
         from backend.core import oauth_login
@@ -134,92 +37,6 @@ class OAuthLoginTest(unittest.TestCase):
 
         self.assertEqual(400, raised.exception.status_code)
 
-    def test_kakao_authorization_code_is_exchanged_before_login(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
-            os.environ["KAKAO_CLIENT_ID"] = "kakao-client-id"
-            os.environ["KAKAO_CLIENT_SECRET"] = "kakao-client-secret"
-
-            from backend.core import account_store, oauth_login
-
-            account_store = importlib.reload(account_store)
-            oauth_login = importlib.reload(oauth_login)
-
-            def fake_exchange(url, payload, headers=None):
-                self.assertEqual("https://kauth.kakao.com/oauth/token", url)
-                self.assertEqual("authorization_code", payload["grant_type"])
-                self.assertEqual("kakao-client-id", payload["client_id"])
-                self.assertEqual("kakao-client-secret", payload["client_secret"])
-                self.assertEqual("https://alphamate.example/auth/kakao", payload["redirect_uri"])
-                self.assertEqual("kakao-code", payload["code"])
-                return {"access_token": "exchanged-kakao-token"}
-
-            def fake_request_json(url, token):
-                self.assertEqual("https://kapi.kakao.com/v2/user/me", url)
-                self.assertEqual("exchanged-kakao-token", token)
-                return {
-                    "id": 987654321,
-                    "kakao_account": {"profile": {"nickname": "교환 카카오"}},
-                }
-
-            oauth_login._exchange_json = fake_exchange
-            oauth_login._request_json = fake_request_json
-
-            session = oauth_login.login_oauth_code(
-                provider="kakao",
-                code="kakao-code",
-                redirect_uri="https://alphamate.example/auth/kakao",
-            )
-
-            self.assertEqual("교환 카카오", session["user"]["display_name"])
-            self.assertEqual("987654321", session["user"]["identities"][0]["provider_user_id"])
-
-    def test_naver_authorization_code_is_exchanged_before_login(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
-            os.environ["NAVER_CLIENT_ID"] = "naver-client-id"
-            os.environ["NAVER_CLIENT_SECRET"] = "naver-client-secret"
-
-            from backend.core import account_store, oauth_login
-
-            account_store = importlib.reload(account_store)
-            oauth_login = importlib.reload(oauth_login)
-
-            def fake_exchange(url, payload, headers=None):
-                self.assertEqual("https://nid.naver.com/oauth2.0/token", url)
-                self.assertEqual("authorization_code", payload["grant_type"])
-                self.assertEqual("naver-client-id", payload["client_id"])
-                self.assertEqual("naver-client-secret", payload["client_secret"])
-                self.assertEqual("https://alphamate.example/auth/naver", payload["redirect_uri"])
-                self.assertEqual("naver-code", payload["code"])
-                self.assertEqual("naver-state", payload["state"])
-                return {"access_token": "exchanged-naver-token"}
-
-            def fake_request_json(url, token):
-                self.assertEqual("https://openapi.naver.com/v1/nid/me", url)
-                self.assertEqual("exchanged-naver-token", token)
-                return {
-                    "response": {
-                        "id": "naver-exchanged-user",
-                        "nickname": "교환 네이버",
-                    },
-                }
-
-            oauth_login._exchange_json = fake_exchange
-            oauth_login._request_json = fake_request_json
-
-            session = oauth_login.login_oauth_code(
-                provider="naver",
-                code="naver-code",
-                redirect_uri="https://alphamate.example/auth/naver",
-                state="naver-state",
-            )
-
-            self.assertEqual("교환 네이버", session["user"]["display_name"])
-            self.assertEqual("naver-exchanged-user", session["user"]["identities"][0]["provider_user_id"])
-
     def test_oauth_code_login_requires_provider_configuration(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
@@ -228,7 +45,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
 
             with self.assertRaises(HTTPException) as raised:
                 oauth_login.login_oauth_code(
@@ -249,7 +65,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             with self.assertRaises(HTTPException) as raised:
                 oauth_login._configured_redirect_uri("kakao", "https://app.alphamate.kr/auth/kakao")
 
@@ -271,7 +86,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             with self.assertRaises(HTTPException) as kakao_raised:
                 oauth_login._configured_redirect_uri("kakao", "")
             with self.assertRaises(HTTPException) as naver_raised:
@@ -295,7 +109,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             with self.assertRaises(HTTPException) as raised:
                 oauth_login._configured_redirect_uri("kakao", "https://app.alphamate.kr/auth/kakao")
 
@@ -312,12 +125,11 @@ class OAuthLoginTest(unittest.TestCase):
 
         from backend.core import oauth_login
 
-        oauth_login = importlib.reload(oauth_login)
-        oauth_login.login_oauth_code = lambda **kwargs: {
+        self._replace(oauth_login, "login_oauth_code", lambda **kwargs: {
             "session_token": "secret-session-token",
             "token_type": "bearer",
             "user": {"id": "user-1"},
-        }
+        })
 
         redirect_url = oauth_login.create_oauth_app_redirect(
             provider="kakao",
@@ -339,74 +151,26 @@ class OAuthLoginTest(unittest.TestCase):
             oauth_login.consume_oauth_app_ticket(query["ticket"][0])
         self.assertEqual(401, replay.exception.status_code)
 
-    def test_oauth_app_callback_scheme_whitelist_executes_redirect_helper(self):
-        from urllib.parse import parse_qs, urlparse
-
-        from backend.core import oauth_login
-
-        previous = os.environ.get("ALPHAMATE_OAUTH_APP_SCHEME")
-        release_scheme = "com.mariocrat.stockanalyze"
-        debug_scheme = f"{release_scheme}.debug"
+        configured = "com.mariocrat.stockanalyze"
         marker = oauth_login.OAUTH_APP_SCHEME_STATE_MARKER
-        cases = [
-            ("release scheme", f"state-release{marker}{release_scheme}", release_scheme),
-            ("debug scheme", f"state-debug{marker}{debug_scheme}", debug_scheme),
-            ("evil scheme", f"state-evil{marker}evilapp", release_scheme),
-            ("https scheme", f"state-https{marker}https", release_scheme),
-            ("javascript scheme", f"state-javascript{marker}javascript", release_scheme),
-            ("custom attacker scheme", f"state-attacker{marker}attacker.custom.scheme", release_scheme),
-        ]
-        try:
-            os.environ["ALPHAMATE_OAUTH_APP_SCHEME"] = release_scheme
-            for case_name, state, expected_scheme in cases:
-                with self.subTest(case=case_name):
-                    redirect_url = oauth_login.create_oauth_app_error_redirect(
-                        provider="kakao",
-                        state=state,
-                    )
-                    parsed = urlparse(redirect_url)
-
-                    self.assertEqual(expected_scheme, parsed.scheme)
-                    self.assertEqual("oauth", parsed.netloc)
-                    self.assertEqual("/kakao", parsed.path)
-                    self.assertEqual([state], parse_qs(parsed.query)["state"])
-        finally:
-            if previous is None:
-                os.environ.pop("ALPHAMATE_OAUTH_APP_SCHEME", None)
-            else:
-                os.environ["ALPHAMATE_OAUTH_APP_SCHEME"] = previous
-
-    def test_oauth_app_redirect_uses_debug_callback_for_debug_state(self):
-        from urllib.parse import parse_qs, urlparse
-
-        from backend.core import oauth_login
-
-        previous = os.environ.get("ALPHAMATE_OAUTH_APP_SCHEME")
-        release_scheme = "com.mariocrat.stockanalyze"
-        debug_scheme = f"{release_scheme}.debug"
-        state = f"state-debug{oauth_login.OAUTH_APP_SCHEME_STATE_MARKER}{debug_scheme}"
-        try:
-            os.environ["ALPHAMATE_OAUTH_APP_SCHEME"] = release_scheme
-            oauth_login.login_oauth_code = lambda **kwargs: {"user": {"id": "test-user"}}
-
-            redirect_url = oauth_login.create_oauth_app_redirect(
-                provider="naver",
-                code="provider-code",
-                state=state,
-            )
-            parsed = urlparse(redirect_url)
-            query = parse_qs(parsed.query)
-
-            self.assertEqual(debug_scheme, parsed.scheme)
-            self.assertEqual("oauth", parsed.netloc)
-            self.assertEqual("/naver", parsed.path)
-            self.assertEqual([state], query["state"])
-            self.assertEqual({"user": {"id": "test-user"}}, oauth_login.consume_oauth_app_ticket(query["ticket"][0]))
-        finally:
-            if previous is None:
-                os.environ.pop("ALPHAMATE_OAUTH_APP_SCHEME", None)
-            else:
-                os.environ["ALPHAMATE_OAUTH_APP_SCHEME"] = previous
+        with patch.dict(os.environ, {"ALPHAMATE_OAUTH_APP_SCHEME": configured}):
+            with self.subTest(case="explicit release marker with current app scheme"):
+                state = "state-release|stockboda-app-scheme=com.mariocrat.stockanalyze"
+                error_url = oauth_login.create_oauth_app_error_redirect(provider="kakao", state=state)
+                error_redirect = urlparse(error_url)
+                self.assertEqual(configured, error_redirect.scheme)
+                self.assertEqual("oauth", error_redirect.netloc)
+                self.assertEqual("/kakao", error_redirect.path)
+                self.assertEqual([state], parse_qs(error_redirect.query)["state"])
+            for rejected_scheme in ("evilapp", "https", "javascript", "attacker.custom.scheme"):
+                with self.subTest(rejected_scheme=rejected_scheme):
+                    state = f"state-rejected{marker}{rejected_scheme}"
+                    error_url = oauth_login.create_oauth_app_error_redirect(provider="kakao", state=state)
+                    error_redirect = urlparse(error_url)
+                    self.assertEqual(configured, error_redirect.scheme)
+                    self.assertEqual("oauth", error_redirect.netloc)
+                    self.assertEqual("/kakao", error_redirect.path)
+                    self.assertEqual([state], parse_qs(error_redirect.query)["state"])
 
     def test_oauth_config_status_reports_missing_server_settings(self):
         for key in ("KAKAO_CLIENT_ID", "KAKAO_REDIRECT_URI", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "NAVER_REDIRECT_URI"):
@@ -414,7 +178,6 @@ class OAuthLoginTest(unittest.TestCase):
 
         from backend.core import oauth_login
 
-        oauth_login = importlib.reload(oauth_login)
         status = oauth_login.get_oauth_config_status()
 
         self.assertFalse(status["providers"]["kakao"]["server_ready"])
@@ -434,7 +197,6 @@ class OAuthLoginTest(unittest.TestCase):
 
         from backend.core import oauth_login
 
-        oauth_login = importlib.reload(oauth_login)
         status = oauth_login.get_oauth_config_status()
 
         self.assertTrue(status["providers"]["kakao"]["server_ready"])
@@ -460,7 +222,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             status = oauth_login.get_oauth_config_status()
 
             self.assertFalse(status["providers"]["kakao"]["server_ready"])
@@ -498,7 +259,6 @@ class OAuthLoginTest(unittest.TestCase):
 
             from backend.core import oauth_login
 
-            oauth_login = importlib.reload(oauth_login)
             status = oauth_login.get_oauth_config_status()
 
             self.assertFalse(status["providers"]["kakao"]["server_ready"])

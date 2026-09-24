@@ -1,8 +1,12 @@
 import datetime
 import math
-import os
 import sqlite3
 from pathlib import Path
+
+try:
+    from core.env import database_path, env_value as _env_value
+except ModuleNotFoundError:
+    from backend.core.env import database_path, env_value as _env_value
 
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
@@ -12,35 +16,8 @@ MAX_NAME_CHARS = 120
 MAX_SOURCE_CHARS = 40
 
 
-def _env_value(name: str) -> str:
-    value = os.environ.get(name)
-    if value:
-        return value.strip()
-    roots = [
-        Path(__file__).resolve().parents[2] / ".env",
-        Path(__file__).resolve().parents[1] / ".env",
-    ]
-    for path in roots:
-        try:
-            if not path.exists():
-                continue
-            for line in path.read_text(encoding="utf-8").splitlines():
-                raw = line.strip()
-                if not raw or raw.startswith("#") or "=" not in raw:
-                    continue
-                key, val = raw.split("=", 1)
-                if key.strip() == name:
-                    return val.strip().strip("\"'")
-        except Exception:
-            continue
-    return ""
-
-
 def _db_path() -> Path:
-    configured = _env_value("ALPHAMATE_JOURNAL_DB_PATH")
-    if configured:
-        return Path(configured)
-    return DB_PATH
+    return database_path("ALPHAMATE_JOURNAL_DB_PATH")
 
 
 def _ensure_column(conn, table: str, column: str, definition: str):

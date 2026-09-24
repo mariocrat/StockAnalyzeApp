@@ -1,146 +1,46 @@
 # StockBoda Agent Instructions
 
-These instructions apply to the entire StockBoda repository unless a more specific AGENTS.md exists in a subdirectory.
+Applies to this repository; read any more specific AGENTS.md or AGENTS.override.md before working in its scope. Explicit user scope and authorization take precedence.
 
-## 1. Start by inspecting the workspace
+## Start and scope
 
-Before making changes:
+- Confirm the actual repository root, branch, HEAD, worktree list, and full Git status. Do not infer the checkout from a thread title or an old absolute path.
+- Identify existing staged, unstaged, and untracked work. Preserve unrelated files and unrelated hunks in shared files. Do not modify another worktree without explicit authorization.
+- Inspect the current implementation. Make the smallest change that satisfies the request; do not add unrequested features or unrelated refactors.
+- Report material workspace or plan mismatches before making dependent changes.
+- Do not stage, commit, push, merge, rebase, switch branches, or rewrite history without authorization. Before an approved commit, inspect staged names and the full staged diff; use explicit paths or hunks.
+- Do not discard existing changes or local data with broad `git clean`, working-tree reset/restore, recursive deletion, database deletion, app uninstall, or app-data clearing unless the exact targets and data-loss impact are explicitly approved.
 
-- Confirm the current worktree path.
-- Confirm the current Git branch.
-- Inspect `git status`.
-- Identify existing unrelated modifications before editing anything.
-- Never assume another worktree has the same working-tree state.
+## Execution and evidence
 
-If the requested worktree, branch, or repository state does not match expectations, stop and report the mismatch before modifying files.
+- Classify commands by filesystem, database, and external-service effects before running them. A test, build, server startup, or GET request is not necessarily read-only.
+- After two failures of the same material approach, stop that approach. Report the attempts, errors, evidence, likely cause, current changes/status, and a materially different next step. Fix a shell/tool problem as such; do not mistake it for a product defect.
+- Validate in proportion to risk. Distinguish static, unit, HTTP, packaged-artifact, device, and external-system evidence. Never report an unexecuted check as passed.
+- Major work and high-risk DB/auth/payment/security/environment/release changes require a persistent plan; high-risk changes also require independent review. Small low-risk edits need no persistent plan.
+- New plans belong in docs/exec-plans/. Read and reconcile an explicitly assigned legacy plan in its original worktree. If a user limits files or requests a pre-write stop, that boundary also applies to plan files. Update authorized plans after meaningful steps; read-only reviews do not create or update plans.
+- Implementation does not authorize production configuration changes, data changes, deployment, or Play publication.
+- Report changed files, validation and limitations, branch/HEAD, staged/unstaged state, and whether other worktrees were affected.
 
-## 2. Protect unrelated work
+## StockBoda invariants
 
-- Do not modify, stage, revert, delete, or commit unrelated existing changes.
-- Do not modify another worktree unless explicitly requested.
-- Keep each task limited to the smallest reasonable set of files.
-- Avoid broad refactors unless they are required for the requested task.
-- Do not rename stable internal identifiers merely for cosmetic consistency.
+- Debug, test ads, and mobile:build do not prove environment isolation. Verify the effective API before running an app. Do not use production as the development/test environment; current debug wrappers can select production settings.
+- Isolate all relevant data stores, caches, process/file environment, and external requests before DB-backed tests. Existing full-suite isolation is incomplete; see TESTING.md.
+- Preserve user ownership checks, storage opt-in, AI consent, server-verified entitlements, and order/user ledger integrity.
+- Schema changes require existing-schema upgrade and recovery evidence. Never treat destructive migration/reset helpers as routine setup.
+- Preserve existing package/application IDs, OAuth schemes and related identifiers, product IDs, storage keys, and `ALPHAMATE_*` technical identifiers unless the change is explicitly approved in scope and has compatibility/migration, rollback/recovery, and related external-configuration verification plans.
+- Capacitor sync can change tracked Gradle files. Review those changes and verify the final APK/AAB, not only source or dist.
+- Auth, purchases, ads, and app-return changes need appropriate device/external validation; otherwise report them as unverified.
+- Do not put real customer documents, financial records, credentials, tokens, or secrets in source, fixtures, logs, or documentation. Use synthetic data.
 
-## 3. Git safety
+## Documentation map
 
-Unless the user explicitly requests otherwise:
+Start with [docs/README.md](docs/README.md), including its open audit findings.
 
-- Do not stage changes.
-- Do not commit.
-- Do not push.
-- Do not merge.
-- Do not rebase.
-- Do not force-push.
-- Do not rewrite history.
-
-When a commit is explicitly approved:
-
-- Stage only the approved files or hunks.
-- Review `git diff --cached` before committing.
-- Do not include unrelated changes.
-- Report the commit SHA and final Git status.
-
-## 4. Two-failure rule
-
-If the same approach fails twice:
-
-- Do not repeat the same approach a third time.
-- Stop and report:
-  - the failed step,
-  - the exact error,
-  - the first attempt,
-  - the second attempt,
-  - the likely cause,
-  - files changed,
-  - current Git status,
-  - a materially different next approach.
-
-## 5. Implementation discipline
-
-- Inspect the existing implementation before changing it.
-- Prefer the smallest change that satisfies the requirement.
-- Preserve already verified behavior unless the task explicitly changes it.
-- Do not silently expand the scope.
-- Do not guess when repository evidence can be inspected.
-- If a required environment, service, credential, device, or sample is unavailable, report the limitation instead of claiming success.
-
-## 6. Validation
-
-Run validation appropriate to the files and behavior changed.
-
-Typical checks include:
-
-- targeted tests,
-- related regression tests,
-- full frontend or backend tests when warranted,
-- lint,
-- production build,
-- `git diff --check`,
-- Capacitor sync and Android build when Android packaged assets are affected.
-
-Do not claim a check passed unless it was actually run.
-
-If a generated Android APK/AAB is part of the task, verify the final packaged artifact rather than relying only on source or `dist`.
-
-## 7. Production and release safety
-
-Do not modify or deploy the following unless explicitly requested:
-
-- production infrastructure,
-- Render production services,
-- production databases,
-- production environment variables,
-- OAuth production configuration,
-- Google Play releases,
-- signing configuration,
-- release package identity,
-- production domains or DNS.
-
-A local implementation being correct does not mean production deployment is approved.
-
-## 8. Privacy and sensitive data
-
-- Do not commit real customer documents, financial statements, account information, credentials, secrets, tokens, or other sensitive data.
-- Do not use real personal documents as repository fixtures.
-- Keep real test documents outside the repository.
-- Do not log personal or financial document contents unless explicitly required for a controlled local diagnosis.
-- Prefer sanitized synthetic fixtures for automated tests.
-
-## 9. Execution plans
-
-Major or multi-step feature work should use a plan under:
-
-`docs/plans/`
-
-When an active plan is specified:
-
-Before working:
-
-1. Read this AGENTS.md.
-2. Read the relevant plan.
-3. Compare the plan's Current Status with the actual Git/worktree state.
-4. If they disagree materially, stop and report the mismatch before continuing.
-
-After a meaningful implementation or verification step:
-
-- Update the plan to reflect the actual state.
-- Mark only genuinely completed work as complete.
-- Record important verification results.
-- Keep unresolved or unverified work explicit.
-- Set a clear Next Step.
-
-Do not rewrite established product decisions in a plan without explicit user direction.
-
-## 10. Reporting
-
-At the end of a task, report concisely:
-
-- what changed,
-- files changed,
-- tests/validation performed,
-- anything not verified,
-- current branch and HEAD,
-- staged/unstaged state,
-- whether any other worktree was affected.
-
+- [Architecture](docs/ARCHITECTURE.md): components, data flow, runtime boundaries.
+- [Product rules](docs/PRODUCT_RULES.md): intended behavior and policy decisions.
+- [Testing](docs/TESTING.md): command effects, isolation prerequisites, evidence levels.
+- [Release](docs/RELEASE.md): environment/build variants and release evidence.
+- [Security](docs/SECURITY.md): authentication, privacy, secrets, external trust.
+- [Data](docs/DATA.md): storage, ownership, schema, deletion, backup/recovery.
+- [Development workflow](docs/DEVELOPMENT_WORKFLOW.md): scope, threads, reviews, Git.
+- [Execution plans](docs/exec-plans/README.md): plan lifecycle and handoff.

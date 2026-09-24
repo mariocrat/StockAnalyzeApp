@@ -1,3 +1,7 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
 import os
 import unittest
 from contextlib import contextmanager
@@ -22,6 +26,9 @@ def patched_env(**values):
 
 
 class CorsConfigTest(unittest.TestCase):
+    def setUp(self):
+        self.enterContext(storage_fixture())
+
     def test_default_cors_origins_include_local_web_and_capacitor(self):
         with patched_env(ALPHAMATE_CORS_ORIGINS=None):
             from backend.core.cors import allowed_cors_origins

@@ -343,6 +343,21 @@ Invoke-RestMethod -Uri 'https://api.alphamate.co.kr/api/admin/operational-events
 
 ## 9. 최종 검증
 
+### 현재 공식 검증 경로 안내
+
+아래 기존 한국어 체크리스트와 명령은 이전 검증 흐름의 기록입니다.
+현재 실행에는 `-Mode TestOnly` 또는 `-Mode BuildChecks`와 승인된 Python/Node 실행기의 절대경로를 명시합니다.
+실제 명령과 격리 조건은 [TESTING.md](TESTING.md)와 [quick_verify.md](quick_verify.md)를 따릅니다.
+
+현재 `BuildChecks`의 영어 canonical label과 기존 표현은 다음과 같습니다.
+
+- `Backend compile check` — 백엔드 컴파일 확인
+- `Tracked secret scan` — Git 추적 파일 비밀값 검사
+- `Frontend lint` — 프론트 린트
+- `Frontend production build` — 프론트 운영 빌드
+
+이 네 단계는 `BuildChecks`에만 속하며, 공식 H4 테스트는 별도 `TestOnly` 경로로 실행합니다.
+
 내 PC나 서버 설정이 출시 준비에 얼마나 가까운지 먼저 보고 싶으면 아래 파일을 실행합니다.
 
 ```powershell

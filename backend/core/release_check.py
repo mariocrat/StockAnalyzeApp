@@ -1,4 +1,4 @@
-from .env import env_value
+from .env import env_value, is_production
 from .readiness import get_app_readiness
 
 
@@ -20,7 +20,7 @@ def _collect_section_errors(section_name: str, section: dict) -> list[str]:
 
 def validate_backend_release_env() -> dict:
     errors = []
-    if _env_value("ALPHAMATE_ENV").lower() != "production":
+    if not is_production():
         errors.append("ALPHAMATE_ENV must be production")
 
     readiness = get_app_readiness()

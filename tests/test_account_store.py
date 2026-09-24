@@ -1,15 +1,16 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
 import importlib
-import os
 import sqlite3
-import tempfile
 import unittest
 from contextlib import closing
 
 
 class AccountStoreTest(unittest.TestCase):
     def test_provider_login_reuses_user_and_authenticates_session(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
 
             from backend.core import account_store
 
@@ -39,9 +40,8 @@ class AccountStoreTest(unittest.TestCase):
             self.assertEqual("kakao", current["identities"][0]["provider"])
 
     def test_provider_login_stored_fields_are_length_limited(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            account_db = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = account_db
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
+            account_db = storage.paths["ALPHAMATE_ACCOUNT_DB_PATH"]
 
             from backend.core import account_store
 
@@ -63,10 +63,7 @@ class AccountStoreTest(unittest.TestCase):
             self.assertLessEqual(len(identity_row[0]), 120)
 
     def test_access_wallets_are_separated_by_login_session_user(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
-            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
 
             from backend.core import access_control, account_store
 
@@ -103,8 +100,7 @@ class AccountStoreTest(unittest.TestCase):
             self.assertEqual(0, naver_entitlements["advanced"]["purchased_remaining"])
 
     def test_journal_storage_setting_can_be_changed_for_session_user(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
 
             from backend.core import account_store
 
@@ -125,8 +121,7 @@ class AccountStoreTest(unittest.TestCase):
             self.assertTrue(current["journal_storage_enabled"])
 
     def test_privacy_consent_can_be_recorded_for_session_user(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
 
             from backend.core import account_store
 
@@ -150,8 +145,7 @@ class AccountStoreTest(unittest.TestCase):
             self.assertTrue(current["privacy_consented_at"])
 
     def test_privacy_consent_version_is_length_limited(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
 
             from backend.core import account_store
 
@@ -173,34 +167,20 @@ class AccountStoreTest(unittest.TestCase):
             self.assertLessEqual(len(current["privacy_consent_version"]), 120)
 
     def test_current_privacy_consent_version_is_length_limited(self):
-        previous = os.environ.get("ALPHAMATE_PRIVACY_CONSENT_VERSION")
-        try:
-            os.environ["ALPHAMATE_PRIVACY_CONSENT_VERSION"] = "privacy-" + ("v" * 500)
-
+        with storage_fixture(ALPHAMATE_PRIVACY_CONSENT_VERSION="privacy-" + ("v" * 500)):
             from backend.core import account_store
 
             account_store = importlib.reload(account_store)
 
             self.assertLessEqual(len(account_store.get_privacy_consent_version()), 120)
-        finally:
-            if previous is None:
-                os.environ.pop("ALPHAMATE_PRIVACY_CONSENT_VERSION", None)
-            else:
-                os.environ["ALPHAMATE_PRIVACY_CONSENT_VERSION"] = previous
 
     def test_delete_user_account_data_removes_server_side_user_records(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            account_db = os.path.join(tmpdir, "accounts.sqlite3")
-            access_db = os.path.join(tmpdir, "access.sqlite3")
-            journal_db = os.path.join(tmpdir, "trades.sqlite3")
-            review_history_db = os.path.join(tmpdir, "review_history.sqlite3")
-            event_log_db = os.path.join(tmpdir, "events.sqlite3")
-            os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = account_db
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = access_db
-            os.environ["ALPHAMATE_JOURNAL_DB_PATH"] = journal_db
-            os.environ["ALPHAMATE_REVIEW_HISTORY_DB_PATH"] = review_history_db
-            os.environ["ALPHAMATE_EVENT_LOG_DB_PATH"] = event_log_db
-            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
+            account_db = storage.paths["ALPHAMATE_ACCOUNT_DB_PATH"]
+            access_db = storage.paths["ALPHAMATE_ACCESS_DB_PATH"]
+            journal_db = storage.paths["ALPHAMATE_JOURNAL_DB_PATH"]
+            review_history_db = storage.paths["ALPHAMATE_REVIEW_HISTORY_DB_PATH"]
+            event_log_db = storage.paths["ALPHAMATE_EVENT_LOG_DB_PATH"]
 
             from backend.core import access_control, account_store, event_log, journal, review_history
 
@@ -234,14 +214,14 @@ class AccountStoreTest(unittest.TestCase):
                 entitlement_token="",
                 product_id="advanced_review_10",
             )
-            access_control._verify_admob_ssv_signature = lambda raw_query: {
+            storage.patch_object(access_control, "_verify_admob_ssv_signature", lambda raw_query: {
                 "transaction_id": "delete-ad-1",
                 "user_id": user_id,
                 "ad_unit": "",
                 "reward_amount": "1",
                 "reward_item": "AI_REVIEW",
                 "custom_data": "basic",
-            }
+            })
             access_control.record_admob_ssv_reward("transaction_id=delete-ad-1")
             review_history.add_review_history(
                 user_id=user_id,

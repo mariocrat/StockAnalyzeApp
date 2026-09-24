@@ -2,7 +2,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .access_control import get_product_catalog
-from .env import env_value
+from .env import env_value, is_production
 from .oauth_login import get_oauth_config_status
 
 REQUIRED_DATA_STORAGE_SETTINGS = [
@@ -28,7 +28,7 @@ def _env_value(name: str) -> str:
 
 
 def _is_production() -> bool:
-    return _env_value("ALPHAMATE_ENV").lower() == "production"
+    return is_production()
 
 
 def _ai_status() -> dict:

@@ -1,16 +1,20 @@
-import os
-import sys
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import api_module_state
+
 import unittest
 
 import pandas as pd
 
 
 class StockChartCorporateActionTest(unittest.TestCase):
-    def test_chart_keeps_post_consolidation_price_and_adjusts_older_prices(self):
-        backend_dir = os.path.join(os.getcwd(), "backend")
-        if backend_dir not in sys.path:
-            sys.path.insert(0, backend_dir)
+    def setUp(self):
+        self.enterContext(storage_fixture())
+        self.enterContext(api_module_state())
 
+    def test_chart_keeps_post_consolidation_price_and_adjusts_older_prices(self):
         import main
 
         source = pd.DataFrame(

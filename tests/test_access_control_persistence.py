@@ -1,18 +1,16 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
 import importlib
-import os
-import tempfile
 import unittest
-from unittest.mock import patch
 
 from fastapi import HTTPException
 
 
 class AccessControlPersistenceTest(unittest.TestCase):
     def test_first_oauth_login_advanced_ticket_is_granted_only_once(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(os.environ, {
-            "ALPHAMATE_ACCESS_DB_PATH": os.path.join(tmpdir, "access.sqlite3"),
-            "ALPHAMATE_ALLOW_DEV_ACCESS": "true",
-        }):
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"):
             from backend.core import access_control
 
             access_control = importlib.reload(access_control)
@@ -36,10 +34,7 @@ class AccessControlPersistenceTest(unittest.TestCase):
             self.assertEqual(0, access.quota["advanced"]["signup_remaining"])
 
     def test_advanced_review_without_ticket_returns_korean_guidance(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = os.path.join(tmpdir, "access.sqlite3")
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = db_path
-            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"):
 
             from backend.core import access_control
 
@@ -57,11 +52,7 @@ class AccessControlPersistenceTest(unittest.TestCase):
             self.assertIn("심화 복기권이 필요합니다", raised.exception.detail)
 
     def test_rewarded_ads_can_be_claimed_toward_advanced_ticket(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patch.dict(os.environ, {
-            "ALPHAMATE_ACCESS_DB_PATH": os.path.join(tmpdir, "access.sqlite3"),
-            "ALPHAMATE_ALLOW_DEV_ACCESS": "true",
-            "ALPHAMATE_ADS_PER_ADVANCED_TICKET": "2",
-        }):
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true", ALPHAMATE_ADS_PER_ADVANCED_TICKET="2"):
             from backend.core import access_control
 
             access_control = importlib.reload(access_control)
@@ -113,10 +104,7 @@ class AccessControlPersistenceTest(unittest.TestCase):
             self.assertEqual(second["advanced"]["weekly_ad_views"], after_use["advanced"]["weekly_ad_views"])
 
     def test_purchased_advanced_credits_survive_module_reload(self):
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = os.path.join(tmpdir, "access.sqlite3")
-            os.environ["ALPHAMATE_ACCESS_DB_PATH"] = db_path
-            os.environ["ALPHAMATE_ALLOW_DEV_ACCESS"] = "true"
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"):
 
             from backend.core import access_control
 

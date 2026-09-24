@@ -1,7 +1,11 @@
+from tests.storage_fixture import require_storage_boundary, storage_fixture
+
+require_storage_boundary()
+
+from tests.api_test_modules import api_module_state
+
 import os
-import sys
 import importlib
-import tempfile
 import unittest
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -30,9 +34,8 @@ def patched_env(**values):
 
 class AdminEventRoutesTest(unittest.TestCase):
     def setUp(self):
-        backend_dir = os.path.join(os.getcwd(), "backend")
-        if backend_dir not in sys.path:
-            sys.path.insert(0, backend_dir)
+        self.enterContext(storage_fixture())
+        self.enterContext(api_module_state())
 
     def test_admin_operational_events_route_is_registered(self):
         import main
@@ -78,9 +81,7 @@ class AdminEventRoutesTest(unittest.TestCase):
         self.assertIn("/api/admin/purchase-credit-orders/{order_id}/remaining", paths)
 
     def test_admin_can_query_and_sync_purchase_credit_order(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_ENV="development",
-            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+        with patched_env(
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             ALPHAMATE_ADMIN_TOKEN="admin-secret",
         ):
@@ -89,7 +90,7 @@ class AdminEventRoutesTest(unittest.TestCase):
             from core.rate_limit import InMemoryRateLimiter
 
             access_control = importlib.reload(access_control)
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             access_control.apply_dev_purchase(
                 authorization="Bearer dev-token",
                 entitlement_token="",
@@ -106,7 +107,7 @@ class AdminEventRoutesTest(unittest.TestCase):
                 main.get_admin_purchase_credit_order(request, order_id, authorization=None)
             self.assertEqual(401, missing.exception.status_code)
 
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             order = main.get_admin_purchase_credit_order(
                 request,
                 order_id,
@@ -118,7 +119,7 @@ class AdminEventRoutesTest(unittest.TestCase):
             self.assertNotIn("purchase_token_ciphertext", order)
             self.assertNotIn("purchase_token_hash", order)
 
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             with patch.object(main, "sync_google_play_purchase_order_status", return_value={"status": "ignored"}) as sync:
                 result = main.sync_admin_purchase_credit_order(
                     request,
@@ -130,9 +131,7 @@ class AdminEventRoutesTest(unittest.TestCase):
             sync.assert_called_once_with(order_id=order_id, event_key="admin-sync-event-1")
 
     def test_admin_can_lock_unlock_and_adjust_purchase_credit_order(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
-            ALPHAMATE_ENV="development",
-            ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
+        with patched_env(
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             ALPHAMATE_ADMIN_TOKEN="admin-secret",
         ):
@@ -153,7 +152,7 @@ class AdminEventRoutesTest(unittest.TestCase):
                 conn.close()
 
             request = SimpleNamespace(headers={}, client=SimpleNamespace(host="127.0.0.1"))
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             locked = main.set_admin_purchase_credit_order_lock(
                 request,
                 order_id,
@@ -165,7 +164,7 @@ class AdminEventRoutesTest(unittest.TestCase):
                 authorization="Bearer dev-token",
                 entitlement_token="",
             )
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             repeated = main.set_admin_purchase_credit_order_lock(
                 request,
                 order_id,
@@ -173,7 +172,7 @@ class AdminEventRoutesTest(unittest.TestCase):
                 event_key="admin-lock-1",
                 authorization="Bearer admin-secret",
             )
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             unlocked = main.set_admin_purchase_credit_order_lock(
                 request,
                 order_id,
@@ -185,7 +184,7 @@ class AdminEventRoutesTest(unittest.TestCase):
                 authorization="Bearer dev-token",
                 entitlement_token="",
             )
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             adjusted = main.adjust_admin_purchase_credit_order_remaining(
                 request,
                 order_id,
@@ -202,7 +201,7 @@ class AdminEventRoutesTest(unittest.TestCase):
             self.assertEqual(10, after_unlock["advanced"]["purchased_remaining"])
             self.assertEqual(4, adjusted["order"]["remaining_quantity"])
 
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             with self.assertRaises(HTTPException) as invalid:
                 main.adjust_admin_purchase_credit_order_remaining(
                     request,
@@ -224,7 +223,7 @@ class AdminEventRoutesTest(unittest.TestCase):
                 conn.commit()
             finally:
                 conn.close()
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             with self.assertRaises(HTTPException) as terminal:
                 main.adjust_admin_purchase_credit_order_remaining(
                     request,
@@ -264,7 +263,7 @@ class AdminEventRoutesTest(unittest.TestCase):
             import main
             from core.rate_limit import InMemoryRateLimiter
 
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
 
             self.assertTrue(main._enforce_admin_rate_limit("client-a"))
             self.assertTrue(main._enforce_admin_rate_limit("client-a"))
@@ -289,7 +288,7 @@ class AdminEventRoutesTest(unittest.TestCase):
             import main
             from core.rate_limit import InMemoryRateLimiter
 
-            main._callback_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_callback_rate_limiter", InMemoryRateLimiter()))
 
             self.assertTrue(main._enforce_callback_rate_limit("admob-ssv", "client-a"))
             self.assertTrue(main._enforce_callback_rate_limit("admob-ssv", "client-a"))
@@ -300,14 +299,13 @@ class AdminEventRoutesTest(unittest.TestCase):
             self.assertIn("Retry-After", blocked.exception.headers)
 
     def test_admin_operational_events_reports_effective_limit(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+        with patched_env(
             ALPHAMATE_ADMIN_TOKEN="admin-secret",
-            ALPHAMATE_EVENT_LOG_DB_PATH=os.path.join(tmpdir, "events.sqlite3"),
         ):
             import main
             from core.rate_limit import InMemoryRateLimiter
 
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             main.record_event(level="warning", event_type="test_event", path="/api/test")
 
             response = main.get_admin_operational_events(
@@ -322,21 +320,20 @@ class AdminEventRoutesTest(unittest.TestCase):
             self.assertEqual(1, response["count"])
 
     def test_admin_theme_cache_status_is_token_protected(self):
-        with tempfile.TemporaryDirectory() as tmpdir, patched_env(
+        with patched_env(
             ALPHAMATE_ADMIN_TOKEN="admin-secret",
-            ALPHAMATE_CACHE_DIR=tmpdir,
         ):
             import main
             from core.rate_limit import InMemoryRateLimiter
 
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             request = SimpleNamespace(headers={}, client=SimpleNamespace(host="127.0.0.1"))
 
             with self.assertRaises(HTTPException) as missing:
                 main.get_admin_theme_cache_status(request, authorization=None)
             self.assertEqual(401, missing.exception.status_code)
 
-            main._admin_rate_limiter = InMemoryRateLimiter()
+            self.enterContext(patch.object(main, "_admin_rate_limiter", InMemoryRateLimiter()))
             response = main.get_admin_theme_cache_status(request, authorization="Bearer admin-secret")
             self.assertFalse(response["refreshing"])
             self.assertEqual({"1D", "1W", "1M", "1Y"}, set(response["periods"]))
