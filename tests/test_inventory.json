@@ -1298,7 +1298,7 @@
           "Android Manifest declares OAuth app return deep link for the package scheme",
           "Android registers the native App Open ad plugin and pins Google Mobile Ads"
         ],
-        "sha256": "cb8905b9fe44011293b9280e8009c3e29601774e2f14433ebb05e33c4d6b92db",
+        "sha256": "66aca3620497a2ae2fc09efc403df103297a2e6bb6cef9ed792af95d2bde2362",
         "reads": [
           "android/app/build.gradle",
           "android/app/src/main/AndroidManifest.xml",
@@ -1443,10 +1443,12 @@
         "cases": [
           "parses package scheme OAuth app return ticket without exposing provider tokens",
           "ignores unsupported OAuth app return URLs",
+          "native OAuth accepts only the current app scheme when the variant provides one",
           "native OAuth uses an in-app browser and closes it after the app callback"
         ],
-        "sha256": "532d140a04cd7f7fe386c34f2559f5f8967fe7826132749ccfa57c4a83dfd28c",
+        "sha256": "1977b1a326b2272b0c0f45d788c0b51963bbece2d041083978bb28842ce8bfff",
         "reads": [
+          "android/app/build.gradle",
           "package.json",
           "scripts/oauth-app-return.test.js",
           "src/components/TradingJournal.jsx",
@@ -1462,13 +1464,16 @@
         "cases": [
           "billing and refund policy is available from account management and the purchase area",
           "back navigation unwinds app views before asking to exit",
+          "broker PDF import is registered as an independent app view",
           "nested fullscreen or history view can consume a back request",
           "account management lives in a dismissible drawer without exposing a user id"
         ],
-        "sha256": "967cd32fe53d7308e8cd548287b7102e438a1a3a5ed1230e3a3f3a8b8ab056a8",
+        "sha256": "2a20657bf0ac5c84718fb8e9adb7707c61565f760e2fc6ed883322a6355ccd41",
         "reads": [
           "package.json",
           "scripts/app-navigation.test.js",
+          "src/App.css",
+          "src/App.jsx",
           "src/components/TradingJournal.jsx",
           "src/utils/appNavigation.js"
         ],
@@ -1607,6 +1612,44 @@
           "package.json",
           "scripts/review-trade-selection.test.js",
           "src/utils/reviewTradeSelection.js"
+        ],
+        "release_eval_sha256": []
+      },
+      {
+        "name": "test:broker-import",
+        "command": "node --test scripts/broker-import.test.js",
+        "file": "scripts/broker-import.test.js",
+        "profile": "standard",
+        "cases": [
+          "keeps every clear candidate as an independent trade and sorts newest first",
+          "supports side-before-name rows without merging or inventing a time",
+          "rejects rows when price and quantity have no explicit meaning",
+          "maps explicit quantity and price markers to the correct fields",
+          "classifies supported generic rows without guessing an unknown broker layout",
+          "rejects overseas or Toss statements before treating them as domestic trades",
+          "keeps a domestic Toss statement domestic when its dollar section is explicitly empty",
+          "parses Toss domestic table columns from PDF.js coordinates and normalizes A-prefixed codes",
+          "requires actual foreign trade evidence before returning overseas unsupported",
+          "keeps execution time optional and never invents it",
+          "requires times only for selected same-day same-symbol mixed-side groups",
+          "keeps timeUnknown and tradeTime independent for every selected trade",
+          "rejects ambiguous rows that could carry customer or account information",
+          "disables broker transfer until a trade is selected and required times are complete",
+          "CTA policy enables only reviewable selected trade sets",
+          "does not merge identical repeated rows",
+          "rejects incomplete or invalid candidate rows",
+          "sort helper preserves source order when date and time are equal",
+          "local PDF flow has no client upload, API, or browser storage call"
+        ],
+        "sha256": "73513c75acd5a8a613a63506baffe213bfed1a508b51b78847cbed7b9e133e60",
+        "reads": [
+          "package.json",
+          "scripts/broker-import.test.js",
+          "src/App.css",
+          "src/components/BrokerImport.jsx",
+          "src/components/TradingJournal.jsx",
+          "src/utils/brokerImport.js",
+          "src/utils/pdfTextExtractor.js"
         ],
         "release_eval_sha256": []
       },

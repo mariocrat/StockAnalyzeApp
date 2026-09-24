@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -22,6 +22,13 @@ import {
   findReviewTradeGroup,
   reviewTradesForGroup,
 } from '../utils/reviewTradeSelection';
+import {
+  formatTradeDateTime,
+  formatTradeNumber,
+  setTradeTimeUnknownState,
+  updateTradeTimeState,
+  validateTradeTimesForReview,
+} from '../utils/brokerImport';
 import { toKoreanUserMessage } from '../utils/userMessage';
 
 const sideLabels = { buy: '매수', sell: '매도' };
@@ -44,6 +51,8 @@ const NAVER_CLIENT_ID = import.meta.env.VITE_NAVER_CLIENT_ID || '';
 const KAKAO_REDIRECT_URI = import.meta.env.VITE_KAKAO_REDIRECT_URI || '';
 const NAVER_REDIRECT_URI = import.meta.env.VITE_NAVER_REDIRECT_URI || '';
 const GOOGLE_PLAY_PACKAGE_NAME = import.meta.env.VITE_GOOGLE_PLAY_PACKAGE_NAME || 'com.mariocrat.stockanalyze';
+const ANDROID_OAUTH_APP_SCHEME = import.meta.env.VITE_ANDROID_OAUTH_APP_SCHEME || GOOGLE_PLAY_PACKAGE_NAME;
+const OAUTH_APP_SCHEME_STATE_MARKER = '|stockboda-app-scheme=';
 const DEV_LOGIN_PROFILES = {
   kakao: { label: '카카오', provider_user_id: 'dev-kakao-user', display_name: '카카오 테스트' },
   naver: { label: '네이버', provider_user_id: 'dev-naver-user', display_name: '네이버 테스트' },
@@ -74,6 +83,8 @@ const reviewSourceLabels = {
   review_basic: '심사용 일반 복기권',
   review_advanced: '심사용 심화 복기권',
 };
+
+const BrokerImportPanel = lazy(() => import('./BrokerImport'));
 
 const emptyForm = {
   trade_date: '',
@@ -295,6 +306,9 @@ export default function TradingJournal({
   accountPanelOpen = false,
   onOpenAccountPanel,
   onCloseAccountPanel,
+  importedTrades = [],
+  onImportedTradesChange,
+  onClearImportedTrades,
 }) {
   const oneTimeMode = import.meta.env.VITE_JOURNAL_STORAGE_MODE !== 'persisted';
   const [trades, setTrades] = useState([]);
@@ -333,6 +347,7 @@ export default function TradingJournal({
   const [dataSummary, setDataSummary] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [journalSubView, setJournalSubView] = useState('review');
+  const [journalInputMode, setJournalInputMode] = useState('direct');
   const [reviewHistory, setReviewHistory] = useState([]);
   const [activeReviewHistory, setActiveReviewHistory] = useState(null);
   const [reviewHistoryLoading, setReviewHistoryLoading] = useState(false);
@@ -350,6 +365,12 @@ export default function TradingJournal({
   const reviewTradeGroups = useMemo(() => buildReviewTradeGroups(trades), [trades]);
   const selectedReviewGroup = reviewTradeGroups.find(group => group.key === selectedReviewGroupKey) || null;
   const selectedReviewTrades = reviewTradesForGroup(reviewTradeGroups, selectedReviewGroupKey);
+  const importedTimeValidation = useMemo(
+    () => validateTradeTimesForReview(importedTrades),
+    [importedTrades],
+  );
+  const importedRequiredTradeIds = new Set(importedTimeValidation.requiredTradeIds);
+  const importedMissingTradeIds = new Set(importedTimeValidation.missingTradeIds);
   const reviewTargetFiltered = Boolean(reviewTargetQuery.trim() || reviewTargetFrom || reviewTargetTo);
   const visibleReviewTradeGroups = useMemo(
     () => filterReviewTradeGroups(reviewTradeGroups, {
@@ -771,7 +792,7 @@ export default function TradingJournal({
       setMessage(oauthDisabledReason(provider));
       return;
     }
-    const state = randomState();
+    const state = `${randomState()}${OAUTH_APP_SCHEME_STATE_MARKER}${ANDROID_OAUTH_APP_SCHEME}`;
     const redirectUri = oauthRedirectUri(provider);
     localStorage.setItem(OAUTH_STATE_KEY, JSON.stringify({
       provider,
@@ -899,7 +920,7 @@ export default function TradingJournal({
   };
 
   const handleOAuthAppReturn = (rawUrl) => {
-    const parsed = parseOAuthAppReturnUrl(rawUrl);
+    const parsed = parseOAuthAppReturnUrl(rawUrl, ANDROID_OAUTH_APP_SCHEME);
     if (!parsed) return false;
     if (handledOAuthReturnUrlRef.current === rawUrl) return true;
     handledOAuthReturnUrlRef.current = rawUrl;
@@ -1466,7 +1487,7 @@ export default function TradingJournal({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (DEV_TOOLS_ENABLED || authSession?.session_token) return;
-    const appReturn = parseOAuthAppReturnUrl(window.location.href);
+    const appReturn = parseOAuthAppReturnUrl(window.location.href, ANDROID_OAUTH_APP_SCHEME);
     if (appReturn) {
       handleOAuthAppReturn(window.location.href);
       return;
@@ -1496,6 +1517,22 @@ export default function TradingJournal({
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const summary = review?.summary || {};
+
+  const updateImportedTradeTime = (id, value) => {
+    onImportedTradesChange?.(importedTrades.map(trade => (
+      trade.id === id
+        ? { ...trade, ...updateTradeTimeState({ tradeTime: trade.tradeTime, timeUnknown: trade.timeUnknown === true }, value) }
+        : trade
+    )));
+  };
+
+  const markImportedTradeTimeUnknown = (id, unknown) => {
+    onImportedTradesChange?.(importedTrades.map(trade => (
+      trade.id === id
+        ? { ...trade, ...setTradeTimeUnknownState({ tradeTime: trade.tradeTime, timeUnknown: trade.timeUnknown === true }, unknown) }
+        : trade
+    )));
+  };
 
   const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -2001,6 +2038,119 @@ export default function TradingJournal({
         <div><span>승률</span><strong>{summary.win_rate_pct || 0}%</strong></div>
       </div>
 
+      {journalSubView === 'review' && (
+        <>
+          <section className="journal-start" aria-labelledby="journal-start-title">
+            <div className="journal-start-heading">
+              <span>복기 시작하기</span>
+              <h3 id="journal-start-title">매매 내역 입력 방식</h3>
+            </div>
+            <div className="journal-input-methods" role="group" aria-label="매매복기 입력 방식">
+              <button
+                type="button"
+                className={journalInputMode === 'direct' ? 'journal-input-method active' : 'journal-input-method'}
+                aria-pressed={journalInputMode === 'direct'}
+                onClick={() => setJournalInputMode('direct')}
+              >
+                <span className="journal-input-method-label">직접 입력</span>
+                <strong>직접 매매정보를 입력합니다.</strong>
+              </button>
+              <button
+                type="button"
+                className={journalInputMode === 'broker' ? 'journal-input-method active' : 'journal-input-method'}
+                aria-pressed={journalInputMode === 'broker'}
+                onClick={() => setJournalInputMode('broker')}
+              >
+                <span className="journal-input-method-label">증권사 거래내역 불러오기</span>
+                <strong>증권사 PDF에서 거래를 선택합니다.</strong>
+                <em>국내주식 · 첫 지원 예정: 토스증권</em>
+              </button>
+            </div>
+          </section>
+
+          {journalInputMode === 'broker' && (
+            <section className="journal-input-content journal-input-content-broker" aria-label="거래내역 불러오기">
+              {importedTrades.length > 0 ? (
+                <div className="journal-import-preview">
+                  <div className="journal-panel-title">
+                    <div>
+                      <span className="journal-section-eyebrow">거래내역 불러오기</span>
+                      <h3>가져온 거래 준비</h3>
+                      <span className="journal-chart-mode">저장 전 · {importedTrades.length}건</span>
+                    </div>
+                    <button type="button" className="journal-secondary" onClick={onClearImportedTrades}>
+                      다른 PDF 선택
+                    </button>
+                  </div>
+                  <p className="journal-privacy-note">PDF에서 읽은 거래를 한 건씩 유지합니다. 아직 저장되지 않았으며, 매매 이유와 판단은 매매복기에서 작성할 수 있습니다.</p>
+                  {importedTimeValidation.requiredGroups.length > 0 && (
+                    <div
+                      className={importedTimeValidation.valid ? 'journal-import-time-warning complete' : 'journal-import-time-warning'}
+                      role={importedTimeValidation.valid ? 'status' : 'alert'}
+                    >
+                      <strong>{importedTimeValidation.valid ? '체결시간을 확인했습니다' : '⚠ 체결시간이 필요합니다'}</strong>
+                      <span>같은 날 매수와 매도가 함께 선택되었습니다.</span>
+                      <p>정확한 거래 순서를 확인하려면 체결시간이 필요합니다.</p>
+                      {importedTimeValidation.valid && <small>필수 거래의 체결시간이 모두 입력되었습니다.</small>}
+                    </div>
+                  )}
+                  <div className="journal-imported-list">
+                    {importedTrades.map(trade => {
+                      const timeUnknown = trade.timeUnknown === true;
+                      const timeRequired = importedRequiredTradeIds.has(trade.id);
+                      const missingRequiredTime = timeRequired && importedMissingTradeIds.has(trade.id);
+                      return (
+                        <div className={missingRequiredTime ? 'journal-imported-trade time-required' : 'journal-imported-trade'} key={trade.id}>
+                          <div className="journal-imported-trade-main">
+                            <span className={`journal-imported-side ${trade.side}`}>
+                              {sideLabels[trade.side] || '거래'}
+                            </span>
+                            <div>
+                              <strong>{trade.stockName}</strong>
+                              <span>{trade.symbol || '종목코드 없음'} · {formatTradeDateTime(trade)}</span>
+                            </div>
+                          </div>
+                          <span className="journal-imported-amount">
+                            {formatTradeNumber(trade.price)}원 × {formatTradeNumber(trade.quantity)}주
+                          </span>
+                          <label className="journal-imported-time">
+                            <span>{timeRequired ? '체결시간(필수)' : '체결시간(선택)'}</span>
+                            <input
+                              type="time"
+                              value={trade.tradeTime ?? ''}
+                              disabled={timeUnknown}
+                              required={timeRequired && !timeUnknown}
+                              aria-invalid={missingRequiredTime}
+                              onChange={event => updateImportedTradeTime(trade.id, event.target.value)}
+                              aria-label={`${trade.stockName} 체결시간`}
+                            />
+                            <span className="journal-check">
+                              <input
+                                type="checkbox"
+                                checked={timeUnknown}
+                                onChange={event => markImportedTradeTimeUnknown(trade.id, event.target.checked)}
+                              />
+                              시간을 모름
+                            </span>
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <Suspense fallback={<div className="themes-loading">거래내역 불러오기를 준비하는 중입니다.</div>}>
+                  <BrokerImportPanel
+                    embedded
+                    onImportToJournal={nextTrades => onImportedTradesChange?.(nextTrades)}
+                  />
+                </Suspense>
+              )}
+            </section>
+          )}
+        </>
+      )}
+
       {message && (
         <div className="journal-notice-backdrop" role="presentation" onClick={() => setRawMessage('')}>
           <section
@@ -2095,22 +2245,10 @@ export default function TradingJournal({
         <div className="journal-auth-box">
           <div>
             <strong>{authSession ? `${authSession.user?.display_name || activeProviderLabel} 계정` : '로그인이 필요합니다'}</strong>
-            <span>{authSession ? `${activeProviderLabel}로 연결됨` : DEV_TOOLS_ENABLED ? '기본 개발 계정으로 표시됩니다.' : '복기 보관함과 이용권 관리를 위해 로그인하세요.'}</span>
+            <span>{authSession ? `${activeProviderLabel}로 연결됨` : DEV_TOOLS_ENABLED ? '실제 로그인 또는 개발용 계정으로 연결할 수 있습니다.' : '복기 보관함과 이용권 관리를 위해 로그인하세요.'}</span>
           </div>
           <div className="journal-auth-actions">
-            {DEV_TOOLS_ENABLED && (
-              <>
-                <button className={providerButtonClass('kakao')} disabled={authLoading} onClick={() => handleDevLogin('kakao')}>
-                  <ProviderIcon provider="kakao" />
-                  <span>카카오</span>
-                </button>
-                <button className={providerButtonClass('naver')} disabled={authLoading} onClick={() => handleDevLogin('naver')}>
-                  <ProviderIcon provider="naver" />
-                  <span>네이버</span>
-                </button>
-              </>
-            )}
-            {!DEV_TOOLS_ENABLED && !authSession && (
+            {!authSession && (
               <>
                 <button
                   className={providerButtonClass('kakao')}
@@ -2130,6 +2268,19 @@ export default function TradingJournal({
                   <ProviderIcon provider="naver" />
                   <span>네이버 로그인</span>
                 </button>
+                {DEV_TOOLS_ENABLED && (
+                  <div className="journal-dev-login-actions">
+                    <span>개발용 계정</span>
+                    <button className={providerButtonClass('kakao')} disabled={authLoading} onClick={() => handleDevLogin('kakao')}>
+                      <ProviderIcon provider="kakao" />
+                      <span>개발용 카카오</span>
+                    </button>
+                    <button className={providerButtonClass('naver')} disabled={authLoading} onClick={() => handleDevLogin('naver')}>
+                      <ProviderIcon provider="naver" />
+                      <span>개발용 네이버</span>
+                    </button>
+                  </div>
+                )}
               </>
             )}
             {authSession && (
@@ -2203,7 +2354,7 @@ export default function TradingJournal({
             </div>
             {DEV_TOOLS_ENABLED && (
               <p className="journal-privacy-note">
-                현재는 개발 모드라 위쪽 카카오/네이버 버튼은 개발용 계정 전환입니다. 실제 로그인 테스트는 `VITE_ALPHAMATE_ENV=production` 또는 `VITE_ENABLE_DEV_TOOLS=false`로 실행한 뒤 확인합니다.
+                개발 모드에서는 아래 개발용 계정을 사용할 수 있습니다. 위 카카오/네이버 로그인 버튼은 설정이 있으면 실제 OAuth로 연결됩니다.
               </p>
             )}
           </div>
@@ -2291,6 +2442,7 @@ export default function TradingJournal({
         renderReviewHistoryArchive()
       ) : (
         <>
+      {journalInputMode === 'direct' && (
       <section className="journal-panel">
         <h3>매매 기록 입력</h3>
         <div className="journal-form">
@@ -2370,6 +2522,7 @@ export default function TradingJournal({
         </div>
         <button className="journal-primary" disabled={loading} onClick={submitManual}>저장</button>
       </section>
+      )}
 
       <section className="journal-panel" ref={entitlementSectionRef}>
         <div className="journal-panel-title">

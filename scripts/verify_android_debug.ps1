@@ -48,6 +48,7 @@ $debugAdValues = @{
     VITE_ADMOB_APP_OPEN_AD_UNIT_ID = "ca-app-pub-3940256099942544/9257395921"
     VITE_ADMOB_CHART_DETAIL_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712"
     VITE_ADMOB_BANNER_AD_UNIT_ID = "ca-app-pub-3940256099942544/6300978111"
+    VITE_ANDROID_OAUTH_APP_SCHEME = "com.mariocrat.stockanalyze.debug"
 }
 $oldDebugAdValues = @{}
 foreach ($name in $debugAdValues.Keys) {

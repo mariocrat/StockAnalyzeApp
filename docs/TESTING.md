@@ -33,7 +33,7 @@ Python coordinator와 module child는 모두 `-I -X utf8`로 실행되어 UTF-8 
 
 Python direct **464** = 기존 H4 **35 / 393 / 22** (A1/foundation/helper / migrated / OUT) + Stage 1 **14** 별도 cohort.
 Child probe **18**은 direct와 별도 집계합니다.
-Node **17 entrypoint / 128 direct testcase**, `test:mobile-bundle` 포함.
+Node **18 entrypoint / 149 direct testcase**, `test:broker-import`와 `test:mobile-bundle` 포함.
 Manifest/source/execution 누락·중복·extra 및 예상 밖 skip은 실패입니다. Nested evidence는 direct에 중복 합산하지 않습니다.
 
 Raw `unittest discover`는 공식 경로가 아닙니다. Target import 전에 필요한 A1 boundary를 설치하는 승인 coordinator를 사용합니다.
@@ -68,6 +68,8 @@ npm lifecycle/build 설정의 부작용을 먼저 검토해야 하며 필요한 
 기존 일반 Vite build를 release 전용 workflow로 확장하지 않았습니다.
 
 ## 검증 상태와 범위
+
+아래 closeout 결과는 2026-09-23, 검증 HEAD `9fff3f3e84ce26f663f41619d37a4eb101bfbc32`의 historical baseline입니다. 현재 통합 tree의 Node inventory는 18 / 149이며, 이번 audit finding 수정 후 공식 전체 TestOnly 재검증은 대기 중입니다.
 
 **H4 test environment isolation closeout complete.** 공식 전체 TestOnly는 exit code **0**, 전체 PASS로 최종 승인됐고 closeout 문서화와 최종 확인도 완료됐습니다.
 

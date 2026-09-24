@@ -7,6 +7,7 @@ export function requestNestedBack(targetWindow = window) {
 }
 
 export function nextRootBackAction({ activeView, hasThemeSelection }) {
+  if (activeView === 'broker-import') return 'journal';
   if (activeView !== 'themes') return 'themes';
   if (hasThemeSelection) return 'clear-theme-selection';
   return 'confirm-exit';

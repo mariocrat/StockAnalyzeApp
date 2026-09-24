@@ -151,6 +151,27 @@ class OAuthLoginTest(unittest.TestCase):
             oauth_login.consume_oauth_app_ticket(query["ticket"][0])
         self.assertEqual(401, replay.exception.status_code)
 
+        configured = "com.mariocrat.stockanalyze"
+        marker = oauth_login.OAUTH_APP_SCHEME_STATE_MARKER
+        with patch.dict(os.environ, {"ALPHAMATE_OAUTH_APP_SCHEME": configured}):
+            with self.subTest(case="explicit release marker with current app scheme"):
+                state = "state-release|stockboda-app-scheme=com.mariocrat.stockanalyze"
+                error_url = oauth_login.create_oauth_app_error_redirect(provider="kakao", state=state)
+                error_redirect = urlparse(error_url)
+                self.assertEqual(configured, error_redirect.scheme)
+                self.assertEqual("oauth", error_redirect.netloc)
+                self.assertEqual("/kakao", error_redirect.path)
+                self.assertEqual([state], parse_qs(error_redirect.query)["state"])
+            for rejected_scheme in ("evilapp", "https", "javascript", "attacker.custom.scheme"):
+                with self.subTest(rejected_scheme=rejected_scheme):
+                    state = f"state-rejected{marker}{rejected_scheme}"
+                    error_url = oauth_login.create_oauth_app_error_redirect(provider="kakao", state=state)
+                    error_redirect = urlparse(error_url)
+                    self.assertEqual(configured, error_redirect.scheme)
+                    self.assertEqual("oauth", error_redirect.netloc)
+                    self.assertEqual("/kakao", error_redirect.path)
+                    self.assertEqual([state], parse_qs(error_redirect.query)["state"])
+
     def test_oauth_config_status_reports_missing_server_settings(self):
         for key in ("KAKAO_CLIENT_ID", "KAKAO_REDIRECT_URI", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "NAVER_REDIRECT_URI"):
             os.environ.pop(key, None)

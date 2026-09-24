@@ -26,6 +26,7 @@ const DEV_ENTITLEMENT_TOKEN = DEV_ACCESS_PLAN === 'pro' ? DEV_PRO_ENTITLEMENT_TO
 const AUTH_STORAGE_KEY = 'alphamate.devAuth.v1';
 const StockChart = lazy(() => import('./components/StockChart'));
 const TradingJournal = lazy(() => import('./components/TradingJournal'));
+const BrokerImport = lazy(() => import('./components/BrokerImport'));
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const fmt8 = (d) => d.toISOString().split('T')[0].replace(/-/g, '');
@@ -108,12 +109,14 @@ export default function App() {
   const splashStartedAtRef = useRef(null);
   const [activeView, setActiveView] = useState(() => {
     try {
-      return new URLSearchParams(window.location.search).get('view') === 'journal' ? 'journal' : 'themes';
+      const view = new URLSearchParams(window.location.search).get('view');
+      return view === 'journal' || view === 'broker-import' ? view : 'themes';
     } catch {
       return 'themes';
     }
   });
   const [accountPanelOpen, setAccountPanelOpen] = useState(false);
+  const [importedTrades, setImportedTrades] = useState([]);
 
   useEffect(() => {
     document.title = APP_NAME;
@@ -369,7 +372,7 @@ export default function App() {
     if (nextView !== 'journal') setAccountPanelOpen(false);
     try {
       const url = new URL(window.location.href);
-      if (nextView === 'journal') url.searchParams.set('view', 'journal');
+      if (nextView === 'journal' || nextView === 'broker-import') url.searchParams.set('view', nextView);
       else url.searchParams.delete('view');
       window.history.replaceState({}, '', url.toString());
     } catch {
@@ -389,6 +392,19 @@ export default function App() {
     setAccountPanelOpen(false);
     if (returnView && returnView !== 'journal') changeActiveView(returnView);
   }, [changeActiveView]);
+
+  const handleImportedTrades = useCallback((nextTrades) => {
+    setImportedTrades(nextTrades);
+    changeActiveView('journal');
+  }, [changeActiveView]);
+
+  const updateImportedTrades = useCallback((nextTrades) => {
+    setImportedTrades(nextTrades);
+  }, []);
+
+  const clearImportedTrades = useCallback(() => {
+    setImportedTrades([]);
+  }, []);
 
   const paneLayoutKey = ['RSI', 'MACD', 'STOCH'].filter(key => activeInds[key]).join('|') || 'base';
   const handlePaneLayoutChange = useCallback((key, factors) => {
@@ -417,6 +433,10 @@ export default function App() {
     });
     if (action === 'themes') {
       changeActiveView('themes');
+      return;
+    }
+    if (action === 'journal') {
+      changeActiveView('journal');
       return;
     }
     if (action === 'clear-theme-selection') {
@@ -763,7 +783,7 @@ export default function App() {
   return (
     <>
     {showSplash && <AppSplash exiting={splashExiting} />}
-    <div className={`${bannerReserved ? 'app-container app-container-mobile-banner' : 'app-container'} ${activeView === 'journal' ? 'journal-view' : 'themes-view'} ${themesExpanded ? 'themes-expanded' : 'themes-collapsed'}`}>
+    <div className={`${bannerReserved ? 'app-container app-container-mobile-banner' : 'app-container'} ${activeView === 'journal' ? 'journal-view' : activeView === 'broker-import' ? 'broker-import-view' : 'themes-view'} ${themesExpanded ? 'themes-expanded' : 'themes-collapsed'}`}>
       <header className="mobile-app-bar">
         <button type="button" className="mobile-app-back" onClick={handleAppBack} aria-label="뒤로 가기" title="뒤로 가기">
           <ArrowLeft size={21} aria-hidden="true" />
@@ -899,6 +919,16 @@ export default function App() {
               accountPanelOpen={accountPanelOpen}
               onOpenAccountPanel={openAccountPanel}
               onCloseAccountPanel={closeAccountPanel}
+              importedTrades={importedTrades}
+              onImportedTradesChange={updateImportedTrades}
+              onClearImportedTrades={clearImportedTrades}
+            />
+          </Suspense>
+        ) : activeView === 'broker-import' ? (
+          <Suspense fallback={<div className="themes-loading">PDF 가져오기를 불러오는 중입니다.</div>}>
+            <BrokerImport
+              onBackToJournal={() => changeActiveView('journal')}
+              onImportToJournal={handleImportedTrades}
             />
           </Suspense>
         ) : (

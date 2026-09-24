@@ -55,8 +55,9 @@ def node_regression_suite(executable):
 
         def test_inventory_package_source_manifest_exact_and_fail_closed(self):
             live = inventory.load_node_inventory()
-            self.assertEqual(len(live), 17)
-            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 128)
+            self.assertEqual(len(live), 18)
+            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 149)
+            self.assertIn("test:broker-import", live)
             self.assertIn("test:mobile-bundle", live)
             spec = self.fixture("test('synthetic', () => {});\n")
             manifest = {"version": 1, "entries": [spec]}

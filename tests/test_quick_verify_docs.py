@@ -93,6 +93,11 @@ class QuickVerifyDocsTest(unittest.TestCase):
         self.assertTrue(script.startswith(b"\xef\xbb\xbf"))
 
     def test_verify_project_runs_every_frontend_safety_test_script(self):
+        from tests.isolation_inventory import load_node_inventory, node_inventory_summary
+
+        live = node_inventory_summary(load_node_inventory())
+        self.assertEqual((live["entrypoints"], live["direct"]), (18, 149))
+        current_node_contract = f"Node **{live['entrypoints']} entrypoint / {live['direct']} direct testcase**"
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("tests\\run_isolated_tests.py", script)
         self.assertIn("'--node-all', '--node-executable', $node", script)
@@ -101,7 +106,8 @@ class QuickVerifyDocsTest(unittest.TestCase):
         for name in ("TESTING.md", "quick_verify.md"):
             docs = (ROOT / "docs" / name).read_text(encoding="utf-8")
             for value in ("-Mode TestOnly", "-Mode BuildChecks", "-PythonPath", "-NodePath",
-                          "464", "18", "17", "128", "35 / 393 / 22", "14",
+                          "464", "18", current_node_contract, "test:broker-import",
+                          "historical baseline", "35 / 393 / 22", "14",
                           "run_phase_a_tests.py", "exit 2", "diagnose_phase_a_probe.py",
                           "raw", "network", "install", "signing"):
                 self.assertIn(value, docs)
