@@ -3,6 +3,8 @@ import json
 import sqlite3
 from pathlib import Path
 
+from backend.core.review_history_approved_write import ApprovedHistoryWrite, validate_approved_history_write
+
 try:
     from core.env import database_path, env_value
 except ModuleNotFoundError:
@@ -24,11 +26,20 @@ def _json_dumps(value) -> str:
     return json.dumps(value if value is not None else {}, ensure_ascii=False)
 
 
-def _json_loads(value: str, fallback):
+def _json_loads(value: str):
+    def unique_object(pairs):
+        result = {}
+        for key, child in pairs:
+            if key in result:
+                raise ValueError("duplicate history snapshot key")
+            result[key] = child
+        return result
+
     try:
-        return json.loads(value or "")
-    except json.JSONDecodeError:
-        return fallback
+        return json.loads(value, object_pairs_hook=unique_object)
+    except (TypeError, ValueError, RecursionError):
+        # Do not turn a corrupt snapshot into a supported empty legacy shape.
+        return None
 
 
 def _connect():
@@ -77,32 +88,29 @@ def _row_to_summary(row) -> dict:
 def _row_to_detail(row) -> dict:
     data = _row_to_summary(row)
     data.update({
-        "trade_snapshot": _json_loads(row["trade_snapshot_json"], {}),
-        "recent_trades_snapshot": _json_loads(row["recent_trades_snapshot_json"], []),
-        "chart_snapshot": _json_loads(row["chart_snapshot_json"], {}),
-        "ai_review": _json_loads(row["ai_review_json"], {}),
-        "access_snapshot": _json_loads(row["access_snapshot_json"], {}),
+        "trade_snapshot": _json_loads(row["trade_snapshot_json"]),
+        "recent_trades_snapshot": _json_loads(row["recent_trades_snapshot_json"]),
+        "chart_snapshot": _json_loads(row["chart_snapshot_json"]),
+        "ai_review": _json_loads(row["ai_review_json"]),
+        "access_snapshot": _json_loads(row["access_snapshot_json"]),
     })
     return data
 
 
-def add_review_history(
-    *,
-    user_id: str,
-    review_type: str,
-    ticker: str = "",
-    name: str = "",
-    trade_date: str = "",
-    target_trade_id=None,
-    trade_snapshot=None,
-    recent_trades_snapshot=None,
-    chart_snapshot=None,
-    ai_review=None,
-    access_snapshot=None,
-    model: str = "",
-    source: str = "",
-) -> dict:
-    normalized_type = "advanced" if review_type == "advanced" else "basic"
+def _read_connect():
+    """Existing rows only: reads never create a DB or initialize its schema."""
+    path = _db_path().resolve()
+    if not path.is_file():
+        return None
+    conn = sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def add_review_history(approved: ApprovedHistoryWrite) -> dict:
+    """Write only already admitted immutable parameters, before any DB access."""
+    validate_approved_history_write(approved)
+    parameters = approved.bind_values
     conn = _connect()
     try:
         cur = conn.execute(
@@ -113,31 +121,18 @@ def add_review_history(
                 ai_review_json, access_snapshot_json, model, source, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (
-                str(user_id),
-                normalized_type,
-                str(ticker or ""),
-                str(name or ""),
-                str(trade_date or ""),
-                target_trade_id,
-                _json_dumps(trade_snapshot),
-                _json_dumps(recent_trades_snapshot if recent_trades_snapshot is not None else []),
-                _json_dumps(chart_snapshot),
-                _json_dumps(ai_review),
-                _json_dumps(access_snapshot),
-                str(model or ""),
-                str(source or ""),
-                _now(),
-            ),
+            parameters,
         )
         conn.commit()
-        return get_review_history(cur.lastrowid, user_id=user_id)
+        return get_review_history(cur.lastrowid, user_id=parameters[0])
     finally:
         conn.close()
 
 
 def list_review_history(*, user_id: str, limit: int = 100) -> list[dict]:
-    conn = _connect()
+    conn = _read_connect()
+    if conn is None:
+        return []
     try:
         rows = conn.execute(
             """
@@ -148,13 +143,17 @@ def list_review_history(*, user_id: str, limit: int = 100) -> list[dict]:
             """,
             (str(user_id), int(limit or 100)),
         ).fetchall()
-        return [_row_to_summary(row) for row in rows]
+        # Every caller receives a whole row. The API may project a list item
+        # only after the same admission used for detail and export.
+        return [_row_to_detail(row) for row in rows]
     finally:
         conn.close()
 
 
 def get_review_history(review_id: int, *, user_id: str) -> dict | None:
-    conn = _connect()
+    conn = _read_connect()
+    if conn is None:
+        return None
     try:
         row = conn.execute(
             "SELECT * FROM review_history WHERE id = ? AND user_id = ?",

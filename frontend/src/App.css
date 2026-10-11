@@ -2611,9 +2611,9 @@ body {
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
 }
 
-.journal-marker-tooltip strong,
-.journal-marker-tooltip span,
-.journal-marker-tooltip em {
+.journal-marker-tooltip-section > strong,
+.journal-marker-tooltip-section > span,
+.journal-marker-tooltip-section > em {
   display: block;
 }
 

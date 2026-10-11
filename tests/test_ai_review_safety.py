@@ -2,7 +2,10 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
+from backend.core.review_display_contract import SCHEMA_VERSION
+
 from tests.api_test_modules import _import_state, api_module_state
+from tests.review_source_fixtures import approved_route_fixture
 from unittest.mock import patch
 
 import importlib
@@ -14,6 +17,10 @@ import unittest
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException
+
+
+def _approved_basic_stub(summary, *, approval_state, status="ready", source="openai", model=None):
+    return approved_route_fixture(summary, approval_state=approval_state, status=status, source=source, model=model)
 
 
 def _load_main_with_temp_state(tmpdir):
@@ -129,19 +136,14 @@ class AiReviewSafetyTest(unittest.TestCase):
     def test_ai_review_rate_limit_rejects_repeated_user_requests(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             main, _, token = _load_main_with_temp_state(tmpdir)
-            main.build_basic_ai_review = lambda trades, target_trade_id=None, analysis_focus="balanced": {
-                "status": "ready",
-                "source": "openai",
-                "review_type": "basic",
-                "summary": "ok",
-            }
+            main.build_basic_ai_review = lambda trades, target_trade_id=None, analysis_focus="balanced", approval_state=None: _approved_basic_stub("ok", approval_state=approval_state)
 
             batch = _basic_batch(main)
-            first = main.get_journal_ai_review_once(batch, authorization=token)
+            first = main.get_journal_ai_review_once(batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION])
 
             self.assertEqual("ready", first["status"])
             with self.assertRaises(HTTPException) as blocked:
-                main.get_journal_ai_review_once(batch, authorization=token)
+                main.get_journal_ai_review_once(batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION])
 
             self.assertEqual(429, blocked.exception.status_code)
             self.assertIn("Retry-After", blocked.exception.headers)
@@ -176,14 +178,10 @@ class AiReviewSafetyTest(unittest.TestCase):
     def test_ai_review_error_refunds_consumed_basic_credit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             main, access_control, token = _load_main_with_temp_state(tmpdir)
-            main.build_basic_ai_review = lambda trades, target_trade_id=None, analysis_focus="balanced": {
-                "status": "error",
-                "source": "chart-rules",
-                "review_type": "basic",
-                "summary": "AI request failed",
-            }
+            main.build_basic_ai_review = lambda trades, target_trade_id=None, analysis_focus="balanced", approval_state=None: _approved_basic_stub(
+                "AI request failed", approval_state=approval_state, status="error", source="chart-rules")
 
-            result = main.get_journal_ai_review_once(_basic_batch(main), authorization=token)
+            result = main.get_journal_ai_review_once(_basic_batch(main), authorization=token, x_review_display_contract=[SCHEMA_VERSION])
             entitlements = access_control.get_user_entitlements(
                 authorization=token,
                 entitlement_token="",
@@ -201,7 +199,7 @@ class AiReviewSafetyTest(unittest.TestCase):
             batch.review_type = "premium"
 
             with self.assertRaises(HTTPException) as blocked:
-                main.get_journal_ai_review_once(batch, authorization=token)
+                main.get_journal_ai_review_once(batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION])
             entitlements = access_control.get_user_entitlements(
                 authorization=token,
                 entitlement_token="",
@@ -216,20 +214,15 @@ class AiReviewSafetyTest(unittest.TestCase):
             main, access_control, token = _load_main_with_temp_state(tmpdir)
             calls = {"count": 0}
 
-            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced"):
+            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced", approval_state=None):
                 calls["count"] += 1
-                return {
-                    "status": "ready",
-                    "source": "openai",
-                    "review_type": "basic",
-                    "summary": f"ok-{calls['count']}",
-                }
+                return _approved_basic_stub(f"ok-{calls['count']}", approval_state=approval_state)
 
             main.build_basic_ai_review = fake_basic_review
             batch = _basic_batch(main)
 
-            first = main.get_journal_ai_review_once(batch, authorization=token, x_idempotency_key="same-request-1")
-            second = main.get_journal_ai_review_once(batch, authorization=token, x_idempotency_key="same-request-1")
+            first = main.get_journal_ai_review_once(batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION], x_idempotency_key="same-request-1")
+            second = main.get_journal_ai_review_once(batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION], x_idempotency_key="same-request-1")
             entitlements = access_control.get_user_entitlements(
                 authorization=token,
                 entitlement_token="",
@@ -247,30 +240,25 @@ class AiReviewSafetyTest(unittest.TestCase):
             ai_review_v2 = importlib.import_module("core.ai_review_v2")
             calls = {"count": 0}
 
-            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced"):
+            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced", approval_state=None):
                 calls["count"] += 1
-                return {
-                    "status": "ready",
-                    "source": "openai",
-                    "review_type": "basic",
-                    "model": "gpt-5.6-luna",
-                    "summary": ai_review_v2._OpenAiReviewText(
-                        "visible OpenAI review",
-                        response_status="completed",
-                    ),
-                }
+                return _approved_basic_stub(
+                    ai_review_v2._OpenAiReviewText("visible OpenAI review", response_status="completed"),
+                    approval_state=approval_state,
+                    model="gpt-5.6-luna",
+                )
 
             main.build_basic_ai_review = fake_basic_review
             batch = _basic_batch(main)
 
             first = main.get_journal_ai_review_once(
                 batch,
-                authorization=token,
+                authorization=token, x_review_display_contract=[SCHEMA_VERSION],
                 x_idempotency_key="openai-text-request-1",
             )
             second = main.get_journal_ai_review_once(
                 batch,
-                authorization=token,
+                authorization=token, x_review_display_contract=[SCHEMA_VERSION],
                 x_idempotency_key="openai-text-request-1",
             )
             entitlements = access_control.get_user_entitlements(authorization=token, entitlement_token="")
@@ -288,13 +276,10 @@ class AiReviewSafetyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             main, _, token = _load_main_with_temp_state(tmpdir)
             cache_key = main._ai_review_idempotency_cache_key(token, "completed-request-1")
-            main._ai_review_idempotency_cache[cache_key] = {
-                "status": "done",
-                "result": {"summary": "completed"},
-                "payload_fingerprint": "fingerprint",
-                "expires_at": main.datetime.datetime.now(main.datetime.timezone.utc)
-                + main.datetime.timedelta(minutes=5),
-            }
+            with patch.object(main, "build_basic_ai_review", side_effect=lambda trades, **kwargs:
+                              _approved_basic_stub("completed", approval_state=kwargs["approval_state"])):
+                main.get_journal_ai_review_once(_basic_batch(main), authorization=token,
+                    x_review_display_contract=[SCHEMA_VERSION], x_idempotency_key="completed-request-1")
 
             main._abort_ai_review_idempotency(cache_key)
 
@@ -306,20 +291,15 @@ class AiReviewSafetyTest(unittest.TestCase):
             os.environ["ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE"] = "10"
             calls = {"count": 0}
 
-            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced"):
+            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced", approval_state=None):
                 calls["count"] += 1
-                return {
-                    "status": "ready",
-                    "source": "openai",
-                    "review_type": "basic",
-                    "summary": f"ok-{calls['count']}",
-                }
+                return _approved_basic_stub(f"ok-{calls['count']}", approval_state=approval_state)
 
             main.build_basic_ai_review = fake_basic_review
             batch = _basic_batch(main)
 
-            first = main.get_journal_ai_review_once(batch, authorization=token, x_idempotency_key="request-1")
-            second = main.get_journal_ai_review_once(batch, authorization=token, x_idempotency_key="request-2")
+            first = main.get_journal_ai_review_once(batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION], x_idempotency_key="request-1")
+            second = main.get_journal_ai_review_once(batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION], x_idempotency_key="request-2")
             entitlements = access_control.get_user_entitlements(authorization=token, entitlement_token="")
 
             self.assertEqual("ok-1", first["summary"])
@@ -362,23 +342,18 @@ class AiReviewSafetyTest(unittest.TestCase):
             main, access_control, token = _load_main_with_temp_state(tmpdir)
             calls = {"count": 0}
 
-            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced"):
+            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced", approval_state=None):
                 calls["count"] += 1
-                return {
-                    "status": "ready",
-                    "source": "openai",
-                    "review_type": "basic",
-                    "summary": f"ok-{calls['count']}",
-                }
+                return _approved_basic_stub(f"ok-{calls['count']}", approval_state=approval_state)
 
             main.build_basic_ai_review = fake_basic_review
             first_batch = _basic_batch(main)
             second_batch = _basic_batch(main)
             second_batch.trades[0].price = 71000
 
-            first = main.get_journal_ai_review_once(first_batch, authorization=token, x_idempotency_key="same-request-1")
+            first = main.get_journal_ai_review_once(first_batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION], x_idempotency_key="same-request-1")
             with self.assertRaises(HTTPException) as blocked:
-                main.get_journal_ai_review_once(second_batch, authorization=token, x_idempotency_key="same-request-1")
+                main.get_journal_ai_review_once(second_batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION], x_idempotency_key="same-request-1")
             entitlements = access_control.get_user_entitlements(
                 authorization=token,
                 entitlement_token="",
@@ -413,21 +388,14 @@ class AiReviewSafetyTest(unittest.TestCase):
             previous_max_size = main.AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE
             try:
                 main.AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE = 3
-                now = main.datetime.datetime.now(main.datetime.timezone.utc)
-                main._ai_review_idempotency_cache = {
-                    f"old-{index}": {
-                        "status": "done",
-                        "result": {"summary": f"old-{index}"},
-                        "payload_fingerprint": f"old-{index}",
-                        "expires_at": now + main.datetime.timedelta(seconds=300 + index),
-                    }
-                    for index in range(3)
-                }
+                fingerprint = main._ai_review_payload_fingerprint(_basic_batch(main))
+                for index in range(3):
+                    main._begin_ai_review_idempotency(token, f"old-request-{index}", fingerprint)
 
                 cache_key, replay = main._begin_ai_review_idempotency(
                     token,
                     "new-request-1",
-                    "new-payload",
+                    fingerprint,
                 )
 
                 self.assertIsNone(replay)

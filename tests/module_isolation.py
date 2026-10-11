@@ -12,6 +12,7 @@ import tempfile
 from contextlib import ExitStack, contextmanager
 from contextvars import ContextVar
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 from unittest.mock import patch
 
 from backend.core import env as configuration
@@ -219,10 +220,13 @@ class Boundary:
         elif event == "sqlite3.connect":
             # Unwrapped/pre-bootstrap aliases and direct constructors fail before
             # opening a file. Each guarded call authorizes exactly one creation.
-            if _sqlite_opening.get() is not self:
+            authorization = _sqlite_opening.get()
+            if (not isinstance(authorization, tuple) or len(authorization) != 3
+                    or authorization[0] is not self or authorization[1] != os.fsdecode(args[0])):
                 self.deny("sqlite-connect")
             _sqlite_opening.set(None)
-            self.path(args[0], writing=True)
+            # Even read-only URI connections must stay in the test-owned root.
+            self.path(authorization[2], writing=True)
         elif event == "open":
             raw, mode, flags = args
             writing = bool(flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND))
@@ -267,7 +271,21 @@ def install_sqlite_patches(stack, boundary):
         factory = kwargs.get("factory", args[5] if len(args) > 5 else original_connection)
         if factory is not original_connection:
             boundary.deny("sqlite-factory")
-        token = _sqlite_opening.set(boundary)
+        database = os.fsdecode(args[0] if args else kwargs["database"])
+        actual_path = database
+        if database.startswith("file:"):
+            uri = kwargs.get("uri", args[7] if len(args) > 7 else False)
+            parts = urlsplit(database)
+            if (uri is not True or parts.scheme != "file" or parts.netloc
+                    or parts.query != "mode=ro" or parts.fragment):
+                boundary.deny("sqlite-uri")
+            actual_path = unquote(parts.path, errors="strict")
+            if (os.name == "nt" and len(actual_path) > 3 and actual_path[0] == "/"
+                    and actual_path[1].isalpha() and actual_path[2:4] == ":/"):
+                actual_path = actual_path[1:]
+            if not Path(actual_path).is_absolute():
+                boundary.deny("sqlite-uri")
+        token = _sqlite_opening.set((boundary, database, actual_path))
         try:
             connection = original_connect(*args, **kwargs)
         finally:

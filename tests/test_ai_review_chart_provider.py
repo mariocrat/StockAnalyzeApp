@@ -28,7 +28,7 @@ class AiReviewChartProviderTest(unittest.TestCase):
         self.enterContext(patch.object(
             self.ai_review_v2, "build_journal_charts", return_value={"charts": []}))
         self.enterContext(patch.object(
-            self.ai_review_v2, "get_stock_ohlcv", side_effect=lambda *args: pd.DataFrame()))
+            self.ai_review_v2, "get_review_stock_ohlcv", side_effect=lambda *args: pd.DataFrame()))
 
     def _success_response(self, text="ok"):
         body = json.dumps({"output_text": text}).encode("utf-8")
@@ -61,6 +61,7 @@ class AiReviewChartProviderTest(unittest.TestCase):
                 "side": "buy",
                 "price": 6980,
                 "quantity": 10,
+                "fee": 0, "tax": 0, "memo": "", "source": "manual",
             }],
             model_override="gpt-5.6-luna",
             allow_fallback=False,

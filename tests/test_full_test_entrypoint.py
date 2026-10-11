@@ -55,10 +55,41 @@ def node_regression_suite(executable):
 
         def test_inventory_package_source_manifest_exact_and_fail_closed(self):
             live = inventory.load_node_inventory()
-            self.assertEqual(len(live), 20)
-            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 160)
+            self.assertEqual(len(live), 23)
+            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 233)
             self.assertIn("test:broker-import", live)
             self.assertIn("test:mobile-bundle", live)
+            review = live["test:canonical-review-renderer"]
+            frontend = inventory.REPOSITORY / "frontend"
+            self.assertEqual(len(inventory.validated_react_snapshot(frontend, review)), 9)
+            for field in ("vector_sha256", "component_sha256"):
+                broken = copy.deepcopy(review)
+                broken[field] = "0" * 64
+                with self.subTest(field=field), self.assertRaises(inventory.InventoryError):
+                    inventory.validated_react_snapshot(frontend, broken)
+            broken = copy.deepcopy(review)
+            broken["react_snapshot"]["react/index.js"] = "0" * 64
+            with self.assertRaises(inventory.InventoryError):
+                inventory.validated_react_snapshot(frontend, broken)
+            chart = live[inventory.NODE_CHART_ENTRY]
+            self.assertEqual(len(inventory.validated_react_snapshot(frontend, chart)), 11)
+            self.assertNotIn(inventory.NODE_LEGACY_FORMAT, chart["reads"])
+            for field in ("component_sha256", "chart_component_sha256", "chart_source_sha256", "display_contract_sha256", "format_sha256"):
+                broken = copy.deepcopy(chart)
+                broken[field] = "0" * 64
+                with self.subTest(chart_field=field), self.assertRaises(inventory.InventoryError):
+                    inventory.validated_react_snapshot(frontend, broken)
+            legacy = live[inventory.NODE_LEGACY_ENTRY]
+            self.assertEqual(len(inventory.validated_react_snapshot(frontend, legacy)), 11)
+            for field in ("vector_sha256", "component_sha256", "format_sha256", "display_contract_sha256"):
+                broken = copy.deepcopy(legacy)
+                broken[field] = "0" * 64
+                with self.subTest(legacy_field=field), self.assertRaises(inventory.InventoryError):
+                    inventory.validated_react_snapshot(frontend, broken)
+            broken = copy.deepcopy(legacy)
+            broken["typescript_snapshot"]["typescript/lib/typescript.js"] = "0" * 64
+            with self.assertRaises(inventory.InventoryError):
+                inventory.validated_react_snapshot(frontend, broken)
             spec = self.fixture("test('synthetic', () => {});\n")
             manifest = {"version": 1, "entries": [spec]}
             self.assertEqual(len(inventory.validate_node_inventory(self.frontend, manifest)), 1)
@@ -293,17 +324,51 @@ def probe_fixture():
 
 
 class FullTestEntrypointTest(unittest.TestCase):
+    def test_legacy_handoff_rejects_failed_child_lifecycle_and_missing_coverage(self):
+        from tests import review_legacy_handoff as handoff
+
+        raw = (runner.REPOSITORY / handoff.VECTOR).read_bytes()
+        vectors = json.loads(raw)
+        records = [{"id": v["id"], "status": "success", "summary": v["expected_summary"]} for v in vectors["pass"]]
+        records += [{"id": v["id"], "status": "rejected", "code": v["expected_rejection"]} for v in vectors["fail"]]
+        healthy = {"contract": vectors["contract"], "admissions": records, "passed": True,
+                   "unexpected": 0, "restored": True, "patches_restored": True,
+                   "vector_sha256": inventory.hashlib.sha256(raw).hexdigest(),
+                   "counts": {"success": 10, "rejected": 65}}
+        with tempfile.TemporaryDirectory(prefix="legacy-handoff-regression-") as directory:
+            root = Path(directory)
+            (root / "tmp").mkdir()
+            (root / "scripts/fixtures").mkdir(parents=True)
+            for field, wrong in (("passed", False), ("unexpected", 1), ("restored", False),
+                                 ("patches_restored", False), ("vector_sha256", "0" * 64),
+                                 ("admissions", []), ("counts", {"success": 0, "rejected": 65})):
+                report = copy.deepcopy(healthy)
+                report[field] = wrong
+                process = types.SimpleNamespace(returncode=0, stdout=json.dumps(report))
+                with self.subTest(field=field), patch.object(handoff.subprocess, "run", return_value=process), self.assertRaises(ValueError):
+                    handoff.prepare_legacy_admissions(root, {})
+                self.assertFalse((root / handoff.HANDOFF).exists())
+            with patch.object(handoff.subprocess, "run", return_value=types.SimpleNamespace(returncode=1)), self.assertRaises(ValueError):
+                handoff.prepare_legacy_admissions(root, {})
+            with patch.object(handoff.subprocess, "run", return_value=types.SimpleNamespace(returncode=0, stdout=json.dumps(healthy))) as launch:
+                report = handoff.prepare_legacy_admissions(root, {"PRIVATE_PROVIDER_SECRET": "synthetic"})
+            self.assertEqual(report["counts"], {"success": 10, "rejected": 65})
+            self.assertNotIn("PRIVATE_PROVIDER_SECRET", launch.call_args.kwargs["env"])
+            self.assertEqual(launch.call_args.args[0][1:5], ["-I", "-X", "utf8", "-B"])
+            self.assertEqual(json.loads((root / handoff.HANDOFF).read_text(encoding="utf-8")), healthy)
+        self.assertFalse(root.exists())
+
     def test_live_inventory_preserves_baseline_and_counts_source_probes(self):
         entries = inventory.load_inventory()
         summary = inventory.inventory_summary(entries)
-        self.assertEqual(summary["baseline_direct"], 450)
+        self.assertEqual(summary["baseline_direct"], 942)
         self.assertEqual(summary["baseline_classification"], inventory.BASELINE)
         source = inventory.source_inventory(runner.REPOSITORY)
         probes = {name: cases for name, cases in source.items() if entries[name]["execution_role"] == "probe"}
         self.assertEqual(sum(map(len, probes.values())), 18)
         self.assertEqual(summary["child_probes"], 18)
         self.assertEqual(len(probes), 6)
-        self.assertEqual(summary["direct"], 450 + len(entries[inventory.STAGE1]["cases"]))
+        self.assertEqual(summary["direct"], 942 + len(entries[inventory.STAGE1]["cases"]))
         self.assertNotIn("tests.diagnose_phase_a_probe", entries)
 
     def test_manifest_rejects_missing_duplicate_zero_and_invalid_skip(self):
@@ -486,6 +551,36 @@ class FullTestEntrypointTest(unittest.TestCase):
         self.assertFalse(Path(result["root"]).parent.exists())
 
     def test_child_protocol_errors_and_timeout_still_cleanup(self):
+        # Every budget still fails closed on timeout and removes its owned root.
+        budgets = (
+            ("tests.synthetic_target", False, 120),
+            ("tests.test_review_route_compatibility", False, 360),
+            ("tests.test_review_route_compatibility_unregistered", False, 120),
+            ("tests.test_ai_review_idempotency_cache", False, 180),
+            ("tests.test_ai_review_idempotency_cache_unregistered", False, 120),
+            ("tests.test_full_test_entrypoint", True, 600),
+        )
+        for module, coordinator, seconds in budgets:
+            owned_roots = []
+
+            def timeout_launch(*args, **kwargs):
+                owned_roots.append(Path(kwargs["cwd"]))
+                self.assertEqual(seconds, kwargs["timeout"])
+                self.assertEqual(args[0][1:5], ["-I", "-X", "utf8", "-B"])
+                self.assertNotIn("ARBITRARY_PROVIDER_SECRET", kwargs["env"])
+                raise subprocess.TimeoutExpired(args[0], seconds)
+
+            launch = runner.run_coordinator_module if coordinator else runner.run_module
+            with self.subTest(module=module), patch.object(runner.subprocess, "run", side_effect=timeout_launch):
+                report = launch(module, host={"ARBITRARY_PROVIDER_SECRET": "synthetic"})
+                self.assertEqual("TimeoutExpired", report["coordinator_error"])
+                self.assertFalse(report["passed"])
+                self.assertFalse(report["restored"])
+                self.assertFalse(report["patches_restored"])
+                self.assertEqual(0, report["tests"])
+                self.assertTrue(report["cleanup"])
+                self.assertFalse(owned_roots[0].exists())
+
         roots = []
         for fault in ("missing", "duplicate", "malformed", "forged-root", "timeout"):
             def launch(*args, **kwargs):

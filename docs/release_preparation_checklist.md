@@ -202,7 +202,7 @@ Pro는 Google Play Console에 `pro_monthly` 구독 상품 하나로 구성한다
 
 ```env
 GOOGLE_PLAY_PACKAGE_NAME=com.mariocrat.stockanalyze
-GOOGLE_PLAY_SERVICE_ACCOUNT_JSON={Render에_넣은_서비스_계정_JSON_한_줄}
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=<Render에_넣은_서비스_계정_JSON_한_줄>
 GOOGLE_PLAY_RTDN_SHARED_TOKEN=긴_랜덤_토큰
 GOOGLE_PLAY_RTDN_OIDC_AUDIENCE=https://api.alphamate.co.kr/api/journal/google-play-rtdn
 GOOGLE_PLAY_RTDN_OIDC_EMAIL=alphamate-rtdn-push@alphamate-504303.iam.gserviceaccount.com

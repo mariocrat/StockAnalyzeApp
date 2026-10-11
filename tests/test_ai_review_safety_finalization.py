@@ -4,10 +4,15 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
+from backend.core.review_display_contract import SCHEMA_VERSION
+
+from tests.review_source_fixtures import compact_chart_fixture, fallback_model_fixture, review_input_fixture
+
 from tests.api_test_modules import api_module_state
 from unittest.mock import patch
 
 import importlib
+import json
 import os
 import sqlite3
 import sys
@@ -110,30 +115,28 @@ class AiReviewSafetyFinalizationTest(unittest.TestCase):
             os.environ["ALPHAMATE_AI_REVIEW_RATE_LIMIT_PER_MINUTE"] = "10"
             calls = {"review": 0, "finish": 0, "refund": 0}
 
-            def fake_basic_review(trades, target_trade_id=None, analysis_focus="balanced"):
+            ai_review_v2 = importlib.import_module("core.ai_review_v2")
+
+            def fake_model(payload, *, model, instructions):
                 calls["review"] += 1
-                return {
-                    "status": "ready",
-                    "source": "openai",
-                    "review_type": "basic",
-                    "model": "gpt-5.6-luna",
-                    "summary": f"review-{calls['review']}",
-                }
+                return json.dumps(fallback_model_fixture(payload), ensure_ascii=False)
 
             original_finish = main._finish_ai_review_idempotency
             original_refund = main.refund_ai_review_access
 
-            def fail_finish_once(cache_key, result):
+            def fail_finish_once(cache_key, result, **kwargs):
                 calls["finish"] += 1
                 if calls["finish"] == 1:
                     raise RuntimeError("forced finalization failure")
-                return original_finish(cache_key, result)
+                return original_finish(cache_key, result, **kwargs)
 
             def count_refund(access):
                 calls["refund"] += 1
                 return original_refund(access)
 
-            main.build_basic_ai_review = fake_basic_review
+            self.enterContext(patch.object(ai_review_v2, "_compact_chart_snapshot", return_value=compact_chart_fixture({})))
+            self.enterContext(patch.object(ai_review_v2, "_contexts_for_trades", return_value=[]))
+            self.enterContext(patch.object(ai_review_v2, "_call_openai_review", fake_model))
             main._finish_ai_review_idempotency = fail_finish_once
             main.refund_ai_review_access = count_refund
             batch = _basic_batch(main)
@@ -143,7 +146,7 @@ class AiReviewSafetyFinalizationTest(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "forced finalization failure"):
                     main.get_journal_ai_review_once(
                         batch,
-                        authorization=token,
+                        authorization=token, x_review_display_contract=[SCHEMA_VERSION],
                         x_idempotency_key="finalize-failure-1",
                     )
 
@@ -158,12 +161,12 @@ class AiReviewSafetyFinalizationTest(unittest.TestCase):
 
                 retry = main.get_journal_ai_review_once(
                     batch,
-                    authorization=token,
+                    authorization=token, x_review_display_contract=[SCHEMA_VERSION],
                     x_idempotency_key="finalize-failure-1",
                 )
                 replay = main.get_journal_ai_review_once(
                     batch,
-                    authorization=token,
+                    authorization=token, x_review_display_contract=[SCHEMA_VERSION],
                     x_idempotency_key="finalize-failure-1",
                 )
                 after_success = access_control.get_user_entitlements(authorization=token, entitlement_token="")
@@ -172,7 +175,8 @@ class AiReviewSafetyFinalizationTest(unittest.TestCase):
                 self.assertTrue(replay["access"]["idempotent_replay"])
                 self.assertEqual(2, calls["review"])
                 self.assertEqual(1, calls["refund"])
-                self.assertEqual(1, len(review_history.list_review_history(user_id=user["id"])))
+                rows = review_history.list_review_history(user_id=user["id"])
+                self.assertEqual([retry["review_history_id"]], [row["id"] for row in rows])
                 self.assertEqual(
                     before["basic"]["signup_remaining"] - 1,
                     after_success["basic"]["signup_remaining"],
@@ -186,15 +190,14 @@ class AiReviewSafetyFinalizationTest(unittest.TestCase):
             main, access_control, review_history, session = _load_review_main_with_temp_state(tmpdir)
             token = f"Bearer {session['session_token']}"
             user_id = session["user"]["id"]
-            main.build_advanced_ai_review = lambda trades, target_trade_id=None: {
-                "status": "ready",
-                "source": "openai",
-                "review_type": "advanced",
-                "model": "gpt-5.6-luna",
-                "summary": "advanced review",
-            }
+            ai_review_v2 = importlib.import_module("core.ai_review_v2")
+            self.enterContext(patch.object(ai_review_v2, "_compact_chart_snapshot", return_value=compact_chart_fixture({})))
+            self.enterContext(patch.object(ai_review_v2, "_contexts_for_trades", return_value=[]))
+            self.enterContext(patch.object(ai_review_v2, "_call_openai_review", side_effect=lambda payload, *, model, instructions: json.dumps(
+                fallback_model_fixture(payload), ensure_ascii=False,
+            )))
             original_finish = main._finish_ai_review_idempotency
-            main._finish_ai_review_idempotency = lambda cache_key, result: (_ for _ in ()).throw(
+            main._finish_ai_review_idempotency = lambda cache_key, result, **kwargs: (_ for _ in ()).throw(
                 RuntimeError("forced review finalization failure")
             )
             batch = _basic_batch(main)
@@ -204,7 +207,7 @@ class AiReviewSafetyFinalizationTest(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "forced review finalization failure"):
                     main.get_journal_ai_review_once(
                         batch,
-                        authorization=token,
+                        authorization=token, x_review_display_contract=[SCHEMA_VERSION],
                         x_idempotency_key="review-finalize-failure-1",
                     )
             finally:

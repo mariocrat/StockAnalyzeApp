@@ -1,0 +1,2033 @@
+{
+  "contract": "review-legacy-compatibility.v1",
+  "offset_unit": "unicode_codepoint",
+  "pass": [
+    {
+      "id": "plain_korean",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "체결 내역을 확인했습니다."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "체결 내역을 확인했습니다."
+      },
+      "expected_summary": "체결 내역을 확인했습니다.",
+      "expected_paragraphs": [
+        {
+          "text": "체결 내역을 확인했습니다.",
+          "strong": []
+        }
+      ],
+      "expected_visible_text": "체결 내역을 확인했습니다."
+    },
+    {
+      "id": "normal_strong",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "strong",
+                "text": "체결 기록"
+              },
+              {
+                "type": "text",
+                "text": "을 확인합니다."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "체결 기록을 확인합니다."
+      },
+      "expected_summary": "**체결 기록**을 확인합니다.",
+      "expected_paragraphs": [
+        {
+          "text": "체결 기록을 확인합니다.",
+          "strong": [
+            {
+              "start": 0,
+              "end": 5,
+              "text": "체결 기록"
+            }
+          ]
+        }
+      ],
+      "expected_visible_text": "체결 기록을 확인합니다."
+    },
+    {
+      "id": "multiple_text_strong",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "strong",
+                "text": "진입"
+              },
+              {
+                "type": "text",
+                "text": " 후"
+              },
+              {
+                "type": "text",
+                "text": " "
+              },
+              {
+                "type": "strong",
+                "text": "청산"
+              },
+              {
+                "type": "text",
+                "text": " 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "진입 후 청산 확인"
+      },
+      "expected_summary": "**진입** 후 **청산** 확인",
+      "expected_paragraphs": [
+        {
+          "text": "진입 후 청산 확인",
+          "strong": [
+            {
+              "start": 0,
+              "end": 2,
+              "text": "진입"
+            },
+            {
+              "start": 5,
+              "end": 7,
+              "text": "청산"
+            }
+          ]
+        }
+      ],
+      "expected_visible_text": "진입 후 청산 확인"
+    },
+    {
+      "id": "adjacent_strong",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "strong",
+                "text": "진입"
+              },
+              {
+                "type": "strong",
+                "text": "청산"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "진입청산"
+      },
+      "expected_summary": "**진입****청산**",
+      "expected_paragraphs": [
+        {
+          "text": "진입청산",
+          "strong": [
+            {
+              "start": 0,
+              "end": 2,
+              "text": "진입"
+            },
+            {
+              "start": 2,
+              "end": 4,
+              "text": "청산"
+            }
+          ]
+        }
+      ],
+      "expected_visible_text": "진입청산"
+    },
+    {
+      "id": "mid_word_strong",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "현재는 매"
+              },
+              {
+                "type": "strong",
+                "text": "수"
+              },
+              {
+                "type": "text",
+                "text": " 추천합니다."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "현재는 매수 추천합니다."
+      },
+      "expected_summary": "현재는 매**수** 추천합니다.",
+      "expected_paragraphs": [
+        {
+          "text": "현재는 매수 추천합니다.",
+          "strong": [
+            {
+              "start": 5,
+              "end": 6,
+              "text": "수"
+            }
+          ]
+        }
+      ],
+      "expected_visible_text": "현재는 매수 추천합니다."
+    },
+    {
+      "id": "advanced_fallback_open_four",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "최근 패턴: 1건, 실현손익 +0원, 승률 0.0%입니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "손실 관리: 확정 손실 종목 없음. 미청산 종목은 1개입니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "최근 패턴: 1건, 실현손익 +0원, 승률 0.0%입니다.\n\n반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다.\n\n손실 관리: 확정 손실 종목 없음. 미청산 종목은 1개입니다.\n\n다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요."
+      },
+      "expected_summary": "최근 패턴: 1건, 실현손익 +0원, 승률 0.0%입니다.\n\n반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다.\n\n손실 관리: 확정 손실 종목 없음. 미청산 종목은 1개입니다.\n\n다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요.",
+      "expected_paragraphs": [
+        {
+          "text": "최근 패턴: 1건, 실현손익 +0원, 승률 0.0%입니다.",
+          "strong": []
+        },
+        {
+          "text": "반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다.",
+          "strong": []
+        },
+        {
+          "text": "손실 관리: 확정 손실 종목 없음. 미청산 종목은 1개입니다.",
+          "strong": []
+        },
+        {
+          "text": "다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요.",
+          "strong": []
+        }
+      ],
+      "expected_visible_text": "최근 패턴: 1건, 실현손익 +0원, 승률 0.0%입니다.반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다.손실 관리: 확정 손실 종목 없음. 미청산 종목은 1개입니다.다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요."
+    },
+    {
+      "id": "advanced_fallback_closed_four",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "최근 패턴: 2건, 실현손익 +8,789원, 승률 100.0%입니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "손실 관리: 확정 손실 종목 없음. 미청산 종목은 0개입니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "최근 패턴: 2건, 실현손익 +8,789원, 승률 100.0%입니다.\n\n반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다.\n\n손실 관리: 확정 손실 종목 없음. 미청산 종목은 0개입니다.\n\n다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요."
+      },
+      "expected_summary": "최근 패턴: 2건, 실현손익 +8,789원, 승률 100.0%입니다.\n\n반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다.\n\n손실 관리: 확정 손실 종목 없음. 미청산 종목은 0개입니다.\n\n다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요.",
+      "expected_paragraphs": [
+        {
+          "text": "최근 패턴: 2건, 실현손익 +8,789원, 승률 100.0%입니다.",
+          "strong": []
+        },
+        {
+          "text": "반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다.",
+          "strong": []
+        },
+        {
+          "text": "손실 관리: 확정 손실 종목 없음. 미청산 종목은 0개입니다.",
+          "strong": []
+        },
+        {
+          "text": "다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요.",
+          "strong": []
+        }
+      ],
+      "expected_visible_text": "최근 패턴: 2건, 실현손익 +8,789원, 승률 100.0%입니다.반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다.손실 관리: 확정 손실 종목 없음. 미청산 종목은 0개입니다.다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요."
+    },
+    {
+      "id": "ordinary_punctuation",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "가격 20,000원 (1.5%) / 기준: 확인; 매수·매도 — 기록! 다음은? +5원, -3원."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "가격 20,000원 (1.5%) / 기준: 확인; 매수·매도 — 기록! 다음은? +5원, -3원."
+      },
+      "expected_summary": "가격 20,000원 (1.5%) / 기준: 확인; 매수·매도 — 기록! 다음은? +5원, -3원.",
+      "expected_paragraphs": [
+        {
+          "text": "가격 20,000원 (1.5%) / 기준: 확인; 매수·매도 — 기록! 다음은? +5원, -3원.",
+          "strong": []
+        }
+      ],
+      "expected_visible_text": "가격 20,000원 (1.5%) / 기준: 확인; 매수·매도 — 기록! 다음은? +5원, -3원."
+    },
+    {
+      "id": "unicode_sequence",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록 "
+              },
+              {
+                "type": "strong",
+                "text": "é 😀"
+              },
+              {
+                "type": "text",
+                "text": " 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "기록 é 😀 확인"
+      },
+      "expected_summary": "기록 **é 😀** 확인",
+      "expected_paragraphs": [
+        {
+          "text": "기록 é 😀 확인",
+          "strong": [
+            {
+              "start": 3,
+              "end": 7,
+              "text": "é 😀"
+            }
+          ]
+        }
+      ],
+      "expected_visible_text": "기록 é 😀 확인"
+    },
+    {
+      "id": "ordered_paragraph_strong",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "첫 "
+              },
+              {
+                "type": "strong",
+                "text": "기록"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "strong",
+                "text": "다음"
+              },
+              {
+                "type": "text",
+                "text": " 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "첫 기록\n\n다음 확인"
+      },
+      "expected_summary": "첫 **기록**\n\n**다음** 확인",
+      "expected_paragraphs": [
+        {
+          "text": "첫 기록",
+          "strong": [
+            {
+              "start": 2,
+              "end": 4,
+              "text": "기록"
+            }
+          ]
+        },
+        {
+          "text": "다음 확인",
+          "strong": [
+            {
+              "start": 0,
+              "end": 2,
+              "text": "다음"
+            }
+          ]
+        }
+      ],
+      "expected_visible_text": "첫 기록다음 확인"
+    }
+  ],
+  "fail": [
+    {
+      "id": "p1_lone_star",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "현재는 매**수** 추천합니다. *"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "현재는 매**수** 추천합니다. *"
+      },
+      "expected_rejection": "literal_markdown",
+      "forbidden_wire": "현재는 매**수** 추천합니다. *"
+    },
+    {
+      "id": "p1_link",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "현재는 매**수** 추천합니다. [참고](url)"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "현재는 매**수** 추천합니다. [참고](url)"
+      },
+      "expected_rejection": "literal_markdown",
+      "forbidden_wire": "현재는 매**수** 추천합니다. [참고](url)"
+    },
+    {
+      "id": "heading_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "# 제목"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "# 제목"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "unordered_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "- 항목"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "- 항목"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "ordered_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "1) 항목"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "1) 항목"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "ordered_dot_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "1. 항목"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "1. 항목"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "link_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "[참고](url)"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "[참고](url)"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "italic_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "*강조*"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "*강조*"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "underscore_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "__강조__"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "__강조__"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "bold_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "**강조**"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "**강조**"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "code_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "`기록`"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "`기록`"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "divider_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "---"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "---"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "escaped_markup",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "\\*기록"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "\\*기록"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "html_literal",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "<b>기록</b>"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "<b>기록</b>"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "internal_newline",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞\n뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞\n뒤"
+      },
+      "expected_rejection": "unsupported_whitespace"
+    },
+    {
+      "id": "tab",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞\t뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞\t뒤"
+      },
+      "expected_rejection": "unsupported_whitespace"
+    },
+    {
+      "id": "nbsp",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞 뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞 뒤"
+      },
+      "expected_rejection": "unsupported_whitespace"
+    },
+    {
+      "id": "em_space",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞 뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞 뒤"
+      },
+      "expected_rejection": "unsupported_whitespace"
+    },
+    {
+      "id": "line_separator",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞 뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞 뒤"
+      },
+      "expected_rejection": "unsupported_whitespace"
+    },
+    {
+      "id": "bom",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "﻿기록"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "﻿기록"
+      },
+      "expected_rejection": "unsupported_whitespace"
+    },
+    {
+      "id": "leading_space",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": " 기록"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": " 기록"
+      },
+      "expected_rejection": "paragraph_edge_whitespace"
+    },
+    {
+      "id": "trailing_space",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록 "
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "기록 "
+      },
+      "expected_rejection": "paragraph_edge_whitespace"
+    },
+    {
+      "id": "double_space",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞  뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞  뒤"
+      },
+      "expected_rejection": "consecutive_whitespace"
+    },
+    {
+      "id": "ma_spaced",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "MA 20 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "MA 20 확인"
+      },
+      "expected_rejection": "reserved_ma_token"
+    },
+    {
+      "id": "ma_lowercase",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "ma20 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "ma20 확인"
+      },
+      "expected_rejection": "reserved_ma_token"
+    },
+    {
+      "id": "ma_uppercase",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "MA20 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "MA20 확인"
+      },
+      "expected_rejection": "reserved_ma_token"
+    },
+    {
+      "id": "ma_mixed_case",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "Ma 5 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "Ma 5 확인"
+      },
+      "expected_rejection": "reserved_ma_token"
+    },
+    {
+      "id": "basic_verdict",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "총평: 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "총평: 확인"
+      },
+      "expected_rejection": "reserved_basic_section"
+    },
+    {
+      "id": "basic_strength",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "잘한 점: 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "잘한 점: 확인"
+      },
+      "expected_rejection": "reserved_basic_section"
+    },
+    {
+      "id": "basic_weakness",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "아쉬운 점： 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "아쉬운 점： 확인"
+      },
+      "expected_rejection": "reserved_basic_section"
+    },
+    {
+      "id": "basic_checklist",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "다음 체크리스트 3개: 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "다음 체크리스트 3개: 확인"
+      },
+      "expected_rejection": "reserved_basic_section"
+    },
+    {
+      "id": "basic_compact",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "다음체크리스트: 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "다음체크리스트: 확인"
+      },
+      "expected_rejection": "reserved_basic_section"
+    },
+    {
+      "id": "basic_embedded",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록의 총평을 확인합니다."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "기록의 총평을 확인합니다."
+      },
+      "expected_rejection": "reserved_basic_section"
+    },
+    {
+      "id": "display_data_token",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞 [데이터 확인] 뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞 [데이터 확인] 뒤"
+      },
+      "expected_rejection": "reserved_display_token"
+    },
+    {
+      "id": "display_inference_token",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞 [합리적 추론] 뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞 [합리적 추론] 뒤"
+      },
+      "expected_rejection": "reserved_display_token"
+    },
+    {
+      "id": "p1_lone_star_runs",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "현재는 매"
+              },
+              {
+                "type": "strong",
+                "text": "수"
+              },
+              {
+                "type": "text",
+                "text": " 추천합니다. "
+              },
+              {
+                "type": "text",
+                "text": "*"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "현재는 매수 추천합니다. *"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "p1_link_runs",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "현재는 매"
+              },
+              {
+                "type": "strong",
+                "text": "수"
+              },
+              {
+                "type": "text",
+                "text": " 추천합니다. [참"
+              },
+              {
+                "type": "text",
+                "text": "고](url)"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "현재는 매수 추천합니다. [참고](url)"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "boundary_underscore",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "_"
+              },
+              {
+                "type": "text",
+                "text": "_강조__"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "__강조__"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "boundary_heading",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "#"
+              },
+              {
+                "type": "strong",
+                "text": " 제목"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "# 제목"
+      },
+      "expected_rejection": "strong_edge_whitespace"
+    },
+    {
+      "id": "boundary_list",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "-"
+              },
+              {
+                "type": "text",
+                "text": " 항목"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "- 항목"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "boundary_ordered",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "1"
+              },
+              {
+                "type": "text",
+                "text": ") 항목"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "1) 항목"
+      },
+      "expected_rejection": "literal_markdown"
+    },
+    {
+      "id": "boundary_double_space",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞 "
+              },
+              {
+                "type": "text",
+                "text": " 뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞  뒤"
+      },
+      "expected_rejection": "consecutive_whitespace"
+    },
+    {
+      "id": "boundary_ma",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "M"
+              },
+              {
+                "type": "strong",
+                "text": "A"
+              },
+              {
+                "type": "text",
+                "text": " 20 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "MA 20 확인"
+      },
+      "expected_rejection": "reserved_ma_token"
+    },
+    {
+      "id": "boundary_basic",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "총"
+              },
+              {
+                "type": "strong",
+                "text": "평"
+              },
+              {
+                "type": "text",
+                "text": ": 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "총평: 확인"
+      },
+      "expected_rejection": "reserved_basic_section"
+    },
+    {
+      "id": "boundary_basic_checklist",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "다음 "
+              },
+              {
+                "type": "strong",
+                "text": "체크"
+              },
+              {
+                "type": "text",
+                "text": "리스트: 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "다음 체크리스트: 확인"
+      },
+      "expected_rejection": "reserved_basic_section"
+    },
+    {
+      "id": "boundary_display",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "[데이터 "
+              },
+              {
+                "type": "strong",
+                "text": "확인"
+              },
+              {
+                "type": "text",
+                "text": "]"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "[데이터 확인]"
+      },
+      "expected_rejection": "reserved_display_token"
+    },
+    {
+      "id": "strong_leading_space",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞"
+              },
+              {
+                "type": "strong",
+                "text": " 기록"
+              },
+              {
+                "type": "text",
+                "text": " 뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞 기록 뒤"
+      },
+      "expected_rejection": "strong_edge_whitespace"
+    },
+    {
+      "id": "strong_trailing_space",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞 "
+              },
+              {
+                "type": "strong",
+                "text": "기록 "
+              },
+              {
+                "type": "text",
+                "text": "뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞 기록 뒤"
+      },
+      "expected_rejection": "strong_edge_whitespace"
+    },
+    {
+      "id": "boundary_newline",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞"
+              },
+              {
+                "type": "strong",
+                "text": "\n"
+              },
+              {
+                "type": "text",
+                "text": "뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞\n뒤"
+      },
+      "expected_rejection": "unsupported_whitespace"
+    },
+    {
+      "id": "block_heading",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "heading",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "기록"
+      },
+      "expected_rejection": "unsupported_block"
+    },
+    {
+      "id": "block_list_item",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "list_item",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "기록"
+      },
+      "expected_rejection": "unsupported_block"
+    },
+    {
+      "id": "block_divider",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "divider",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "기록"
+      },
+      "expected_rejection": "unsupported_block"
+    },
+    {
+      "id": "final_newline",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록"
+              }
+            ],
+            "separator_after": "\n"
+          }
+        ],
+        "canonical_text": "기록\n"
+      },
+      "expected_rejection": "unsupported_separator"
+    },
+    {
+      "id": "final_blank_line",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록"
+              }
+            ],
+            "separator_after": "\n\n"
+          }
+        ],
+        "canonical_text": "기록\n\n"
+      },
+      "expected_rejection": "unsupported_separator"
+    },
+    {
+      "id": "arbitrary_separator",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록"
+              }
+            ],
+            "separator_after": " "
+          }
+        ],
+        "canonical_text": "기록 "
+      },
+      "expected_rejection": "unsupported_separator"
+    },
+    {
+      "id": "middle_single_newline",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞"
+              }
+            ],
+            "separator_after": "\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞\n뒤"
+      },
+      "expected_rejection": "unsupported_separator"
+    },
+    {
+      "id": "middle_empty_separator",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞"
+              }
+            ],
+            "separator_after": ""
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞뒤"
+      },
+      "expected_rejection": "unsupported_separator"
+    },
+    {
+      "id": "middle_space_separator",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "앞"
+              }
+            ],
+            "separator_after": " "
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "뒤"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "앞 뒤"
+      },
+      "expected_rejection": "unsupported_separator"
+    },
+    {
+      "id": "wrong_surface",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "notice",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "기록"
+      },
+      "expected_rejection": "invalid_canonical_body"
+    },
+    {
+      "id": "canonical_mismatch",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "기록"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "다른 기록"
+      },
+      "expected_rejection": "invalid_canonical_body"
+    },
+    {
+      "id": "paragraph_boundary_ma",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "MA"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "20 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "MA\n\n20 확인"
+      },
+      "expected_rejection": "reserved_ma_token"
+    },
+    {
+      "id": "paragraph_boundary_ma_lower",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "ma"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "20 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "ma\n\n20 확인"
+      },
+      "expected_rejection": "reserved_ma_token"
+    },
+    {
+      "id": "paragraph_boundary_strength",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "잘한"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "점: 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "잘한\n\n점: 확인"
+      },
+      "expected_rejection": "reserved_basic_section"
+    },
+    {
+      "id": "paragraph_boundary_weakness",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "아쉬운"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "점: 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "아쉬운\n\n점: 확인"
+      },
+      "expected_rejection": "reserved_basic_section"
+    },
+    {
+      "id": "paragraph_boundary_checklist",
+      "document": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "다음"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "체크리스트: 확인"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "다음\n\n체크리스트: 확인"
+      },
+      "expected_rejection": "reserved_basic_section"
+    }
+  ]
+}

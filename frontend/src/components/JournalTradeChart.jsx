@@ -1,4 +1,7 @@
 import { useEffect, useRef } from 'react';
+import { createRoot } from 'react-dom/client';
+import { flushSync } from 'react-dom';
+import CanonicalReviewRenderer from './CanonicalReviewRenderer';
 import {
   createChart,
   CandlestickSeries,
@@ -39,7 +42,7 @@ function candleRows(candles) {
   return { candleData, volumeData, ma5, ma20 };
 }
 
-export default function JournalTradeChart({ chartData }) {
+export default function JournalTradeChart({ chartData, approvedSnapshot = false }) {
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -98,7 +101,13 @@ export default function JournalTradeChart({ chartData }) {
     volumeSeries.setData(volumeData);
 
     const markers = chartData.markers || [];
-    createSeriesMarkers(candleSeries, markers);
+    createSeriesMarkers(candleSeries, approvedSnapshot ? markers.map(marker => ({
+      time: marker.time,
+      position: marker.side === 'buy' ? 'belowBar' : 'aboveBar',
+      color: marker.side === 'buy' ? MARKET_UP : MARKET_DOWN,
+      shape: marker.side === 'buy' ? 'arrowUp' : 'arrowDown',
+      text: (marker.label || marker.display_snapshot)?.canonical_text || '',
+    })) : markers);
     const markersByTime = new Map();
     markers.forEach(marker => {
       const key = String(marker.time);
@@ -111,6 +120,7 @@ export default function JournalTradeChart({ chartData }) {
     tooltip.className = 'journal-marker-tooltip';
     tooltip.style.display = 'none';
     containerRef.current.appendChild(tooltip);
+    const tooltipRoot = approvedSnapshot ? createRoot(tooltip) : null;
 
     chart.subscribeCrosshairMove((param) => {
       if (!param?.point || param.time == null) {
@@ -122,28 +132,37 @@ export default function JournalTradeChart({ chartData }) {
         tooltip.style.display = 'none';
         return;
       }
-      tooltip.replaceChildren();
-      matchedMarkers.filter(marker => marker.tooltip).forEach(marker => {
-        const prices = (marker.tooltip.prices || []).map(price => intFmt(price)).join(', ');
-        const section = document.createElement('div');
-        section.className = `journal-marker-tooltip-section ${marker.side}`;
-        const title = document.createElement('strong');
-        title.textContent = `${marker.tooltip.label}${marker.tooltip.count > 1 ? ` ${marker.tooltip.count}건` : ''}`;
-        const summary = document.createElement('span');
-        summary.textContent = `평균 ${intFmt(marker.tooltip.avg_price)}원 · 수량 ${marker.tooltip.total_quantity}`;
-        const detail = document.createElement('em');
-        detail.textContent = `${prices}원`;
-        section.append(title, summary, detail);
-        if (marker.side === 'sell' && marker.tooltip.profit_amount != null) {
-          const outcome = document.createElement('b');
-          const sign = marker.tooltip.profit_amount > 0 ? '+' : '';
-          const returnSign = marker.tooltip.return_rate > 0 ? '+' : '';
-          outcome.className = marker.tooltip.profit_amount >= 0 ? 'positive' : 'negative';
-          outcome.textContent = `실현 ${sign}${intFmt(marker.tooltip.profit_amount)}원 · ${returnSign}${marker.tooltip.return_rate || 0}%`;
-          section.append(outcome);
-        }
-        tooltip.append(section);
-      });
+      if (tooltipRoot) {
+        flushSync(() => tooltipRoot.render(matchedMarkers.filter(marker => marker.tooltip).map((marker, index) => (
+          <div className={`journal-marker-tooltip-section ${marker.side}`} key={index}>
+            <CanonicalReviewRenderer document={marker.tooltip.display_snapshot || marker.tooltip}
+              expectedSurface={marker.tooltip.display_snapshot ? 'body' : 'marker_tooltip'} />
+          </div>
+        ))));
+      } else {
+        tooltip.replaceChildren();
+        matchedMarkers.filter(marker => marker.tooltip).forEach(marker => {
+          const prices = (marker.tooltip.prices || []).map(price => intFmt(price)).join(', ');
+          const section = document.createElement('div');
+          section.className = `journal-marker-tooltip-section ${marker.side}`;
+          const title = document.createElement('strong');
+          title.textContent = `${marker.tooltip.label}${marker.tooltip.count > 1 ? ` ${marker.tooltip.count}건` : ''}`;
+          const summary = document.createElement('span');
+          summary.textContent = `평균 ${intFmt(marker.tooltip.avg_price)}원 · 수량 ${marker.tooltip.total_quantity}`;
+          const detail = document.createElement('em');
+          detail.textContent = `${prices}원`;
+          section.append(title, summary, detail);
+          if (marker.side === 'sell' && marker.tooltip.profit_amount != null) {
+            const outcome = document.createElement('b');
+            const sign = marker.tooltip.profit_amount > 0 ? '+' : '';
+            const returnSign = marker.tooltip.return_rate > 0 ? '+' : '';
+            outcome.className = marker.tooltip.profit_amount >= 0 ? 'positive' : 'negative';
+            outcome.textContent = `실현 ${sign}${intFmt(marker.tooltip.profit_amount)}원 · ${returnSign}${marker.tooltip.return_rate || 0}%`;
+            section.append(outcome);
+          }
+          tooltip.append(section);
+        });
+      }
       tooltip.style.display = 'block';
       const { x, y } = getTooltipPosition({
         pointX: param.point.x,
@@ -162,10 +181,11 @@ export default function JournalTradeChart({ chartData }) {
     chart.timeScale().fitContent();
 
     return () => {
+      tooltipRoot?.unmount();
       tooltip.remove();
       chart.remove();
     };
-  }, [chartData]);
+  }, [chartData, approvedSnapshot]);
 
   if (!chartData?.candles?.length) {
     return <div className="journal-chart-empty">표시할 차트 데이터가 없습니다.</div>;

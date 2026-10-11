@@ -2,6 +2,8 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
+from tests.history_legacy_fixture import add_legacy_history_fixture
+
 import importlib
 import sqlite3
 import unittest
@@ -223,7 +225,7 @@ class AccountStoreTest(unittest.TestCase):
                 "custom_data": "basic",
             })
             access_control.record_admob_ssv_reward("transaction_id=delete-ad-1")
-            review_history.add_review_history(
+            add_legacy_history_fixture(review_history,
                 user_id=user_id,
                 review_type="basic",
                 ticker="005930",

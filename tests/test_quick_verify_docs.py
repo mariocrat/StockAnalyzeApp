@@ -94,9 +94,11 @@ class QuickVerifyDocsTest(unittest.TestCase):
 
     def test_verify_project_runs_every_frontend_safety_test_script(self):
         from tests.isolation_inventory import load_node_inventory, node_inventory_summary
+        from tests.isolation_inventory import load_inventory, inventory_summary
 
         live = node_inventory_summary(load_node_inventory())
-        self.assertEqual((live["entrypoints"], live["direct"]), (20, 160))
+        python_live = inventory_summary(load_inventory())
+        self.assertEqual((live["entrypoints"], live["direct"]), (23, 233))
         current_node_contract = f"Node **{live['entrypoints']} entrypoint / {live['direct']} direct testcase**"
         script = (ROOT / "scripts" / "verify_project.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("tests\\run_isolated_tests.py", script)
@@ -105,6 +107,7 @@ class QuickVerifyDocsTest(unittest.TestCase):
         self.assertNotIn("unittest discover", script)
         for name in ("TESTING.md", "quick_verify.md"):
             docs = (ROOT / "docs" / name).read_text(encoding="utf-8")
+            self.assertIn(f"Python direct **{python_live['direct']}**", docs)
             for value in ("-Mode TestOnly", "-Mode BuildChecks", "-PythonPath", "-NodePath",
                           "464", "18", current_node_contract, "test:broker-import",
                           "historical baseline", "35 / 393 / 22", "14",

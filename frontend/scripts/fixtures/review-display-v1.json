@@ -1,0 +1,200 @@
+{
+  "schema_version": "review-display.v1",
+  "valid": [
+    {
+      "id": "mid_word_bold_counterexample",
+      "input": "현재는 매**수** 추천합니다.",
+      "expected_runs": [
+        { "type": "text", "text": "현재는 매" },
+        { "type": "strong", "text": "수" },
+        { "type": "text", "text": " 추천합니다." }
+      ],
+      "expected_canonical_text": "현재는 매수 추천합니다.",
+      "document": {
+        "schema_version": "review-display.v1", "surface": "body",
+        "blocks": [{ "type": "paragraph", "runs": [
+          { "type": "text", "text": "현재는 매" }, { "type": "strong", "text": "수" },
+          { "type": "text", "text": " 추천합니다." }
+        ], "separator_after": "" }],
+        "canonical_text": "현재는 매수 추천합니다."
+      }
+    },
+    {
+      "id": "normal_bold",
+      "input": "**체결 기록**을 확인합니다.",
+      "expected_runs": [
+        { "type": "strong", "text": "체결 기록" },
+        { "type": "text", "text": "을 확인합니다." }
+      ],
+      "expected_canonical_text": "체결 기록을 확인합니다.",
+      "document": {
+        "schema_version": "review-display.v1", "surface": "body",
+        "blocks": [{ "type": "paragraph", "runs": [
+          { "type": "strong", "text": "체결 기록" }, { "type": "text", "text": "을 확인합니다." }
+        ], "separator_after": "" }],
+        "canonical_text": "체결 기록을 확인합니다."
+      }
+    },
+    {
+      "id": "plain_text",
+      "input": "평범한 복기 문장입니다.",
+      "expected_runs": [{ "type": "text", "text": "평범한 복기 문장입니다." }],
+      "expected_canonical_text": "평범한 복기 문장입니다.",
+      "document": {
+        "schema_version": "review-display.v1", "surface": "body",
+        "blocks": [{ "type": "paragraph", "runs": [
+          { "type": "text", "text": "평범한 복기 문장입니다." }
+        ], "separator_after": "" }],
+        "canonical_text": "평범한 복기 문장입니다."
+      }
+    },
+    {
+      "id": "multiple_strong_spans",
+      "input": "**진입** 후 **청산** 확인",
+      "expected_runs": [
+        { "type": "strong", "text": "진입" }, { "type": "text", "text": " 후 " },
+        { "type": "strong", "text": "청산" }, { "type": "text", "text": " 확인" }
+      ],
+      "expected_canonical_text": "진입 후 청산 확인",
+      "document": {
+        "schema_version": "review-display.v1", "surface": "body",
+        "blocks": [{ "type": "paragraph", "runs": [
+          { "type": "strong", "text": "진입" }, { "type": "text", "text": " 후 " },
+          { "type": "strong", "text": "청산" }, { "type": "text", "text": " 확인" }
+        ], "separator_after": "" }],
+        "canonical_text": "진입 후 청산 확인"
+      }
+    },
+    {
+      "id": "unclosed_marker_is_literal",
+      "input": "미완성 **강조",
+      "expected_runs": [{ "type": "text", "text": "미완성 **강조" }],
+      "expected_canonical_text": "미완성 **강조",
+      "document": {
+        "schema_version": "review-display.v1", "surface": "body",
+        "blocks": [{ "type": "paragraph", "runs": [
+          { "type": "text", "text": "미완성 **강조" }
+        ], "separator_after": "" }],
+        "canonical_text": "미완성 **강조"
+      }
+    },
+    {
+      "id": "nested_markup_is_literal",
+      "input": "**외부 __내부__** 유지",
+      "expected_runs": [{ "type": "text", "text": "**외부 __내부__** 유지" }],
+      "expected_canonical_text": "**외부 __내부__** 유지",
+      "document": {
+        "schema_version": "review-display.v1", "surface": "body",
+        "blocks": [{ "type": "paragraph", "runs": [
+          { "type": "text", "text": "**외부 __내부__** 유지" }
+        ], "separator_after": "" }],
+        "canonical_text": "**외부 __내부__** 유지"
+      }
+    },
+    {
+      "id": "unsupported_italic_is_literal",
+      "input": "*기울임*과 **강조**",
+      "expected_runs": [{ "type": "text", "text": "*기울임*과 **강조**" }],
+      "expected_canonical_text": "*기울임*과 **강조**",
+      "document": {
+        "schema_version": "review-display.v1", "surface": "body",
+        "blocks": [{ "type": "paragraph", "runs": [
+          { "type": "text", "text": "*기울임*과 **강조**" }
+        ], "separator_after": "" }],
+        "canonical_text": "*기울임*과 **강조**"
+      }
+    },
+    {
+      "id": "whitespace_and_newline",
+      "input": "앞  \n**굵게**\t끝",
+      "expected_runs": [
+        { "type": "text", "text": "앞  \n" }, { "type": "strong", "text": "굵게" },
+        { "type": "text", "text": "\t끝" }
+      ],
+      "expected_canonical_text": "앞  \n굵게\t끝",
+      "document": {
+        "schema_version": "review-display.v1", "surface": "body",
+        "blocks": [{ "type": "paragraph", "runs": [
+          { "type": "text", "text": "앞  \n" }, { "type": "strong", "text": "굵게" },
+          { "type": "text", "text": "\t끝" }
+        ], "separator_after": "" }],
+        "canonical_text": "앞  \n굵게\t끝"
+      }
+    },
+    {
+      "id": "block_order_and_explicit_separators",
+      "expected_canonical_text": "제목\n1. 체결 기록\n───\n결론: 확인했습니다.\n",
+      "document": {
+        "schema_version": "review-display.v1", "surface": "body",
+        "blocks": [
+          { "type": "heading", "runs": [{ "type": "text", "text": "제목" }], "separator_after": "\n" },
+          { "type": "list_item", "runs": [
+            { "type": "text", "text": "1. " }, { "type": "strong", "text": "체결 기록" }
+          ], "separator_after": "\n" },
+          { "type": "divider", "runs": [{ "type": "text", "text": "───" }], "separator_after": "\n" },
+          { "type": "paragraph", "runs": [
+            { "type": "text", "text": "결론: 확인했습니다." }
+          ], "separator_after": "\n" }
+        ],
+        "canonical_text": "제목\n1. 체결 기록\n───\n결론: 확인했습니다.\n"
+      }
+    },
+    {
+      "id": "html_like_text_is_escaped",
+      "input": "<script>& **안전** \"확인\"",
+      "expected_runs": [
+        { "type": "text", "text": "<script>& " },
+        { "type": "strong", "text": "안전" },
+        { "type": "text", "text": " \"확인\"" }
+      ],
+      "expected_canonical_text": "<script>& 안전 \"확인\"",
+      "document": {
+        "schema_version": "review-display.v1", "surface": "body",
+        "blocks": [{ "type": "paragraph", "runs": [
+          { "type": "text", "text": "<script>& " },
+          { "type": "strong", "text": "안전" },
+          { "type": "text", "text": " \"확인\"" }
+        ], "separator_after": "" }],
+        "canonical_text": "<script>& 안전 \"확인\""
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "id": "unknown_version",
+      "document": { "schema_version": "review-display.v2", "surface": "body", "blocks": [
+        { "type": "paragraph", "runs": [{ "type": "text", "text": "원문" }], "separator_after": "" }
+      ], "canonical_text": "원문" }
+    },
+    {
+      "id": "unknown_block",
+      "document": { "schema_version": "review-display.v1", "surface": "body", "blocks": [
+        { "type": "html", "runs": [{ "type": "text", "text": "원문" }], "separator_after": "" }
+      ], "canonical_text": "원문" }
+    },
+    {
+      "id": "unknown_run",
+      "document": { "schema_version": "review-display.v1", "surface": "body", "blocks": [
+        { "type": "paragraph", "runs": [{ "type": "link", "text": "원문" }], "separator_after": "" }
+      ], "canonical_text": "원문" }
+    },
+    {
+      "id": "unexpected_field",
+      "document": { "schema_version": "review-display.v1", "surface": "body", "blocks": [
+        { "type": "paragraph", "runs": [{ "type": "text", "text": "원문", "style": "bold" }], "separator_after": "" }
+      ], "canonical_text": "원문" }
+    },
+    {
+      "id": "canonical_mismatch",
+      "document": { "schema_version": "review-display.v1", "surface": "body", "blocks": [
+        { "type": "paragraph", "runs": [{ "type": "text", "text": "정확" }], "separator_after": "" }
+      ], "canonical_text": "틀림" }
+    },
+    {
+      "id": "invalid_separator",
+      "document": { "schema_version": "review-display.v1", "surface": "body", "blocks": [
+        { "type": "paragraph", "runs": [{ "type": "text", "text": "원문" }], "separator_after": "자동번호" }
+      ], "canonical_text": "원문자동번호" }
+    }
+  ]
+}

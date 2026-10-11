@@ -2,6 +2,8 @@ import pandas as pd
 import yfinance as yf
 from cachetools.func import ttl_cache
 import datetime
+import math
+import numbers
 import json
 import re
 import threading
@@ -790,6 +792,109 @@ def get_stock_ohlcv(ticker: str, start_date: str, end_date: str):
             print(f"[get_stock_ohlcv] yfinance {suffix} failed for {ticker}: {e}")
 
     print(f"[get_stock_ohlcv] ALL sources failed for {ticker}")
+    return pd.DataFrame()
+
+
+def _admit_review_ohlcv(df, *, provider_ticker=None, allow_change=False):
+    """Admit the complete provider transport before any lossy projection.
+
+    Only FDR's declared optional Change and yfinance's exact single-symbol
+    column layout are additional transport variants; neither hides extra data.
+    """
+    from backend.core.review_source_contract import SourceAdmissionError
+
+    if not isinstance(df, pd.DataFrame):
+        raise SourceAdmissionError("invalid market frame")
+    required = ("Open", "High", "Low", "Close", "Volume")
+    if not df.columns.is_unique:
+        raise SourceAdmissionError("duplicate market columns")
+    if isinstance(df.columns, pd.MultiIndex):
+        if df.columns.nlevels != 2 or provider_ticker is None:
+            raise SourceAdmissionError("invalid market column layout")
+        fields = tuple(column[0] for column in df.columns)
+        if any(column[1] != provider_ticker for column in df.columns):
+            raise SourceAdmissionError("invalid market provider symbol")
+    else:
+        fields = tuple(df.columns)
+    allowed = set(required)
+    if allow_change and not isinstance(df.columns, pd.MultiIndex) and "Change" in fields:
+        allowed.add("Change")
+    # A genuinely absent provider sample is explicit unavailability. A frame
+    # with rows but no columns, or unknown columns even with no rows, is not.
+    if not len(df.index) and not fields:
+        return pd.DataFrame()
+    if len(fields) != len(allowed) or set(fields) != allowed:
+        raise SourceAdmissionError("unknown or incomplete market OHLCV")
+    if not len(df.index):
+        return pd.DataFrame()
+    if not isinstance(df.index, pd.DatetimeIndex) or df.index.hasnans or not df.index.is_unique:
+        raise SourceAdmissionError("invalid market time source")
+    positions = {field: index for index, field in enumerate(fields)}
+    for row in df.itertuples(index=False, name=None):
+        for field, value in zip(fields, row):
+            try:
+                numeric = not isinstance(value, bool) and isinstance(value, numbers.Real)
+                # FDR computes Change using pct_change; its first observation
+                # may be NaN. This declared nullable metadata never excuses an
+                # incomplete OHLCV row or nonnumeric provider field.
+                valid = numeric and (math.isfinite(value) or (field == "Change" and math.isnan(value)))
+            except (TypeError, ValueError, OverflowError):
+                valid = False
+            if not valid:
+                raise SourceAdmissionError("invalid market numeric source")
+            if field != "Change" and (value < 0 or (field != "Volume" and value == 0)):
+                raise SourceAdmissionError("invalid market price/volume")
+        opened, high, low, close = (row[positions[field]] for field in required[:4])
+        if low > min(opened, close) or max(opened, close) > high:
+            raise SourceAdmissionError("invalid market OHLC")
+    # All columns, rows, values and symbol metadata have been admitted above.
+    out = df.copy()
+    out.columns = fields
+    return out.loc[:, list(required)]
+
+
+def get_review_stock_ohlcv(ticker: str, start_date: str, end_date: str):
+    """Uncached AI fetch: raw admission precedes normalization and fallback.
+
+    The common TTL cache contains sanitized frames without raw provenance;
+    strict review never reads or writes it, or caches its own results.
+    Transport failures and genuinely empty samples may use the next provider.
+    SourceAdmissionError is terminal and cannot enter that fallback handling.
+    """
+    from backend.core.review_source_contract import SourceAdmissionError
+    import warnings
+
+    start_text = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}"
+    end_day = datetime.datetime.strptime(end_date, "%Y%m%d") + datetime.timedelta(days=1)
+    end_text = end_day.strftime("%Y-%m-%d")
+    try:
+        import FinanceDataReader as fdr
+        raw = fdr.DataReader(ticker, start=start_text, end=end_text)
+    except SourceAdmissionError:
+        raise
+    except Exception:
+        pass
+    else:
+        frame = _admit_review_ohlcv(raw, allow_change=True)
+        if not frame.empty:
+            frame.index = frame.index.normalize().tz_localize(None)
+            return frame
+
+    for suffix in (".KS", ".KQ"):
+        symbol = f"{ticker}{suffix}"
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                raw = yf.download(symbol, start=start_text, end=end_text,
+                                  progress=False, threads=False, auto_adjust=True)
+        except SourceAdmissionError:
+            raise
+        except Exception:
+            continue
+        frame = _admit_review_ohlcv(raw, provider_ticker=symbol)
+        if not frame.empty:
+            frame.index = frame.index.normalize().tz_localize(None)
+            return frame
     return pd.DataFrame()
 
 

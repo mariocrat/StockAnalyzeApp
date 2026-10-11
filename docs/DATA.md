@@ -27,6 +27,8 @@
 - 구매 토큰은 hash와 암호문/key ID로 관리한다. 암호화 key 없이 DB만 복구하는 것으로 정상 복구를 보장할 수 없다.
 - M5: 현재 export는 매매와 복기 이력 각각 코드에 지정된 건수로 제한된다. 전체 백업이나 완전한 데이터 반환을 보장한다고 설명하지 않는다.
 
+Phase 2D-1 history list/detail/export는 [whole-record read adapter](../backend/core/review_history_adapter.py)에서 metadata와 다섯 snapshot의 닫힌 shape, canonical version/content와 별도 chart/tooltip/trade 문자열을 검사한다. List도 전체 row 승인 뒤 metadata를 투영한다. 지원 legacy는 memory copy만 만들고 compatibility summary는 canonical body에서 생성한다. Unsafe/unknown/corrupt는 고정 표시 불가 결과와 빈 복원 입력을 반환하며 raw fallback이나 DB backfill은 없다. [History store](../backend/core/review_history.py)의 조회 연결은 기존 DB에 `mode=ro`로 접속하며 DB/schema/parent를 생성하지 않는다. 생성·삭제·과금 정책은 기존 쓰기 경로에 남는다. Synthetic row value/file byte 불변성 및 반복 조회 증거는 [실행 계획](exec-plans/structured-trade-review.md)에 기록한다.
+
 ## Schema와 초기화
 
 현재 연결 함수에서 CREATE TABLE IF NOT EXISTS와 일부 ALTER TABLE을 수행한다. access_schema_meta의 특정 초기화 표식은 전체 DB에 대한 일반 schema migration 체계가 아니다. 새 테이블의 제약조건이 이미 존재하는 테이블에 자동 적용되지 않는다(H5).

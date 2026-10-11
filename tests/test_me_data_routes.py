@@ -2,6 +2,10 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
+from tests.history_legacy_fixture import add_legacy_history_fixture
+
+from backend.core.review_display_contract import SCHEMA_VERSION
+
 from tests.api_test_modules import api_module_state
 
 import json
@@ -129,7 +133,7 @@ class MeDataRoutesTest(unittest.TestCase):
                 product_id="basic_review_15",
             )
             account_store.record_privacy_consent(authorization=token, version="ai-review-privacy-export")
-            review_history.add_review_history(
+            add_legacy_history_fixture(review_history,
                 user_id=user_id,
                 review_type="advanced",
                 ticker="005930",
@@ -138,7 +142,7 @@ class MeDataRoutesTest(unittest.TestCase):
             )
 
             paths = set(main.app.openapi()["paths"].keys())
-            exported = main.export_me_data(authorization=token)
+            exported = main.export_me_data(authorization=token, x_review_display_contract=[SCHEMA_VERSION])
             serialized = json.dumps(exported, ensure_ascii=False)
 
             self.assertIn("/api/me/export-data", paths)

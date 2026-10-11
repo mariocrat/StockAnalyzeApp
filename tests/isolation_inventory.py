@@ -26,7 +26,7 @@ COORDINATORS = frozenset("tests." + name for name in (
 ))
 STAGE1 = "tests.test_full_test_entrypoint"
 CLASSIFICATIONS = ("A1/foundation/helper", "migrated", "OUT")
-BASELINE = dict(zip(CLASSIFICATIONS, (35, 393, 22)))
+BASELINE = dict(zip(CLASSIFICATIONS, (35, 885, 22)))
 
 
 class InventoryError(ValueError):
@@ -173,6 +173,25 @@ def inventory_summary(entries):
 
 NODE_COMMAND = re.compile(r"node --test (scripts/[A-Za-z0-9_-]+\.test\.js)\Z")
 NODE_SUPPORT = ("scripts/test-result-reporter.mjs", "scripts/test-entrypoint-guard.mjs")
+NODE_REVIEW_ENTRY = "test:canonical-review-renderer"
+NODE_REVIEW_VECTOR = "scripts/fixtures/review-display-v1.json"
+NODE_REVIEW_COMPONENT = "src/components/CanonicalReviewRenderer.js"
+NODE_LEGACY_ENTRY = "test:legacy-review-cross-contract"
+NODE_LEGACY_VECTOR = "scripts/fixtures/review-legacy-compatibility-v1.json"
+NODE_LEGACY_COMPONENT = "src/components/TradingJournal.jsx"
+NODE_LEGACY_FORMAT = "src/utils/aiReviewFormat.js"
+NODE_CHART_ENTRY = "test:ai-chart-source"
+NODE_MOBILE_REVIEW_ENTRY = "test:journal-mobile-ux"
+NODE_CHART_COMPONENT = "src/components/JournalTradeChart.jsx"
+NODE_CHART_SOURCE = "src/utils/aiReviewChartSource.js"
+NODE_TYPESCRIPT_FILES = ("typescript/package.json", "typescript/lib/typescript.js")
+NODE_REACT_FILES = (
+    "react/package.json", "react/index.js", "react/cjs/react.development.js",
+    "react-dom/package.json", "react-dom/index.js", "react-dom/server.node.js",
+    "react-dom/cjs/react-dom.development.js",
+    "react-dom/cjs/react-dom-server-legacy.node.development.js",
+    "react-dom/cjs/react-dom-server.node.development.js",
+)
 NODE_PLUGIN_SOURCE = "node_modules/capacitor-plugin-cdv-purchase/android/build.gradle"
 NODE_BILLING_FIXTURE = {
     "package": "capacitor-plugin-cdv-purchase",
@@ -218,7 +237,8 @@ def node_source_path(frontend, relative):
     if not isinstance(relative, str) or "\\" in relative or ".." in relative.split("/"):
         raise InventoryError("invalid Node source path")
     path = Path(relative)
-    special = {"package.json", "capacitor.config.json", ".env.example", ".env.release.example"}
+    special = {"package.json", "capacitor.config.json", ".env.example", ".env.release.example",
+               NODE_REVIEW_VECTOR, NODE_LEGACY_VECTOR, "scripts/fixtures/review-compatibility-v1.json"}
     source = (relative.startswith(("scripts/", "src/", "android/")) or relative in {"index.html", "vite.config.js"})
     if (path.is_absolute() or not (relative in special or source and path.suffix in
             {".js", ".mjs", ".jsx", ".css", ".html", ".xml", ".java", ".gradle"})
@@ -233,6 +253,109 @@ def node_source_path(frontend, relative):
 
 def node_source_hash(source):
     return hashlib.sha256(source.replace("\r\n", "\n").encode("utf-8")).hexdigest()
+
+
+def _installed_react_root(frontend):
+    """Find an existing local install, including the main checkout's ignored cache."""
+    frontend = Path(frontend).resolve()
+    local = frontend / "node_modules"
+    if local.is_dir():
+        return local
+    gitfile = frontend.parent / ".git"
+    if not gitfile.is_file():
+        raise InventoryError("local React installation is unavailable")
+    pointer = gitfile.read_text(encoding="utf-8").strip()
+    if not pointer.startswith("gitdir: "):
+        raise InventoryError("invalid worktree metadata")
+    gitdir = Path(pointer[8:])
+    if not gitdir.is_absolute():
+        gitdir = gitfile.parent / gitdir
+    gitdir = gitdir.resolve()
+    if gitdir.parent.name != "worktrees" or gitdir.parent.parent.name != ".git":
+        raise InventoryError("unexpected worktree metadata")
+    installed = gitdir.parent.parent.parent / "frontend" / "node_modules"
+    if not installed.is_dir():
+        raise InventoryError("local React installation is unavailable")
+    return installed
+
+
+def validated_react_snapshot(frontend, entry):
+    """Verify exact installed React/JSX compiler bytes before the H4 temp copy."""
+    chart = entry["name"] == NODE_CHART_ENTRY
+    legacy = entry["name"] == NODE_LEGACY_ENTRY
+    mobile_review = entry["name"] == NODE_MOBILE_REVIEW_ENTRY
+    jsx = legacy or chart or mobile_review
+    if entry["name"] not in (NODE_REVIEW_ENTRY, NODE_LEGACY_ENTRY, NODE_CHART_ENTRY, NODE_MOBILE_REVIEW_ENTRY):
+        if any(field in entry for field in ("react_snapshot", "vector_sha256", "component_sha256",
+                                           "format_sha256", "typescript_snapshot", "chart_component_sha256", "chart_source_sha256", "display_contract_sha256")):
+            raise InventoryError("unexpected React snapshot mapping")
+        return []
+    hashes = entry.get("react_snapshot")
+    if not isinstance(hashes, dict) or set(hashes) != set(NODE_REACT_FILES):
+        raise InventoryError("invalid React snapshot allowlist")
+    vector_path = None if chart else NODE_LEGACY_VECTOR if legacy else NODE_REVIEW_VECTOR
+    component_path = NODE_LEGACY_COMPONENT if jsx else NODE_REVIEW_COMPONENT
+    if vector_path is not None:
+        vector = node_source_path(frontend, vector_path).read_bytes()
+        if vector_path not in entry["reads"] or hashlib.sha256(vector).hexdigest() != entry.get("vector_sha256"):
+            raise InventoryError("review vector hash mismatch")
+    elif "vector_sha256" in entry:
+        raise InventoryError("unexpected chart vector mapping")
+    component = node_source_path(frontend, component_path).read_bytes()
+    if (component_path not in entry["reads"]
+            or hashlib.sha256(component).hexdigest() != entry.get("component_sha256")):
+        raise InventoryError("review renderer source hash mismatch")
+    if jsx:
+        if legacy and any(field in entry for field in ("chart_component_sha256", "chart_source_sha256")):
+            raise InventoryError("unexpected chart source mapping")
+        if mobile_review and "chart_component_sha256" in entry:
+            raise InventoryError("unexpected mobile chart component mapping")
+        production_files = [(NODE_REVIEW_COMPONENT, "display_contract_sha256")]
+        if chart:
+            production_files += [(NODE_CHART_COMPONENT, "chart_component_sha256"),
+                                 (NODE_CHART_SOURCE, "chart_source_sha256")]
+        elif mobile_review:
+            production_files += [(NODE_CHART_SOURCE, "chart_source_sha256")]
+        for relative, field in production_files:
+            content = node_source_path(frontend, relative).read_bytes()
+            if relative not in entry["reads"] or hashlib.sha256(content).hexdigest() != entry.get(field):
+                raise InventoryError("chart production source hash mismatch")
+    elif any(field in entry for field in ("chart_component_sha256", "chart_source_sha256", "display_contract_sha256")):
+        raise InventoryError("unexpected chart source mapping")
+    files = NODE_REACT_FILES
+    versions = (("react", "19.2.6"), ("react-dom", "19.2.6"))
+    if jsx:
+        compiler = entry.get("typescript_snapshot")
+        if not isinstance(compiler, dict) or set(compiler) != set(NODE_TYPESCRIPT_FILES):
+            raise InventoryError("invalid JSX compiler snapshot allowlist")
+        if legacy:
+            format_source = node_source_path(frontend, NODE_LEGACY_FORMAT).read_bytes()
+            if (NODE_LEGACY_FORMAT not in entry["reads"]
+                    or hashlib.sha256(format_source).hexdigest() != entry.get("format_sha256")):
+                raise InventoryError("legacy format source hash mismatch")
+        elif "format_sha256" in entry or NODE_LEGACY_FORMAT in entry["reads"]:
+            raise InventoryError("unexpected production legacy parser dependency")
+        hashes = {**hashes, **compiler}
+        files += NODE_TYPESCRIPT_FILES
+        versions += (("typescript", "4.2.4"),)
+    elif "typescript_snapshot" in entry or "format_sha256" in entry:
+        raise InventoryError("unexpected JSX compiler snapshot mapping")
+    lock = json.loads((Path(frontend) / "package-lock.json").read_bytes(), object_pairs_hook=_unique_object)
+    for package, version in versions:
+        if lock.get("packages", {}).get("node_modules/" + package, {}).get("version") != version:
+            raise InventoryError("installed React lock version mismatch")
+    installed = _installed_react_root(frontend).resolve()
+    snapshot = []
+    for relative in files:
+        source = installed / relative
+        if (source.is_symlink() or not source.resolve().is_relative_to(installed)
+                or not source.is_file()):
+            raise InventoryError("React snapshot escapes local installation")
+        content = source.read_bytes()
+        if hashlib.sha256(content).hexdigest() != hashes[relative]:
+            raise InventoryError("React snapshot hash mismatch")
+        snapshot.append(("node_modules/" + relative, content))
+    return snapshot
 
 
 def node_case_names(source):
@@ -278,6 +401,7 @@ def validate_node_inventory(frontend, manifest):
         for relative in reads:
             node_source_path(frontend, relative)  # No private reads to validate the boundary.
         validated_node_fixture(frontend, entry)
+        validated_react_snapshot(frontend, entry)
         if profile == "standard" and entry["release_eval_sha256"]:
             raise InventoryError("standard tests cannot launch children")
         entries[name] = entry

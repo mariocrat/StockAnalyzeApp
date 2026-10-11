@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
@@ -7,15 +7,17 @@ import { CircleAlert, Clock3, Keyboard, Ticket, UserRound, X } from 'lucide-reac
 import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
+import CanonicalReviewRenderer from './CanonicalReviewRenderer';
 import { getAdMobRuntimeStatus, initializeAdMob, showReviewHistoryInterstitial, showRewardedReviewAd } from '../mobile/admob';
 import { shouldShowReviewHistoryInterstitial } from '../mobile/admobPolicy';
 import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct, recoverGooglePlayPurchases } from '../mobile/billing';
 import { shouldFinishGooglePlayTransaction } from '../mobile/billingPolicy';
 import { buildAiReviewIdempotencyKey } from '../utils/aiReviewIdempotency';
+import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../utils/reviewDisplayContract';
+import { aiReviewChartSource } from '../utils/aiReviewChartSource';
 import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
-import { parseAiReviewDocument, parseAiReviewSummary } from '../utils/aiReviewFormat';
 import {
   buildReviewTradeGroups,
   filterReviewTradeGroups,
@@ -68,7 +70,6 @@ const PRO_PRODUCT = [
   'Pro 월 구독 · 일반 35회 + 심화 25회 · 광고 제거',
   '출시 혜택 대상은 첫 3개월 월 7,900원 · 이후 월 9,900원',
 ];
-const chartIntervalLabel = { '1m': '1분봉', '3m': '3분봉', '1d': '일봉', '1wk': '주봉' };
 const reviewSourceLabels = {
   signup_basic: '가입 축하 일반 복기권',
   signup_advanced: '무료 심화 복기권',
@@ -223,83 +224,6 @@ function reviewAccessText(access) {
   return `${plan} · ${type} · ${source} · 바로 사용 ${freeNow}회 · 광고 추가 ${adAvailable}회 · 구매 ${basic.purchased_remaining || 0}회`;
 }
 
-function reviewDisplayText(value) {
-  return String(value || '')
-    .replace(/\[(?:데이터 확인|합리적 추론)\]/g, '')
-    .replace(/[ \t]{2,}/g, ' ')
-    .trim();
-}
-
-function ReviewInlineText({ value }) {
-  return reviewDisplayText(value).split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((part, index) => (
-    part.startsWith('**') && part.endsWith('**')
-      ? <strong key={`${index}-${part}`}>{part.slice(2, -2)}</strong>
-      : <span key={`${index}-${part}`}>{part}</span>
-  ));
-}
-
-function AiReviewSummary({ value, document = false }) {
-  const summary = parseAiReviewSummary(value);
-  if (document || !summary.structured) {
-    const blocks = parseAiReviewDocument(summary.text);
-    if (!blocks.length) return <p className="journal-ai-summary">복기 내용이 없습니다.</p>;
-    return (
-      <div className="journal-ai-document">
-        {blocks.map((block, index) => {
-          const key = `${index}-${block.type}-${block.text || ''}`;
-          if (block.type === 'heading') {
-            const Heading = block.level <= 2 ? 'h4' : 'h5';
-            return <Heading key={key}><ReviewInlineText value={block.text} /></Heading>;
-          }
-          if (block.type === 'divider') return <hr key={key} />;
-          if (block.type === 'list') {
-            const List = block.ordered ? 'ol' : 'ul';
-            return (
-              <List key={key}>
-                {block.items.map((item, itemIndex) => (
-                  <li key={`${itemIndex}-${item}`}><ReviewInlineText value={item} /></li>
-                ))}
-              </List>
-            );
-          }
-          return <p key={key}><ReviewInlineText value={block.text} /></p>;
-        })}
-      </div>
-    );
-  }
-
-  return (
-    <div className="journal-ai-summary-structured">
-      {summary.verdict && (
-        <section className="journal-ai-summary-section verdict">
-          <strong>한 줄 총평</strong>
-          <p>{reviewDisplayText(summary.verdict)}</p>
-        </section>
-      )}
-      {summary.strength && (
-        <section className="journal-ai-summary-section strength">
-          <strong>잘한 점</strong>
-          <p>{reviewDisplayText(summary.strength)}</p>
-        </section>
-      )}
-      {summary.weakness && (
-        <section className="journal-ai-summary-section weakness">
-          <strong>아쉬운 점</strong>
-          <p>{reviewDisplayText(summary.weakness)}</p>
-        </section>
-      )}
-      {summary.checklist.length > 0 && (
-        <section className="journal-ai-summary-section checklist">
-          <strong>다음 매매 체크리스트</strong>
-          <ol>
-            {summary.checklist.map((item, index) => <li key={`${index}-${item}`}>{reviewDisplayText(item)}</li>)}
-          </ol>
-        </section>
-      )}
-    </div>
-  );
-}
-
 export default function TradingJournal({
   apiBase,
   onEntitlementsChange,
@@ -314,7 +238,7 @@ export default function TradingJournal({
   const [trades, setTrades] = useState([]);
   const [review, setReview] = useState(null);
   const [aiReview, setAiReview] = useState(null);
-  const [chartReview, setChartReview] = useState({ charts: [] });
+  const [, setChartReview] = useState({ charts: [] });
   const [activeChartTicker, setActiveChartTicker] = useState('');
   const [showCurrentReviewDetails, setShowCurrentReviewDetails] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -357,6 +281,7 @@ export default function TradingJournal({
   const [reviewTargetTo, setReviewTargetTo] = useState('');
   const stockSearchSeq = useRef(0);
   const authSessionGenerationRef = useRef(0);
+  const reviewHistoryDetailRequestRef = useRef(0);
   const suppressStockSearchRef = useRef(false);
   const entitlementSectionRef = useRef(null);
   const tradeChartSectionRef = useRef(null);
@@ -539,7 +464,7 @@ export default function TradingJournal({
     setReviewHistoryLoading(true);
     try {
       const res = await axios.get(`${apiBase}/api/journal/review-history`, {
-        headers: { Authorization: `Bearer ${authSession.session_token}` },
+        headers: reviewDisplayHeaders({ Authorization: `Bearer ${authSession.session_token}` }),
       });
       const rows = res.data || [];
       setReviewHistory(rows);
@@ -548,7 +473,7 @@ export default function TradingJournal({
       }
       return rows;
     } catch (err) {
-      setMessage(err.response?.data?.detail || '복기 보관함을 불러오지 못했습니다.');
+      setMessage(reviewDisplayFailureMessage(err, '복기 보관함을 불러오지 못했습니다.'));
       setReviewHistory([]);
       return [];
     } finally {
@@ -556,20 +481,28 @@ export default function TradingJournal({
     }
   };
 
-  const openReviewHistoryDetail = async (id) => {
+  const openReviewHistoryDetail = useCallback(async (id) => {
     if (!authSession?.session_token) return;
+    const requestId = ++reviewHistoryDetailRequestRef.current;
+    setActiveReviewHistory(null);
+    setActiveChartTicker('');
+    setMessage('');
     setReviewHistoryLoading(true);
     try {
       const res = await axios.get(`${apiBase}/api/journal/review-history/${id}`, {
-        headers: { Authorization: `Bearer ${authSession.session_token}` },
+        headers: reviewDisplayHeaders({ Authorization: `Bearer ${authSession.session_token}` }),
       });
+      if (requestId !== reviewHistoryDetailRequestRef.current) return;
+      if (!res.data) throw new Error('empty history response');
       setActiveReviewHistory(res.data || null);
+      setActiveChartTicker(aiReviewChartSource(res.data?.ai_review, res.data).charts[0]?.ticker || '');
     } catch (err) {
-      setMessage(err.response?.data?.detail || '저장된 복기를 불러오지 못했습니다.');
+      if (requestId !== reviewHistoryDetailRequestRef.current) return;
+      setMessage(reviewDisplayFailureMessage(err, '저장된 복기를 불러오지 못했습니다.'));
     } finally {
-      setReviewHistoryLoading(false);
+      if (requestId === reviewHistoryDetailRequestRef.current) setReviewHistoryLoading(false);
     }
-  };
+  }, [apiBase, authSession?.session_token]);
 
   const deleteReviewHistoryItem = async (id) => {
     if (!authSession?.session_token) return;
@@ -1029,7 +962,7 @@ export default function TradingJournal({
     setAuthLoading(true);
     try {
       const res = await axios.get(`${apiBase}/api/me/export-data`, {
-        headers: { Authorization: `Bearer ${authSession.session_token}` },
+        headers: reviewDisplayHeaders({ Authorization: `Bearer ${authSession.session_token}` }),
       });
       const dateText = new Date().toISOString().slice(0, 10);
       const filename = `StockBoda-데이터-백업-${dateText}.json`;
@@ -1060,7 +993,7 @@ export default function TradingJournal({
         setMessage('내 데이터 내보내기를 취소했습니다.');
         return;
       }
-      setMessage(err.response?.data?.detail || '내 데이터를 내보내지 못했습니다.');
+      setMessage(reviewDisplayFailureMessage(err, '내 데이터를 내보내지 못했습니다.'));
     } finally {
       setAuthLoading(false);
     }
@@ -1124,18 +1057,11 @@ export default function TradingJournal({
   const loadReviewContextForTrades = async (nextTrades) => {
     if (!nextTrades.length) return;
     try {
-      const [reviewRes, chartRes] = await Promise.all([
-        axios.post(`${apiBase}/api/journal/review-once`, { trades: nextTrades }),
-        axios.post(`${apiBase}/api/journal/charts-once`, { trades: nextTrades }),
-      ]);
-      const charts = chartRes.data || { charts: [] };
+      // This refresh is arithmetic journal statistics only. AI chart surfaces
+      // are owned by the approved response, never by a general chart reload.
+      const reviewRes = await axios.post(`${apiBase}/api/journal/review-once`, { trades: nextTrades });
       setReview(reviewRes.data || null);
-      setChartReview(charts);
-      setActiveChartTicker(charts.charts?.[0]?.ticker || '');
-    } catch {
-      setChartReview({ charts: [] });
-      setActiveChartTicker('');
-    }
+    } catch { /* The approved AI result remains usable without statistics. */ }
   };
 
   const chooseReviewGroup = (groupKey) => {
@@ -1157,6 +1083,8 @@ export default function TradingJournal({
 
     aiReviewInFlightRef.current = true;
     setAiLoading(true);
+    setAiReview(null);
+    setShowCurrentReviewDetails(false);
     try {
       const analysisFocus = reviewType === 'basic'
         ? BASIC_REVIEW_FOCUSES[basicReviewFocusIndexRef.current % BASIC_REVIEW_FOCUSES.length]
@@ -1178,12 +1106,14 @@ export default function TradingJournal({
           target_trade_id: options.targetTradeId || null,
           analysis_focus: analysisFocus,
         },
-        { headers: { ...authHeaders, 'X-Idempotency-Key': idempotencyKey } },
+        { headers: reviewDisplayHeaders({ ...authHeaders, 'X-Idempotency-Key': idempotencyKey }) },
       );
-      await loadReviewContextForTrades(nextTrades);
+      if (!res.data) throw new Error('empty AI response');
       setAiReview(res.data || null);
+      setActiveChartTicker(aiReviewChartSource(res.data).charts[0]?.ticker || '');
       if (res.data?.status !== 'error') {
         setShowCurrentReviewDetails(true);
+        await loadReviewContextForTrades(nextTrades);
       }
       if (res.data?.status === 'error') {
       setMessage('AI 서버 응답을 완료하지 못했습니다. 사용한 복기권은 다시 돌려드렸습니다.');
@@ -1200,12 +1130,8 @@ export default function TradingJournal({
         await loadEntitlements();
         return;
       }
-      setMessage(err.response?.data?.detail || 'AI 분석을 불러오지 못했습니다.');
-      setAiReview({
-        status: 'error',
-        summary: 'AI 복기 분석을 불러오지 못했습니다.',
-        chart_reviews: [],
-      });
+      setMessage(reviewDisplayFailureMessage(err, 'AI 분석을 불러오지 못했습니다.'));
+      setAiReview({ status: 'request_error' });
     } finally {
       aiReviewInFlightRef.current = false;
       setAiLoading(false);
@@ -1819,8 +1745,9 @@ export default function TradingJournal({
     await loadChartReview();
   };
 
-  const activeTradeChart = (chartReview.charts || []).find(chart => chart.ticker === activeChartTicker)
-    || chartReview.charts?.[0];
+  const aiChartSource = aiReviewChartSource(aiReview);
+  const activeTradeChart = aiChartSource.charts.find(chart => chart.ticker === activeChartTicker)
+    || aiChartSource.charts[0];
   const renderSelectedTradeChart = () => {
     if (!activeTradeChart) return null;
 
@@ -1828,25 +1755,24 @@ export default function TradingJournal({
       <div className="journal-review-chart-block" ref={tradeChartSectionRef}>
         <div className="journal-panel-title">
           <h3>선택한 매매 차트</h3>
-          <span className="journal-chart-mode">
-            {chartIntervalLabel[activeTradeChart.interval] || (activeTradeChart.timeframe === 'intraday' ? '분봉' : activeTradeChart.timeframe === 'weekly' ? '주봉' : '일봉')}
-            {activeTradeChart.period_label ? ` · ${activeTradeChart.period_label}` : ''}
+          <span className="journal-chart-mode" style={{ whiteSpace: 'pre-wrap' }}>
+            <CanonicalReviewRenderer document={activeTradeChart.header} expectedSurface="chart_header" />
           </span>
         </div>
-        {chartReview.charts?.length > 1 && (
+        {aiChartSource.charts.length > 1 && (
           <div className="journal-chart-tabs">
-            {chartReview.charts.map(chart => (
+            {aiChartSource.charts.map(chart => (
               <button
                 key={chart.ticker}
                 className={chart.ticker === activeTradeChart.ticker ? 'active' : ''}
                 onClick={() => setActiveChartTicker(chart.ticker)}
               >
-                {chart.name}
+                <CanonicalReviewRenderer document={chart.tab} expectedSurface="chart_tab" />
               </button>
             ))}
           </div>
         )}
-        <JournalTradeChart chartData={activeTradeChart} />
+        <JournalTradeChart chartData={activeTradeChart} approvedSnapshot />
       </div>
     );
   };
@@ -1937,9 +1863,10 @@ export default function TradingJournal({
 
   const renderReviewHistoryArchive = () => {
     const savedReview = activeReviewHistory?.ai_review || null;
-    const savedChartSnapshot = activeReviewHistory?.chart_snapshot || {};
-    const savedChart = (savedChartSnapshot.charts || [])[0];
-    const savedCards = savedReview?.chart_reviews || savedChartSnapshot.chart_reviews || [];
+    const savedChartSource = aiReviewChartSource(savedReview, activeReviewHistory);
+    const savedChart = savedChartSource.charts.find(chart => chart.ticker === activeChartTicker)
+      || savedChartSource.charts[0];
+    const savedCards = savedChartSource.chart_cards;
 
     return (
       <section className="journal-panel review-history-panel">
@@ -1966,7 +1893,7 @@ export default function TradingJournal({
                   className={activeReviewHistory?.id === item.id ? 'active' : ''}
                   onClick={() => openReviewHistoryDetail(item.id)}
                 >
-                  <strong>{item.name || item.ticker || '종목 미입력'}</strong>
+                  <strong><CanonicalReviewRenderer document={item.display_snapshot} expectedSurface="body" /></strong>
                   <span>{item.review_type === 'advanced' ? '심화 복기' : '일반 복기'} · {dateTimeText(item.trade_date || item.created_at)}</span>
                 </button>
               ))}
@@ -1976,7 +1903,7 @@ export default function TradingJournal({
                 <>
                   <div className="journal-panel-title">
                     <div>
-                      <h4>{activeReviewHistory.name || activeReviewHistory.ticker || '저장된 복기'}</h4>
+                      <h4><CanonicalReviewRenderer document={activeReviewHistory.display_snapshot} expectedSurface="body" /></h4>
                       <span className="journal-chart-mode">
                         {activeReviewHistory.review_type === 'advanced' ? '심화 복기' : '일반 복기'}
                       </span>
@@ -1999,16 +1926,35 @@ export default function TradingJournal({
                     </button>
                     <span>선택한 종목의 매매 기록만 현재 복기 화면으로 불러옵니다.</span>
                   </div>
-                  <JournalTradeChart chartData={savedChart} />
-                  <AiReviewSummary
-                    value={savedReview?.summary || '저장된 복기 내용이 없습니다.'}
-                    document={activeReviewHistory.review_type === 'advanced'}
-                  />
+                  {savedChart && (
+                    <>
+                      <span className="journal-chart-mode" style={{ whiteSpace: 'pre-wrap' }}>
+                        <CanonicalReviewRenderer document={savedChart.header || savedChart.display_snapshot}
+                          expectedSurface={savedChart.header ? 'chart_header' : 'body'} />
+                      </span>
+                      {savedChartSource.charts.length > 1 && (
+                        <div className="journal-chart-tabs">
+                          {savedChartSource.charts.map(chart => (
+                            <button key={chart.ticker} className={chart.ticker === savedChart.ticker ? 'active' : ''}
+                              onClick={() => setActiveChartTicker(chart.ticker)}>
+                              <CanonicalReviewRenderer document={chart.tab || chart.display_snapshot}
+                                expectedSurface={chart.tab ? 'chart_tab' : 'body'} />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <JournalTradeChart chartData={savedChart} approvedSnapshot />
+                    </>
+                  )}
+                  <div className="journal-ai-document">
+                    <CanonicalReviewRenderer document={['canonical', 'adapted'].includes(activeReviewHistory.history_read_status)
+                      ? savedReview?.display_snapshot : null} />
+                  </div>
                   <div className="journal-chart-review-list">
                     {savedCards.map((item, idx) => (
-                      <div className="journal-ai-card" key={`${item.title || idx}-${idx}`}>
-                        <strong>{reviewDisplayText(item.title)}</strong>
-                        <p>{reviewDisplayText(item.detail)}</p>
+                      <div className="journal-ai-card" key={idx}>
+                        <p><CanonicalReviewRenderer document={item.display || item.display_snapshot}
+                          expectedSurface={item.display ? 'chart_card' : 'body'} /></p>
                       </div>
                     ))}
                   </div>
@@ -2805,30 +2751,24 @@ export default function TradingJournal({
                 <p>선택한 매매의 체결 기록과 당시 차트 흐름을 함께 확인하고 있습니다.</p>
               </div>
             </div>
+          ) : aiReview?.status === 'request_error' ? (
+            <p className="journal-ai-summary" role="status">AI 복기 분석을 불러오지 못했습니다.</p>
           ) : aiReview ? (
             <>
               <div className={`journal-ai-status ${aiReview.status || 'ready'}`}>
                 {aiReview.source === 'openai' ? 'AI 분석' : '차트 기반 기본 분석'}
               </div>
-              <AiReviewSummary value={aiReview.summary} document={aiReview.review_type === 'advanced'} />
+              <div className="journal-ai-document">
+                <CanonicalReviewRenderer document={aiReview.display_snapshot} />
+              </div>
               {aiReview.access && (
                 <div className="journal-ai-entitlement">
                   {reviewAccessText(aiReview.access)}
                 </div>
               )}
-              {(aiReview.chart_reviews || []).map((item, idx) => (
-                <div className="journal-ai-card" key={`${item.title || idx}-${idx}`}>
-                  <strong>{reviewDisplayText(item.title)}</strong>
-                  <p>{reviewDisplayText(item.detail)}</p>
-                  {item.metrics && (
-                    <div className="journal-ai-metrics">
-                      {item.metrics.rsi14 != null && <span>RSI {item.metrics.rsi14}</span>}
-                      {item.metrics.return_10d_before != null && <span>10일전 {item.metrics.return_10d_before}%</span>}
-                      {item.metrics.volume_ratio_20d != null && <span>거래량 {item.metrics.volume_ratio_20d}배</span>}
-                      {item.metrics.next_5d_return != null && <span>이후 5일 {item.metrics.next_5d_return}%</span>}
-                      {item.metrics.next_20d_return != null && <span>이후 20일 {item.metrics.next_20d_return}%</span>}
-                    </div>
-                  )}
+              {aiChartSource.chart_cards.map((item, idx) => (
+                <div className="journal-ai-card" key={idx}>
+                  <p><CanonicalReviewRenderer document={item.display} expectedSurface="chart_card" /></p>
                 </div>
               ))}
             </>

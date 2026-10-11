@@ -2,6 +2,8 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
+from tests.history_legacy_fixture import add_legacy_history_fixture
+
 import importlib
 import unittest
 
@@ -13,7 +15,7 @@ class ReviewHistoryStoreTest(unittest.TestCase):
 
             review_history = importlib.reload(review_history)
 
-            first = review_history.add_review_history(
+            first = add_legacy_history_fixture(review_history,
                 user_id="user-a",
                 review_type="advanced",
                 ticker="005930",
@@ -28,7 +30,7 @@ class ReviewHistoryStoreTest(unittest.TestCase):
                 model="gpt-5.5",
                 source="openai",
             )
-            review_history.add_review_history(
+            add_legacy_history_fixture(review_history,
                 user_id="user-b",
                 review_type="basic",
                 ticker="000660",
@@ -61,8 +63,8 @@ class ReviewHistoryStoreTest(unittest.TestCase):
 
             review_history = importlib.reload(review_history)
 
-            review_history.add_review_history(user_id="user-a", review_type="basic", ticker="005930", name="삼성전자")
-            review_history.add_review_history(user_id="user-b", review_type="basic", ticker="000660", name="SK하이닉스")
+            add_legacy_history_fixture(review_history, user_id="user-a", review_type="basic", ticker="005930", name="삼성전자")
+            add_legacy_history_fixture(review_history, user_id="user-b", review_type="basic", ticker="000660", name="SK하이닉스")
 
             deleted = review_history.clear_review_history(user_id="user-a")
 

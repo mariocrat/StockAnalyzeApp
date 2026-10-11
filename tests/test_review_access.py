@@ -2,7 +2,10 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
+from backend.core.review_display_contract import SCHEMA_VERSION
+
 from tests.api_test_modules import api_module_state
+from tests.review_source_fixtures import approved_route_fixture
 
 import importlib
 import os
@@ -228,22 +231,10 @@ class ReviewAccessTest(unittest.TestCase):
                 original_charts = main.build_journal_charts
                 try:
                     main.build_journal_charts = lambda trades: {"charts": []}
-                    main.build_basic_ai_review = lambda trades, target_trade_id=None, analysis_focus="balanced": {
-                        "status": "ready",
-                        "source": "test",
-                        "review_type": "basic",
-                        "summary": "basic review",
-                        "chart_contexts": [],
-                        "chart_reviews": [],
-                    }
-                    main.build_advanced_ai_review = lambda trades, target_trade_id=None: {
-                        "status": "ready",
-                        "source": "test",
-                        "review_type": "advanced",
-                        "summary": "advanced review",
-                        "chart_contexts": [],
-                        "chart_reviews": [],
-                    }
+                    main.build_basic_ai_review = lambda trades, target_trade_id=None, analysis_focus="balanced", **kwargs: approved_route_fixture(
+                        "basic review", approval_state=kwargs["approval_state"], chart_contexts=[], chart_reviews=[])
+                    main.build_advanced_ai_review = lambda trades, target_trade_id=None, **kwargs: approved_route_fixture(
+                        "advanced review", approval_state=kwargs["approval_state"], review_type="advanced", chart_contexts=[], chart_reviews=[])
                     basic_batch = main.JournalAiReviewIn(
                         trades=[main.JournalTradeIn(
                             trade_date="2026-08-20T10:00",
@@ -257,8 +248,8 @@ class ReviewAccessTest(unittest.TestCase):
                         review_type="basic",
                     )
                     advanced_batch = basic_batch.model_copy(update={"review_type": "advanced"})
-                    basic_result = main.get_journal_ai_review_once(basic_batch, authorization=token)
-                    advanced_result = main.get_journal_ai_review_once(advanced_batch, authorization=token)
+                    basic_result = main.get_journal_ai_review_once(basic_batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION])
+                    advanced_result = main.get_journal_ai_review_once(advanced_batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION])
                     self.assertEqual("review_basic", basic_result["access"]["source"])
                     self.assertEqual("review_advanced", advanced_result["access"]["source"])
                 finally:

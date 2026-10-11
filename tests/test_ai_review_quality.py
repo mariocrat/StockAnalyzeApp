@@ -2,6 +2,9 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
+from tests.review_source_fixtures import review_input_fixture
+from backend.core.review_source_contract import admit_trade_sources
+
 from tests.api_test_modules import _import_state
 
 import unittest
@@ -17,22 +20,23 @@ class AiReviewQualityTest(unittest.TestCase):
 
     def test_basic_episode_keeps_buy_and_sell_for_target_symbol(self):
         trades = [
-            {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "087010", "name": "펩트론", "side": "buy", "price": 116900, "quantity": 10},
-            {"id": 2, "trade_date": "2026-07-10T09:34", "ticker": "087010", "name": "펩트론", "side": "sell", "price": 115400, "quantity": 10},
-            {"id": 3, "trade_date": "2026-07-10T10:00", "ticker": "005930", "name": "삼성전자", "side": "buy", "price": 70000, "quantity": 1},
+            {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "087010", "name": "펩트론", "side": "buy", "price": 116900, "quantity": 10, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
+            {"id": 2, "trade_date": "2026-07-10T09:34", "ticker": "087010", "name": "펩트론", "side": "sell", "price": 115400, "quantity": 10, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
+            {"id": 3, "trade_date": "2026-07-10T10:00", "ticker": "005930", "name": "삼성전자", "side": "buy", "price": 70000, "quantity": 1, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
         ]
 
+        trades = admit_trade_sources(trades)
         episode = _trade_episode(trades, trades[1])
 
-        self.assertEqual(["buy", "sell"], [trade["side"] for trade in episode])
+        self.assertEqual(["buy", "sell"], [trade.side for trade in episode])
 
     def test_fallback_uses_actual_prices_and_does_not_praise_recording(self):
         trades = [
-            {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "087010", "name": "펩트론", "side": "buy", "price": 116900, "quantity": 10},
-            {"id": 2, "trade_date": "2026-07-10T09:34", "ticker": "087010", "name": "펩트론", "side": "sell", "price": 115400, "quantity": 10},
+            {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "087010", "name": "펩트론", "side": "buy", "price": 116900, "quantity": 10, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
+            {"id": 2, "trade_date": "2026-07-10T09:34", "ticker": "087010", "name": "펩트론", "side": "sell", "price": 115400, "quantity": 10, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
         ]
 
-        text = _fallback_basic_text(trades, {"rule_based_observations": []})
+        text = _fallback_basic_text(review_input_fixture(trades, {"rule_based_observations": []}))
 
         self.assertIn("116,900원", text)
         self.assertIn("115,400원", text)
@@ -41,8 +45,8 @@ class AiReviewQualityTest(unittest.TestCase):
 
     def test_fallback_checklist_uses_trade_specific_chart_metrics(self):
         trades = [
-            {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "087010", "name": "Sample", "side": "buy", "price": 116900, "quantity": 10},
-            {"id": 2, "trade_date": "2026-07-10T09:34", "ticker": "087010", "name": "Sample", "side": "sell", "price": 115400, "quantity": 10},
+            {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "087010", "name": "Sample", "side": "buy", "price": 116900, "quantity": 10, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
+            {"id": 2, "trade_date": "2026-07-10T09:34", "ticker": "087010", "name": "Sample", "side": "sell", "price": 115400, "quantity": 10, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
         ]
         first_snapshot = {
             "rule_based_observations": [
@@ -57,8 +61,8 @@ class AiReviewQualityTest(unittest.TestCase):
             ],
         }
 
-        first = _fallback_basic_text(trades, first_snapshot)
-        second = _fallback_basic_text(trades, second_snapshot)
+        first = _fallback_basic_text(review_input_fixture(trades, first_snapshot))
+        second = _fallback_basic_text(review_input_fixture(trades, second_snapshot))
 
         self.assertIn("-2.50%", first)
         self.assertIn("+1.80%", first)

@@ -46,6 +46,11 @@ export function installAxiosRequestIdMessages(axiosInstance) {
   axiosInstance?.interceptors?.response?.use(
     response => response,
     error => {
+      // Structured backend details carry machine-readable codes for consumers.
+      // Keep the original object (including arrays) without string decoration.
+      const detail = error?.response?.data?.detail;
+      if (detail !== null && typeof detail === 'object') return Promise.reject(error);
+
       const requestId = requestIdFromAxiosError(error);
       const retryAfterSeconds = retryAfterSecondsFromAxiosError(error);
       if (requestId && error?.response?.data && typeof error.response.data === 'object') {
@@ -55,7 +60,7 @@ export function installAxiosRequestIdMessages(axiosInstance) {
         );
       } else if (error?.response?.data && typeof error.response.data === 'object') {
         error.response.data.detail = appendRetryAfterToMessage(error.response.data.detail, retryAfterSeconds);
-      } else if (error) {
+      } else if (error && typeof error === 'object') {
         error.message = appendRequestIdToMessage(
           appendRetryAfterToMessage(error.message, retryAfterSeconds),
           requestId,

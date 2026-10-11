@@ -6,8 +6,15 @@ import pandas as pd
 import yfinance as yf
 
 from core.ai_review import _fmt8, _parse_date, _prepare_ohlcv
-from core.data_fetcher import get_stock_ohlcv
+from core.data_fetcher import get_stock_ohlcv, get_review_stock_ohlcv, _admit_review_ohlcv
 from core.env import BACKEND_ROOT, cache_directory, is_production
+from backend.core.review_source_contract import SourceAdmissionError, TradeSource
+from backend.core.review_source_projection import trade_payload
+
+
+def _prepare_review_ohlcv(df, *, provider_ticker=None):
+    """Admit all provider values before coercion/dropna/resampling."""
+    return _prepare_ohlcv(_admit_review_ohlcv(df, provider_ticker=provider_ticker))
 
 
 def initialize_yfinance_cache():
@@ -72,7 +79,7 @@ def _resample_intraday(df: pd.DataFrame, interval: str) -> pd.DataFrame:
     return out.dropna(subset=["Open", "High", "Low", "Close"])
 
 
-def _try_intraday(ticker: str, start: datetime.date, end: datetime.date, interval: str) -> pd.DataFrame:
+def _try_intraday(ticker: str, start: datetime.date, end: datetime.date, interval: str, *, review_source=False) -> pd.DataFrame:
     start_text = start.strftime("%Y-%m-%d")
     end_text = (end + datetime.timedelta(days=1)).strftime("%Y-%m-%d")
     for suffix in (".KS", ".KQ"):
@@ -88,10 +95,13 @@ def _try_intraday(ticker: str, start: datetime.date, end: datetime.date, interva
                     threads=False,
                     auto_adjust=True,
                 )
+            if review_source:
+                df = _prepare_review_ohlcv(df, provider_ticker=f"{ticker}{suffix}")
             if df is not None and not df.empty:
-                if isinstance(df.columns, pd.MultiIndex):
-                    df.columns = df.columns.droplevel(1)
-                df.columns = [str(c).strip().capitalize() for c in df.columns]
+                if not review_source:
+                    if isinstance(df.columns, pd.MultiIndex):
+                        df.columns = df.columns.droplevel(1)
+                    df.columns = [str(c).strip().capitalize() for c in df.columns]
                 needed = [c for c in ["Open", "High", "Low", "Close", "Volume"] if c in df.columns]
                 df = df[needed].dropna(subset=["Close"])
                 if df.empty:
@@ -100,15 +110,19 @@ def _try_intraday(ticker: str, start: datetime.date, end: datetime.date, interva
                 if df.index.tz is not None:
                     df.index = df.index.tz_convert("Asia/Seoul").tz_localize(None)
                 return _prepare_ohlcv(_resample_intraday(df, interval))
+        except SourceAdmissionError:
+            raise
         except Exception:
             continue
     return pd.DataFrame()
 
 
-def _daily_data(ticker: str, start: datetime.date, end: datetime.date) -> pd.DataFrame:
+def _daily_data(ticker: str, start: datetime.date, end: datetime.date, *, review_source=False) -> pd.DataFrame:
     padded_start = start - datetime.timedelta(days=90)
     padded_end = end + datetime.timedelta(days=30)
-    return _prepare_ohlcv(get_stock_ohlcv(ticker, _fmt8(padded_start), _fmt8(padded_end)))
+    fetch = get_review_stock_ohlcv if review_source else get_stock_ohlcv
+    frame = fetch(ticker, _fmt8(padded_start), _fmt8(padded_end))
+    return _prepare_review_ohlcv(frame) if review_source else _prepare_ohlcv(frame)
 
 
 def _weekly_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -344,7 +358,11 @@ def _technical_reviews(trades: list[dict], candles: list[dict], timeframe: str):
     return reviews
 
 
-def build_journal_charts(trades: list[dict]) -> dict:
+def build_journal_charts(trades: list[dict] | tuple[TradeSource, ...], *, review_source=False) -> dict:
+    if review_source:
+        if type(trades) is not tuple or any(type(trade) is not TradeSource for trade in trades):
+            raise SourceAdmissionError("AI journal charts require admitted trades")
+        trades = [trade_payload(trade) for trade in trades]
     by_ticker = {}
     for trade in trades:
         ticker = str(trade.get("ticker") or "").strip()
@@ -364,7 +382,8 @@ def build_journal_charts(trades: list[dict]) -> dict:
         interval = "1d"
         if same_day:
             interval = _choose_intraday_interval(rows)
-            df = _try_intraday(ticker, start, end, interval)
+            df = (_try_intraday(ticker, start, end, interval, review_source=True) if review_source
+                  else _try_intraday(ticker, start, end, interval))
             if len(df.index) >= 10:
                 timeframe = "intraday"
                 source = f"{interval} intraday"
@@ -372,7 +391,8 @@ def build_journal_charts(trades: list[dict]) -> dict:
                 df = pd.DataFrame()
 
         if df.empty:
-            df = _daily_data(ticker, start, end)
+            df = (_daily_data(ticker, start, end, review_source=True) if review_source
+                  else _daily_data(ticker, start, end))
             if holding_days >= 120 and not df.empty:
                 df = _weekly_data(df)
                 timeframe = "weekly"

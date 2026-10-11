@@ -26,7 +26,8 @@ REPOSITORY = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY))
 from tests.module_isolation import Boundary, IsolationViolation, isolated_module, sanitized_environment, protected_paths, ProtectedPaths
 from tests.isolation_inventory import COORDINATORS, InventoryError, expected_skips, inventory_summary, load_inventory
-from tests.isolation_inventory import NODE_SUPPORT, load_node_inventory, node_inventory_summary, node_source_path, node_source_hash, validated_node_fixture, _unique_object
+from tests.isolation_inventory import NODE_SUPPORT, load_node_inventory, node_inventory_summary, node_source_path, node_source_hash, validated_node_fixture, validated_react_snapshot, _unique_object
+from tests.isolation_inventory import NODE_LEGACY_ENTRY
 
 # Script and imported runner must share the evidence collector in coordinator children.
 if __name__ == "__main__":
@@ -34,6 +35,12 @@ if __name__ == "__main__":
 
 
 REPORT_PREFIX = "ISOLATION_RESULT "
+# These mutation cohorts exceeded 120s in official runs. Route measurements
+# reached 234s; cache timings varied from 77s to timeout. Other budgets stay fixed.
+_MODULE_TIMEOUT_SECONDS = {
+    "tests.test_review_route_compatibility": 360,
+    "tests.test_ai_review_idempotency_cache": 180,
+}
 _owner = ContextVar("coordinator_test_owner", default=None)
 _nested = ContextVar("coordinator_nested_reports", default=None)
 
@@ -188,7 +195,7 @@ def launch_module(module, host=None, *, coordinator=False):
                    "--coordinator-child" if coordinator else "--child", module, "--root", str(root)]
         process = subprocess.run(command, cwd=container, env=sanitized_environment(host, root),
                                  input=json.dumps(protected_paths(host).metadata()),
-                                 text=True, encoding="utf-8", capture_output=True, timeout=600 if coordinator else 120)
+                                 text=True, encoding="utf-8", capture_output=True, timeout=600 if coordinator else _MODULE_TIMEOUT_SECONDS.get(module, 120))
         report["stderr"] = process.stderr
         report["returncode"] = process.returncode
         reports = [line[len(REPORT_PREFIX):] for line in process.stdout.splitlines()
@@ -466,6 +473,7 @@ def run_node_entry(entry, executable, *, frontend=None, host=None, timeout=120):
         if node_source_hash(node_source_path(frontend, entry["file"]).read_text(encoding="utf-8")) != entry["sha256"]:
             raise InventoryError("Node source changed before snapshot")
         fixture = validated_node_fixture(frontend, entry)
+        react_snapshot = validated_react_snapshot(frontend, entry)
         for relative in entry["reads"]:
             source = node_source_path(frontend, relative)
             destination = root / relative
@@ -480,10 +488,24 @@ def run_node_entry(entry, executable, *, frontend=None, host=None, timeout=120):
             destination.write_bytes(content)
             if destination.read_bytes() != content:
                 raise InventoryError("Node fixture copy mismatch")
+        for relative, content in react_snapshot:
+            destination = root / relative
+            if destination.exists() or not destination.resolve().is_relative_to(root):
+                raise InventoryError("React snapshot destination collision/escape")
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(content)
+            if destination.read_bytes() != content:
+                raise InventoryError("React snapshot copy mismatch")
         for relative in NODE_SUPPORT:
             destination = root / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes((REPOSITORY / "frontend" / relative).read_bytes())
+        if entry["name"] == NODE_LEGACY_ENTRY:
+            from tests.review_legacy_handoff import prepare_legacy_admissions
+            report["legacy_admission"] = prepare_legacy_admissions(root, dict(os.environ if host is None else host))
+        if entry["name"] == "test:ai-chart-source":
+            from tests.review_chart_handoff import prepare_chart_results
+            report["chart_handoff"] = prepare_chart_results(root, dict(os.environ if host is None else host))
         (root / ".node-test-config.json").write_text(json.dumps({key: entry[key] for key in
             ("name", "file", "profile", "release_eval_sha256")}), encoding="utf-8")
         env = node_environment(root, host)

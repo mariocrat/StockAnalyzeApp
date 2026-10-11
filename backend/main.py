@@ -29,10 +29,20 @@ from core.data_fetcher import (
 from core.metrics import calculate_theme_rankings, get_stocks_in_theme
 from core.utils import get_chosung
 from core.journal import add_trade, list_trades, count_trades, delete_trade, clear_trades, build_review, normalize_trade
-from core.ai_review_v2 import build_basic_ai_review, build_advanced_ai_review
+from core.ai_review_v2 import (
+    build_basic_ai_review, build_advanced_ai_review, safe_legacy_history_snapshot,
+)
+from backend.core.review_envelope_contract import ApprovedReviewSnapshot, approved_chart_display_snapshot
+from backend.core.review_legacy_compatibility import admit_legacy_body
+from backend.core.review_history_adapter import history_list_projection
+from backend.core.review_history_approved_write import approve_history_write
+from backend.core.review_history_content_contract import validate_new_history_metadata, validate_new_history_result
+from backend.core.review_history_write_contract import HistoryWriteContractError
+from backend.core.review_display_client import REVIEW_DISPLAY_CONTRACT_HEADER, require_review_display_client
 from core.journal_chart import build_journal_charts, initialize_yfinance_cache
 from core.review_history import add_review_history, list_review_history, get_review_history, delete_review_history
 from core.access_control import (
+    PRODUCTS,
     apply_dev_purchase,
     apply_google_play_purchase,
     get_purchase_credit_order_for_admin,
@@ -316,12 +326,11 @@ def _journal_user_id_if_enabled(authorization: Optional[str]) -> str:
     return user["id"]
 
 
-def _save_ai_review_history_if_enabled(
+def _prepare_ai_review_history_state(
     *,
     authorization: Optional[str],
     batch: JournalAiReviewIn,
     trades: list[dict],
-    result: dict,
 ):
     user = _optional_session_user(authorization)
     if not user or not user.get("journal_storage_enabled"):
@@ -341,25 +350,46 @@ def _save_ai_review_history_if_enabled(
     except Exception:
         chart_data = {"charts": []}
 
-    item = add_review_history(
-        user_id=user["id"],
-        review_type=result.get("review_type") or batch.review_type,
-        ticker=str((target_trade or {}).get("ticker") or ""),
-        name=str((target_trade or {}).get("name") or ""),
-        trade_date=str((target_trade or {}).get("trade_date") or ""),
-        target_trade_id=batch.target_trade_id,
-        trade_snapshot=target_trade or {},
-        recent_trades_snapshot=trades[-10:],
-        chart_snapshot={
-            "charts": chart_data.get("charts") or [],
-            "chart_contexts": result.get("chart_contexts") or [],
-            "chart_reviews": result.get("chart_reviews") or [],
-        },
-        ai_review=result,
-        access_snapshot=result.get("access") or {},
-        model=str(result.get("model") or ""),
-        source=str(result.get("source") or ""),
-    )
+    return {"user_id": user["id"], "approved": None, "candidate": {
+        "ticker": str((target_trade or {}).get("ticker") or ""),
+        "name": str((target_trade or {}).get("name") or ""),
+        "trade_date": str((target_trade or {}).get("trade_date") or ""),
+        "target_trade_id": batch.target_trade_id,
+        "trade_snapshot": copy.deepcopy(target_trade or {}),
+        "recent_trades_snapshot": copy.deepcopy(trades[-10:]),
+        "charts": copy.deepcopy(chart_data.get("charts") or []),
+    }}
+
+
+def _save_ai_review_history_if_enabled(*, history_state: dict | None, result: dict):
+    approved = history_state.get("approved") if history_state else None
+    if approved is None:
+        return None
+    if (type(approved) is not dict or approved.keys() != {"snapshot", "metadata_json", "prepared_content"}
+            or type(approved["metadata_json"]) is not str or type(result) is not dict):
+        raise HistoryWriteContractError("invalid history save approval")
+
+    def unique_object(pairs):
+        value = {}
+        for key, child in pairs:
+            if key in value:
+                raise HistoryWriteContractError("duplicate history metadata key")
+            value[key] = child
+        return value
+
+    try:
+        metadata = json.loads(approved["metadata_json"], object_pairs_hook=unique_object)
+    except (TypeError, ValueError, RecursionError):
+        raise HistoryWriteContractError("invalid history save metadata") from None
+    validate_new_history_metadata(metadata)
+    validate_new_history_result(result)
+    record = dict(metadata, user_id=history_state["user_id"], review_type=result["review_type"],
+                  model=result["model"] if result["status"] == "ready" else "", source=result["source"],
+                  created_at=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+                  ai_review=result, access_snapshot=result["access"])
+    write = approve_history_write(record=record, prepared_content=approved["prepared_content"],
+                                  snapshot=approved["snapshot"])
+    item = add_review_history(write)
     return item["id"] if item else None
 
 
@@ -644,32 +674,155 @@ def _ai_review_payload_fingerprint(batch: JournalAiReviewIn) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+# Exact shapes emitted by access_control._wallet_snapshot /
+# _review_entitlement_snapshot and the route's access serialization below.
+_AI_REVIEW_CACHE_BASIC_BALANCE = dict.fromkeys((
+    "signup_remaining", "free_daily_remaining", "free_daily_max_remaining", "free_available_now",
+    "rewarded_ad_available", "rewarded_ad_daily_remaining", "free_monthly_remaining",
+    "free_monthly_limit", "pro_monthly_remaining", "purchased_remaining",
+), int)
+_AI_REVIEW_CACHE_ADVANCED_BALANCE = dict.fromkeys((
+    "signup_remaining", "pro_monthly_remaining", "weekly_reward_remaining", "weekly_advanced_granted",
+    "weekly_ad_views", "weekly_ad_views_needed", "purchased_remaining", "max_hold",
+), int)
+_AI_REVIEW_CACHE_QUOTA = {"basic": _AI_REVIEW_CACHE_BASIC_BALANCE, "advanced": _AI_REVIEW_CACHE_ADVANCED_BALANCE}
+_AI_REVIEW_CACHE_ACCESS = {
+    "auth_mode": str, "plan": str, "review_type": str, "source": str,
+    "quota": _AI_REVIEW_CACHE_QUOTA, "refunded": bool, "idempotent_replay": bool,
+    "wallet": {
+        "plan": str, **_AI_REVIEW_CACHE_QUOTA,
+        "products": {key: {"kind": str, "quantity": int, "price_krw": int} for key in PRODUCTS},
+        "settings": {
+            "allow_advanced_ticket_for_basic": bool,
+            "ad_policy": {"basic_reviews_per_rewarded_ad": int, "rewarded_basic_daily_max": int,
+                          "ads_per_advanced_ticket": int, "force_rewarded_ad_chain": bool,
+                          "preferred_rewarded_ad_sequence": str},
+            "free_policy": {"daily_basic": int, "rewarded_basic_daily_max": int,
+                            "monthly_basic_max": int, "weekly_advanced_max": int},
+        },
+        "validity": {
+            "timezone": str, "daily_reset_at": (str, type(None)), "weekly_reset_at": (str, type(None)),
+            "monthly_reset_at": (str, type(None)), "signup_pass_expires_at": type(None),
+            "purchased_pass_expires_at": type(None), "weekly_reward_expires_at": (str, type(None)),
+            "pro_allowance_resets_at": (str, type(None)),
+        },
+    },
+}
+_AI_REVIEW_CACHE_ACCESS_SOURCES = {
+    "basic": {"signup_basic", "free_daily_basic", "rewarded_ad_basic", "pro_monthly_basic",
+              "purchased_basic", "purchased_advanced_as_basic", "review_basic"},
+    "advanced": {"signup_advanced", "weekly_ad_advanced", "pro_monthly_advanced",
+                 "purchased_advanced", "review_advanced"},
+}
+
+
+def _validate_ai_review_cached_shape(value, schema):
+    if type(schema) is dict:
+        if type(value) is not dict or value.keys() != schema.keys():
+            raise ValueError("invalid cached AI review access structure")
+        for key, field_schema in schema.items():
+            _validate_ai_review_cached_shape(value[key], field_schema)
+    elif type(value) not in (schema if type(schema) is tuple else (schema,)):
+        raise ValueError("invalid cached AI review access field type")
+    elif type(value) is int and value < 0:
+        raise ValueError("invalid cached AI review access count")
+
+
+def _validate_ai_review_cached_access(access: dict, *, review_type: str, status: str):
+    _validate_ai_review_cached_shape(access, _AI_REVIEW_CACHE_ACCESS)
+    wallet, validity = access["wallet"], access["wallet"]["validity"]
+    review_mode = access["auth_mode"] == "review"
+    if (access["auth_mode"] not in {"dev", "session", "review"}
+            or access["plan"] not in {"free", "pro"} or wallet["plan"] not in {"free", "pro"}
+            or access["review_type"] != review_type
+            or access["source"] not in _AI_REVIEW_CACHE_ACCESS_SOURCES[review_type]
+            or access["source"].startswith("review_") != review_mode
+            or (review_mode and access["plan"] != "pro")
+            or (not review_mode and access["plan"] != wallet["plan"])
+            or access["quota"] != {key: wallet[key] for key in ("basic", "advanced")}
+            or access["refunded"] != (status == "error") or access["idempotent_replay"] is not False
+            or validity["timezone"] != "Asia/Seoul"
+            or wallet["settings"]["ad_policy"]["preferred_rewarded_ad_sequence"] != "single"
+            or any(product["kind"] != PRODUCTS[key]["kind"] for key, product in wallet["products"].items())):
+        raise ValueError("invalid cached AI review access values")
+    resets = ("daily_reset_at", "weekly_reset_at", "monthly_reset_at", "weekly_reward_expires_at")
+    if (any(type(validity[key]) is not (type(None) if review_mode else str) for key in resets)
+            or (validity["pro_allowance_resets_at"] is None) != (access["plan"] == "free" and not review_mode)):
+        raise ValueError("invalid cached AI review validity structure")
+    for key in (*resets, "pro_allowance_resets_at"):
+        if validity[key] is not None:
+            try:
+                deadline = datetime.datetime.fromisoformat(validity[key])
+            except ValueError as error:
+                raise ValueError("invalid cached AI review validity timestamp") from error
+            if deadline.tzinfo is None or deadline.utcoffset() is None:
+                raise ValueError("invalid cached AI review validity timezone")
+
+
 def _prune_ai_review_idempotency_cache(now: datetime.datetime):
+    validated = _validated_ai_review_idempotency_entries()
     expired = [
-        key for key, item in _ai_review_idempotency_cache.items()
-        if item.get("expires_at") and item["expires_at"] <= now
+        key for key, item, _ in validated if item["expires_at"] <= now
     ]
     for key in expired:
         _ai_review_idempotency_cache.pop(key, None)
 
 
 def _trim_ai_review_idempotency_cache(protected_keys: set[str] | None = None):
+    validated = _validated_ai_review_idempotency_entries()
     protected_keys = protected_keys or set()
-    overflow = len(_ai_review_idempotency_cache) - max(1, int(AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE))
+    overflow = len(validated) - max(1, int(AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE))
     if overflow <= 0:
         return
     ordered = sorted(
-        _ai_review_idempotency_cache.items(),
-        key=lambda item: item[1].get("expires_at") or datetime.datetime.max.replace(tzinfo=datetime.timezone.utc),
+        validated,
+        key=lambda item: item[1]["expires_at"],
     )
     removed = 0
-    for key, _ in ordered:
+    for key, _, _ in ordered:
         if key in protected_keys:
             continue
         _ai_review_idempotency_cache.pop(key, None)
         removed += 1
         if removed >= overflow:
             break
+
+
+def _validate_ai_review_idempotency_entry(cached) -> dict | None:
+    """Admit only the two states emitted by begin/finish, before cache mutation."""
+    if type(cached) is not dict:
+        raise ValueError("invalid AI review idempotency cache entry")
+    status = cached.get("status")
+    if type(status) is not str or status not in {"pending", "done"}:
+        raise ValueError("invalid AI review idempotency cache state")
+    fields = {"status", "payload_fingerprint", "expires_at"}
+    if status == "done":
+        fields |= {"result", "snapshot"}
+    fingerprint = cached.get("payload_fingerprint")
+    expires_at = cached.get("expires_at")
+    if (set(cached) != fields
+            or type(fingerprint) is not str or len(fingerprint) != 64
+            or any(character not in "0123456789abcdef" for character in fingerprint)
+            or type(expires_at) is not datetime.datetime
+            or expires_at.tzinfo is not datetime.timezone.utc):
+        raise ValueError("invalid AI review idempotency cache structure")
+    if status == "pending":
+        return None
+    result = cached["result"]
+    if (type(result) is not dict
+            or not {"status", "source", "review_type", "summary", "access"} <= result.keys()
+            or type(result["summary"]) is not str
+            or type(result["review_type"]) is not str or result["review_type"] not in {"basic", "advanced"}
+            or type(result["access"]) is not dict):
+        raise ValueError("invalid completed AI review idempotency cache result")
+    _validate_ai_review_cached_access(result["access"], review_type=result["review_type"], status=result["status"])
+    return _normalize_ai_review_result(result, snapshot=cached["snapshot"])
+
+
+def _validated_ai_review_idempotency_entries():
+    """Validate the complete cache under its lock before any inspection/mutation."""
+    return [(key, item, _validate_ai_review_idempotency_entry(item))
+            for key, item in _ai_review_idempotency_cache.items()]
 
 
 def _begin_ai_review_idempotency(
@@ -683,50 +836,60 @@ def _begin_ai_review_idempotency(
     cache_key = _ai_review_idempotency_cache_key(authorization, key)
     now = datetime.datetime.now(datetime.timezone.utc)
     with _ai_review_idempotency_lock:
-        _prune_ai_review_idempotency_cache(now)
-        _trim_ai_review_idempotency_cache()
-        cached = _ai_review_idempotency_cache.get(cache_key)
-        if cached and cached.get("payload_fingerprint") != payload_fingerprint:
-            raise HTTPException(
-                status_code=409,
-                detail="Idempotency key was reused with a different AI review request.",
-            )
-        if cached and cached.get("status") == "done":
-            result = copy.deepcopy(cached["result"])
-            result.setdefault("access", {})["idempotent_replay"] = True
-            return "", result
-        if cached and cached.get("status") == "pending":
-            raise HTTPException(
-                status_code=409,
-                detail="AI review request is already running. Please retry shortly.",
-                headers={"Retry-After": "5"},
-            )
-        _ai_review_idempotency_cache[cache_key] = {
-            "status": "pending",
-            "payload_fingerprint": payload_fingerprint,
+        # Validate every entry before lookup, expiry or capacity decisions. A
+        # different fresh key must not remove corruption and enable a recharge.
+        validated = _validated_ai_review_idempotency_entries()
+        for existing_key, cached, result in validated:
+            if existing_key != cache_key:
+                continue
+            if cached["expires_at"] > now:
+                if cached["payload_fingerprint"] != payload_fingerprint:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Idempotency key was reused with a different AI review request.",
+                    )
+                if cached["status"] == "done":
+                    result["access"]["idempotent_replay"] = True
+                    return "", result
+                raise HTTPException(
+                    status_code=409,
+                    detail="AI review request is already running. Please retry shortly.",
+                    headers={"Retry-After": "5"},
+                )
+        pending = {
+            "status": "pending", "payload_fingerprint": payload_fingerprint,
             "expires_at": now + datetime.timedelta(seconds=_ai_review_idempotency_ttl_seconds()),
         }
+        _validate_ai_review_idempotency_entry(pending)
+        _prune_ai_review_idempotency_cache(now)
+        _trim_ai_review_idempotency_cache()
+        _ai_review_idempotency_cache[cache_key] = pending
         _trim_ai_review_idempotency_cache({cache_key})
     return cache_key, None
 
 
-def _finish_ai_review_idempotency(cache_key: str, result: dict | None):
+def _finish_ai_review_idempotency(cache_key: str, result: dict | None, *, snapshot=None):
     if not cache_key:
         return
     now = datetime.datetime.now(datetime.timezone.utc)
     with _ai_review_idempotency_lock:
+        validated = _validated_ai_review_idempotency_entries()
         if result is None:
             _ai_review_idempotency_cache.pop(cache_key, None)
             return
-        stored = copy.deepcopy(result)
-        stored.setdefault("access", {})["idempotent_replay"] = False
-        previous = _ai_review_idempotency_cache.get(cache_key) or {}
-        _ai_review_idempotency_cache[cache_key] = {
+        stored = _normalize_ai_review_result(result, snapshot=snapshot)
+        previous = next((entry for key, entry, _ in validated if key == cache_key), None)
+        if previous is None or previous["status"] != "pending":
+            raise ValueError("AI review idempotency completion has no valid pending entry")
+        completed = {
             "status": "done",
             "result": stored,
-            "payload_fingerprint": previous.get("payload_fingerprint"),
+            "snapshot": snapshot,
+            "payload_fingerprint": previous["payload_fingerprint"],
             "expires_at": now + datetime.timedelta(seconds=_ai_review_idempotency_ttl_seconds()),
         }
+        _validate_ai_review_idempotency_entry(completed)
+        _ai_review_idempotency_cache[cache_key] = completed
         _trim_ai_review_idempotency_cache({cache_key})
 
 
@@ -734,17 +897,37 @@ def _abort_ai_review_idempotency(cache_key: str):
     if not cache_key:
         return
     with _ai_review_idempotency_lock:
-        cached = _ai_review_idempotency_cache.get(cache_key)
-        if cached and cached.get("status") == "pending":
-            _ai_review_idempotency_cache.pop(cache_key, None)
+        if cache_key in _ai_review_idempotency_cache:
+            cached = _ai_review_idempotency_cache[cache_key]
+            _validate_ai_review_idempotency_entry(cached)
+            if cached["status"] == "pending":
+                _ai_review_idempotency_cache.pop(cache_key, None)
 
 
-def _normalize_ai_review_result(result: dict) -> dict:
-    normalized = dict(result or {})
-    summary = normalized.get("summary")
-    if isinstance(summary, str):
-        normalized["summary"] = str(summary)
-    return normalized
+def _normalize_ai_review_result(result: dict, *, snapshot) -> dict:
+    """Own a response copy; verify sealed body/A1 wire without rewriting content."""
+    approved = copy.deepcopy(result or {})
+    if snapshot is None:
+        if (approved.get("status") != "error" or approved.get("source") != "none"
+                or approved.get("summary") != ""
+                or approved.get("internal_status") not in {"safety_rejected", "invalid_structured_output"}
+                or "display_snapshot" in approved or "structured_review" in approved
+                or "chart_display_snapshot" in approved):
+            raise ValueError("AI review has no sealed approval")
+        return approved
+    if type(snapshot) is not ApprovedReviewSnapshot:
+        raise ValueError("invalid sealed AI review approval")
+    envelope = json.loads(snapshot.json_text)
+    body = envelope["body"]
+    if (approved.get("display_snapshot") != body
+            or approved.get("summary") != admit_legacy_body(body).summary
+            or any(approved.get(key) != envelope[key] for key in ("status", "source", "review_type"))):
+        raise ValueError("AI review differs from sealed body or compatibility wire")
+    charts = approved_chart_display_snapshot(snapshot)
+    if "chart_display_snapshot" in approved and approved["chart_display_snapshot"] != charts:
+        raise ValueError("AI review chart differs from sealed snapshot")
+    approved["chart_display_snapshot"] = charts
+    return approved
 
 
 def _enforce_ai_review_rate_limit(authorization: str | None) -> bool:
@@ -1549,7 +1732,11 @@ def get_me_data_summary(authorization: Optional[str] = Header(default=None)):
 
 
 @app.get("/api/me/export-data")
-def export_me_data(authorization: Optional[str] = Header(default=None)):
+def export_me_data(
+    authorization: Optional[str] = Header(default=None),
+    x_review_display_contract: Optional[list[str]] = Header(default=None, alias=REVIEW_DISPLAY_CONTRACT_HEADER),
+):
+    require_review_display_client(x_review_display_contract)
     user = authenticate_session(authorization)
     entitlements = get_user_entitlements(
         authorization=authorization,
@@ -1562,7 +1749,7 @@ def export_me_data(authorization: Optional[str] = Header(default=None)):
         "saved_trades": list_trades(limit=5000, user_id=user["id"]),
         "entitlements": entitlements,
         "review_history": [
-            get_review_history(row["id"], user_id=user["id"])
+            safe_legacy_history_snapshot(row)
             for row in list_review_history(user_id=user["id"], limit=5000)
         ],
         "server_keeps_ai_review_history": bool(user.get("journal_storage_enabled")),
@@ -1646,25 +1833,30 @@ def get_journal_ai_review(authorization: Optional[str] = Header(default=None)):
 def get_journal_review_history(
     limit: int = 100,
     authorization: Optional[str] = Header(default=None),
+    x_review_display_contract: Optional[list[str]] = Header(default=None, alias=REVIEW_DISPLAY_CONTRACT_HEADER),
 ):
+    require_review_display_client(x_review_display_contract)
     user = authenticate_session(authorization)
     if not user.get("journal_storage_enabled"):
         return []
-    return list_review_history(user_id=user["id"], limit=_safe_journal_query_limit(limit, default=100))
+    return [history_list_projection(safe_legacy_history_snapshot(row)) for row in
+            list_review_history(user_id=user["id"], limit=_safe_journal_query_limit(limit, default=100))]
 
 
 @app.get("/api/journal/review-history/{review_id}")
 def get_journal_review_history_detail(
     review_id: int,
     authorization: Optional[str] = Header(default=None),
+    x_review_display_contract: Optional[list[str]] = Header(default=None, alias=REVIEW_DISPLAY_CONTRACT_HEADER),
 ):
+    require_review_display_client(x_review_display_contract)
     user = authenticate_session(authorization)
     if not user.get("journal_storage_enabled"):
         raise HTTPException(status_code=403, detail="매매 이력 저장을 켠 계정만 복기 보관함을 사용할 수 있습니다.")
     item = get_review_history(review_id, user_id=user["id"])
     if not item:
         raise HTTPException(status_code=404, detail="복기 이력을 찾을 수 없습니다.")
-    return item
+    return safe_legacy_history_snapshot(item)
 
 
 @app.delete("/api/journal/review-history/{review_id}")
@@ -1777,7 +1969,9 @@ def get_journal_ai_review_once(
     batch: JournalAiReviewIn,
     authorization: Optional[str] = Header(default=None),
     x_idempotency_key: Optional[str] = Header(default=None, alias="X-Idempotency-Key"),
+    x_review_display_contract: Optional[list[str]] = Header(default=None, alias=REVIEW_DISPLAY_CONTRACT_HEADER),
 ):
+    require_review_display_client(x_review_display_contract)
     _enforce_journal_batch_limit(batch, max_trades=_ai_review_max_trades(), label="AI 복기")
     batch.review_type = _normalize_ai_review_type(batch.review_type)
     idempotency_cache_key, idempotent_result = _begin_ai_review_idempotency(
@@ -1794,6 +1988,8 @@ def get_journal_ai_review_once(
     result = None
     review_history_id = None
     refund_attempted = False
+    history_state = None
+    approval_state = {}
 
     def refund_access_once():
         nonlocal refund_attempted
@@ -1813,15 +2009,23 @@ def get_journal_ai_review_once(
         if batch.privacy_consent and authorization:
             record_privacy_consent(authorization=authorization)
         trades = _journal_batch_payload(batch)
+        history_state = _prepare_ai_review_history_state(
+            authorization=authorization, batch=batch, trades=trades,
+        )
+        history_kwargs = {"approval_state": approval_state}
+        if history_state is not None:
+            history_kwargs["history_state"] = history_state
         if access.review_type == "advanced":
-            result = build_advanced_ai_review(trades, target_trade_id=batch.target_trade_id)
+            result = build_advanced_ai_review(trades, target_trade_id=batch.target_trade_id, **history_kwargs)
         else:
             result = build_basic_ai_review(
                 trades,
                 target_trade_id=batch.target_trade_id,
                 analysis_focus=batch.analysis_focus,
+                **history_kwargs,
             )
-        result = _normalize_ai_review_result(result)
+        history_result = result
+        result = _normalize_ai_review_result(result, snapshot=approval_state.get("snapshot"))
 
         refunded = False
         if result.get("status") == "error":
@@ -1843,19 +2047,23 @@ def get_journal_ai_review_once(
             "refunded": refunded,
             "idempotent_replay": False,
         }
+        # History admits the original finalizer content, before the separate API
+        # projection can supply a missing chart or replace equal numeric types.
+        history_result["access"] = result["access"]
         review_history_id = _save_ai_review_history_if_enabled(
-            authorization=authorization,
-            batch=batch,
-            trades=trades,
-            result=result,
+            history_state=history_state,
+            result=history_result,
         )
         if review_history_id:
             result["review_history_id"] = review_history_id
-        _finish_ai_review_idempotency(idempotency_cache_key, result)
+        _finish_ai_review_idempotency(idempotency_cache_key, result, snapshot=approval_state.get("snapshot"))
         return result
     except Exception as error:
-        _abort_ai_review_idempotency(idempotency_cache_key)
         cleanup_error = None
+        try:
+            _abort_ai_review_idempotency(idempotency_cache_key)
+        except Exception as exc:
+            cleanup_error = exc
         if review_history_id and access is not None:
             try:
                 delete_review_history(review_history_id, user_id=access.user_id)

@@ -2,6 +2,8 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
+from backend.core.review_display_contract import SCHEMA_VERSION
+
 from tests.api_test_modules import api_module_state
 
 import os
@@ -70,7 +72,7 @@ class JournalQueryLimitTest(unittest.TestCase):
 
         self.enterContext(patch.object(main, "list_review_history", fake_list_review_history))
 
-        result = main.get_journal_review_history(limit=999999, authorization="Bearer session")
+        result = main.get_journal_review_history(limit=999999, authorization="Bearer session", x_review_display_contract=[SCHEMA_VERSION])
 
         self.assertEqual([], result)
         self.assertEqual("user-a", captured["user_id"])

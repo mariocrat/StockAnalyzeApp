@@ -2,11 +2,14 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
+from tests.review_source_fixtures import compact_chart_fixture, fallback_model_fixture, review_input_fixture
+
 from tests.api_test_modules import _import_state
 
 import importlib
 import json
 import os
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -19,15 +22,73 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.enterContext(patch.dict(self.ai_review_v2.__dict__))
         importlib.reload(self.ai_review_v2)
 
+    def _valid_model_output(self, review_type):
+        output = {
+            "decision_quality": {
+                "label": "보통",
+                "explanation": "확인 가능한 거래 근거와 당시 기록을 나눠 평가합니다.",
+            },
+            "main_issue": "주문 전 판단 기준을 더 분명하게 남길 필요가 있습니다.",
+            "next_action": "다음 주문 전에 핵심 판단 기준을 한 문장으로 기록합니다.",
+        }
+        if review_type == "basic":
+            output.update({
+                "good_points": [{"title": "체결 확인", "detail": "매수와 매도 체결을 객관적으로 비교할 수 있습니다."}],
+                "main_improvement": {"title": "기준 기록", "detail": "사전 기준과 실제 행동을 연결해 기록합니다."},
+                "next_trade_checks": [
+                    {"phase": "before_entry", "text": "진입 이유를 기록합니다."},
+                    {"phase": "while_holding", "text": "처음 가설과 실제 흐름을 비교합니다."},
+                    {"phase": "before_exit", "text": "매도 이유를 기록합니다."},
+                ],
+                "lesson": {
+                    "title": "사전 기준과 사후 결과를 분리합니다.",
+                    "concept": "결과와 판단 품질은 같은 값이 아닙니다.",
+                    "applied_to_this_trade": "이번 거래의 기준 기록을 먼저 확인합니다.",
+                },
+            })
+        else:
+            output.update({
+                "entry_review": {
+                    "evidence": ["체결 가격과 당시 차트 흐름을 확인합니다."],
+                    "uncertainty": ["매매 이유 기록이 제한적입니다."],
+                    "invalidation": "기록 없음",
+                    "assessment": {"label": "근거 일부", "explanation": "확인 가능한 근거만 평가합니다."},
+                },
+                "risk_review": {
+                    "planned_rule": "기록 없음",
+                    "actual_response": "체결 결과와 실제 대응을 비교합니다.",
+                    "assessment": {"label": "근거 부족", "explanation": "사전 위험 기준 기록이 부족합니다."},
+                },
+                "exit_review": {
+                    "profit_taking_assessment": "판단 보류",
+                    "trend_exit_assessment": "판단 보류",
+                    "explanation": "매도 후 가격만으로 매도 품질을 단정하지 않습니다.",
+                },
+                "detailed_analysis": [{"title": "체결 흐름", "detail": "체결 전후의 확인 가능한 흐름입니다."}],
+                "next_trade_playbook": {
+                    "before_entry": ["진입 근거를 기록합니다."],
+                    "while_holding": ["가설과 실제 흐름을 비교합니다."],
+                    "before_exit": ["매도 관점을 나눠 기록합니다."],
+                },
+                "lesson": {
+                    "title": "사전 기준과 사후 결과를 분리합니다.",
+                    "concept": "판단은 당시 알 수 있었던 정보로 평가합니다.",
+                    "applied_to_this_trade": "이번 거래의 사전 기준을 확인합니다.",
+                    "next_trade_application": "다음 주문 전에 기준을 기록합니다.",
+                },
+                "reflection_questions": ["매수 직전 판단이 틀렸다고 볼 기준은 무엇이었나요?"],
+            })
+        return json.dumps(output, ensure_ascii=False)
+
     def test_ai_review_uses_expected_default_model_ids(self):
         captured = []
 
         def fake_call(payload, *, model, instructions):
             captured.append((payload["review_type"], model))
-            return f"{payload['review_type']}-ok"
+            return self._valid_model_output(payload["review_type"])
 
         self.enterContext(patch.object(self.ai_review_v2, "_contexts_for_trades", lambda trades: []))
-        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: {}))
+        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: compact_chart_fixture({})))
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", fake_call))
 
         basic = self.ai_review_v2.build_basic_ai_review([{
@@ -38,7 +99,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             "side": "buy",
             "price": 70000,
             "quantity": 1,
-        }])
+         'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}])
         advanced = self.ai_review_v2.build_advanced_ai_review([{
             "id": 2,
             "trade_date": "2026-06-20T10:30",
@@ -47,7 +108,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             "side": "sell",
             "price": 72000,
             "quantity": 1,
-        }])
+         'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}])
 
         self.assertEqual("gpt-5.6-luna", basic["model"])
         self.assertEqual("gpt-5.6-luna", advanced["model"])
@@ -60,10 +121,10 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
 
         def fake_call(payload, *, model, instructions):
             captured.append(model)
-            return "ok"
+            return self._valid_model_output(payload["review_type"])
 
         self.enterContext(patch.object(self.ai_review_v2, "_contexts_for_trades", lambda trades: []))
-        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: {}))
+        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: compact_chart_fixture({})))
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", fake_call))
         trade = {
             "id": 1,
@@ -73,7 +134,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             "side": "buy",
             "price": 70000,
             "quantity": 1,
-        }
+         'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}
 
         self.ai_review_v2.build_basic_ai_review([trade])
         self.ai_review_v2.build_advanced_ai_review([trade])
@@ -86,10 +147,10 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         def fake_call(payload, *, model, instructions):
             captured["payload"] = payload
             captured["instructions"] = instructions
-            return "ok"
+            return self._valid_model_output(payload["review_type"])
 
         self.enterContext(patch.object(self.ai_review_v2, "_contexts_for_trades", lambda trades: []))
-        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: {}))
+        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: compact_chart_fixture({})))
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", fake_call))
         self.ai_review_v2.build_advanced_ai_review([{
             "id": 1,
@@ -99,12 +160,14 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             "side": "buy",
             "price": 7250,
             "quantity": 69,
-        }])
+         'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}])
 
-        self.assertEqual("structured markdown", captured["payload"]["output_contract"]["format"])
-        self.assertIn("MA5, MA10, MA20처럼 띄어쓰기 없는 표준 약어", captured["instructions"])
-        self.assertIn("1분봉 차트의 MA5", captured["instructions"])
-        self.assertIn("일봉 차트의 MA20", captured["instructions"])
+        self.assertEqual("structured json", captured["payload"]["output_contract"]["format"])
+        self.assertEqual("json_schema", captured["payload"]["output_contract"]["response_format"]["type"])
+        self.assertTrue(captured["payload"]["output_contract"]["response_format"]["strict"])
+        self.assertIn("'5일 이동평균', '10일 이동평균', '20일 이동평균'처럼 자연어", captured["instructions"])
+        self.assertIn("1분봉 차트의 5개 봉 이동평균", captured["instructions"])
+        self.assertNotRegex(captured["instructions"], r"(?i)ma\s*[0-9]")
         self.assertIn("'5분선'처럼", captured["instructions"])
         self.assertIn("결과와 당시 판단의 품질을 반드시 분리", captured["instructions"])
         self.assertIn("완결된 매매가 5개 미만", captured["instructions"])
@@ -350,15 +413,16 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
     def test_safety_rejection_records_only_rule_ids_and_internal_status(self):
         rejected_text = "목표가는 80,000원입니다."
         captured_events = []
+        raw_response = rejected_text
 
         self.enterContext(patch.object(self.ai_review_v2, "_contexts_for_trades", lambda trades: []))
-        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: {}))
+        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: compact_chart_fixture({})))
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", lambda payload, *, model, instructions: (
-            self.ai_review_v2._OpenAiReviewText(rejected_text, response_status="completed")
+            self.ai_review_v2._OpenAiReviewText(raw_response, response_status="completed")
         )))
         self.enterContext(patch.object(self.ai_review_v2, "record_event", lambda **kwargs: captured_events.append(kwargs)))
 
-        result = self.ai_review_v2.build_advanced_ai_review([{
+        trades = [{
             "id": 1,
             "trade_date": "2026-07-10T09:36",
             "ticker": "017900",
@@ -366,11 +430,40 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             "side": "buy",
             "price": 6980,
             "quantity": 10,
-        }])
+         'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}]
 
-        self.assertEqual("missing_key", result["status"])
+        approval = {}
+        result = self.ai_review_v2.build_advanced_ai_review(trades, approval_state=approval)
+        self.assertEqual(("error", "none", "invalid_structured_output", ""),
+                         (result["status"], result["source"], result["internal_status"], result["summary"]))
+        self.assertIsNone(approval["snapshot"])
+        for field in ("structured_review", "display_snapshot", "chart_display_snapshot"):
+            self.assertNotIn(field, result)
+        self.assertEqual([], captured_events)
+
+        # A decoded JSON model response reaches the safety/telemetry contract.
+        output = json.loads(self._valid_model_output("advanced"))
+        output["main_issue"] = rejected_text
+        raw_response = json.dumps(output, ensure_ascii=False)
+        result = self.ai_review_v2.build_advanced_ai_review(trades, approval_state=approval)
+
+        self.assertEqual("error", result["status"])
         self.assertEqual("chart-rules", result["source"])
         self.assertEqual("safety_rejected", result["internal_status"])
+        self.assertEqual("trade-review.v1", result["structured_review"]["schema_version"])
+        expected = (
+            "최근 패턴: 1건, 실현손익 +0원, 승률 0.0%입니다.\n\n"
+            "반복 문제: 체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다.\n\n"
+            "손실 관리: 확정 손실 종목 없음. 미청산 종목은 1개입니다.\n\n"
+            "다음 복기 질문: 매수 이유가 체결 전에 기록됐는지, 당시 위험 허용 범위를 정했는지, 매도 이유가 그 기준과 일치했는지 확인하세요."
+        )
+        self.assertEqual(expected, result["summary"])
+        self.assertEqual(expected, result["display_snapshot"]["canonical_text"])
+        fixture = json.loads((Path(__file__).resolve().parents[1] / "frontend/scripts/fixtures/review-compatibility-v1.json").read_text(encoding="utf-8"))["cases"][0]
+        self.assertEqual("single-open-trade", fixture["id"])
+        self.assertEqual(fixture["summary"], result["summary"])
+        self.assertEqual(fixture["sections"], ["".join(run["text"] for run in block["runs"]) for block in result["display_snapshot"]["blocks"]])
+        self.assertNotIn(rejected_text, result["summary"])
         self.assertEqual(1, len(captured_events))
         event = captured_events[0]
         self.assertEqual("openai_review_safety_rejected", event["event_type"])
@@ -393,10 +486,10 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             captured.append(model)
             if model == "primary-advanced-model":
                 raise RuntimeError("primary failed")
-            return "fallback-ok"
+            return self._valid_model_output("advanced")
 
         self.enterContext(patch.object(self.ai_review_v2, "_contexts_for_trades", lambda trades: []))
-        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: {}))
+        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: compact_chart_fixture({})))
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", fake_call))
         result = self.ai_review_v2.build_advanced_ai_review([{
             "id": 1,
@@ -406,18 +499,18 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             "side": "buy",
             "price": 70000,
             "quantity": 1,
-        }])
+         'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}])
 
         self.assertEqual("ready", result["status"])
         self.assertEqual("fallback-advanced-model", result["model"])
         self.assertEqual(["primary-advanced-model", "fallback-advanced-model"], captured)
 
     def test_successful_openai_review_results_expose_plain_string_summaries(self):
-        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: {}))
+        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: compact_chart_fixture({})))
         self.enterContext(patch.object(self.ai_review_v2, "_contexts_for_trades", lambda trades: []))
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", lambda payload, *, model, instructions: (
             self.ai_review_v2._OpenAiReviewText(
-                f"{payload['review_type']} review",
+                self._valid_model_output(payload["review_type"]),
                 response_status="completed",
             )
         )))
@@ -429,15 +522,17 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             "side": "buy",
             "price": 6980,
             "quantity": 10,
-        }]
+         'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}]
 
         basic = self.ai_review_v2.build_basic_ai_review(trades)
         advanced = self.ai_review_v2.build_advanced_ai_review(trades)
 
         self.assertIs(str, type(basic["summary"]))
         self.assertIs(str, type(advanced["summary"]))
-        self.assertEqual("basic review", basic["summary"])
-        self.assertEqual("advanced review", advanced["summary"])
+        self.assertIn("이번 매매 판단:", basic["summary"])
+        self.assertIn("이번 매매 판단:", advanced["summary"])
+        self.assertEqual("trade-review.v1", basic["structured_review"]["schema_version"])
+        self.assertEqual("trade-review.v1", advanced["structured_review"]["schema_version"])
 
     def test_many_trades_keep_basic_episode_and_advanced_history_scopes_separate(self):
         captured = {}
@@ -447,7 +542,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             return "ok"
 
         self.enterContext(patch.object(self.ai_review_v2, "_contexts_for_trades", lambda trades: []))
-        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: {}))
+        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: compact_chart_fixture({})))
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", fake_call))
         trades = [
             {
@@ -458,7 +553,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
                 "side": "buy" if index % 3 else "sell",
                 "price": 70000 + index * 100,
                 "quantity": 1,
-            }
+             'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}
             for index in range(1, 13)
         ]
 
@@ -484,13 +579,13 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             return "ok"
 
         self.enterContext(patch.object(self.ai_review_v2, "_contexts_for_trades", lambda trades: []))
-        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: {}))
+        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: compact_chart_fixture({})))
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", fake_call))
         trades = [
-            {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "017900", "name": "Gwangjeonja", "side": "buy", "price": 7000, "quantity": 10},
-            {"id": 2, "trade_date": "2026-07-10T09:40", "ticker": "017900", "name": "Gwangjeonja", "side": "sell", "price": 7100, "quantity": 10},
-            {"id": 3, "trade_date": "2026-07-16T09:06", "ticker": "004310", "name": "Hyundai Pharm", "side": "buy", "price": 7250, "quantity": 69},
-            {"id": 4, "trade_date": "2026-07-16T09:10", "ticker": "004310", "name": "Hyundai Pharm", "side": "sell", "price": 7430, "quantity": 69},
+            {"id": 1, "trade_date": "2026-07-10T09:30", "ticker": "017900", "name": "Gwangjeonja", "side": "buy", "price": 7000, "quantity": 10, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
+            {"id": 2, "trade_date": "2026-07-10T09:40", "ticker": "017900", "name": "Gwangjeonja", "side": "sell", "price": 7100, "quantity": 10, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
+            {"id": 3, "trade_date": "2026-07-16T09:06", "ticker": "004310", "name": "Hyundai Pharm", "side": "buy", "price": 7250, "quantity": 69, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
+            {"id": 4, "trade_date": "2026-07-16T09:10", "ticker": "004310", "name": "Hyundai Pharm", "side": "sell", "price": 7430, "quantity": 69, 'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
         ]
 
         self.ai_review_v2.build_advanced_ai_review(trades, target_trade_id=2)
@@ -510,7 +605,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
                 "side": "buy",
                 "price": 10000,
                 "quantity": 10,
-            },
+             'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
             {
                 "id": 2,
                 "trade_date": "2026-07-10T09:40",
@@ -519,7 +614,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
                 "side": "sell",
                 "price": 10500,
                 "quantity": 10,
-            },
+             'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'},
         ]
         snapshot = {
             "ticker": "087010",
@@ -542,9 +637,9 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         def fake_call(payload, *, model, instructions):
             captured["payload"] = payload
             captured["instructions"] = instructions
-            return "ok"
+            return self._valid_model_output(payload["review_type"])
 
-        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda rows: snapshot))
+        self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda rows: compact_chart_fixture(snapshot)))
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", fake_call))
 
         result = self.ai_review_v2.build_basic_ai_review(

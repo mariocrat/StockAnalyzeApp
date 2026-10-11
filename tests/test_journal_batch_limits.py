@@ -2,6 +2,8 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
+from backend.core.review_display_contract import SCHEMA_VERSION
+
 from tests.api_test_modules import api_module_state
 
 import importlib
@@ -76,7 +78,7 @@ class JournalBatchLimitTest(unittest.TestCase):
         )
 
         with self.assertRaises(HTTPException) as blocked:
-            main.get_journal_ai_review_once(batch, authorization=f"Bearer {session['session_token']}")
+            main.get_journal_ai_review_once(batch, authorization=f"Bearer {session['session_token']}", x_review_display_contract=[SCHEMA_VERSION])
 
         self.assertEqual(413, blocked.exception.status_code)
         self.assertIn("AI 복기는 한 번에 최대 1건", blocked.exception.detail)

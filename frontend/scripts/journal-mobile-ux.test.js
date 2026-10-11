@@ -1,10 +1,70 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import ts from 'typescript';
+import CanonicalReviewRenderer from '../src/components/CanonicalReviewRenderer.js';
+import { aiReviewChartSource } from '../src/utils/aiReviewChartSource.js';
+import { buildAiReviewIdempotencyKey } from '../src/utils/aiReviewIdempotency.js';
+import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../src/utils/reviewDisplayContract.js';
+import { renderEvidence } from './review-render-evidence.js';
 
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const journalSource = readFileSync(new URL('../src/components/TradingJournal.jsx', import.meta.url), 'utf8');
 const cssSource = readFileSync(new URL('../src/App.css', import.meta.url), 'utf8');
+const vectors = JSON.parse(readFileSync(new URL('./fixtures/review-display-v1.json', import.meta.url), 'utf8'));
+const ast = ts.createSourceFile('TradingJournal.jsx', journalSource, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
+assert.deepEqual(ast.parseDiagnostics, []);
+const journal = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'TradingJournal');
+assert.ok(journal);
+const declarations = new Map(journal.body.statements.filter(ts.isVariableStatement)
+  .flatMap(statement => statement.declarationList.declarations.map(declaration => [declaration.name.getText(ast), statement.getText(ast)])));
+let liveExpression;
+function findLiveBody(node) {
+  if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some(attribute =>
+    ts.isJsxAttribute(attribute) && attribute.name.text === 'className'
+      && attribute.initializer?.text === 'journal-ai-review')) liveExpression = node.getText(ast);
+  ts.forEachChild(node, findLiveBody);
+}
+findLiveBody(journal);
+assert.ok(liveExpression);
+
+// Execute original production AST/JSX with synthetic I/O; never rebuild review text.
+function compileProduction(source, bindings, result) {
+  const compiled = ts.transpileModule(source, { fileName: 'production.jsx', reportDiagnostics: true,
+    compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } });
+  assert.deepEqual(compiled.diagnostics, []);
+  return new Function(...Object.keys(bindings), `${compiled.outputText}\nreturn ${result};`)(...Object.values(bindings));
+}
+
+function approvedResponse(document, reviewType = 'basic') {
+  return { status: 'ready', source: 'openai', review_type: reviewType, review_history_id: 'synthetic-history',
+    display_snapshot: document, summary: 'RAW_LEGACY_SUMMARY_DO_NOT_RENDER',
+    structured_review: { summary: 'RAW_STRUCTURED_REVIEW_DO_NOT_RENDER' },
+    chart_reviews: [{ title: 'RAW_CHART_TITLE_DO_NOT_RENDER', detail: 'RAW_CHART_DETAIL_DO_NOT_RENDER' }] };
+}
+
+function renderProductionReview(aiReview) {
+  const observed = [];
+  function ObserveCanonical(props) {
+    observed.push(props);
+    return React.createElement(CanonicalReviewRenderer, props);
+  }
+  const view = compileProduction(`const view = ${liveExpression};`, {
+    React, aiReview, aiLoading: false, aiChartSource: aiReviewChartSource(aiReview),
+    reviewAccessText: () => '', CanonicalReviewRenderer: ObserveCanonical,
+  }, 'view');
+  const html = renderToStaticMarkup(view);
+  const body = observed.find(props => props.expectedSurface === undefined);
+  assert.ok(body, 'actual production JSX must use the canonical body renderer');
+  const bodyHtml = renderToStaticMarkup(React.createElement(CanonicalReviewRenderer, body));
+  assert.ok(html.includes(bodyHtml));
+  for (const raw of ['RAW_LEGACY_SUMMARY', 'RAW_STRUCTURED_REVIEW', 'RAW_CHART_TITLE', 'RAW_CHART_DETAIL']) {
+    assert.ok(!html.includes(raw), raw);
+  }
+  return { ...renderEvidence(bodyHtml), html, document: body.document };
+}
 
 test('account management is reachable from both primary views', () => {
   assert.match(appSource, /className="mobile-app-account"[\s\S]*?onClick=\{openAccountPanel\}/);
@@ -152,9 +212,52 @@ test('saved journal entry does not reveal stock details until a review is select
   assert.match(journalSource, /showCurrentReviewDetails && <section className="journal-panel">/);
 });
 
-test('successful AI review is not replaced by a failed follow-up refresh', () => {
+test('successful AI review is not replaced by a failed follow-up refresh', async () => {
   assert.match(journalSource, /Promise\.allSettled\(followUpRefreshes\)/);
-  assert.match(journalSource, /<AiReviewSummary value=\{aiReview\.summary\} document=\{aiReview\.review_type === 'advanced'\} \/>/);
+  for (const reviewType of ['basic', 'advanced']) {
+    const vector = vectors.valid.find(value => value.id === 'normal_bold');
+    assert.ok(vector);
+    const response = approvedResponse(structuredClone(vector.document), reviewType);
+    const before = JSON.stringify(response);
+    const state = { aiReview: null, details: false, loading: false, message: '' };
+    const calls = [];
+    const bindings = {
+      axios: { async post(url) {
+        if (url.endsWith('/ai-review-once')) { calls.push('approved response'); return { data: response }; }
+        if (url.endsWith('/review-once')) { calls.push('failed statistics'); throw new Error('synthetic statistics failure'); }
+        assert.fail(`unexpected POST ${url}`);
+      } },
+      apiBase: 'https://synthetic.invalid', trades: [{ id: 1 }], aiReviewType: reviewType, aiConsentAccepted: true,
+      aiReviewInFlightRef: { current: false }, basicReviewFocusIndexRef: { current: 0 },
+      BASIC_REVIEW_FOCUSES: ['balanced'], DEV_TOOLS_ENABLED: false, DEV_ACCESS_PLAN: 'free',
+      DEV_AD_REWARD_TOKEN: '', DEV_ENTITLEMENT_TOKEN: '', authHeaders: { Authorization: 'Bearer synthetic' },
+      authSession: { session_token: 'synthetic' }, buildAiReviewIdempotencyKey, aiReviewChartSource,
+      reviewDisplayHeaders, reviewDisplayFailureMessage,
+      setAiReview: value => { state.aiReview = value; }, setAiLoading: value => { state.loading = value; },
+      setShowCurrentReviewDetails: value => { state.details = value; },
+      setMessage: value => { state.message = value; }, setActiveChartTicker: () => {},
+      setReview: () => assert.fail('failed statistics must not publish data'), setEntitlements: () => {},
+      setReviewAccessDialog: () => assert.fail('ready response must not open access dialog'),
+      loadEntitlements: () => assert.fail('ready response must not enter transport failure'),
+      loadReviewHistory: async () => { calls.push('failed history refresh'); throw new Error('synthetic history failure'); },
+      loadDataSummary: async () => { calls.push('failed data refresh'); throw new Error('synthetic data failure'); },
+    };
+    bindings.loadReviewContextForTrades = compileProduction(declarations.get('loadReviewContextForTrades'), bindings, 'loadReviewContextForTrades');
+    const load = compileProduction(declarations.get('loadAiReview'), bindings, 'loadAiReview');
+    await load([{ id: 1 }], reviewType);
+    assert.deepEqual(calls, ['approved response', 'failed statistics', 'failed history refresh', 'failed data refresh']);
+    assert.strictEqual(state.aiReview, response);
+    assert.strictEqual(state.aiReview.display_snapshot, response.display_snapshot);
+    assert.equal(state.details, true);
+    assert.equal(state.loading, false);
+    assert.equal(state.message, '');
+    assert.equal(bindings.aiReviewInFlightRef.current, false);
+    const rendered = renderProductionReview(state.aiReview);
+    assert.strictEqual(rendered.document, response.display_snapshot);
+    assert.equal(rendered.text, vector.expected_canonical_text);
+    assert.deepEqual(rendered.strong, ['체결 기록']);
+    assert.equal(JSON.stringify(response), before);
+  }
 });
 
 test('AI review loading is prominent and selected chart follows trade selection', () => {
@@ -170,8 +273,31 @@ test('AI review loading is prominent and selected chart follows trade selection'
   assert.ok(chartRenderIndex > actionIndex);
 });
 
-test('review output removes internal evidence labels and hides consumed one-time trial balances', () => {
-  assert.match(journalSource, /replace\(\/\\\[\(\?:데이터 확인\|합리적 추론\)\\\]\/g, ''\)/);
+test('approved review output keeps canonical text and hides consumed one-time trial balances', () => {
+  assert.doesNotMatch(journalSource, /\b(?:AiReviewSummary|reviewDisplayText|parseAiReviewSummary|parseAiReviewDocument)\b/);
+  const prefix = '[데이터 확인] 매';
+  const expected = `${prefix}수 **그대로** [합리적 추론]\n  첫 문단\n\n\t둘째  문단`;
+  const document = { schema_version: vectors.schema_version, surface: 'body', blocks: [
+    { type: 'paragraph', runs: [{ type: 'text', text: prefix }, { type: 'strong', text: '수' },
+      { type: 'text', text: ' **그대로** [합리적 추론]\n  첫 문단' }], separator_after: '\n\n' },
+    { type: 'paragraph', runs: [{ type: 'text', text: '\t둘째  문단' }], separator_after: '' },
+  ], canonical_text: expected };
+  const response = approvedResponse(document);
+  const before = JSON.stringify(response);
+  const rendered = renderProductionReview(response);
+  assert.strictEqual(rendered.document, document);
+  assert.equal(rendered.text, expected);
+  assert.deepEqual(rendered.blocks, ['paragraph', 'paragraph']);
+  assert.deepEqual(rendered.strongRanges, [{ start: [...prefix].length, end: [...prefix].length + 1, text: '수' }]);
+  assert.equal(JSON.stringify(response), before);
+  const mismatch = { ...document, canonical_text: 'UNAPPROVED_TEXT' };
+  for (const invalid of [undefined, null, {}, mismatch, { ...document, schema_version: 'review-display.v99' }]) {
+    const unavailable = renderProductionReview({ ...response, display_snapshot: invalid });
+    assert.equal(unavailable.text, '복기 내용을 표시할 수 없습니다.');
+    assert.deepEqual(unavailable.strong, []);
+    assert.ok(!unavailable.html.includes('UNAPPROVED_TEXT'));
+    assert.ok(!unavailable.html.includes('journal-ai-card'));
+  }
   assert.match(journalSource, /signup_advanced: '무료 심화 복기권'/);
   assert.match(journalSource, /advanced\.signup_remaining/);
 });
