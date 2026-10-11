@@ -2402,6 +2402,35 @@ body {
   gap: 10px;
 }
 
+.journal-ai-review > h4 {
+  margin: 0;
+  color: #d6dceb;
+  font-size: 14px;
+}
+
+.journal-review-deepen {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #35415c;
+}
+
+.journal-review-deepen p {
+  margin: 0;
+  color: #b8c5df;
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.journal-review-deepen button {
+  max-width: 100%;
+  min-height: 42px;
+  white-space: normal;
+}
+
 .journal-review-chart-block {
   margin-top: 14px;
   padding-top: 14px;

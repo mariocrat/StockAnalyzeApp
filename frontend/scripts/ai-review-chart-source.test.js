@@ -7,6 +7,7 @@ import { flushSync } from 'react-dom';
 import ts from 'typescript';
 
 import { aiReviewChartSource } from '../src/utils/aiReviewChartSource.js';
+import { basicReviewInput, captureReviewInput } from '../src/utils/basicReviewInput.js';
 import { buildAiReviewIdempotencyKey } from '../src/utils/aiReviewIdempotency.js';
 import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../src/utils/reviewDisplayContract.js';
 import { installAxiosRequestIdMessages } from '../src/utils/apiErrorRequestId.js';
@@ -111,6 +112,8 @@ function harness(response, general = handoff.results[0].general) {
   const bindings = {
     axios, apiBase: 'https://synthetic.invalid', trades: [{ id: 1 }], aiReviewType: 'basic', aiConsentAccepted: true,
     aiReviewInFlightRef: { current: false }, basicReviewFocusIndexRef: { current: 0 },
+    captureReviewInput, aiReviewSourceRef: { current: null },
+    setAiReviewSource: noop,
     reviewHistoryDetailRequestRef: original('reviewHistoryDetailRequestRef', { useRef: value => ({ current: value }) }),
     BASIC_REVIEW_FOCUSES: ['balanced'], DEV_TOOLS_ENABLED: false, DEV_ACCESS_PLAN: 'free',
     DEV_AD_REWARD_TOKEN: '', DEV_ENTITLEMENT_TOKEN: '', authHeaders: {},
@@ -147,6 +150,8 @@ function renderLiveResult(aiReview, aiLoading = false) {
   const observed = [];
   const view = compile(`const view = ${liveExpression};`, {
     React, aiReview, aiLoading, aiChartSource: aiReviewChartSource(aiReview), reviewAccessText: () => '',
+    basicReviewInput, aiReviewSource: null, adLoading: false, aiConsentAccepted: true,
+    deepenBasicReview: () => assert.fail('rendering must not execute advanced review'),
     CanonicalReviewRenderer: canonicalProbe(observed),
   }, 'view');
   const html = renderToStaticMarkup(view);

@@ -205,7 +205,9 @@ not part of this step. Older OpenAI/device/test records are not fresh verificati
 
 The authorized six-file commit is complete. The separately authorized pre-execution
 depth-selection unit is tracked in [broker-review-selection-ux.md](broker-review-selection-ux.md).
-Wait for independent review of that unit; do not push or extend scope.
+That unit was independently approved and committed as 3925c408 (user confirmation,
+Git verified 2026-10-12). The next authorized live-result CTA unit is tracked in
+[basic-to-advanced-review.md](basic-to-advanced-review.md). Do not push or integrate.
 
 ## Out of Scope
 

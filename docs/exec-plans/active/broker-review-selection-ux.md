@@ -33,7 +33,8 @@ existing Play README change. No staging, commit, push, integration or other work
 - [x] Implement the pre-execution selection unit only.
 - [x] Run targeted H4, inventory, lint/build and whitespace checks.
 - [x] Record mobile evidence limits and independent review readiness.
-- [ ] Independent approval of this unit (not performed by this implementation run).
+- [x] Independent approval (user report: Blocker/Major/Minor 0) and authorized
+  commit 3925c408f1fd69f1eb82abcd5b07a54583898441; verified at the next unit's start.
 
 ## Verification
 
@@ -106,17 +107,17 @@ local lint/build outputs (ignored dist), and process-only environment. No env-fi
 
 ## Remaining / Unverified
 
-Independent review of this new UX unit remains pending. Real input -> review on
+Independent review and the scoped commit are complete (user report and Git).
+Real input -> review on
 Android/WebView at 320/360px, native banner/ad behavior, and live execution are not
 verified. Supplemental browser evidence is not a device or real entitlement test.
 Actual Android/WebView and native banner/ad behavior require separate device evidence.
 
 ## Next Step
 
-Independent review of this pre-execution selection unit, then wait for authorization.
-Only after approval, propose the next single UX unit: a basic-result -> advanced
-action using the same original trade input and existing entitlement/canonical path.
-Do not implement that result CTA, commit or push in this step.
+The user authorized the next single unit: live basic-result -> advanced action
+using the same original input. Its work and verification are tracked separately in
+[basic-to-advanced-review.md](basic-to-advanced-review.md). No push or integration.
 
 ## Out of Scope
 

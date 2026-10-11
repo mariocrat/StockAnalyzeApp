@@ -15,6 +15,7 @@ import { shouldFinishGooglePlayTransaction } from '../mobile/billingPolicy';
 import { buildAiReviewIdempotencyKey } from '../utils/aiReviewIdempotency';
 import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../utils/reviewDisplayContract';
 import { aiReviewChartSource } from '../utils/aiReviewChartSource';
+import { basicReviewInput, captureReviewInput } from '../utils/basicReviewInput';
 import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
@@ -240,6 +241,7 @@ export default function TradingJournal({
   const [preparedImportedReview, setPreparedImportedReview] = useState(null);
   const [review, setReview] = useState(null);
   const [aiReview, setAiReview] = useState(null);
+  const [aiReviewSource, setAiReviewSource] = useState(null);
   const [, setChartReview] = useState({ charts: [] });
   const [activeChartTicker, setActiveChartTicker] = useState('');
   const [showCurrentReviewDetails, setShowCurrentReviewDetails] = useState(false);
@@ -288,6 +290,7 @@ export default function TradingJournal({
   const entitlementSectionRef = useRef(null);
   const tradeChartSectionRef = useRef(null);
   const aiReviewInFlightRef = useRef(false);
+  const aiReviewSourceRef = useRef(null);
   const basicReviewFocusIndexRef = useRef(0);
   const setMessage = (value) => setRawMessage(toKoreanUserMessage(value));
   const reviewTradeGroups = useMemo(
@@ -654,6 +657,8 @@ export default function TradingJournal({
   };
 
   const resetJournalWorkspace = () => {
+    aiReviewSourceRef.current = null;
+    setAiReviewSource(null);
     setPreparedImportedReview(null);
     setTrades([]);
     setReview(null);
@@ -1089,6 +1094,9 @@ export default function TradingJournal({
     if (aiReviewInFlightRef.current) return;
 
     aiReviewInFlightRef.current = true;
+    const requestSource = { review: null, input: captureReviewInput(nextTrades, options.targetTradeId ?? null) };
+    aiReviewSourceRef.current = requestSource;
+    setAiReviewSource(null);
     setAiLoading(true);
     setAiReview(null);
     setShowCurrentReviewDetails(false);
@@ -1116,6 +1124,8 @@ export default function TradingJournal({
         { headers: reviewDisplayHeaders({ ...authHeaders, 'X-Idempotency-Key': idempotencyKey }) },
       );
       if (!res.data) throw new Error('empty AI response');
+      requestSource.review = res.data;
+      if (aiReviewSourceRef.current === requestSource) setAiReviewSource(requestSource);
       setAiReview(res.data || null);
       setActiveChartTicker(aiReviewChartSource(res.data).charts[0]?.ticker || '');
       if (res.data?.status !== 'error') {
@@ -1145,9 +1155,9 @@ export default function TradingJournal({
     }
   };
 
-  const startAdvancedReview = () => {
+  const startAdvancedReview = (nextTrades = selectedReviewTrades, options = { targetTradeId: selectedReviewGroup?.targetTradeId }) => {
     setAiReviewType('advanced');
-    if (!selectedReviewTrades.length) {
+    if (!nextTrades.length) {
       setMessage('심화 복기할 매매를 먼저 선택해 주세요.');
       return;
     }
@@ -1163,7 +1173,14 @@ export default function TradingJournal({
       setReviewAccessDialog('advanced');
       return;
     }
-    loadAiReview(selectedReviewTrades, 'advanced', { targetTradeId: selectedReviewGroup?.targetTradeId });
+    loadAiReview(nextTrades, 'advanced', options);
+  };
+
+  const deepenBasicReview = () => {
+    if (aiLoading || adLoading || !aiConsentAccepted) return;
+    const input = basicReviewInput(aiReview, aiReviewSourceRef.current);
+    if (!input) return;
+    startAdvancedReview(input.trades, { targetTradeId: input.targetTradeId });
   };
 
   const startSelectedReview = () => {
@@ -2833,6 +2850,9 @@ export default function TradingJournal({
               <div className={`journal-ai-status ${aiReview.status || 'ready'}`}>
                 {aiReview.source === 'openai' ? 'AI 분석' : '차트 기반 기본 분석'}
               </div>
+              {['basic', 'advanced'].includes(aiReview.review_type) && (
+                <h4>{aiReview.review_type === 'advanced' ? '심화복기 결과' : '일반복기 결과'}</h4>
+              )}
               <div className="journal-ai-document">
                 <CanonicalReviewRenderer document={aiReview.display_snapshot} />
               </div>
@@ -2846,6 +2866,15 @@ export default function TradingJournal({
                   <p><CanonicalReviewRenderer document={item.display} expectedSurface="chart_card" /></p>
                 </div>
               ))}
+              {basicReviewInput(aiReview, aiReviewSource) && (
+                <div className="journal-review-deepen">
+                  <p>같은 거래의 진입·위험관리·매도 판단까지 자세히 분석합니다.</p>
+                  <button type="button" className="journal-secondary"
+                    disabled={aiLoading || adLoading || !aiConsentAccepted} onClick={deepenBasicReview}>
+                    심화복기로 더 깊게 보기
+                  </button>
+                </div>
+              )}
             </>
           ) : null}
         </div>
