@@ -1607,6 +1607,99 @@ body {
   margin-bottom: 12px;
 }
 
+.journal-review-depth {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.journal-review-depth legend {
+  padding: 0;
+  margin-bottom: 8px;
+  color: #edf3ff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.journal-review-depth-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.journal-review-depth-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #34415c;
+  border-radius: 6px;
+  background: #0f1522;
+  cursor: pointer;
+}
+
+.journal-review-depth-card.active {
+  border-color: #477cff;
+  background: #172951;
+}
+
+.journal-review-depth-card:focus-within {
+  outline: 2px solid #8fb0ff;
+  outline-offset: 2px;
+}
+
+.journal-review-depth-card input {
+  margin: 3px 0 0;
+  accent-color: #477cff;
+  flex-shrink: 0;
+}
+
+.journal-review-depth-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  color: #edf3ff;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.journal-review-depth-copy strong {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.journal-review-depth-copy small {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #243957;
+  color: #d0dfff;
+  font-size: 10px;
+}
+
+.journal-review-depth-copy em,
+.journal-review-depth-status {
+  color: #b1bdd4;
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.5;
+}
+
+.journal-review-depth-status {
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 480px) {
+  .journal-review-depth-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .journal-auth-box {
   display: flex;
   align-items: center;

@@ -30,12 +30,31 @@ let liveExpression;
 let prepareButtonExpression;
 let directInputExpression;
 let brokerInputExpression;
-let basicReviewExpression;
-let advancedReviewExpression;
+let selectedReviewExpression;
+let selectionExpression;
+let basicChoiceExpression;
+let advancedChoiceExpression;
 function findLiveBody(node) {
   if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some(attribute =>
     ts.isJsxAttribute(attribute) && attribute.name.text === 'className'
       && attribute.initializer?.text === 'journal-ai-review')) liveExpression = node.getText(ast);
+  if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some(attribute =>
+    ts.isJsxAttribute(attribute) && attribute.name.text === 'className'
+      && attribute.initializer?.text === 'journal-review-selection')) {
+    let parent = node.parent;
+    while (parent && !ts.isJsxExpression(parent)) parent = parent.parent;
+    assert.ok(parent?.expression);
+    selectionExpression = parent.expression.getText(ast);
+  }
+  if (ts.isJsxSelfClosingElement(node) && node.tagName.getText(ast) === 'input') {
+    const attributes = node.attributes.properties;
+    const name = attributes.find(attribute => ts.isJsxAttribute(attribute) && attribute.name.text === 'name');
+    const value = attributes.find(attribute => ts.isJsxAttribute(attribute) && attribute.name.text === 'value');
+    if (name?.initializer?.text === 'review-depth') {
+      if (value?.initializer?.text === 'basic') basicChoiceExpression = node.getText(ast);
+      if (value?.initializer?.text === 'advanced') advancedChoiceExpression = node.getText(ast);
+    }
+  }
   if (ts.isJsxElement(node) && node.openingElement.tagName.getText(ast) === 'button') {
     const click = node.openingElement.attributes.properties.find(attribute =>
       ts.isJsxAttribute(attribute) && attribute.name.text === 'onClick');
@@ -43,8 +62,7 @@ function findLiveBody(node) {
     if (expression?.getText(ast) === 'prepareImportedTrades') prepareButtonExpression = node.getText(ast);
     if (expression?.getText(ast).includes("setJournalInputMode('direct')")) directInputExpression = node.getText(ast);
     if (expression?.getText(ast).includes("setJournalInputMode('broker')")) brokerInputExpression = node.getText(ast);
-    if (expression?.getText(ast).includes("setAiReviewType('basic')")) basicReviewExpression = node.getText(ast);
-    if (expression?.getText(ast) === 'startAdvancedReview') advancedReviewExpression = node.getText(ast);
+    if (expression?.getText(ast) === 'startSelectedReview') selectedReviewExpression = node.getText(ast);
   }
   ts.forEachChild(node, findLiveBody);
 }
@@ -178,7 +196,7 @@ test('advanced review shortage opens a Korean pass dialog instead of an inline A
   assert.match(journalSource, /err\.response\?\.status === 402/);
   assert.match(journalSource, /reviewType === 'advanced' \? 'advanced' : 'basic'/);
   assert.match(journalSource, /심화 복기권이 필요합니다/);
-  assert.match(journalSource, /onClick=\{startAdvancedReview\}/);
+  assert.ok(selectedReviewExpression);
   assert.match(journalSource, /showReviewPasses/);
 });
 
@@ -351,7 +369,7 @@ test('saved journal entry does not reveal stock details until a review is select
 });
 
 function verifyInputModeSelection() {
-  for (const expression of [directInputExpression, brokerInputExpression, basicReviewExpression, advancedReviewExpression]) {
+  for (const expression of [directInputExpression, brokerInputExpression, selectedReviewExpression, selectionExpression]) {
     assert.ok(expression);
   }
   const pending = [
@@ -380,19 +398,25 @@ function verifyInputModeSelection() {
   context.setReview = value => { context.review = value; };
   context.setAiReview = value => { context.aiReview = value; };
   context.setMessage = value => { context.message = value; };
+  context.setAiReviewType = value => { context.aiReviewType = value; };
+  context.rewardedBasicNeedsFreeUsage = false;
+  context.mobileAdStatus = { native: false };
+  context.handleRewardedAdBasicReview = () => assert.fail('selection must not start ads');
   context.onClearImportedTrades = () => { context.importedTrades = []; };
   context.prepareImportedTrades = handlerInContext('prepareImportedTrades', context);
   context.chooseReviewGroup = handlerInContext('chooseReviewGroup', context);
   context.startAdvancedReview = handlerInContext('startAdvancedReview', context);
+  context.startSelectedReview = handlerInContext('startSelectedReview', context);
   function recalculateSelection() {
     for (const name of ['reviewTradeGroups', 'selectedReviewGroup', 'selectedReviewTrades', 'importedTimeValidation']) {
       context[name] = expressionInContext(initializers.get(name).getText(ast), context);
     }
   }
   function expectActionsDisabled(disabled) {
-    for (const expression of [basicReviewExpression, advancedReviewExpression]) {
-      assert.equal(expressionInContext(expression, context).props.disabled, disabled);
-    }
+    assert.equal(expressionInContext(selectedReviewExpression, context).props.disabled, disabled);
+    const selection = expressionInContext(selectionExpression, context);
+    if (disabled) assert.equal(selection, false, 'no depth selection before trade input is ready');
+    else assert.ok(renderToStaticMarkup(selection).includes('판단 과정까지 깊게 분석'));
   }
   function selectSaved() {
     recalculateSelection();
@@ -466,6 +490,159 @@ test('pending PDF selection blocks review only in broker mode and survives direc
     console.error(error?.stack || String(error));
     throw error;
   }
+});
+
+function reviewSelectionHarness(rows, targetTradeId = 42) {
+  const requests = [];
+  const jobs = [];
+  const response = approvedResponse(vectors.valid.find(value => value.id === 'normal_bold').document);
+  const context = syntheticContext({ React, trades: rows, selectedReviewTrades: rows,
+    selectedReviewGroup: { targetTradeId }, selectedReviewGroupKey: 'unchanged-group',
+    form: { memo: 'unsaved draft' }, aiReviewType: 'basic', aiConsentAccepted: true,
+    aiLoading: false, adLoading: false, entitlements: { advanced: { signup_remaining: 1 } },
+    apiBase: 'https://synthetic.invalid', authHeaders: {}, authSession: null,
+    aiReviewInFlightRef: { current: false }, basicReviewFocusIndexRef: { current: 0 }, BASIC_REVIEW_FOCUSES: ['balanced'],
+    DEV_TOOLS_ENABLED: false, DEV_ACCESS_PLAN: 'free', DEV_AD_REWARD_TOKEN: '', DEV_ENTITLEMENT_TOKEN: '',
+    buildAiReviewIdempotencyKey, aiReviewChartSource, reviewDisplayHeaders, reviewDisplayFailureMessage,
+    rewardedBasicNeedsFreeUsage: false, mobileAdStatus: { native: false },
+    handleRewardedAdBasicReview: () => assert.fail('selection/normal execution must not start advertising'),
+    loadReviewHistory: async () => {}, loadDataSummary: async () => {},
+    loadEntitlements: async () => { context.entitlementRefreshes = (context.entitlementRefreshes || 0) + 1; },
+    setActiveChartTicker: () => {},
+    axios: { async post(url, payload, config) {
+      requests.push({ url, payload, config });
+      if (context.synthetic402 && url.endsWith('/ai-review-once')) throw { response: { status: 402 } };
+      return { data: url.endsWith('/ai-review-once') ? response : {} };
+    } },
+  });
+  for (const [setter, field] of [['setAiReviewType', 'aiReviewType'], ['setAiReview', 'aiReview'],
+    ['setReview', 'review'], ['setMessage', 'message'], ['setAiLoading', 'aiLoading'],
+    ['setEntitlements', 'entitlements'], ['setShowCurrentReviewDetails', 'details'], ['setReviewAccessDialog', 'dialog']]) {
+    context[setter] = value => { context[field] = value; };
+  }
+  context.loadReviewContextForTrades = handlerInContext('loadReviewContextForTrades', context);
+  const realLoad = handlerInContext('loadAiReview', context);
+  context.loadAiReview = (...args) => { const job = realLoad(...args); jobs.push(job); return job; };
+  context.startAdvancedReview = handlerInContext('startAdvancedReview', context);
+  context.startSelectedReview = handlerInContext('startSelectedReview', context);
+  return { context, requests, jobs,
+    selection: () => expressionInContext(selectionExpression, context),
+    execution: () => expressionInContext(selectedReviewExpression, context),
+    choose: type => expressionInContext(type === 'basic' ? basicChoiceExpression : advancedChoiceExpression, context).props.onChange(),
+  };
+}
+
+test('review depth cards appear only after direct selection or prepared broker input and selection preserves data', () => {
+  assert.ok(selectionExpression && basicChoiceExpression && advancedChoiceExpression);
+  const direct = [{ id: 42, trade_date: '2026-09-01T14:10', ticker: '005930', name: 'Synthetic', side: 'sell', price: 10100, quantity: 1 }];
+  const imported = prepareBrokerReviewInput([
+    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'buy', price: 7830, quantity: 1, tradeTime: null, timeUnknown: true },
+  ]).groups[0].trades;
+  let directHtml;
+  for (const rows of [direct, imported]) {
+    const harness = reviewSelectionHarness(rows, rows === direct ? 42 : null);
+    const { context } = harness;
+    const before = JSON.stringify(rows);
+    const draft = context.form;
+    const group = context.selectedReviewGroup;
+    context.selectedReviewTrades = [];
+    assert.equal(harness.selection(), false);
+    assert.equal(harness.execution().props.disabled, true);
+    context.selectedReviewTrades = rows;
+    const basicHtml = renderToStaticMarkup(harness.selection());
+    for (const text of ['빠르게 핵심만 확인', '판단 과정까지 깊게 분석', '잘한 점', '핵심 개선점', '다음 매매 행동',
+      '매매 지식', '진입', '리스크', '매도 판단', '상세 근거', '플레이북', '복기 질문', '일반복기 실행']) assert.ok(basicHtml.includes(text), text);
+    if (rows === direct) directHtml = basicHtml;
+    else assert.equal(basicHtml, directHtml, 'both input sources converge on the identical production selection JSX');
+    for (const type of ['advanced', 'basic']) {
+      harness.choose(type);
+      assert.equal(context.aiReviewType, type);
+      const html = renderToStaticMarkup(harness.selection());
+      assert.ok(html.includes(`${type === 'basic' ? '일반복기' : '심화복기'} 실행`));
+      assert.equal(expressionInContext(basicChoiceExpression, context).props.checked, type === 'basic');
+      assert.equal(expressionInContext(advancedChoiceExpression, context).props.checked, type === 'advanced');
+      assert.strictEqual(context.selectedReviewTrades, rows);
+      assert.strictEqual(context.selectedReviewGroup, group);
+      assert.strictEqual(context.form, draft);
+      assert.equal(context.selectedReviewGroupKey, 'unchanged-group');
+      assert.equal(JSON.stringify(rows), before);
+      assert.deepEqual(harness.requests, []);
+      assert.deepEqual(harness.jobs, []);
+    }
+  }
+});
+
+test('selected depth execution retains actual basic advanced API and canonical payload contracts for both input paths', async () => {
+  const direct = [{ id: 42, trade_date: '2026-09-01T14:10', ticker: '005930', name: 'Synthetic', side: 'sell', price: 10100, quantity: 1 }];
+  const prepared = prepareBrokerReviewInput([
+    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'buy', price: 7830, quantity: 1, tradeTime: '09:30', timeUnknown: false },
+    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'sell', price: 7710, quantity: 1, tradeTime: '14:10', timeUnknown: false },
+  ]);
+  for (const rows of [direct, prepared.groups[0].trades]) {
+    for (const type of ['basic', 'advanced']) {
+      const harness = reviewSelectionHarness(rows, rows === direct ? 42 : null);
+      const before = JSON.stringify(rows);
+      harness.choose(type);
+      assert.equal(harness.requests.length, 0);
+      assert.equal(harness.execution().props.disabled, false);
+      harness.execution().props.onClick();
+      await Promise.all(harness.jobs);
+      assert.equal(harness.jobs.length, 1);
+      assert.deepEqual(harness.requests.map(value => value.url.split('/').at(-1)), ['ai-review-once', 'review-once']);
+      const request = harness.requests[0];
+      assert.strictEqual(request.payload.trades, rows);
+      assert.equal(request.payload.review_type, type);
+      assert.equal(request.payload.target_trade_id, rows === direct ? 42 : null);
+      assert.equal(request.payload.privacy_consent, true);
+      assert.equal(request.payload.ad_reward_token, '');
+      assert.deepEqual(request.config.headers, reviewDisplayHeaders({ 'X-Idempotency-Key': request.config.headers['X-Idempotency-Key'] }));
+      assert.equal(JSON.stringify(rows), before);
+      assert.ok(harness.context.aiReview.display_snapshot);
+      assert.equal(harness.context.aiLoading, false);
+    }
+  }
+});
+
+test('depth selection never bypasses consent busy guards or existing advanced entitlement admission', async () => {
+  const rows = [{ id: 42, trade_date: '2026-09-01', ticker: '005930', side: 'buy', price: 10000, quantity: 1 }];
+  for (const type of ['basic', 'advanced']) {
+    const harness = reviewSelectionHarness(rows);
+    harness.context.aiConsentAccepted = false;
+    harness.choose(type); // Consent gates execution, not understanding the two choices.
+    assert.equal(harness.execution().props.disabled, true);
+    harness.execution().props.onClick(); // A stale click must also be harmless.
+    assert.deepEqual(harness.requests, []);
+    assert.deepEqual(harness.jobs, []);
+    harness.context.aiConsentAccepted = true;
+    for (const field of ['aiLoading', 'adLoading']) {
+      harness.context[field] = true;
+      const fieldset = React.Children.toArray(harness.selection().props.children).find(child => child.type === 'fieldset');
+      assert.equal(fieldset.props.disabled, true);
+      assert.equal(harness.execution().props.disabled, true);
+      harness.execution().props.onClick();
+      assert.deepEqual(harness.requests, []);
+      harness.context[field] = false;
+    }
+    assert.equal(harness.execution().props.disabled, false);
+  }
+  const blocked = reviewSelectionHarness(rows);
+  blocked.context.entitlements = { advanced: { signup_remaining: 0 } };
+  blocked.choose('advanced');
+  assert.equal(blocked.context.dialog, undefined, 'choosing depth does not acquire or consume a pass');
+  assert.equal(blocked.execution().props.disabled, false);
+  blocked.execution().props.onClick();
+  assert.equal(blocked.context.dialog, 'advanced');
+  assert.deepEqual(blocked.requests, []);
+  const unknown = reviewSelectionHarness(rows);
+  unknown.context.entitlements = null;
+  unknown.context.synthetic402 = true;
+  unknown.choose('advanced');
+  unknown.execution().props.onClick();
+  await Promise.all(unknown.jobs);
+  assert.equal(unknown.requests.length, 1, 'unknown entitlement is still decided by the existing server path');
+  assert.equal(unknown.context.dialog, 'advanced');
+  assert.equal(unknown.context.entitlementRefreshes, 1);
+  assert.equal(unknown.context.aiLoading, false);
 });
 
 test('successful AI review is not replaced by a failed follow-up refresh', async () => {

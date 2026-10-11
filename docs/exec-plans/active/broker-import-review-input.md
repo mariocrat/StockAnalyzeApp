@@ -37,6 +37,7 @@ The original `feature/broker-import` at `609163e9` remains read-only, with
 - [x] Revalidate the Major fix through targeted H4, inventory, lint and frontend build.
 - [x] Independent re-review of the Major fix: approved; Blocker 0 / Major 0 / Minor 0.
 - [x] Final preservation/whitespace audit and confirm the scoped commit allowlist.
+- [x] Approved connection committed as e648328c15ca8f70e990c491d6fc8c5d12c71771.
 
 ## Verification
 
@@ -202,8 +203,9 @@ not part of this step. Older OpenAI/device/test records are not fresh verificati
 
 ## Next Step
 
-Create the authorized six-file commit, report its SHA and final worktree state,
-then wait. Do not push or extend product scope.
+The authorized six-file commit is complete. The separately authorized pre-execution
+depth-selection unit is tracked in [broker-review-selection-ux.md](broker-review-selection-ux.md).
+Wait for independent review of that unit; do not push or extend scope.
 
 ## Out of Scope
 

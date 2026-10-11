@@ -1166,6 +1166,15 @@ export default function TradingJournal({
     loadAiReview(selectedReviewTrades, 'advanced', { targetTradeId: selectedReviewGroup?.targetTradeId });
   };
 
+  const startSelectedReview = () => {
+    if (aiLoading || adLoading || !selectedReviewTrades.length || !aiConsentAccepted) return;
+    if (aiReviewType === 'advanced') {
+      startAdvancedReview();
+    } else {
+      loadAiReview(selectedReviewTrades, 'basic', { targetTradeId: selectedReviewGroup?.targetTradeId });
+    }
+  };
+
   const showReviewPasses = () => {
     setReviewAccessDialog(null);
     window.requestAnimationFrame(() => {
@@ -2695,9 +2704,9 @@ export default function TradingJournal({
           {preparedImportedReview && <p role="status">PDF 선택 거래 · 저장하지 않은 복기 입력입니다. 거래별 체결은 그대로 유지됩니다.</p>}
           <div className="journal-review-target-heading">
             <strong>복기할 매매 선택</strong>
-            <span>{selectedReviewGroup ? '1개 선택됨' : '선택 필요'}</span>
+            <span>{selectedReviewTrades.length ? '1개 선택됨' : '선택 필요'}</span>
           </div>
-          {selectedReviewGroup ? (
+          {selectedReviewTrades.length > 0 && selectedReviewGroup ? (
             <div className="journal-review-target-selected">
               <strong>{selectedReviewGroup.name}{selectedReviewGroup.ticker ? ` (${selectedReviewGroup.ticker})` : ''}</strong>
               <small>{reviewGroupPeriodText(selectedReviewGroup)} · 매수 {selectedReviewGroup.buyCount}건 · 매도 {selectedReviewGroup.sellCount}건</small>
@@ -2755,16 +2764,37 @@ export default function TradingJournal({
           )}
           <p>선택한 한 매매 묶음만 차트와 함께 AI에 전달합니다.</p>
         </div>
-        <div className="journal-review-actions">
+        {selectedReviewTrades.length > 0 && (
+          <div className="journal-review-selection">
+            <fieldset className="journal-review-depth" disabled={aiLoading || adLoading}>
+              <legend>어떤 깊이로 복기할까요?</legend>
+              <div className="journal-review-depth-cards">
+                <label className={`journal-review-depth-card ${aiReviewType === 'basic' ? 'active' : ''}`}>
+                  <input type="radio" name="review-depth" value="basic" checked={aiReviewType === 'basic'} onChange={() => setAiReviewType('basic')} />
+                  <span className="journal-review-depth-copy">
+                    <strong>일반복기 <small>{aiReviewType === 'basic' ? '선택됨' : '핵심 복기'}</small></strong>
+                    <span>빠르게 핵심만 확인</span>
+                    <em>잘한 점 · 핵심 개선점<br />다음 매매 행동 · 매매 지식</em>
+                  </span>
+                </label>
+                <label className={`journal-review-depth-card ${aiReviewType === 'advanced' ? 'active' : ''}`}>
+                  <input type="radio" name="review-depth" value="advanced" checked={aiReviewType === 'advanced'} onChange={() => setAiReviewType('advanced')} />
+                  <span className="journal-review-depth-copy">
+                    <strong>심화복기 <small>{aiReviewType === 'advanced' ? '선택됨' : '깊이 있는 복기'}</small></strong>
+                    <span>판단 과정까지 깊게 분석</span>
+                    <em>진입 · 리스크 · 매도 판단 · 상세 근거<br />플레이북 · 매매 지식 · 복기 질문</em>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
+            <p className="journal-review-depth-status" role="status">선택: {aiReviewType === 'advanced' ? '심화복기' : '일반복기'} · 실행 시 기존 복기권 정책이 적용됩니다.</p>
+            <div className="journal-review-actions">
             <button
               className="journal-secondary"
               disabled={aiLoading || adLoading || !selectedReviewTrades.length || !aiConsentAccepted}
-              onClick={() => {
-                setAiReviewType('basic');
-                loadAiReview(selectedReviewTrades, 'basic', { targetTradeId: selectedReviewGroup?.targetTradeId });
-              }}
+              onClick={startSelectedReview}
             >
-              {aiLoading && aiReviewType === 'basic' ? '분석중' : '일반 복기'}
+              {aiLoading ? '분석중' : `${aiReviewType === 'advanced' ? '심화복기' : '일반복기'} 실행`}
             </button>
             <button
               className="journal-secondary"
@@ -2776,14 +2806,9 @@ export default function TradingJournal({
             >
               {adLoading ? '광고 확인중' : '광고 보고 일반 복기'}
             </button>
-            <button
-              className="journal-secondary"
-              disabled={aiLoading || adLoading || !selectedReviewTrades.length || !aiConsentAccepted}
-              onClick={startAdvancedReview}
-            >
-              {aiLoading && aiReviewType === 'advanced' ? '분석중' : '심화 복기'}
-            </button>
-        </div>
+            </div>
+          </div>
+        )}
         <label className="journal-ai-consent">
           <input
             type="checkbox"

@@ -2300,7 +2300,7 @@
           "typescript/package.json": "4752e28a76cd00f882e0f054ce2d68ac58e0caceb98df0ec9d2a41ef3730240f",
           "typescript/lib/typescript.js": "ed5f8d1c93d625c9a1a2d282a6e0d3899aca2ac58e508828402a0203d335935b"
         },
-        "component_sha256": "2d79cce618f3264c1cfa04f4060c4eb42750ab60655d684d0e34fc22478603dc",
+        "component_sha256": "d33b4ad6e4003a5d33ab955d4b35ae692dffe0c31ac5e0b72f7bf4596fa4b202",
         "chart_component_sha256": "28a8ae4be58130b348b310318935dac040448092ecdb41c9bd87e43b4f26dab2",
         "chart_source_sha256": "148d9aa6d871731b661bbaeecc4ed25e7629209819ab9006599a5db6283b51ab",
         "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570"
@@ -2397,7 +2397,7 @@
           "src/components/CanonicalReviewRenderer.js"
         ],
         "vector_sha256": "68996d3776b3584561f0a3320d79f830e59f28d8b2c5f04a77a05bcdbdff2711",
-        "component_sha256": "2d79cce618f3264c1cfa04f4060c4eb42750ab60655d684d0e34fc22478603dc",
+        "component_sha256": "d33b4ad6e4003a5d33ab955d4b35ae692dffe0c31ac5e0b72f7bf4596fa4b202",
         "format_sha256": "3d8ee36c975a472e92a5d2ea4dabb73ae688fa8a6712ad3dac825dbef6a38ea9",
         "react_snapshot": {
           "react/package.json": "e631b6ac066fa758d9b36f226d96e8fc05425d1e8993ffcc99c6de2d6aa7268c",
@@ -2481,6 +2481,9 @@
           "rewarded review waits for server-side verification without consuming it while polling",
           "saved journal entry does not reveal stock details until a review is selected or completed",
           "pending PDF selection blocks review only in broker mode and survives direct input round trips",
+          "review depth cards appear only after direct selection or prepared broker input and selection preserves data",
+          "selected depth execution retains actual basic advanced API and canonical payload contracts for both input paths",
+          "depth selection never bypasses consent busy guards or existing advanced entitlement admission",
           "successful AI review is not replaced by a failed follow-up refresh",
           "AI review loading is prominent and selected chart follows trade selection",
           "approved review output keeps canonical text and hides consumed one-time trial balances",
@@ -2488,7 +2491,7 @@
           "account changes clear the previous account journal workspace before loading tenant data",
           "review archive entry uses a throttled interstitial policy"
         ],
-        "sha256": "570cf4515b7837550364bb5d4d65442d7ff72bb4b605dc4f9b77b41e9d468470",
+        "sha256": "fd85e2c5da85511e1a50bf2b83c431e8b26fff316194656c0658bbb37adb18a9",
         "reads": [
           "package.json",
           "scripts/journal-mobile-ux.test.js",
@@ -2524,7 +2527,7 @@
         "vector_sha256": "db225f6fcec00ec5def4e839652c8e76016216819009c86aad8676a51762f4e5",
         "chart_source_sha256": "148d9aa6d871731b661bbaeecc4ed25e7629209819ab9006599a5db6283b51ab",
         "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570",
-        "component_sha256": "2d79cce618f3264c1cfa04f4060c4eb42750ab60655d684d0e34fc22478603dc"
+        "component_sha256": "d33b4ad6e4003a5d33ab955d4b35ae692dffe0c31ac5e0b72f7bf4596fa4b202"
       },
       {
         "name": "test:review-selection",
