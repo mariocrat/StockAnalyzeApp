@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createContext, runInContext } from 'node:vm';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
@@ -9,6 +10,9 @@ import { aiReviewChartSource } from '../src/utils/aiReviewChartSource.js';
 import { buildAiReviewIdempotencyKey } from '../src/utils/aiReviewIdempotency.js';
 import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../src/utils/reviewDisplayContract.js';
 import { renderEvidence } from './review-render-evidence.js';
+import { prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
+import { validateTradeTimesForReview } from '../src/utils/brokerImport.js';
+import { buildReviewTradeGroups, reviewTradesForGroup } from '../src/utils/reviewTradeSelection.js';
 
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
 const journalSource = readFileSync(new URL('../src/components/TradingJournal.jsx', import.meta.url), 'utf8');
@@ -20,11 +24,28 @@ const journal = ast.statements.find(node => ts.isFunctionDeclaration(node) && no
 assert.ok(journal);
 const declarations = new Map(journal.body.statements.filter(ts.isVariableStatement)
   .flatMap(statement => statement.declarationList.declarations.map(declaration => [declaration.name.getText(ast), statement.getText(ast)])));
+const initializers = new Map(journal.body.statements.filter(ts.isVariableStatement)
+  .flatMap(statement => statement.declarationList.declarations.map(declaration => [declaration.name.getText(ast), declaration.initializer])));
 let liveExpression;
+let prepareButtonExpression;
+let directInputExpression;
+let brokerInputExpression;
+let basicReviewExpression;
+let advancedReviewExpression;
 function findLiveBody(node) {
   if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some(attribute =>
     ts.isJsxAttribute(attribute) && attribute.name.text === 'className'
       && attribute.initializer?.text === 'journal-ai-review')) liveExpression = node.getText(ast);
+  if (ts.isJsxElement(node) && node.openingElement.tagName.getText(ast) === 'button') {
+    const click = node.openingElement.attributes.properties.find(attribute =>
+      ts.isJsxAttribute(attribute) && attribute.name.text === 'onClick');
+    const expression = click?.initializer?.expression;
+    if (expression?.getText(ast) === 'prepareImportedTrades') prepareButtonExpression = node.getText(ast);
+    if (expression?.getText(ast).includes("setJournalInputMode('direct')")) directInputExpression = node.getText(ast);
+    if (expression?.getText(ast).includes("setJournalInputMode('broker')")) brokerInputExpression = node.getText(ast);
+    if (expression?.getText(ast).includes("setAiReviewType('basic')")) basicReviewExpression = node.getText(ast);
+    if (expression?.getText(ast) === 'startAdvancedReview') advancedReviewExpression = node.getText(ast);
+  }
   ts.forEachChild(node, findLiveBody);
 }
 findLiveBody(journal);
@@ -36,6 +57,25 @@ function compileProduction(source, bindings, result) {
     compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } });
   assert.deepEqual(compiled.diagnostics, []);
   return new Function(...Object.keys(bindings), `${compiled.outputText}\nreturn ${result};`)(...Object.values(bindings));
+}
+
+// Like the H4 OAuth harness, use an isolated VM namespace, not Function parameters.
+// Execute only original AST expressions: no injected declarations or mock handler names.
+function expressionInContext(expression, context) {
+  const compiled = ts.transpileModule(`(${expression})`, { fileName: 'production-expression.jsx', reportDiagnostics: true,
+    compilerOptions: { target: ts.ScriptTarget.ES2020, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.React } });
+  assert.deepEqual(compiled.diagnostics, []);
+  return runInContext(compiled.outputText, context, { timeout: 1000 });
+}
+
+function handlerInContext(name, context) {
+  const initializer = initializers.get(name);
+  assert.ok(initializer && ts.isArrowFunction(initializer), name);
+  return expressionInContext(initializer.getText(ast), context);
+}
+
+function syntheticContext(values) {
+  return createContext(values, { codeGeneration: { strings: false, wasm: false } });
 }
 
 function approvedResponse(document, reviewType = 'basic') {
@@ -207,9 +247,225 @@ test('rewarded review waits for server-side verification without consuming it wh
   assert.match(journalSource, /getRewardedAdStatus\('basic_review'\)/);
 });
 
-test('saved journal entry does not reveal stock details until a review is selected or completed', () => {
+async function verifyImportedPreparation() {
   assert.match(journalSource, /setShowCurrentReviewDetails\(false\)/);
   assert.match(journalSource, /showCurrentReviewDetails && <section className="journal-panel">/);
+  assert.ok(prepareButtonExpression);
+  const rows = [
+    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: '원익', side: 'buy', price: 7830, quantity: 1, tradeTime: null, timeUnknown: true },
+    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: '원익', side: 'sell', price: 7710, quantity: 1, tradeTime: null, timeUnknown: true },
+  ];
+  const savedTrades = [{ id: 41, name: 'Saved trade', ticker: '005930' }];
+  const state = { prepared: null, savedTrades, details: true };
+  const context = syntheticContext({ React, importedTrades: rows, loading: false, aiLoading: false, adLoading: false, prepareBrokerReviewInput,
+    setPreparedImportedReview: value => { state.prepared = value; },
+    setSelectedReviewGroupKey: value => { state.key = value; },
+    setShowCurrentReviewDetails: value => { state.details = value; },
+    setReview: value => { state.review = value; }, setAiReview: value => { state.aiReview = value; },
+    setMessage: value => { state.message = value; }, onClearImportedTrades: () => { state.cleared = true; },
+    setTrades: () => assert.fail('preparation must not replace saved trades'),
+    setReviewTargetQuery: () => {}, setReviewTargetFrom: () => {}, setReviewTargetTo: () => {},
+    setChartReview: () => {}, setActiveChartTicker: () => {},
+  });
+  // Preparation may call only the pure adapter, local setters and preview cleanup.
+  // Reject any newly introduced API/storage/AI call without providing those globals.
+  const allowedCalls = new Set(['prepareBrokerReviewInput', 'setPreparedImportedReview', 'setSelectedReviewGroupKey',
+    'setReviewTargetQuery', 'setReviewTargetFrom', 'setReviewTargetTo', 'setReview', 'setAiReview', 'setChartReview',
+    'setActiveChartTicker', 'setShowCurrentReviewDetails', 'onClearImportedTrades', 'setMessage']);
+  function checkPreparationCalls(node) {
+    if (ts.isCallExpression(node)) assert.ok(allowedCalls.has(node.expression.getText(ast)), node.expression.getText(ast));
+    ts.forEachChild(node, checkPreparationCalls);
+  }
+  checkPreparationCalls(initializers.get('prepareImportedTrades'));
+  context.prepareImportedTrades = handlerInContext('prepareImportedTrades', context);
+  function button() {
+    context.importedTimeValidation = validateTradeTimesForReview(context.importedTrades);
+    return expressionInContext(prepareButtonExpression, context);
+  }
+  let view = button();
+  assert.equal(view.props.disabled, true);
+  view.props.onClick(); // Even a stale/programmatic click revalidates, with zero effects.
+  assert.equal(state.prepared, null);
+  assert.equal(state.cleared, undefined);
+  context.importedTrades = rows.map((row, index) => ({ ...row, tradeTime: index ? '14:10' : '09:30', timeUnknown: false }));
+  view = button();
+  assert.equal(view.props.disabled, false);
+  assert.ok(renderToStaticMarkup(view).includes('선택한 거래로 복기 준비'));
+  view.props.onClick();
+  assert.equal(state.details, false);
+  assert.equal(state.aiReview, null);
+  assert.equal(state.review, null);
+  assert.equal(state.cleared, true);
+  assert.strictEqual(state.savedTrades, savedTrades);
+  assert.equal(state.key, 'broker:032940');
+  const selected = reviewTradesForGroup(state.prepared.groups, state.key);
+  assert.equal(selected.length, 2);
+  assert.ok(selected.every(row => !('id' in row) && !('previewId' in row) && !('timeUnknown' in row)));
+
+  // Run the unchanged actual AI handler with prepared input: only explicit execution
+  // may call AI, retaining consent, display support and the normal entitlement path.
+  for (const type of ['basic', 'advanced']) {
+    const requests = [];
+    const response = approvedResponse(vectors.valid.find(value => value.id === 'normal_bold').document, type);
+    const io = syntheticContext({ trades: savedTrades, aiReviewType: type, aiConsentAccepted: true,
+      apiBase: 'https://synthetic.invalid', authHeaders: { Authorization: 'Bearer synthetic' }, authSession: null,
+      aiReviewInFlightRef: { current: false }, basicReviewFocusIndexRef: { current: 0 }, BASIC_REVIEW_FOCUSES: ['balanced'],
+      DEV_TOOLS_ENABLED: false, DEV_ACCESS_PLAN: 'free', DEV_AD_REWARD_TOKEN: '', DEV_ENTITLEMENT_TOKEN: '',
+      buildAiReviewIdempotencyKey, aiReviewChartSource, reviewDisplayHeaders, reviewDisplayFailureMessage,
+      setAiReview: context.setAiReview, setReview: context.setReview, setMessage: context.setMessage,
+      setShowCurrentReviewDetails: context.setShowCurrentReviewDetails, setActiveChartTicker: () => {},
+      setAiLoading: () => {}, setEntitlements: () => {}, loadReviewHistory: async () => {}, loadDataSummary: async () => {},
+      axios: { async post(url, payload, config) { requests.push({ url, payload, config });
+        return { data: url.endsWith('/ai-review-once') ? response : {} }; } },
+    });
+    io.loadReviewContextForTrades = handlerInContext('loadReviewContextForTrades', io);
+    const load = handlerInContext('loadAiReview', io);
+    await load(selected, type, { targetTradeId: state.prepared.groups[0].targetTradeId });
+    assert.deepEqual(requests.map(value => value.url.split('/').at(-1)), ['ai-review-once', 'review-once']);
+    assert.deepEqual(requests[0].payload.trades, selected);
+    assert.equal(requests[0].payload.target_trade_id, null);
+    assert.equal(requests[0].payload.review_type, type);
+    assert.deepEqual(requests[0].config.headers, reviewDisplayHeaders({ ...io.authHeaders,
+      'X-Idempotency-Key': requests[0].config.headers['X-Idempotency-Key'] }));
+    assert.strictEqual(state.aiReview.display_snapshot, response.display_snapshot);
+  }
+  // Switching to direct input removes only the import overlay; saved rows survive.
+  context.journalInputMode = 'broker';
+  context.preparedImportedReview = state.prepared;
+  context.setJournalInputMode = value => { state.mode = value; };
+  const direct = expressionInContext(directInputExpression, context);
+  direct.props.onClick();
+  assert.equal(state.mode, 'direct');
+  assert.equal(state.prepared, null);
+  assert.strictEqual(state.savedTrades, savedTrades);
+}
+
+test('saved journal entry does not reveal stock details until a review is selected or completed', async () => {
+  try {
+    await verifyImportedPreparation();
+  } catch (error) {
+    // The official reporter keeps case/status only; preserve the original stack in stderr.
+    console.error(error?.stack || String(error));
+    throw error;
+  }
+});
+
+function verifyInputModeSelection() {
+  for (const expression of [directInputExpression, brokerInputExpression, basicReviewExpression, advancedReviewExpression]) {
+    assert.ok(expression);
+  }
+  const pending = [
+    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic import', side: 'buy', price: 7830, quantity: 1, tradeTime: null, timeUnknown: true },
+    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic import', side: 'sell', price: 7710, quantity: 1, tradeTime: null, timeUnknown: true },
+  ];
+  const saved = [
+    { id: 41, trade_date: '2026-09-01T09:30', ticker: '005930', name: 'Synthetic saved', side: 'buy', price: 10000, quantity: 1 },
+    { id: 42, trade_date: '2026-09-01T14:10', ticker: '005930', name: 'Synthetic saved', side: 'sell', price: 10100, quantity: 1 },
+  ];
+  const draft = { ticker: '000660', quantity: '2', memo: 'Unsaved direct input' };
+  const context = syntheticContext({ React, importedTrades: pending, trades: saved, form: draft,
+    journalInputMode: 'broker', preparedImportedReview: null, selectedReviewGroupKey: '',
+    loading: false, aiLoading: false, adLoading: false, aiConsentAccepted: true, aiReviewType: 'basic',
+    buildReviewTradeGroups, reviewTradesForGroup, prepareBrokerReviewInput, validateTradeTimesForReview,
+    useMemo: compute => compute(),
+    setTrades: () => assert.fail('mode switching must not replace saved trades'),
+    setForm: () => assert.fail('mode switching must not replace the direct-input draft'),
+    setReviewTargetQuery: () => {}, setReviewTargetFrom: () => {}, setReviewTargetTo: () => {},
+    setChartReview: () => {}, setActiveChartTicker: () => {},
+  });
+  context.setJournalInputMode = value => { context.journalInputMode = value; };
+  context.setPreparedImportedReview = value => { context.preparedImportedReview = value; };
+  context.setSelectedReviewGroupKey = value => { context.selectedReviewGroupKey = value; };
+  context.setShowCurrentReviewDetails = value => { context.details = value; };
+  context.setReview = value => { context.review = value; };
+  context.setAiReview = value => { context.aiReview = value; };
+  context.setMessage = value => { context.message = value; };
+  context.onClearImportedTrades = () => { context.importedTrades = []; };
+  context.prepareImportedTrades = handlerInContext('prepareImportedTrades', context);
+  context.chooseReviewGroup = handlerInContext('chooseReviewGroup', context);
+  context.startAdvancedReview = handlerInContext('startAdvancedReview', context);
+  function recalculateSelection() {
+    for (const name of ['reviewTradeGroups', 'selectedReviewGroup', 'selectedReviewTrades', 'importedTimeValidation']) {
+      context[name] = expressionInContext(initializers.get(name).getText(ast), context);
+    }
+  }
+  function expectActionsDisabled(disabled) {
+    for (const expression of [basicReviewExpression, advancedReviewExpression]) {
+      assert.equal(expressionInContext(expression, context).props.disabled, disabled);
+    }
+  }
+  function selectSaved() {
+    recalculateSelection();
+    context.chooseReviewGroup(context.reviewTradeGroups.find(group => group.ticker === '005930').key);
+    recalculateSelection();
+    assert.deepEqual(context.selectedReviewTrades, saved);
+    assert.equal(context.selectedReviewGroup.targetTradeId, 42);
+    expectActionsDisabled(false);
+  }
+  function assertDirectDataPreserved() {
+    assert.strictEqual(context.trades, saved);
+    assert.strictEqual(context.form, draft);
+    assert.equal(context.form.memo, 'Unsaved direct input');
+  }
+
+  // Exact Major regression: selected PDF rows are still pending when switching modes.
+  recalculateSelection();
+  assert.equal(context.selectedReviewTrades.length, 0);
+  expectActionsDisabled(true);
+  assert.equal(expressionInContext(prepareButtonExpression, context).props.disabled, true);
+  expressionInContext(directInputExpression, context).props.onClick();
+  assert.equal(context.journalInputMode, 'direct');
+  assert.strictEqual(context.importedTrades, pending);
+  selectSaved();
+  assertDirectDataPreserved();
+
+  // Returning to broker preserves the same rows and blocks review until preparation.
+  expressionInContext(brokerInputExpression, context).props.onClick();
+  recalculateSelection();
+  assert.equal(context.journalInputMode, 'broker');
+  assert.strictEqual(context.importedTrades, pending);
+  assert.equal(context.selectedReviewTrades.length, 0);
+  expectActionsDisabled(true);
+  const blocked = expressionInContext(prepareButtonExpression, context);
+  assert.equal(blocked.props.disabled, true);
+  blocked.props.onClick(); // Handler also refuses a stale/programmatic invalid click.
+  assert.equal(context.preparedImportedReview, null);
+  assert.strictEqual(context.importedTrades, pending);
+  assertDirectDataPreserved();
+
+  // Prepared input still selects import rows, then direct input restores saved groups.
+  context.importedTrades = pending.map((row, index) => ({ ...row, tradeTime: index ? '14:10' : '09:30', timeUnknown: false }));
+  recalculateSelection();
+  const ready = expressionInContext(prepareButtonExpression, context);
+  assert.equal(ready.props.disabled, false);
+  ready.props.onClick();
+  recalculateSelection();
+  assert.equal(context.selectedReviewGroup.key, 'broker:032940');
+  assert.equal(context.selectedReviewGroup.targetTradeId, null);
+  assert.equal(context.selectedReviewTrades.length, 2);
+  assert.ok(context.selectedReviewTrades.every(row => !('id' in row) && !('previewId' in row)));
+  expectActionsDisabled(false);
+  expressionInContext(directInputExpression, context).props.onClick();
+  assert.equal(context.preparedImportedReview, null);
+  selectSaved();
+  assertDirectDataPreserved();
+
+  // Existing direct-only users have no pending/prepared overlay.
+  context.selectedReviewGroupKey = '';
+  recalculateSelection();
+  expectActionsDisabled(true);
+  assert.equal(context.importedTrades.length, 0);
+  selectSaved();
+  assertDirectDataPreserved();
+}
+
+test('pending PDF selection blocks review only in broker mode and survives direct input round trips', () => {
+  try {
+    verifyInputModeSelection();
+  } catch (error) {
+    console.error(error?.stack || String(error));
+    throw error;
+  }
 });
 
 test('successful AI review is not replaced by a failed follow-up refresh', async () => {

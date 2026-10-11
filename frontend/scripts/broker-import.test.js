@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
+import { prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
 import {
   BROKER_STATEMENT_MESSAGES,
   BROKER_STATEMENT_STATUS,
@@ -402,6 +403,52 @@ test('CTA policy enables only reviewable selected trade sets', () => {
   ]), true);
   assert.equal(canTransfer([trade('buy')]), true);
   assert.equal(canTransfer([trade('buy'), trade('sell', { tradeDate: '2026-09-03', side: 'sell' })]), true);
+
+  const parsed = parseBrokerStatement(tossLayoutExtraction().text, tossLayoutExtraction()).trades
+    .map(row => ({ ...row, ...createTradeTimeState(row.tradeTime) }));
+  const before = structuredClone(parsed);
+  assert.throws(() => prepareBrokerReviewInput(parsed), /체결시간/);
+  const timed = parsed.map(row => ({ ...row, tradeTime: row.side === 'buy' ? '09:30' : '14:10', timeUnknown: false }));
+  const prepared = prepareBrokerReviewInput(timed);
+  assert.equal(prepared.groups.length, 1);
+  const group = prepared.groups[0];
+  assert.equal(group.targetTradeId, null);
+  assert.deepEqual(group.trades.map(row => [row.ticker, row.side, row.price, row.quantity, row.trade_date]), [
+    ['032940', 'buy', 7830, 1, '2026-09-02T09:30'],
+    ['032940', 'sell', 7710, 1, '2026-09-02T14:10'],
+  ]);
+  for (const row of group.trades) {
+    assert.deepEqual(Object.keys(row).sort(), ['trade_date', 'ticker', 'name', 'side', 'price', 'quantity', 'fee', 'tax', 'memo', 'source'].sort());
+    assert.equal('id' in row, false);
+  }
+  assert.deepEqual(new Set(group.previewTrades.map(row => row.previewId)), new Set(parsed.map(row => row.id)));
+  assert.deepEqual(parsed, before);
+
+  // All of BUY/SELL/BUY require explicit times; rows never become inferred episodes.
+  const mixed = [timed.find(row => row.side === 'buy'), timed.find(row => row.side === 'sell'),
+    { ...timed.find(row => row.side === 'buy'), id: 'pdf-trade-third', tradeTime: null, timeUnknown: true }];
+  assert.throws(() => prepareBrokerReviewInput(mixed), /체결시간/);
+  const repeated = prepareBrokerReviewInput(mixed.map((row, index) => ({ ...row, tradeTime: `1${index}:00`, timeUnknown: false })));
+  assert.equal(repeated.groups.length, 1);
+  assert.equal(repeated.groups[0].trades.length, 3);
+
+  for (const side of ['buy', 'sell']) {
+    const optional = parsed.filter(row => row.side === side);
+    const rows = [optional[0], { ...optional[0], id: 'pdf-trade-repeat' }];
+    const result = prepareBrokerReviewInput(rows).groups[0];
+    assert.equal(result.trades.length, 2);
+    assert.ok(result.previewTrades.every(row => row.timeUnknown && row.tradeTime === null));
+    assert.ok(result.trades.every(row => row.trade_date === '2026-09-02'));
+  }
+  const dates = parsed.map((row, index) => ({ ...row, tradeDate: `2026-09-0${index + 2}` }));
+  assert.equal(prepareBrokerReviewInput(dates).groups[0].trades.length, 2);
+  const unknownWithStaleTime = { ...parsed[0], tradeTime: '10:00', timeUnknown: true };
+  assert.equal(prepareBrokerReviewInput([unknownWithStaleTime]).groups[0].trades[0].trade_date, '2026-09-02');
+  assert.throws(() => prepareBrokerReviewInput([]), /선택/);
+  assert.throws(() => prepareBrokerReviewInput([{ ...parsed[0], price: NaN }]), /확인/);
+  assert.throws(() => prepareBrokerReviewInput([{ ...parsed[0], tradeDate: '2026-02-30' }]), /확인/);
+  const separate = prepareBrokerReviewInput([parsed[0], { ...parsed[1], symbol: '005930', stockName: '삼성전자' }]);
+  assert.equal(separate.groups.length, 2);
 });
 
 test('does not merge identical repeated rows', () => {

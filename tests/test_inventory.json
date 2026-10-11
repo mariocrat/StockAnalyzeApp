@@ -2300,10 +2300,10 @@
           "typescript/package.json": "4752e28a76cd00f882e0f054ce2d68ac58e0caceb98df0ec9d2a41ef3730240f",
           "typescript/lib/typescript.js": "ed5f8d1c93d625c9a1a2d282a6e0d3899aca2ac58e508828402a0203d335935b"
         },
-        "component_sha256": "27525d5ec5b0562374a9a0d1c62f36acbab751bfec9abdf52e95932c6f86c7c7",
-        "chart_component_sha256": "68fc2385abfd9010f03ddf7adb73e4391feef35c2163c2e1afda3f32e896a707",
-        "chart_source_sha256": "08d07ed7062049a133eb2cb29a211b10d837d10bbae933bc84541d2059948d8e",
-        "display_contract_sha256": "c9e5c285e161944d0f8d8facdc826fbf96475f72107881f849b3e23cf42eb827"
+        "component_sha256": "2d79cce618f3264c1cfa04f4060c4eb42750ab60655d684d0e34fc22478603dc",
+        "chart_component_sha256": "28a8ae4be58130b348b310318935dac040448092ecdb41c9bd87e43b4f26dab2",
+        "chart_source_sha256": "148d9aa6d871731b661bbaeecc4ed25e7629209819ab9006599a5db6283b51ab",
+        "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570"
       },
       {
         "name": "test:ai-format",
@@ -2353,8 +2353,8 @@
           "src/components/CanonicalReviewRenderer.js",
           "scripts/review-render-evidence.js"
         ],
-        "vector_sha256": "47049fd78e894e295e0781f5c0770f2912bdd0cf86d0d93c7d5d71510ef76e76",
-        "component_sha256": "c9e5c285e161944d0f8d8facdc826fbf96475f72107881f849b3e23cf42eb827",
+        "vector_sha256": "db225f6fcec00ec5def4e839652c8e76016216819009c86aad8676a51762f4e5",
+        "component_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570",
         "react_snapshot": {
           "react/package.json": "e631b6ac066fa758d9b36f226d96e8fc05425d1e8993ffcc99c6de2d6aa7268c",
           "react/index.js": "60caffdecbdc5db3bc4ec4e83df9488345ccb271d07533b9210bf5750918d97e",
@@ -2397,7 +2397,7 @@
           "src/components/CanonicalReviewRenderer.js"
         ],
         "vector_sha256": "68996d3776b3584561f0a3320d79f830e59f28d8b2c5f04a77a05bcdbdff2711",
-        "component_sha256": "27525d5ec5b0562374a9a0d1c62f36acbab751bfec9abdf52e95932c6f86c7c7",
+        "component_sha256": "2d79cce618f3264c1cfa04f4060c4eb42750ab60655d684d0e34fc22478603dc",
         "format_sha256": "3d8ee36c975a472e92a5d2ea4dabb73ae688fa8a6712ad3dac825dbef6a38ea9",
         "react_snapshot": {
           "react/package.json": "e631b6ac066fa758d9b36f226d96e8fc05425d1e8993ffcc99c6de2d6aa7268c",
@@ -2415,7 +2415,7 @@
           "typescript/lib/typescript.js": "ed5f8d1c93d625c9a1a2d282a6e0d3899aca2ac58e508828402a0203d335935b"
         },
         "release_eval_sha256": [],
-        "display_contract_sha256": "c9e5c285e161944d0f8d8facdc826fbf96475f72107881f849b3e23cf42eb827"
+        "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570"
       },
       {
         "name": "test:splash-loading",
@@ -2480,6 +2480,7 @@
           "general review balance distinguishes immediate free uses from rewarded-ad capacity",
           "rewarded review waits for server-side verification without consuming it while polling",
           "saved journal entry does not reveal stock details until a review is selected or completed",
+          "pending PDF selection blocks review only in broker mode and survives direct input round trips",
           "successful AI review is not replaced by a failed follow-up refresh",
           "AI review loading is prominent and selected chart follows trade selection",
           "approved review output keeps canonical text and hides consumed one-time trial balances",
@@ -2487,7 +2488,7 @@
           "account changes clear the previous account journal workspace before loading tenant data",
           "review archive entry uses a throttled interstitial policy"
         ],
-        "sha256": "06c3913da7dc0ca20dd82f6ac92a757492e586443d84964e242e5d6bada8274a",
+        "sha256": "570cf4515b7837550364bb5d4d65442d7ff72bb4b605dc4f9b77b41e9d468470",
         "reads": [
           "package.json",
           "scripts/journal-mobile-ux.test.js",
@@ -2499,7 +2500,10 @@
           "src/components/CanonicalReviewRenderer.js",
           "src/utils/aiReviewChartSource.js",
           "src/utils/aiReviewIdempotency.js",
-          "src/utils/reviewDisplayContract.js"
+          "src/utils/reviewDisplayContract.js",
+          "src/utils/brokerReviewInput.js",
+          "src/utils/brokerImport.js",
+          "src/utils/reviewTradeSelection.js"
         ],
         "release_eval_sha256": [],
         "react_snapshot": {
@@ -2517,10 +2521,10 @@
           "typescript/package.json": "4752e28a76cd00f882e0f054ce2d68ac58e0caceb98df0ec9d2a41ef3730240f",
           "typescript/lib/typescript.js": "ed5f8d1c93d625c9a1a2d282a6e0d3899aca2ac58e508828402a0203d335935b"
         },
-        "vector_sha256": "47049fd78e894e295e0781f5c0770f2912bdd0cf86d0d93c7d5d71510ef76e76",
-        "chart_source_sha256": "08d07ed7062049a133eb2cb29a211b10d837d10bbae933bc84541d2059948d8e",
-        "display_contract_sha256": "c9e5c285e161944d0f8d8facdc826fbf96475f72107881f849b3e23cf42eb827",
-        "component_sha256": "27525d5ec5b0562374a9a0d1c62f36acbab751bfec9abdf52e95932c6f86c7c7"
+        "vector_sha256": "db225f6fcec00ec5def4e839652c8e76016216819009c86aad8676a51762f4e5",
+        "chart_source_sha256": "148d9aa6d871731b661bbaeecc4ed25e7629209819ab9006599a5db6283b51ab",
+        "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570",
+        "component_sha256": "2d79cce618f3264c1cfa04f4060c4eb42750ab60655d684d0e34fc22478603dc"
       },
       {
         "name": "test:review-selection",
@@ -2568,7 +2572,7 @@
           "sort helper preserves source order when date and time are equal",
           "local PDF flow has no client upload, API, or browser storage call"
         ],
-        "sha256": "73513c75acd5a8a613a63506baffe213bfed1a508b51b78847cbed7b9e133e60",
+        "sha256": "250f14a64787e7a4d5aaef738b1aa042d336e8f7908576c52db448b0614fbb26",
         "reads": [
           "package.json",
           "scripts/broker-import.test.js",
@@ -2576,7 +2580,8 @@
           "src/components/BrokerImport.jsx",
           "src/components/TradingJournal.jsx",
           "src/utils/brokerImport.js",
-          "src/utils/pdfTextExtractor.js"
+          "src/utils/pdfTextExtractor.js",
+          "src/utils/brokerReviewInput.js"
         ],
         "release_eval_sha256": []
       },

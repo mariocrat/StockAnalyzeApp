@@ -18,6 +18,7 @@ import { aiReviewChartSource } from '../utils/aiReviewChartSource';
 import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
+import { prepareBrokerReviewInput } from '../utils/brokerReviewInput';
 import {
   buildReviewTradeGroups,
   filterReviewTradeGroups,
@@ -236,6 +237,7 @@ export default function TradingJournal({
 }) {
   const oneTimeMode = import.meta.env.VITE_JOURNAL_STORAGE_MODE !== 'persisted';
   const [trades, setTrades] = useState([]);
+  const [preparedImportedReview, setPreparedImportedReview] = useState(null);
   const [review, setReview] = useState(null);
   const [aiReview, setAiReview] = useState(null);
   const [, setChartReview] = useState({ charts: [] });
@@ -288,9 +290,12 @@ export default function TradingJournal({
   const aiReviewInFlightRef = useRef(false);
   const basicReviewFocusIndexRef = useRef(0);
   const setMessage = (value) => setRawMessage(toKoreanUserMessage(value));
-  const reviewTradeGroups = useMemo(() => buildReviewTradeGroups(trades), [trades]);
+  const reviewTradeGroups = useMemo(
+    () => preparedImportedReview?.groups || buildReviewTradeGroups(trades),
+    [preparedImportedReview, trades],
+  );
   const selectedReviewGroup = reviewTradeGroups.find(group => group.key === selectedReviewGroupKey) || null;
-  const selectedReviewTrades = reviewTradesForGroup(reviewTradeGroups, selectedReviewGroupKey);
+  const selectedReviewTrades = journalInputMode === 'broker' && importedTrades.length ? [] : reviewTradesForGroup(reviewTradeGroups, selectedReviewGroupKey);
   const importedTimeValidation = useMemo(
     () => validateTradeTimesForReview(importedTrades),
     [importedTrades],
@@ -548,6 +553,7 @@ export default function TradingJournal({
       ]);
       const charts = chartRes.data || { charts: [] };
       const selectedGroupKey = buildReviewTradeGroups(reviewTrades)[0]?.key || '';
+      setPreparedImportedReview(null);
       setTrades(reviewTrades);
       setSelectedReviewGroupKey(selectedGroupKey);
       setReviewTargetQuery('');
@@ -648,6 +654,7 @@ export default function TradingJournal({
   };
 
   const resetJournalWorkspace = () => {
+    setPreparedImportedReview(null);
     setTrades([]);
     setReview(null);
     setAiReview(null);
@@ -1472,6 +1479,27 @@ export default function TradingJournal({
 
   const updateForm = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
+  const prepareImportedTrades = () => {
+    if (loading || aiLoading || adLoading) return;
+    try {
+      const prepared = prepareBrokerReviewInput(importedTrades);
+      setPreparedImportedReview(prepared);
+      setSelectedReviewGroupKey(prepared.groups[0].key);
+      setReviewTargetQuery('');
+      setReviewTargetFrom('');
+      setReviewTargetTo('');
+      setReview(null);
+      setAiReview(null);
+      setChartReview({ charts: [] });
+      setActiveChartTicker('');
+      setShowCurrentReviewDetails(false);
+      onClearImportedTrades?.();
+      setMessage('선택한 거래를 복기 입력으로 준비했습니다. 아래에서 일반 또는 심화 복기를 선택해 주세요. 거래는 저장되지 않았습니다.');
+    } catch (err) {
+      setMessage(err.message);
+    }
+  };
+
   useEffect(() => {
     const query = stockQuery.trim();
     if (suppressStockSearchRef.current) {
@@ -2006,7 +2034,16 @@ export default function TradingJournal({
                 type="button"
                 className={journalInputMode === 'direct' ? 'journal-input-method active' : 'journal-input-method'}
                 aria-pressed={journalInputMode === 'direct'}
-                onClick={() => setJournalInputMode('direct')}
+                onClick={() => {
+                  setJournalInputMode('direct');
+                  if (preparedImportedReview) {
+                    setPreparedImportedReview(null);
+                    setSelectedReviewGroupKey('');
+                    setReview(null);
+                    setAiReview(null);
+                    setShowCurrentReviewDetails(false);
+                  }
+                }}
               >
                 <span className="journal-input-method-label">직접 입력</span>
                 <strong>직접 매매정보를 입력합니다.</strong>
@@ -2045,8 +2082,8 @@ export default function TradingJournal({
                       role={importedTimeValidation.valid ? 'status' : 'alert'}
                     >
                       <strong>{importedTimeValidation.valid ? '체결시간을 확인했습니다' : '⚠ 체결시간이 필요합니다'}</strong>
-                      <span>같은 날 매수와 매도가 함께 선택되었습니다.</span>
-                      <p>정확한 거래 순서를 확인하려면 체결시간이 필요합니다.</p>
+                      <span>같은 날 같은 종목의 매수와 매도가 함께 선택되어 있습니다.</span>
+                      <p>정확한 거래 순서를 위해 해당 거래의 체결시간을 입력해주세요.</p>
                       {importedTimeValidation.valid && <small>필수 거래의 체결시간이 모두 입력되었습니다.</small>}
                     </div>
                   )}
@@ -2093,12 +2130,24 @@ export default function TradingJournal({
                       );
                     })}
                   </div>
+                  <button
+                    type="button"
+                    className="journal-secondary"
+                    disabled={loading || aiLoading || adLoading || !importedTimeValidation.valid}
+                    onClick={prepareImportedTrades}
+                  >
+                    선택한 거래로 복기 준비
+                  </button>
                 </div>
               ) : (
                 <Suspense fallback={<div className="themes-loading">거래내역 불러오기를 준비하는 중입니다.</div>}>
                   <BrokerImportPanel
                     embedded
-                    onImportToJournal={nextTrades => onImportedTradesChange?.(nextTrades)}
+                    onImportToJournal={nextTrades => {
+                      setPreparedImportedReview(null);
+                      setSelectedReviewGroupKey('');
+                      onImportedTradesChange?.(nextTrades);
+                    }}
                   />
                 </Suspense>
               )}
@@ -2643,6 +2692,7 @@ export default function TradingJournal({
           <h3>AI 복기</h3>
         </div>
         <div className="journal-review-target">
+          {preparedImportedReview && <p role="status">PDF 선택 거래 · 저장하지 않은 복기 입력입니다. 거래별 체결은 그대로 유지됩니다.</p>}
           <div className="journal-review-target-heading">
             <strong>복기할 매매 선택</strong>
             <span>{selectedReviewGroup ? '1개 선택됨' : '선택 필요'}</span>
@@ -2803,13 +2853,13 @@ export default function TradingJournal({
       {showCurrentReviewDetails && <section className="journal-panel">
         <h3>선택한 매매 기록</h3>
         <div className="journal-table">
-          {selectedReviewTrades.map(trade => (
-            <div className="journal-row" key={trade.id}>
+          {(selectedReviewGroup?.previewTrades || selectedReviewTrades).map(trade => (
+            <div className="journal-row" key={trade.previewId ?? trade.id}>
               <span>{trade.trade_date}</span>
               <span>{trade.name} <em>{trade.ticker}</em></span>
               <span className={trade.side === 'buy' ? 'positive' : 'negative'}>{sideLabels[trade.side]}</span>
               <span>{money(trade.price)} x {trade.quantity}</span>
-              <button onClick={() => removeTrade(trade.id)}>삭제</button>
+              {!preparedImportedReview && <button onClick={() => removeTrade(trade.id)}>삭제</button>}
             </div>
           ))}
         </div>
