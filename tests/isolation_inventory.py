@@ -26,7 +26,7 @@ COORDINATORS = frozenset("tests." + name for name in (
 ))
 STAGE1 = "tests.test_full_test_entrypoint"
 CLASSIFICATIONS = ("A1/foundation/helper", "migrated", "OUT")
-BASELINE = dict(zip(CLASSIFICATIONS, (35, 885, 22)))
+BASELINE = dict(zip(CLASSIFICATIONS, (35, 890, 22)))
 
 
 class InventoryError(ValueError):
@@ -175,6 +175,8 @@ NODE_COMMAND = re.compile(r"node --test (scripts/[A-Za-z0-9_-]+\.test\.js)\Z")
 NODE_SUPPORT = ("scripts/test-result-reporter.mjs", "scripts/test-entrypoint-guard.mjs")
 NODE_REVIEW_ENTRY = "test:canonical-review-renderer"
 NODE_REVIEW_VECTOR = "scripts/fixtures/review-display-v1.json"
+NODE_V2_SCHEMA = "scripts/fixtures/review-display-v2.schema.json"
+NODE_V2_VECTOR = "scripts/fixtures/review-display-v2-vectors.json"
 NODE_REVIEW_COMPONENT = "src/components/CanonicalReviewRenderer.js"
 NODE_LEGACY_ENTRY = "test:legacy-review-cross-contract"
 NODE_LEGACY_VECTOR = "scripts/fixtures/review-legacy-compatibility-v1.json"
@@ -238,7 +240,8 @@ def node_source_path(frontend, relative):
         raise InventoryError("invalid Node source path")
     path = Path(relative)
     special = {"package.json", "capacitor.config.json", ".env.example", ".env.release.example",
-               NODE_REVIEW_VECTOR, NODE_LEGACY_VECTOR, "scripts/fixtures/review-compatibility-v1.json"}
+               NODE_REVIEW_VECTOR, NODE_LEGACY_VECTOR, "scripts/fixtures/review-compatibility-v1.json",
+               NODE_V2_SCHEMA, NODE_V2_VECTOR}
     source = (relative.startswith(("scripts/", "src/", "android/")) or relative in {"index.html", "vite.config.js"})
     if (path.is_absolute() or not (relative in special or source and path.suffix in
             {".js", ".mjs", ".jsx", ".css", ".html", ".xml", ".java", ".gradle"})

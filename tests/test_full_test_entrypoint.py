@@ -56,12 +56,19 @@ def node_regression_suite(executable):
         def test_inventory_package_source_manifest_exact_and_fail_closed(self):
             live = inventory.load_node_inventory()
             self.assertEqual(len(live), 23)
-            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 233)
+            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 248)
             self.assertIn("test:broker-import", live)
             self.assertIn("test:mobile-bundle", live)
             review = live["test:canonical-review-renderer"]
             frontend = inventory.REPOSITORY / "frontend"
             self.assertEqual(len(inventory.validated_react_snapshot(frontend, review)), 9)
+            for fixture in (inventory.NODE_V2_SCHEMA, inventory.NODE_V2_VECTOR):
+                self.assertIn(fixture, review["reads"])
+                self.assertEqual(inventory.node_source_path(frontend, fixture), frontend / fixture)
+            for unregistered in ("scripts/fixtures/other.json", "scripts/fixtures/review-display-v2.schema.json.bak",
+                                 "scripts/fixtures/../private.json"):
+                with self.subTest(unregistered=unregistered), self.assertRaises(inventory.InventoryError):
+                    inventory.node_source_path(frontend, unregistered)
             for field in ("vector_sha256", "component_sha256"):
                 broken = copy.deepcopy(review)
                 broken[field] = "0" * 64
@@ -361,14 +368,14 @@ class FullTestEntrypointTest(unittest.TestCase):
     def test_live_inventory_preserves_baseline_and_counts_source_probes(self):
         entries = inventory.load_inventory()
         summary = inventory.inventory_summary(entries)
-        self.assertEqual(summary["baseline_direct"], 942)
+        self.assertEqual(summary["baseline_direct"], 947)
         self.assertEqual(summary["baseline_classification"], inventory.BASELINE)
         source = inventory.source_inventory(runner.REPOSITORY)
         probes = {name: cases for name, cases in source.items() if entries[name]["execution_role"] == "probe"}
         self.assertEqual(sum(map(len, probes.values())), 18)
         self.assertEqual(summary["child_probes"], 18)
         self.assertEqual(len(probes), 6)
-        self.assertEqual(summary["direct"], 942 + len(entries[inventory.STAGE1]["cases"]))
+        self.assertEqual(summary["direct"], 947 + len(entries[inventory.STAGE1]["cases"]))
         self.assertNotIn("tests.diagnose_phase_a_probe", entries)
 
     def test_manifest_rejects_missing_duplicate_zero_and_invalid_skip(self):

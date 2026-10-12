@@ -1268,7 +1268,12 @@
         "ReviewDisplayContractTest.test_shared_valid_vectors_compile_and_flatten_exactly",
         "ReviewDisplayContractTest.test_unclosed_nested_and_unsupported_markup_stay_literal",
         "ReviewDisplayContractTest.test_unicode_and_whitespace_are_not_normalized",
-        "ReviewDisplayContractTest.test_unknown_structural_fields_at_every_level_reject"
+        "ReviewDisplayContractTest.test_unknown_structural_fields_at_every_level_reject",
+        "ReviewDisplayContractTest.test_v2_atomic_bundle_and_corruption_vectors",
+        "ReviewDisplayContractTest.test_v2_replay_generation_and_expiry_contract",
+        "ReviewDisplayContractTest.test_v2_shared_documents_and_negative_mutations",
+        "ReviewDisplayContractTest.test_v2_whole_document_identity_and_independent_confidence",
+        "ReviewDisplayContractTest.test_v2_witnesses_match_existing_v1_compiler_and_source_coverage"
       ],
       "skips": {}
     },
@@ -2335,6 +2340,11 @@
         "file": "scripts/canonical-review-renderer.test.js",
         "profile": "standard",
         "cases": [
+          "v2 shared body vectors enforce exact roles ownership order and bounds",
+          "v2 atomic bundles reject either corrupt side without v1 downgrade",
+          "v2 semantic witnesses cover text slots and backend objective without inference",
+          "v2 approval identity binds nontext state even when canonical text is unchanged",
+          "v2 replay separates capability from execution and limits expiry guarantees",
           "real React renderer matches every shared valid canonical text exactly",
           "mid-word bold counterexample renders only 수 in strong",
           "normal bold renders exact 체결 기록 strong and following text",
@@ -2346,13 +2356,16 @@
           "nested structure and bounds fail closed in the actual component",
           "the same renderer and validator require the explicit approved surface for chart documents"
         ],
-        "sha256": "d5548ed65fb169c3cb52af176262676e27bddcf166597470656d8ab2c229fed6",
+        "sha256": "c7fe7b6e1bbf08d979af6f31c1b373fdb2a034c3648e49f5fa770cb5e5d6eeb4",
         "reads": [
           "package.json",
           "scripts/canonical-review-renderer.test.js",
           "scripts/fixtures/review-display-v1.json",
           "src/components/CanonicalReviewRenderer.js",
-          "scripts/review-render-evidence.js"
+          "scripts/review-render-evidence.js",
+          "scripts/review-display-v2-reference.js",
+          "scripts/fixtures/review-display-v2.schema.json",
+          "scripts/fixtures/review-display-v2-vectors.json"
         ],
         "vector_sha256": "db225f6fcec00ec5def4e839652c8e76016216819009c86aad8676a51762f4e5",
         "component_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570",

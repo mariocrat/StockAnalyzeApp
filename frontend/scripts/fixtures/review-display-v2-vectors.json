@@ -1,0 +1,2695 @@
+{
+  "contract_version": "slice1.1",
+  "witnesses": [
+    {
+      "id": "basic-high",
+      "source_identity": "basic-high",
+      "objective_identity": "basic-high-objective",
+      "source": {
+        "schema_version": "trade-review.v1",
+        "review_type": "basic",
+        "objective": {
+          "symbol": {
+            "ticker": "005930",
+            "name": "합성테스트"
+          },
+          "period": {
+            "first_trade_date": "2026-01-02T09:10",
+            "last_trade_date": "2026-01-02T10:10"
+          },
+          "result": {
+            "trade_count": 2,
+            "closed_count": 1,
+            "realized_pnl": 29967,
+            "realized_return_pct": 1.33,
+            "win_rate_pct": 100,
+            "weighted_buy_price": 7000,
+            "weighted_sell_price": 7100,
+            "total_fee": 20,
+            "total_tax": 13,
+            "buy_fill_count": 1,
+            "sell_fill_count": 1,
+            "open_quantity": 0,
+            "symbol_count": 1
+          }
+        },
+        "summary": {
+          "decision_quality": {
+            "label": "보통",
+            "explanation": "사전 기준의 기록을 확인해야 합니다."
+          },
+          "main_issue": "사전 매도 기준이 없습니다.",
+          "next_action": "주문 전에 매도 기준을 기록하세요.",
+          "data_confidence": {
+            "level": "high",
+            "label": "높음",
+            "reasons": []
+          },
+          "missing_information": []
+        },
+        "basic": {
+          "good_points": [
+            {
+              "title": "위험 제한",
+              "detail": "거래를 종료해 추가 노출을 줄였습니다."
+            }
+          ],
+          "main_improvement": {
+            "title": "사전 기준",
+            "detail": "결과와 별개로 당시 기준을 점검하세요."
+          },
+          "next_trade_checks": [
+            {
+              "phase": "before_entry",
+              "text": "진입 전에 무효화 기준을 기록하세요."
+            }
+          ],
+          "lesson": {
+            "title": "결과와 판단의 분리",
+            "concept": "매도 후 상승만으로 매도 실패를 판단하지 않습니다.",
+            "applied_to_this_trade": "사전 매도 기준의 존재를 확인해야 합니다."
+          }
+        }
+      },
+      "expected_v1": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "이번 매매 판단: 판단 품질: 보통 — 사전 기준의 기록을 확인해야 합니다. / 핵심 문제: 사전 매도 기준이 없습니다. / 핵심 실천: 주문 전에 매도 기준을 기록하세요. / 이번에 배울 점: 결과와 판단의 분리 / 매도 후 상승만으로 매도 실패를 판단하지 않습니다. / 이번 거래 적용: 사전 매도 기준의 존재를 확인해야 합니다. / 데이터 신뢰도: 높음"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "확인된 강점: 위험 제한: 거래를 종료해 추가 노출을 줄였습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "개선할 점: 사전 기준: 결과와 별개로 당시 기준을 점검하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "다음 매매 점검: 진입 전: 진입 전에 무효화 기준을 기록하세요."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "이번 매매 판단: 판단 품질: 보통 — 사전 기준의 기록을 확인해야 합니다. / 핵심 문제: 사전 매도 기준이 없습니다. / 핵심 실천: 주문 전에 매도 기준을 기록하세요. / 이번에 배울 점: 결과와 판단의 분리 / 매도 후 상승만으로 매도 실패를 판단하지 않습니다. / 이번 거래 적용: 사전 매도 기준의 존재를 확인해야 합니다. / 데이터 신뢰도: 높음\n\n확인된 강점: 위험 제한: 거래를 종료해 추가 노출을 줄였습니다.\n\n개선할 점: 사전 기준: 결과와 별개로 당시 기준을 점검하세요.\n\n다음 매매 점검: 진입 전: 진입 전에 무효화 기준을 기록하세요."
+      },
+      "expected_summary": "이번 매매 판단: 판단 품질: 보통 — 사전 기준의 기록을 확인해야 합니다. / 핵심 문제: 사전 매도 기준이 없습니다. / 핵심 실천: 주문 전에 매도 기준을 기록하세요. / 이번에 배울 점: 결과와 판단의 분리 / 매도 후 상승만으로 매도 실패를 판단하지 않습니다. / 이번 거래 적용: 사전 매도 기준의 존재를 확인해야 합니다. / 데이터 신뢰도: 높음\n\n확인된 강점: 위험 제한: 거래를 종료해 추가 노출을 줄였습니다.\n\n개선할 점: 사전 기준: 결과와 별개로 당시 기준을 점검하세요.\n\n다음 매매 점검: 진입 전: 진입 전에 무효화 기준을 기록하세요.",
+      "expected_v2": {
+        "schema_version": "review-display.v2",
+        "surface": "body",
+        "review_type": "basic",
+        "blocks": [
+          {
+            "id": "b0",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "+29,967원"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b1",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "+1.33%"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b2",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "보통"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b3",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 기준의 기록을 확인해야 합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b4",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 매도 기준이 없습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b5",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "주문 전에 매도 기준을 기록하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b6",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "높음"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b7",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "위험 제한"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b8",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "거래를 종료해 추가 노출을 줄였습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b9",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 기준"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b10",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "결과와 별개로 당시 기준을 점검하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b11",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "진입 전에 무효화 기준을 기록하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b12",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "결과와 판단의 분리"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b13",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "매도 후 상승만으로 매도 실패를 판단하지 않습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b14",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 매도 기준의 존재를 확인해야 합니다."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "sections": [
+          {
+            "role": "summary",
+            "block_ids": [
+              "b0",
+              "b1",
+              "b2",
+              "b3",
+              "b4",
+              "b5"
+            ],
+            "objective": {
+              "realized_pnl": "b0",
+              "realized_return_pct": "b1"
+            },
+            "decision_quality": {
+              "label": "b2",
+              "explanation": "b3"
+            },
+            "main_issue": "b4",
+            "next_action": "b5"
+          },
+          {
+            "role": "data_quality",
+            "block_ids": [
+              "b6"
+            ],
+            "confidence": {
+              "level": "high",
+              "label": "b6",
+              "reasons": []
+            },
+            "missing_information": []
+          },
+          {
+            "role": "good_points",
+            "block_ids": [
+              "b7",
+              "b8"
+            ],
+            "items": [
+              {
+                "title": "b7",
+                "detail": "b8"
+              }
+            ]
+          },
+          {
+            "role": "main_improvement",
+            "block_ids": [
+              "b9",
+              "b10"
+            ],
+            "title": "b9",
+            "detail": "b10"
+          },
+          {
+            "role": "next_trade_checks",
+            "block_ids": [
+              "b11"
+            ],
+            "items": [
+              {
+                "phase": "before_entry",
+                "text": "b11"
+              }
+            ]
+          },
+          {
+            "role": "lesson",
+            "block_ids": [
+              "b12",
+              "b13",
+              "b14"
+            ],
+            "title": "b12",
+            "concept": "b13",
+            "applied_to_this_trade": "b14"
+          }
+        ],
+        "canonical_text": "+29,967원\n\n+1.33%\n\n보통\n\n사전 기준의 기록을 확인해야 합니다.\n\n사전 매도 기준이 없습니다.\n\n주문 전에 매도 기준을 기록하세요.\n\n높음\n\n위험 제한\n\n거래를 종료해 추가 노출을 줄였습니다.\n\n사전 기준\n\n결과와 별개로 당시 기준을 점검하세요.\n\n진입 전에 무효화 기준을 기록하세요.\n\n결과와 판단의 분리\n\n매도 후 상승만으로 매도 실패를 판단하지 않습니다.\n\n사전 매도 기준의 존재를 확인해야 합니다."
+      },
+      "bindings": [
+        {
+          "source_path": [
+            "objective",
+            "result",
+            "realized_pnl"
+          ],
+          "block_id": "b0"
+        },
+        {
+          "source_path": [
+            "objective",
+            "result",
+            "realized_return_pct"
+          ],
+          "block_id": "b1"
+        },
+        {
+          "source_path": [
+            "summary",
+            "decision_quality",
+            "label"
+          ],
+          "block_id": "b2"
+        },
+        {
+          "source_path": [
+            "summary",
+            "decision_quality",
+            "explanation"
+          ],
+          "block_id": "b3"
+        },
+        {
+          "source_path": [
+            "summary",
+            "main_issue"
+          ],
+          "block_id": "b4"
+        },
+        {
+          "source_path": [
+            "summary",
+            "next_action"
+          ],
+          "block_id": "b5"
+        },
+        {
+          "source_path": [
+            "summary",
+            "data_confidence",
+            "label"
+          ],
+          "block_id": "b6"
+        },
+        {
+          "source_path": [
+            "basic",
+            "good_points",
+            0,
+            "title"
+          ],
+          "block_id": "b7"
+        },
+        {
+          "source_path": [
+            "basic",
+            "good_points",
+            0,
+            "detail"
+          ],
+          "block_id": "b8"
+        },
+        {
+          "source_path": [
+            "basic",
+            "main_improvement",
+            "title"
+          ],
+          "block_id": "b9"
+        },
+        {
+          "source_path": [
+            "basic",
+            "main_improvement",
+            "detail"
+          ],
+          "block_id": "b10"
+        },
+        {
+          "source_path": [
+            "basic",
+            "next_trade_checks",
+            0,
+            "text"
+          ],
+          "block_id": "b11"
+        },
+        {
+          "source_path": [
+            "basic",
+            "lesson",
+            "title"
+          ],
+          "block_id": "b12"
+        },
+        {
+          "source_path": [
+            "basic",
+            "lesson",
+            "concept"
+          ],
+          "block_id": "b13"
+        },
+        {
+          "source_path": [
+            "basic",
+            "lesson",
+            "applied_to_this_trade"
+          ],
+          "block_id": "b14"
+        }
+      ]
+    },
+    {
+      "id": "basic-medium",
+      "source_identity": "basic-medium",
+      "objective_identity": "basic-medium-objective",
+      "source": {
+        "schema_version": "trade-review.v1",
+        "review_type": "basic",
+        "objective": {
+          "symbol": {
+            "ticker": "005930",
+            "name": "합성테스트"
+          },
+          "period": {
+            "first_trade_date": "2026-01-02T09:10",
+            "last_trade_date": "2026-01-02T10:10"
+          },
+          "result": {
+            "trade_count": 2,
+            "closed_count": 1,
+            "realized_pnl": 29967,
+            "realized_return_pct": 1.33,
+            "win_rate_pct": 100,
+            "weighted_buy_price": 7000,
+            "weighted_sell_price": 7100,
+            "total_fee": 20,
+            "total_tax": 13,
+            "buy_fill_count": 1,
+            "sell_fill_count": 1,
+            "open_quantity": 0,
+            "symbol_count": 1
+          }
+        },
+        "summary": {
+          "decision_quality": {
+            "label": "보통",
+            "explanation": "사전 기준의 기록을 확인해야 합니다."
+          },
+          "main_issue": "사전 매도 기준이 없습니다.",
+          "next_action": "주문 전에 매도 기준을 기록하세요.",
+          "data_confidence": {
+            "level": "medium",
+            "label": "보통",
+            "reasons": []
+          },
+          "missing_information": [
+            "사전 매도 기준"
+          ]
+        },
+        "basic": {
+          "good_points": [
+            {
+              "title": "위험 제한",
+              "detail": "거래를 종료해 추가 노출을 줄였습니다."
+            }
+          ],
+          "main_improvement": {
+            "title": "사전 기준",
+            "detail": "결과와 별개로 당시 기준을 점검하세요."
+          },
+          "next_trade_checks": [
+            {
+              "phase": "before_entry",
+              "text": "진입 전에 무효화 기준을 기록하세요."
+            }
+          ],
+          "lesson": {
+            "title": "결과와 판단의 분리",
+            "concept": "매도 후 상승만으로 매도 실패를 판단하지 않습니다.",
+            "applied_to_this_trade": "사전 매도 기준의 존재를 확인해야 합니다."
+          }
+        }
+      },
+      "expected_v1": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "이번 매매 판단: 판단 품질: 보통 — 사전 기준의 기록을 확인해야 합니다. / 핵심 문제: 사전 매도 기준이 없습니다. / 핵심 실천: 주문 전에 매도 기준을 기록하세요. / 이번에 배울 점: 결과와 판단의 분리 / 매도 후 상승만으로 매도 실패를 판단하지 않습니다. / 이번 거래 적용: 사전 매도 기준의 존재를 확인해야 합니다. / 데이터 신뢰도: 보통 / 추가 확인: 사전 매도 기준"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "확인된 강점: 위험 제한: 거래를 종료해 추가 노출을 줄였습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "개선할 점: 사전 기준: 결과와 별개로 당시 기준을 점검하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "다음 매매 점검: 진입 전: 진입 전에 무효화 기준을 기록하세요."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "이번 매매 판단: 판단 품질: 보통 — 사전 기준의 기록을 확인해야 합니다. / 핵심 문제: 사전 매도 기준이 없습니다. / 핵심 실천: 주문 전에 매도 기준을 기록하세요. / 이번에 배울 점: 결과와 판단의 분리 / 매도 후 상승만으로 매도 실패를 판단하지 않습니다. / 이번 거래 적용: 사전 매도 기준의 존재를 확인해야 합니다. / 데이터 신뢰도: 보통 / 추가 확인: 사전 매도 기준\n\n확인된 강점: 위험 제한: 거래를 종료해 추가 노출을 줄였습니다.\n\n개선할 점: 사전 기준: 결과와 별개로 당시 기준을 점검하세요.\n\n다음 매매 점검: 진입 전: 진입 전에 무효화 기준을 기록하세요."
+      },
+      "expected_summary": "이번 매매 판단: 판단 품질: 보통 — 사전 기준의 기록을 확인해야 합니다. / 핵심 문제: 사전 매도 기준이 없습니다. / 핵심 실천: 주문 전에 매도 기준을 기록하세요. / 이번에 배울 점: 결과와 판단의 분리 / 매도 후 상승만으로 매도 실패를 판단하지 않습니다. / 이번 거래 적용: 사전 매도 기준의 존재를 확인해야 합니다. / 데이터 신뢰도: 보통 / 추가 확인: 사전 매도 기준\n\n확인된 강점: 위험 제한: 거래를 종료해 추가 노출을 줄였습니다.\n\n개선할 점: 사전 기준: 결과와 별개로 당시 기준을 점검하세요.\n\n다음 매매 점검: 진입 전: 진입 전에 무효화 기준을 기록하세요.",
+      "expected_v2": {
+        "schema_version": "review-display.v2",
+        "surface": "body",
+        "review_type": "basic",
+        "blocks": [
+          {
+            "id": "b0",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "+29,967원"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b1",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "+1.33%"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b2",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "보통"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b3",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 기준의 기록을 확인해야 합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b4",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 매도 기준이 없습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b5",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "주문 전에 매도 기준을 기록하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b6",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "보통"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b7",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 매도 기준"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b8",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "위험 제한"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b9",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "거래를 종료해 추가 노출을 줄였습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b10",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 기준"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b11",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "결과와 별개로 당시 기준을 점검하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b12",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "진입 전에 무효화 기준을 기록하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b13",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "결과와 판단의 분리"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b14",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "매도 후 상승만으로 매도 실패를 판단하지 않습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b15",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 매도 기준의 존재를 확인해야 합니다."
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "sections": [
+          {
+            "role": "summary",
+            "block_ids": [
+              "b0",
+              "b1",
+              "b2",
+              "b3",
+              "b4",
+              "b5"
+            ],
+            "objective": {
+              "realized_pnl": "b0",
+              "realized_return_pct": "b1"
+            },
+            "decision_quality": {
+              "label": "b2",
+              "explanation": "b3"
+            },
+            "main_issue": "b4",
+            "next_action": "b5"
+          },
+          {
+            "role": "data_quality",
+            "block_ids": [
+              "b6",
+              "b7"
+            ],
+            "confidence": {
+              "level": "medium",
+              "label": "b6",
+              "reasons": []
+            },
+            "missing_information": [
+              "b7"
+            ]
+          },
+          {
+            "role": "good_points",
+            "block_ids": [
+              "b8",
+              "b9"
+            ],
+            "items": [
+              {
+                "title": "b8",
+                "detail": "b9"
+              }
+            ]
+          },
+          {
+            "role": "main_improvement",
+            "block_ids": [
+              "b10",
+              "b11"
+            ],
+            "title": "b10",
+            "detail": "b11"
+          },
+          {
+            "role": "next_trade_checks",
+            "block_ids": [
+              "b12"
+            ],
+            "items": [
+              {
+                "phase": "before_entry",
+                "text": "b12"
+              }
+            ]
+          },
+          {
+            "role": "lesson",
+            "block_ids": [
+              "b13",
+              "b14",
+              "b15"
+            ],
+            "title": "b13",
+            "concept": "b14",
+            "applied_to_this_trade": "b15"
+          }
+        ],
+        "canonical_text": "+29,967원\n\n+1.33%\n\n보통\n\n사전 기준의 기록을 확인해야 합니다.\n\n사전 매도 기준이 없습니다.\n\n주문 전에 매도 기준을 기록하세요.\n\n보통\n\n사전 매도 기준\n\n위험 제한\n\n거래를 종료해 추가 노출을 줄였습니다.\n\n사전 기준\n\n결과와 별개로 당시 기준을 점검하세요.\n\n진입 전에 무효화 기준을 기록하세요.\n\n결과와 판단의 분리\n\n매도 후 상승만으로 매도 실패를 판단하지 않습니다.\n\n사전 매도 기준의 존재를 확인해야 합니다."
+      },
+      "bindings": [
+        {
+          "source_path": [
+            "objective",
+            "result",
+            "realized_pnl"
+          ],
+          "block_id": "b0"
+        },
+        {
+          "source_path": [
+            "objective",
+            "result",
+            "realized_return_pct"
+          ],
+          "block_id": "b1"
+        },
+        {
+          "source_path": [
+            "summary",
+            "decision_quality",
+            "label"
+          ],
+          "block_id": "b2"
+        },
+        {
+          "source_path": [
+            "summary",
+            "decision_quality",
+            "explanation"
+          ],
+          "block_id": "b3"
+        },
+        {
+          "source_path": [
+            "summary",
+            "main_issue"
+          ],
+          "block_id": "b4"
+        },
+        {
+          "source_path": [
+            "summary",
+            "next_action"
+          ],
+          "block_id": "b5"
+        },
+        {
+          "source_path": [
+            "summary",
+            "data_confidence",
+            "label"
+          ],
+          "block_id": "b6"
+        },
+        {
+          "source_path": [
+            "summary",
+            "missing_information",
+            0
+          ],
+          "block_id": "b7"
+        },
+        {
+          "source_path": [
+            "basic",
+            "good_points",
+            0,
+            "title"
+          ],
+          "block_id": "b8"
+        },
+        {
+          "source_path": [
+            "basic",
+            "good_points",
+            0,
+            "detail"
+          ],
+          "block_id": "b9"
+        },
+        {
+          "source_path": [
+            "basic",
+            "main_improvement",
+            "title"
+          ],
+          "block_id": "b10"
+        },
+        {
+          "source_path": [
+            "basic",
+            "main_improvement",
+            "detail"
+          ],
+          "block_id": "b11"
+        },
+        {
+          "source_path": [
+            "basic",
+            "next_trade_checks",
+            0,
+            "text"
+          ],
+          "block_id": "b12"
+        },
+        {
+          "source_path": [
+            "basic",
+            "lesson",
+            "title"
+          ],
+          "block_id": "b13"
+        },
+        {
+          "source_path": [
+            "basic",
+            "lesson",
+            "concept"
+          ],
+          "block_id": "b14"
+        },
+        {
+          "source_path": [
+            "basic",
+            "lesson",
+            "applied_to_this_trade"
+          ],
+          "block_id": "b15"
+        }
+      ]
+    },
+    {
+      "id": "advanced-low",
+      "source_identity": "advanced-low",
+      "objective_identity": "advanced-low-objective",
+      "source": {
+        "schema_version": "trade-review.v1",
+        "review_type": "advanced",
+        "objective": {
+          "symbol": {
+            "ticker": "005930",
+            "name": "합성테스트"
+          },
+          "period": {
+            "first_trade_date": "2026-01-02T09:10",
+            "last_trade_date": "2026-01-02T10:10"
+          },
+          "result": {
+            "trade_count": 2,
+            "closed_count": 1,
+            "realized_pnl": 29967,
+            "realized_return_pct": 1.33,
+            "win_rate_pct": 100,
+            "weighted_buy_price": 7000,
+            "weighted_sell_price": 7100,
+            "total_fee": 20,
+            "total_tax": 13,
+            "buy_fill_count": 1,
+            "sell_fill_count": 1,
+            "open_quantity": 0,
+            "symbol_count": 1
+          }
+        },
+        "summary": {
+          "decision_quality": {
+            "label": "보통",
+            "explanation": "사전 기준의 기록을 확인해야 합니다."
+          },
+          "main_issue": "사전 매도 기준이 없습니다.",
+          "next_action": "주문 전에 매도 기준을 기록하세요.",
+          "data_confidence": {
+            "level": "low",
+            "label": "낮음",
+            "reasons": [
+              "가격 차이가 커 기술적 해석을 제한합니다."
+            ]
+          },
+          "missing_information": []
+        },
+        "advanced": {
+          "entry_review": {
+            "assessment": {
+              "label": "근거 일부",
+              "explanation": "진입 이유의 기록이 충분하지 않습니다."
+            },
+            "evidence": [
+              "체결 기록을 확인했습니다."
+            ],
+            "uncertainty": [
+              "실제 진입 이유가 기록되지 않았습니다."
+            ],
+            "invalidation": "사전 기록이 없습니다."
+          },
+          "risk_review": {
+            "planned_rule": "사전 손절 기준의 기록이 없습니다.",
+            "actual_response": "거래 종료로 노출을 제한했습니다.",
+            "assessment": {
+              "label": "판단 보류",
+              "explanation": "결과만으로 계획의 품질을 판단하지 않습니다."
+            }
+          },
+          "exit_review": {
+            "profit_taking_assessment": "수익 확정의 목적을 확인해야 합니다.",
+            "trend_exit_assessment": "추세 종료 기준은 기록이 부족합니다.",
+            "explanation": "이후 상승 여부와 당시 판단을 분리합니다."
+          },
+          "detailed_analysis": [
+            {
+              "title": "정보 한계",
+              "detail": "가격 차이가 커 기술적 해석을 제한합니다."
+            }
+          ],
+          "next_trade_playbook": {
+            "before_entry": [
+              "진입 근거를 기록하세요."
+            ],
+            "while_holding": [
+              "무효화 조건을 점검하세요."
+            ],
+            "before_exit": [
+              "수익 확정과 추세 종료를 구분하세요."
+            ]
+          },
+          "lesson": {
+            "title": "사전 기준",
+            "concept": "결과와 당시 판단의 품질은 다릅니다.",
+            "applied_to_this_trade": "사전 매도 기준이 기록되지 않았습니다.",
+            "next_trade_application": "주문 전에 기준을 기록하세요."
+          },
+          "reflection_questions": [
+            "당시 판단을 철회할 조건은 무엇이었나요?"
+          ]
+        }
+      },
+      "expected_v1": {
+        "schema_version": "review-display.v1",
+        "surface": "body",
+        "blocks": [
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "이번 매매 판단: 판단 품질: 보통 — 사전 기준의 기록을 확인해야 합니다. / 핵심 문제: 사전 매도 기준이 없습니다. / 데이터 신뢰도: 낮음 / 근거: 가격 차이가 커 기술적 해석을 제한합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "진입 가설 검토: 진입 이유의 기록이 충분하지 않습니다. / 평가: 근거 일부 / 근거: 체결 기록을 확인했습니다. / 불확실성: 실제 진입 이유가 기록되지 않았습니다. / 무효화 기준: 사전 기록이 없습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "위험 관리 검토: 결과만으로 계획의 품질을 판단하지 않습니다. / 평가: 판단 보류 / 사전 기준: 사전 손절 기준의 기록이 없습니다. / 실제 대응: 거래 종료로 노출을 제한했습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "매수·매도 대응: 이후 상승 여부와 당시 판단을 분리합니다. / 수익 확정: 수익 확정의 목적을 확인해야 합니다. / 추세 종료: 추세 종료 기준은 기록이 부족합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "상세 분석: 정보 한계: 가격 차이가 커 기술적 해석을 제한합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "다음 매매 체크: 진입 전: 진입 근거를 기록하세요. / 보유 중: 무효화 조건을 점검하세요. / 매도 전: 수익 확정과 추세 종료를 구분하세요. / 핵심 실천: 주문 전에 매도 기준을 기록하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "이번에 배울 점: 사전 기준 / 결과와 당시 판단의 품질은 다릅니다. / 이번 거래 적용: 사전 매도 기준이 기록되지 않았습니다. / 다음 거래 적용: 주문 전에 기준을 기록하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "다음 복기 질문: 당시 판단을 철회할 조건은 무엇이었나요?"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "canonical_text": "이번 매매 판단: 판단 품질: 보통 — 사전 기준의 기록을 확인해야 합니다. / 핵심 문제: 사전 매도 기준이 없습니다. / 데이터 신뢰도: 낮음 / 근거: 가격 차이가 커 기술적 해석을 제한합니다.\n\n진입 가설 검토: 진입 이유의 기록이 충분하지 않습니다. / 평가: 근거 일부 / 근거: 체결 기록을 확인했습니다. / 불확실성: 실제 진입 이유가 기록되지 않았습니다. / 무효화 기준: 사전 기록이 없습니다.\n\n위험 관리 검토: 결과만으로 계획의 품질을 판단하지 않습니다. / 평가: 판단 보류 / 사전 기준: 사전 손절 기준의 기록이 없습니다. / 실제 대응: 거래 종료로 노출을 제한했습니다.\n\n매수·매도 대응: 이후 상승 여부와 당시 판단을 분리합니다. / 수익 확정: 수익 확정의 목적을 확인해야 합니다. / 추세 종료: 추세 종료 기준은 기록이 부족합니다.\n\n상세 분석: 정보 한계: 가격 차이가 커 기술적 해석을 제한합니다.\n\n다음 매매 체크: 진입 전: 진입 근거를 기록하세요. / 보유 중: 무효화 조건을 점검하세요. / 매도 전: 수익 확정과 추세 종료를 구분하세요. / 핵심 실천: 주문 전에 매도 기준을 기록하세요.\n\n이번에 배울 점: 사전 기준 / 결과와 당시 판단의 품질은 다릅니다. / 이번 거래 적용: 사전 매도 기준이 기록되지 않았습니다. / 다음 거래 적용: 주문 전에 기준을 기록하세요.\n\n다음 복기 질문: 당시 판단을 철회할 조건은 무엇이었나요?"
+      },
+      "expected_summary": "이번 매매 판단: 판단 품질: 보통 — 사전 기준의 기록을 확인해야 합니다. / 핵심 문제: 사전 매도 기준이 없습니다. / 데이터 신뢰도: 낮음 / 근거: 가격 차이가 커 기술적 해석을 제한합니다.\n\n진입 가설 검토: 진입 이유의 기록이 충분하지 않습니다. / 평가: 근거 일부 / 근거: 체결 기록을 확인했습니다. / 불확실성: 실제 진입 이유가 기록되지 않았습니다. / 무효화 기준: 사전 기록이 없습니다.\n\n위험 관리 검토: 결과만으로 계획의 품질을 판단하지 않습니다. / 평가: 판단 보류 / 사전 기준: 사전 손절 기준의 기록이 없습니다. / 실제 대응: 거래 종료로 노출을 제한했습니다.\n\n매수·매도 대응: 이후 상승 여부와 당시 판단을 분리합니다. / 수익 확정: 수익 확정의 목적을 확인해야 합니다. / 추세 종료: 추세 종료 기준은 기록이 부족합니다.\n\n상세 분석: 정보 한계: 가격 차이가 커 기술적 해석을 제한합니다.\n\n다음 매매 체크: 진입 전: 진입 근거를 기록하세요. / 보유 중: 무효화 조건을 점검하세요. / 매도 전: 수익 확정과 추세 종료를 구분하세요. / 핵심 실천: 주문 전에 매도 기준을 기록하세요.\n\n이번에 배울 점: 사전 기준 / 결과와 당시 판단의 품질은 다릅니다. / 이번 거래 적용: 사전 매도 기준이 기록되지 않았습니다. / 다음 거래 적용: 주문 전에 기준을 기록하세요.\n\n다음 복기 질문: 당시 판단을 철회할 조건은 무엇이었나요?",
+      "expected_v2": {
+        "schema_version": "review-display.v2",
+        "surface": "body",
+        "review_type": "advanced",
+        "blocks": [
+          {
+            "id": "b0",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "+29,967원"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b1",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "+1.33%"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b2",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "보통"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b3",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 기준의 기록을 확인해야 합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b4",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 매도 기준이 없습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b5",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "주문 전에 매도 기준을 기록하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b6",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "낮음"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b7",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "가격 차이가 커 기술적 해석을 제한합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b8",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "근거 일부"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b9",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "진입 이유의 기록이 충분하지 않습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b10",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "체결 기록을 확인했습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b11",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "실제 진입 이유가 기록되지 않았습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b12",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 기록이 없습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b13",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 손절 기준의 기록이 없습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b14",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "거래 종료로 노출을 제한했습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b15",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "판단 보류"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b16",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "결과만으로 계획의 품질을 판단하지 않습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b17",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "수익 확정의 목적을 확인해야 합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b18",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "추세 종료 기준은 기록이 부족합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b19",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "이후 상승 여부와 당시 판단을 분리합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b20",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "정보 한계"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b21",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "가격 차이가 커 기술적 해석을 제한합니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b22",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "진입 근거를 기록하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b23",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "무효화 조건을 점검하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b24",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "수익 확정과 추세 종료를 구분하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b25",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 기준"
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b26",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "결과와 당시 판단의 품질은 다릅니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b27",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "사전 매도 기준이 기록되지 않았습니다."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b28",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "주문 전에 기준을 기록하세요."
+              }
+            ],
+            "separator_after": "\n\n"
+          },
+          {
+            "id": "b29",
+            "type": "paragraph",
+            "runs": [
+              {
+                "type": "text",
+                "text": "당시 판단을 철회할 조건은 무엇이었나요?"
+              }
+            ],
+            "separator_after": ""
+          }
+        ],
+        "sections": [
+          {
+            "role": "summary",
+            "block_ids": [
+              "b0",
+              "b1",
+              "b2",
+              "b3",
+              "b4",
+              "b5"
+            ],
+            "objective": {
+              "realized_pnl": "b0",
+              "realized_return_pct": "b1"
+            },
+            "decision_quality": {
+              "label": "b2",
+              "explanation": "b3"
+            },
+            "main_issue": "b4",
+            "next_action": "b5"
+          },
+          {
+            "role": "data_quality",
+            "block_ids": [
+              "b6",
+              "b7"
+            ],
+            "confidence": {
+              "level": "low",
+              "label": "b6",
+              "reasons": [
+                "b7"
+              ]
+            },
+            "missing_information": []
+          },
+          {
+            "role": "entry_review",
+            "block_ids": [
+              "b8",
+              "b9",
+              "b10",
+              "b11",
+              "b12"
+            ],
+            "assessment": {
+              "label": "b8",
+              "explanation": "b9"
+            },
+            "evidence": [
+              "b10"
+            ],
+            "uncertainty": [
+              "b11"
+            ],
+            "invalidation": "b12"
+          },
+          {
+            "role": "risk_review",
+            "block_ids": [
+              "b13",
+              "b14",
+              "b15",
+              "b16"
+            ],
+            "planned_rule": "b13",
+            "actual_response": "b14",
+            "assessment": {
+              "label": "b15",
+              "explanation": "b16"
+            }
+          },
+          {
+            "role": "exit_review",
+            "block_ids": [
+              "b17",
+              "b18",
+              "b19"
+            ],
+            "profit_taking_assessment": "b17",
+            "trend_exit_assessment": "b18",
+            "explanation": "b19"
+          },
+          {
+            "role": "detailed_analysis",
+            "block_ids": [
+              "b20",
+              "b21"
+            ],
+            "items": [
+              {
+                "title": "b20",
+                "detail": "b21"
+              }
+            ]
+          },
+          {
+            "role": "next_trade_playbook",
+            "block_ids": [
+              "b22",
+              "b23",
+              "b24"
+            ],
+            "before_entry": [
+              "b22"
+            ],
+            "while_holding": [
+              "b23"
+            ],
+            "before_exit": [
+              "b24"
+            ]
+          },
+          {
+            "role": "lesson",
+            "block_ids": [
+              "b25",
+              "b26",
+              "b27",
+              "b28"
+            ],
+            "title": "b25",
+            "concept": "b26",
+            "applied_to_this_trade": "b27",
+            "next_trade_application": "b28"
+          },
+          {
+            "role": "reflection_questions",
+            "block_ids": [
+              "b29"
+            ],
+            "items": [
+              "b29"
+            ]
+          }
+        ],
+        "canonical_text": "+29,967원\n\n+1.33%\n\n보통\n\n사전 기준의 기록을 확인해야 합니다.\n\n사전 매도 기준이 없습니다.\n\n주문 전에 매도 기준을 기록하세요.\n\n낮음\n\n가격 차이가 커 기술적 해석을 제한합니다.\n\n근거 일부\n\n진입 이유의 기록이 충분하지 않습니다.\n\n체결 기록을 확인했습니다.\n\n실제 진입 이유가 기록되지 않았습니다.\n\n사전 기록이 없습니다.\n\n사전 손절 기준의 기록이 없습니다.\n\n거래 종료로 노출을 제한했습니다.\n\n판단 보류\n\n결과만으로 계획의 품질을 판단하지 않습니다.\n\n수익 확정의 목적을 확인해야 합니다.\n\n추세 종료 기준은 기록이 부족합니다.\n\n이후 상승 여부와 당시 판단을 분리합니다.\n\n정보 한계\n\n가격 차이가 커 기술적 해석을 제한합니다.\n\n진입 근거를 기록하세요.\n\n무효화 조건을 점검하세요.\n\n수익 확정과 추세 종료를 구분하세요.\n\n사전 기준\n\n결과와 당시 판단의 품질은 다릅니다.\n\n사전 매도 기준이 기록되지 않았습니다.\n\n주문 전에 기준을 기록하세요.\n\n당시 판단을 철회할 조건은 무엇이었나요?"
+      },
+      "bindings": [
+        {
+          "source_path": [
+            "objective",
+            "result",
+            "realized_pnl"
+          ],
+          "block_id": "b0"
+        },
+        {
+          "source_path": [
+            "objective",
+            "result",
+            "realized_return_pct"
+          ],
+          "block_id": "b1"
+        },
+        {
+          "source_path": [
+            "summary",
+            "decision_quality",
+            "label"
+          ],
+          "block_id": "b2"
+        },
+        {
+          "source_path": [
+            "summary",
+            "decision_quality",
+            "explanation"
+          ],
+          "block_id": "b3"
+        },
+        {
+          "source_path": [
+            "summary",
+            "main_issue"
+          ],
+          "block_id": "b4"
+        },
+        {
+          "source_path": [
+            "summary",
+            "next_action"
+          ],
+          "block_id": "b5"
+        },
+        {
+          "source_path": [
+            "summary",
+            "data_confidence",
+            "label"
+          ],
+          "block_id": "b6"
+        },
+        {
+          "source_path": [
+            "summary",
+            "data_confidence",
+            "reasons",
+            0
+          ],
+          "block_id": "b7"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "entry_review",
+            "assessment",
+            "label"
+          ],
+          "block_id": "b8"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "entry_review",
+            "assessment",
+            "explanation"
+          ],
+          "block_id": "b9"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "entry_review",
+            "evidence",
+            0
+          ],
+          "block_id": "b10"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "entry_review",
+            "uncertainty",
+            0
+          ],
+          "block_id": "b11"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "entry_review",
+            "invalidation"
+          ],
+          "block_id": "b12"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "risk_review",
+            "planned_rule"
+          ],
+          "block_id": "b13"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "risk_review",
+            "actual_response"
+          ],
+          "block_id": "b14"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "risk_review",
+            "assessment",
+            "label"
+          ],
+          "block_id": "b15"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "risk_review",
+            "assessment",
+            "explanation"
+          ],
+          "block_id": "b16"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "exit_review",
+            "profit_taking_assessment"
+          ],
+          "block_id": "b17"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "exit_review",
+            "trend_exit_assessment"
+          ],
+          "block_id": "b18"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "exit_review",
+            "explanation"
+          ],
+          "block_id": "b19"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "detailed_analysis",
+            0,
+            "title"
+          ],
+          "block_id": "b20"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "detailed_analysis",
+            0,
+            "detail"
+          ],
+          "block_id": "b21"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "next_trade_playbook",
+            "before_entry",
+            0
+          ],
+          "block_id": "b22"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "next_trade_playbook",
+            "while_holding",
+            0
+          ],
+          "block_id": "b23"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "next_trade_playbook",
+            "before_exit",
+            0
+          ],
+          "block_id": "b24"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "lesson",
+            "title"
+          ],
+          "block_id": "b25"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "lesson",
+            "concept"
+          ],
+          "block_id": "b26"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "lesson",
+            "applied_to_this_trade"
+          ],
+          "block_id": "b27"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "lesson",
+            "next_trade_application"
+          ],
+          "block_id": "b28"
+        },
+        {
+          "source_path": [
+            "advanced",
+            "reflection_questions",
+            0
+          ],
+          "block_id": "b29"
+        }
+      ]
+    }
+  ],
+  "invalid_documents": [
+    {
+      "id": "unknown-role",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            0,
+            "role"
+          ],
+          "value": "unknown"
+        }
+      ]
+    },
+    {
+      "id": "unknown-key",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "html"
+          ],
+          "value": "x"
+        }
+      ]
+    },
+    {
+      "id": "duplicate-block-id",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "blocks",
+            1,
+            "id"
+          ],
+          "value": "b0"
+        }
+      ]
+    },
+    {
+      "id": "missing-block-id",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "delete",
+          "path": [
+            "blocks",
+            0,
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "invalid-id-alphabet",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "blocks",
+            0,
+            "id"
+          ],
+          "value": "https://external"
+        }
+      ]
+    },
+    {
+      "id": "orphan-block",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            0,
+            "block_ids"
+          ],
+          "value": [
+            "b0",
+            "b1",
+            "b2",
+            "b3",
+            "b4"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "duplicate-ownership",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            1,
+            "block_ids",
+            0
+          ],
+          "value": "b0"
+        }
+      ]
+    },
+    {
+      "id": "foreign-section-reference",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            0,
+            "main_issue"
+          ],
+          "value": "b6"
+        }
+      ]
+    },
+    {
+      "id": "same-section-duplicate-ref",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            0,
+            "main_issue"
+          ],
+          "value": "b3"
+        }
+      ]
+    },
+    {
+      "id": "missing-reference",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            0,
+            "main_issue"
+          ],
+          "value": "absent"
+        }
+      ]
+    },
+    {
+      "id": "recursive-object-reference",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            0,
+            "main_issue"
+          ],
+          "value": {
+            "section": "summary"
+          }
+        }
+      ]
+    },
+    {
+      "id": "wrong-section-order",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "swap",
+          "path": [
+            "sections"
+          ],
+          "left": 0,
+          "right": 1
+        }
+      ]
+    },
+    {
+      "id": "wrong-block-order",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "swap",
+          "path": [
+            "blocks"
+          ],
+          "left": 0,
+          "right": 1
+        }
+      ]
+    },
+    {
+      "id": "wrong-owned-order",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "swap",
+          "path": [
+            "sections",
+            0,
+            "block_ids"
+          ],
+          "left": 0,
+          "right": 1
+        }
+      ]
+    },
+    {
+      "id": "basic-advanced-role",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            2,
+            "role"
+          ],
+          "value": "entry_review"
+        }
+      ]
+    },
+    {
+      "id": "advanced-missing-role",
+      "base": "advanced-low",
+      "mutations": [
+        {
+          "op": "remove",
+          "path": [
+            "sections"
+          ],
+          "index": 2
+        }
+      ]
+    },
+    {
+      "id": "bad-confidence",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            1,
+            "confidence",
+            "level"
+          ],
+          "value": "LOW"
+        }
+      ]
+    },
+    {
+      "id": "bad-missing-type",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            1,
+            "missing_information"
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "canonical-mismatch",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "canonical_text"
+          ],
+          "value": "changed"
+        }
+      ]
+    },
+    {
+      "id": "unknown-nested-key",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "sections",
+            0,
+            "decision_quality",
+            "color"
+          ],
+          "value": "red"
+        }
+      ]
+    },
+    {
+      "id": "cross-surface",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "surface"
+          ],
+          "value": "notice"
+        }
+      ]
+    },
+    {
+      "id": "unknown-run",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "blocks",
+            0,
+            "runs",
+            0,
+            "type"
+          ],
+          "value": "html"
+        }
+      ]
+    },
+    {
+      "id": "invalid-control",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "blocks",
+            0,
+            "runs",
+            0,
+            "text"
+          ],
+          "value": "bad\u0000"
+        }
+      ]
+    },
+    {
+      "id": "bad-separator",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "blocks",
+            0,
+            "separator_after"
+          ],
+          "value": "\r\n"
+        }
+      ]
+    }
+  ],
+  "invalid_bundles": [
+    {
+      "id": "paired-v1-missing",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "delete",
+          "path": [
+            "representations",
+            "v1"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "paired-v1-corrupted",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v1",
+            "document",
+            "canonical_text"
+          ],
+          "value": "bad"
+        }
+      ]
+    },
+    {
+      "id": "paired-v2-missing",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "delete",
+          "path": [
+            "representations",
+            "v2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "paired-v2-corrupted",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v2",
+            "document",
+            "canonical_text"
+          ],
+          "value": "bad"
+        }
+      ]
+    },
+    {
+      "id": "type-mismatch",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v2",
+            "review_type"
+          ],
+          "value": "advanced"
+        }
+      ]
+    },
+    {
+      "id": "source-mismatch",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v2",
+            "source_identity"
+          ],
+          "value": "another-source"
+        }
+      ]
+    },
+    {
+      "id": "objective-mismatch",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v1",
+            "objective_identity"
+          ],
+          "value": "another-objective"
+        }
+      ]
+    },
+    {
+      "id": "unknown-compiler",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v2",
+            "compiler_version"
+          ],
+          "value": "review-body.v2.99"
+        }
+      ]
+    },
+    {
+      "id": "paired-missing_key",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "status"
+          ],
+          "value": "missing_key"
+        }
+      ]
+    },
+    {
+      "id": "paired-error",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "status"
+          ],
+          "value": "error"
+        }
+      ]
+    },
+    {
+      "id": "paired-empty",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "status"
+          ],
+          "value": "empty"
+        }
+      ]
+    },
+    {
+      "id": "semantic-omitted",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "delete",
+          "path": [
+            "representations",
+            "v2",
+            "document",
+            "sections",
+            0,
+            "next_action"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "valid-state-tampering",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v2",
+            "document",
+            "sections",
+            1,
+            "confidence",
+            "level"
+          ],
+          "value": "low"
+        }
+      ]
+    },
+    {
+      "id": "same-source-wrong-binding",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "swap",
+          "path": [
+            "representations",
+            "v2",
+            "document",
+            "sections",
+            0,
+            "block_ids"
+          ],
+          "left": 4,
+          "right": 5
+        },
+        {
+          "op": "swap",
+          "path": [
+            "representations",
+            "v2",
+            "document",
+            "blocks"
+          ],
+          "left": 4,
+          "right": 5
+        },
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v2",
+            "document",
+            "sections",
+            0,
+            "main_issue"
+          ],
+          "value": "b5"
+        },
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v2",
+            "document",
+            "sections",
+            0,
+            "next_action"
+          ],
+          "value": "b4"
+        },
+        {
+          "op": "reflatten",
+          "path": [
+            "representations",
+            "v2",
+            "document"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "same-source-wrong-content",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v2",
+            "document",
+            "blocks",
+            4,
+            "runs",
+            0,
+            "text"
+          ],
+          "value": "별개의 결론입니다."
+        },
+        {
+          "op": "reflatten",
+          "path": [
+            "representations",
+            "v2",
+            "document"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bad-a1-summary",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "representations",
+            "v1",
+            "summary"
+          ],
+          "value": "different"
+        }
+      ]
+    },
+    {
+      "id": "downgrade-discriminator",
+      "base": "basic-high",
+      "mutations": [
+        {
+          "op": "set",
+          "path": [
+            "kind"
+          ],
+          "value": "v1_only"
+        }
+      ]
+    }
+  ],
+  "replay": [
+    {
+      "id": "A",
+      "kind": "v1_only",
+      "capability": "v1",
+      "expected": "v1"
+    },
+    {
+      "id": "B",
+      "kind": "v1_only",
+      "capability": "dual",
+      "expected": "v1"
+    },
+    {
+      "id": "C",
+      "kind": "paired_v1_v2",
+      "capability": "v1",
+      "expected": "v1"
+    },
+    {
+      "id": "D",
+      "kind": "paired_v1_v2",
+      "capability": "dual",
+      "expected": "v2"
+    }
+  ],
+  "generation": [
+    {
+      "id": "off-ready",
+      "phase": "bridge_off",
+      "status": "ready",
+      "body": "structured",
+      "expected": "v1_only"
+    },
+    {
+      "id": "on-ready",
+      "phase": "activation",
+      "status": "ready",
+      "body": "structured",
+      "expected": "paired_v1_v2"
+    },
+    {
+      "id": "on-missing_key",
+      "phase": "activation",
+      "status": "missing_key",
+      "body": "fallback",
+      "expected": "v1_only"
+    },
+    {
+      "id": "on-error",
+      "phase": "activation",
+      "status": "error",
+      "body": "fallback",
+      "expected": "v1_only"
+    },
+    {
+      "id": "on-empty",
+      "phase": "activation",
+      "status": "empty",
+      "body": "fallback",
+      "expected": "v1_only"
+    },
+    {
+      "id": "ready-fallback",
+      "phase": "activation",
+      "status": "ready",
+      "body": "fallback",
+      "expected": "v1_only"
+    },
+    {
+      "id": "slice1",
+      "phase": "slice1",
+      "status": "ready",
+      "body": "structured",
+      "expected": "v1_only"
+    }
+  ]
+}
