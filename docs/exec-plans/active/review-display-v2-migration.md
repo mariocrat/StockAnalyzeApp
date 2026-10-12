@@ -1,5 +1,182 @@
 # Review display v2 migration
 
+## Slice 3 — Current Status / Contract clarification
+
+2026-10-12; integration/broker-import-ux-main at
+3682af800771f8bc285765d0b288aa9086a823d5, initially clean (0/0/0/0).
+Slice 1 independent approval/commit completed at
+9b65a812f70f85b7ecc7fd7e6f0be202a866e482. Slice 2 independent approval
+(Blocker/Major/Minor 0) and commit completed at the current HEAD. The initial
+Slice 3 architecture review was held: storage scope/context and exact issuance,
+codec and admission rules needed clarification before implementation.
+
+2026-10-13 chart-auxiliary correction starts at the same HEAD with only this plan
+and the contract modified (staged 0/untracked 0). Independent review resolved the
+earlier Majors but found one new Major: SQL chart_snapshot_json and approved AI
+chart_display_snapshot are different, and the compact payload did not retain the
+latter. The auxiliary correction and the resource derivation below are documented;
+independent acceptance remains pending. Executable boundary checks belong to 3A/3B.
+
+This step changes only this plan and docs/review-display-v2-contract.md.
+The normative durable storage contract is the latter document's
+[Slice 3 durable history contract](../../review-display-v2-contract.md#slice-3-durable-history-contract).
+No production/test/fixture/config/DB change, stage/commit/push/merge/rebase.
+
+### Goal / Decisions
+
+Protect subsequent corruption of trusted-writer payloads, partial/inconsistent
+persistence, version/kind, both representations/provenance and actual row context.
+Use trusted typed issuance -> deterministic JSON bytes -> versioned SHA-256
+digest -> persisted wrapper -> full read consistency admission. This digest is
+not authenticity or cryptographic authorization. A party able to rewrite both
+DB and digest, server compromise, malicious reinsertion/full DB rollback and
+whole replacement by a valid legacy row are outside this migration's threat model.
+No HMAC/keyring/rotation, secret configuration, JCS or custom numeric protocol.
+HMAC/signatures may be considered only in a separate future security migration.
+
+Store an exact paired wrapper in ai_review_json, without DDL/backfill. Bind the
+actual SQL row ID/owner/metadata and four existing snapshot columns; snapshots
+remain authoritative in their SQL columns and are not duplicated in the payload.
+Both BODY-only documents, the admitted objective and the exact approved AI
+chart_display_snapshot (charts + chart_cards) are authoritative in the payload.
+SQL journal chart A and approved AI auxiliary B may differ and never substitute
+for each other. B is captured from the same original snapshot/prepared/write
+relationship, participates in the payload digest and survives immediate result/
+history reopen with identical body/charts/cards display identity. Missing or bad
+B rejects the entire paired record; legitimately approved empty B is preserved.
+Malformed/partial/unknown wrappers never retry legacy or select the good side.
+Keep old v1 prepared/write/read behavior. Separate live write authority from
+durable read admission; read objects cannot create new write approval.
+
+### Current Status
+
+- [x] Reconcile actual HEAD/clean state and Slice 1/2 approval/commit records.
+- [x] Inspect current snapshot/prepared/approved-write/SQL/read/bundle contracts.
+- [x] Specify exact wrapper, context, codec, digest domain, bounds and dispatch.
+- [x] Specify 3B committed-write versus publication failure and 3C cache boundary.
+- [x] Document the independent-review AI chart auxiliary Major and separate A/B
+  preservation, capture, projection and whole-paired corruption contracts.
+- [x] Derive/fix resource support and conservative limits for all valid results
+  normally issued by the current trusted production approval path.
+- [ ] Independent review of the clarified Slice 3 contract.
+- [ ] Slice 3A implementation, separately authorized; runtime graph disconnected.
+
+### Verification / Evidence
+
+Read-only source inspection: review_history.py has a single 14-bind INSERT into
+an AUTOINCREMENT row, commits, then calls get_review_history. _row_to_detail
+currently omits user_id; future paired read must retain it internally for context
+comparison, without exposing it in public projections. PreparedHistoryContent
+requires the original snapshot object, not an equal-byte clone; ApprovedHistoryWrite
+owns the actual immutable record/snapshot/bind values. ApprovedReviewBundle's
+weak issuance receipt binds original complete bytes and source owner identity.
+
+Stdlib-only in-memory measurements used the approved Python 3.12.14 with
+-I -X utf8 -B; no product imports, files written, DB/network access or tests.
+The current json.dumps options preserve [null,true,1,1.0,-0.0,0.0] exactly after
+decode/re-encode, including Python types and negative-zero sign. Shared witnesses'
+compact expected_v1 / expected_summary / expected_v2 byte lengths are respectively
+1832/721/3249, 1908/759/3398 and 3988/1645/6503. They are body witnesses, not full
+history rows or evidence that storage code already exists. The earlier 4 MiB/
+8389632-byte/131072-node proposal based on dense schema-only shapes is superseded;
+those measurements do not establish production-valid support. SQL A/trade/access
+remain outside payload, whereas the existing approved B is included in full.
+
+### Resource closure / Production-valid support (2026-10-13)
+
+Support ALL valid results normally issued by the current trusted production
+request/builders -> source/finalizer/seal -> prepared/write path, under existing
+paired eligibility. Compiler-only DTOs or impossible producer combinations are
+not support witnesses. This changes resource scope/limits only: approved B,
+digest threat model, row binding, authority and 3A/3B/3C boundaries stay unchanged.
+
+Read-only source trace: main's AI request configured cap <=200; basic/advanced
+builders use episode[-20:] for chart inputs. _compact_chart_snapshot picks the
+first admitted chart and at most 140 candles. Combine with the final 8-chart guard
+as <=1120 AI candles, conservatively. The chart-input groups partition <=20 fills;
+marker grouping and one observation per trade yield <=20 total markers, tooltip
+price entries and cards, not 8*300 markers or 100 producer cards. General journal
+producer has no fixed DataFrame tail cap, but prepared metadata admission permits
+<=500 candles per SQL chart; SQL A is separate and only its digest enters payload.
+Metadata keeps target+last 10 trades/name 120/memo <=5000/whole-record node 100000;
+the full objective can still cover the whole <=200-trade episode.
+
+Existing semantic/ready-write gates retain text 900/card title 160, reasons 5,
+missing 4, details 5, evidence/uncertainty 4, playbook 3 per phase/questions 2.
+V1 has 4/8 paragraphs; pinned v2 has <=28/59 blocks, both <=512 runs/16384
+canonical codepoints; A1 <=16384. Finite production candles are binary64/null;
+32-byte JSON numeric tokens and 412-byte grouped currency spellings conservatively
+cover permitted numeric types, without using unapproved extreme-value fixtures.
+
+The contract's resource tables calculate byte components 372928 body/bundle +
+358400 candles + 219840 cards + 75640 markers + 29440 chart/header/tab + 256 auxiliary
+syntax + 8192 objective/context/digests = 1064696 bytes. Value-node bound is
+16975 auxiliary + 1573 v1 + 2094 v2 + 256 fixed context/bundle = 20898.
+Read-only stdlib arithmetic and fixed JSON grammar sizing confirmed these sums;
+no product imports, test execution, fixture changes, DB/network or file writes.
+The fixed run/v1-block/v2-block/candle shells cost 28/52/63/67 bytes; the derivation
+budgets include literal keys, scalar bytes, commas, escaped separators and UTF-8.
+
+Final limits: payload 1310720 bytes (1.25 MiB), leaving 246024 bytes/23.1% headroom;
+nodes 32768, the next power of two above 20898. Outer <=2*1310720+1024=2622464 bytes
+includes worst-case quote/backslash escaping plus fixed wrapper overhead. Depth 16
+stays: the deepest permitted stored path is depth 11. Existing upstream/schema
+guards are unchanged. The full component calculations and node counting rules
+are normative in the contract's Resource contract / Size evidence section.
+
+Required 3A/3B checks: production-shaped max-valid basic/advanced must pass the
+trusted approval/prepared/write chain and fit without omitted charts/cards. At
+exact byte/node/depth carrier ceilings preflight passes; limit+1 fails that bounded
+layer (full grammar may reject an exact-limit scaffold independently). Include
+multibyte UTF-8/escaping and numeric type preservation. Boundary scaffolding is
+not a production support witness. Executable boundary tests remain future work;
+the static upper-bound derivation is complete, not deferred to a guessed limit.
+
+Document verification: exact diff allowlist, local link targets, fixed schema/
+domain/type/resource definitions and git diff --check. No suite/build/live check.
+Protected original feature starts at 609163e9dc7ff8b6bbc5ee13c34e7f8020910c54
+with 9 modified/10 untracked entries. Main starts at
+f779e252b823bbd724c8be277c54d494d3b93f89 with its existing Play README change;
+SHA-256 5FDEEF682DCF0890894E8F170CFCCC3C4A5B1CC811850BC38E6C42F4E8F52328.
+
+### Remaining / Unverified
+
+The AI auxiliary Major has been addressed in documents only; independent review
+of this correction/resource derivation, executable production-valid maximum and
+exact-limit/limit+1 checks, and codec
+goldens across supported Python upgrades are pending. No durable storage code,
+SQL/context adapter, paired history/cache integration, negotiation or activation
+exists. Current post-commit reread failure is an existing publication failure
+window, not partial persistence. 3B must preserve and return the committed ID/
+immutable result and prevent automatic AI/INSERT/charge retries; crash-safe
+cross-process POST deduplication is not promised.
+
+### Next Step / Exact implementation split
+
+Review this clarified contract, then implement separately authorized 3A only:
+pure storage envelope/codec/SHA-256, typed live issuance and DurableReadAdmission,
+with deterministic/Unicode/numeric/duplicate-key/mutation/context/restart-equivalent/
+authority/resource tests and official H4 registrations. Reuse existing pure
+snapshot/prepared/write/bundle contracts, but no runtime DB/history/cache store
+imports or callers, API/router/frontend/config/secret/activation connection.
+Include strict auxiliary capture/validation and pure A != B/empty preservation
+regressions; review-display.v2 remains BODY ONLY and auxiliary is a separate payload field.
+
+3B subsequently adds typed paired history write/read and list/detail/reopen/export
+whole-row admission using synthetic/temp DBs, generation OFF. It must implement
+the contract's single complete INSERT/row-ID allocation and committed result
+delivery, with failure/compensation tests. Required basic/advanced A != B save/read/
+reopen tests must retain AI B, SQL journal A and chart_cards, and prove immediate/
+reopened body+charts+cards identity. Preserve approved empty B; missing/malformed/
+mutated B fails the whole paired admission, never restores from A. 3C subsequently uses process-local
+ApprovedReviewBundle/receipt plus immutable execution/access context for cache;
+it does not impose the durable history codec on cache. History GET and POST
+idempotency remain separate. Slice 4 adds negotiation, generation still OFF;
+activation requires later explicit approval. Before any production paired row,
+old-format rollback can be assessed; after one exists a paired-capable bridge
+and its compatible read contract are the rollback floor. Temp test rows do not
+establish a production rollback floor.
+
 ## Slice 2 — Current Status
 
 Base: 9b65a812f70f85b7ecc7fd7e6f0be202a866e482,
@@ -11,7 +188,8 @@ generation activation, stage/commit/push/merge/rebase or other worktree writes.
 - [x] Inspect source DTO/projection, v1 coverage/A1, seal, prepared content and routes.
 - [x] Implement production pure modules and stable error codes.
 - [x] Verify reference parity and existing v1/history/client boundaries.
-- [ ] Independent Slice 2 review.
+- [x] Independent Slice 2 review: approved; Blocker 0, Major 0, Minor 0.
+- [x] Slice 2 commit: 3682af800771f8bc285765d0b288aa9086a823d5.
 
 ## Slice 2 — Goal and Architecture
 
@@ -371,8 +549,9 @@ this slice does not authorize connecting v2 to cache/history/API/frontend.
 
 ## Remaining / Unverified
 
-Slice 2 pure compiler/validator/approval is implemented and locally verified;
-independent Slice 2 review is pending. Persistent dual history/cache, actual
+Slice 2 pure compiler/validator/approval is independently approved and committed.
+Slice 3 architecture was held; the clarified durable contract above awaits review.
+Persistent dual history/cache, actual
 cross-version replay, bridge rollout, activation and frontend/device remain
 unimplemented. The process-local factory receipt is not a durable storage seal.
 
@@ -382,10 +561,9 @@ or production import of a test helper was introduced.
 
 ## Next Step
 
-Independent Slice 2 review, then wait for implementation authorization. Slice 3
-should design versioned whole-bundle history/cache write/read admission, preserving
-existing v1-only records, ownership/opt-in, atomic publication and paired corruption
-policy. A durable integrity protocol must replace process-local issuance receipts
-at the persistence boundary; do not deserialize an ApprovedReviewBundle or rebuild
-v2 by recompiling raw semantics on reads. Cache replay must keep existing execution
-identity/TTL boundaries. Client negotiation/frontend/activation remain later slices.
+Use the Slice 3 contract clarification and Next Step above. Review it before
+separately authorized pure 3A implementation; no runtime connection. Never
+deserialize an ApprovedReviewBundle or rebuild v2 from raw semantics on reads.
+History uses a non-authenticating durable digest under the stated writer/storage
+trust assumptions; cache retains its process-local receipt and existing identity/
+TTL boundaries. Client negotiation/frontend/activation remain later slices.
