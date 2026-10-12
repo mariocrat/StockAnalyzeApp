@@ -179,9 +179,10 @@ class ReviewDisplayContractTest(unittest.TestCase):
                 with self.assertRaises(contract.ReviewDisplayContractError):
                     contract.validate_document(witness["expected_v2"])
         for vector in V2["invalid_documents"]:
-            with self.subTest(vector=vector["id"]), self.assertRaises(ValueError):
+            with self.subTest(vector=vector["id"]), self.assertRaises(ref.ReferenceContractError) as raised:
                 ref.validate_v2(ref.mutate(witness_for(vector["base"])["expected_v2"],
                                           vector["mutations"]), V2_SCHEMA)
+            self.assertEqual(raised.exception.code, V2["expected_errors"][vector["id"]])
         base = V2["witnesses"][0]["expected_v2"]
         for text in ("x" * 4097, chr(0xD800), "x\r"):
             doc = copy.deepcopy(base)
@@ -201,9 +202,10 @@ class ReviewDisplayContractTest(unittest.TestCase):
                 ref.validate_bundle(bundle, witness, V2_SCHEMA, contract.validate_document)
         for vector in V2["invalid_bundles"]:
             witness = witness_for(vector["base"])
-            with self.subTest(vector=vector["id"]), self.assertRaises(ValueError):
+            with self.subTest(vector=vector["id"]), self.assertRaises(ref.ReferenceContractError) as raised:
                 ref.validate_bundle(ref.mutate(ref.make_bundle(witness), vector["mutations"]),
                                     witness, V2_SCHEMA, contract.validate_document)
+            self.assertEqual(raised.exception.code, V2["expected_errors"][vector["id"]])
         # No semantic reconstruction is needed for a previously admitted v1-only body.
         witness = V2["witnesses"][0]
         for status in ("ready", "missing_key", "error", "empty"):
@@ -290,3 +292,283 @@ class ReviewDisplayContractTest(unittest.TestCase):
                 self.assertNotIn("projection", trace)
         for row in V2["generation"]:
             self.assertEqual(ref.generation(row), row["expected"])
+
+def ready_v2_source(identity="basic-high", level="high"):
+    from backend.core import review_source_contract as src
+    w = witness_for(identity)
+    value = w["source"]
+    t = value["review_type"]
+    semantic = {key: value["summary"][key] for key in ("decision_quality", "main_issue", "next_action")}
+    semantic.update(copy.deepcopy(value[t]))
+    memo = "손절 조건과 매도 조건 기록" if level != "medium" else "손절 조건 기록"
+    trades = tuple(src.admit_trade_source(dict(trade_date=date, ticker="005930", name="합성테스트",
+                   side=side, price=price, quantity=300, fee=0, tax=0, memo=memo, source="synthetic"))
+                   for date, side, price in ((value["objective"]["period"]["first_trade_date"], "buy", 7000),
+                                            (value["objective"]["period"]["last_trade_date"], "sell", 7100)))
+    contexts = ()
+    if level != "low":
+        contexts = (src.admit_analysis_context_source(dict(trade_id=None, date="2026-01-02T09:10",
+            market_date="2026-01-02", ticker="005930", name="합성테스트", side="buy", price=7000,
+            quantity=300, memo=memo, close=7000, **{k: None for k in (
+                "price_vs_close_pct", "ma5", "ma20", "ma60", "rsi14", "volume_ratio_20d",
+                "return_10d_before", "position_in_20d_range", "next_5d_return", "next_20d_return")})),)
+    return src.compose_review_source(review_type=t, trades=trades,
+        objective=src.admit_objective_source(copy.deepcopy(value["objective"])),
+        analysis_contexts=contexts, semantic=src.admit_semantic_source(semantic, t), status="ready", origin="openai")
+
+
+class ReviewDisplayV2ProductionTest(unittest.TestCase):
+    def reject(self, call, code):
+        from backend.core.review_display_v2_contract import ReviewDisplayV2Error
+        with self.assertRaises(ReviewDisplayV2Error) as raised:
+            call()
+        self.assertEqual(raised.exception.code, code)
+
+    def test_shared_valid_documents_match_reference_admission(self):
+        from backend.core.review_display_v2_contract import validate_document
+        for w in V2["witnesses"]:
+            before = copy.deepcopy(w["expected_v2"])
+            self.assertEqual(validate_document(before), ref.validate_v2(before, V2_SCHEMA)["canonical_text"])
+            self.assertEqual(before, w["expected_v2"])
+
+    def test_all_document_negative_codes_and_fixture_restoration(self):
+        from backend.core.review_display_v2_contract import validate_document
+        for v in V2["invalid_documents"]:
+            w = witness_for(v["base"])
+            before = copy.deepcopy(w)
+            malformed = ref.mutate(w["expected_v2"], v["mutations"])
+            with self.subTest(vector=v["id"]):
+                self.reject(lambda: validate_document(malformed), V2["expected_errors"][v["id"]])
+                with self.assertRaises(ref.ReferenceContractError) as error:
+                    ref.validate_v2(malformed, V2_SCHEMA)
+                self.assertEqual(error.exception.code, V2["expected_errors"][v["id"]])
+            self.assertEqual(before, w)
+
+    def test_all_bundle_negative_codes_match_reference_and_fixed_outputs(self):
+        from backend.core.review_approval_bundle import _validate_candidate
+        for v in V2["invalid_bundles"]:
+            w = witness_for(v["base"])
+            base = ref.make_bundle(w)
+            before = copy.deepcopy(base)
+            malformed = ref.mutate(base, v["mutations"])
+            with self.subTest(vector=v["id"]):
+                self.reject(lambda: _validate_candidate(malformed, base), V2["expected_errors"][v["id"]])
+                with self.assertRaises(ref.ReferenceContractError) as error:
+                    ref.validate_bundle(malformed, w, V2_SCHEMA, contract.validate_document)
+                self.assertEqual(error.exception.code, V2["expected_errors"][v["id"]])
+            self.assertEqual(base, before)
+        self.assertEqual(set(V2["expected_errors"]), {v["id"] for v in V2["invalid_documents"] + V2["invalid_bundles"]})
+
+    def test_internal_mapping_kernel_matches_three_fixed_v2_goldens(self):
+        from backend.core.review_display_v2_compiler import _compile_projected
+        for w in V2["witnesses"]:
+            doc, coverage = _compile_projected(copy.deepcopy(w["source"]))
+            self.assertEqual(doc, w["expected_v2"], w["id"])
+            self.assertIn(("objective", "result", "realized_pnl"), coverage)
+            self.assertIn(("summary", "data_confidence", "level"), coverage)
+
+    def test_admitted_compiler_preserves_objective_and_quality_for_both_types(self):
+        from backend.core.review_display_v2_compiler import compile_body
+        from backend.core.review_source_projection import structured_review_payload
+        for identity in ("basic-high", "advanced-low"):
+            for level in ("high", "medium", "low"):
+                source = ready_v2_source(identity, level)
+                projected = structured_review_payload(source)
+                doc = compile_body(source)
+                self.assertEqual(doc["blocks"][0]["runs"][0]["text"], "+29,967원")
+                self.assertEqual(doc["blocks"][1]["runs"][0]["text"], "+1.33%")
+                quality = doc["sections"][1]
+                self.assertEqual(quality["confidence"]["level"], level)
+                self.assertEqual(len(quality["missing_information"]), len(projected["summary"]["missing_information"]))
+                self.assertEqual(len(quality["missing_information"]), 1 if level == "medium" else 0)
+                self.assertEqual(source.objective.result.weighted_buy_price, 7000)
+        from backend.core import review_source_contract as src
+        from backend.core.review_source_projection import objective_payload
+        from backend.core.review_approval_bundle import compile_approval_bundle
+        original = ready_v2_source()
+        objective = objective_payload(original.objective)
+        objective["result"].update(realized_pnl=0, realized_return_pct=0,
+                                   weighted_buy_price=None, weighted_sell_price=None)
+        zero = src.compose_review_source(review_type="basic", trades=original.trades,
+            objective=src.admit_objective_source(objective), analysis_contexts=original.analysis_contexts,
+            semantic=original.semantic, status="ready", origin="openai")
+        body = compile_body(zero)
+        self.assertEqual(body["blocks"][0]["runs"][0]["text"], "+0원")
+        self.assertEqual(body["blocks"][1]["runs"][0]["text"], "+0.00%")
+        self.assertIsNone(zero.objective.result.weighted_buy_price)
+        self.assertNotEqual(compile_approval_bundle(zero).document["objective_identity"],
+                            compile_approval_bundle(original).document["objective_identity"])
+
+    def test_optional_collections_and_deterministic_dictionary_order(self):
+        from backend.core import review_source_contract as src
+        from backend.core.review_source_projection import semantic_payload
+        from backend.core.review_display_v2_compiler import compile_body
+        source = ready_v2_source("advanced-low")
+        semantic = semantic_payload(source.semantic)
+        semantic.update(detailed_analysis=[], reflection_questions=[])
+        semantic["entry_review"]["uncertainty"] = []
+        first = src.finish_review_source(source, semantic=src.admit_semantic_source(semantic, "advanced"),
+                                         status="ready", origin="openai")
+        second = src.finish_review_source(source, semantic=src.admit_semantic_source(
+            dict(reversed(list(semantic.items()))), "advanced"), status="ready", origin="openai")
+        doc = compile_body(first)
+        self.assertEqual(doc, compile_body(first))
+        self.assertEqual(doc, compile_body(second))
+        empty_roles = {s["role"] for s in doc["sections"] if s["block_ids"] == []}
+        self.assertEqual(empty_roles, {"detailed_analysis", "reflection_questions"})
+
+    def test_ready_gate_rejects_fallback_error_empty_and_unavailable(self):
+        from backend.core import review_source_contract as src
+        from backend.core.review_display_v2_compiler import compile_body
+        from backend.core.review_approval_bundle import compile_approval_bundle
+        original = ready_v2_source()
+        for status in ("missing_key", "error"):
+            source = src.finish_review_source(original, semantic=original.semantic, status=status, origin="chart-rules")
+            self.reject(lambda: compile_body(source), "UNSUPPORTED_V2_SOURCE")
+            self.reject(lambda: compile_approval_bundle(source), "UNSUPPORTED_V2_SOURCE")
+        empty = src.compose_review_source(review_type="basic", trades=(),
+            objective=src.admit_objective_source(dict(kind="unavailable", reason="no_trades")),
+            status="empty", origin="none")
+        for source in (empty, src.unavailable_review_source("basic")):
+            self.reject(lambda: compile_body(source), "UNSUPPORTED_V2_SOURCE")
+        with self.assertRaises(TypeError):
+            compile_body({})
+
+    def test_v1_output_unchanged_and_pair_provenance_complete(self):
+        from backend.core.review_body_compiler import compile_review_body
+        from backend.core.review_approval_bundle import compile_approval_bundle, validate_bundle
+        from backend.core.review_legacy_compatibility import admit_legacy_body
+        for name in ("basic-high", "advanced-low"):
+            source = ready_v2_source(name)
+            original = compile_review_body(source)
+            approval = compile_approval_bundle(source)
+            bundle = approval.document
+            self.assertEqual(bundle["representations"]["v1"]["document"], original)
+            self.assertEqual(bundle["representations"]["v1"]["summary"], admit_legacy_body(original).summary)
+            self.assertNotEqual(original["canonical_text"], bundle["representations"]["v2"]["document"]["canonical_text"])
+            for rep in bundle["representations"].values():
+                self.assertEqual(rep["source_identity"], bundle["source_identity"])
+                self.assertEqual(rep["objective_identity"], bundle["objective_identity"])
+            validate_bundle(bundle, approval=approval)
+
+    def test_real_approval_corruption_rejects_without_recompilation(self):
+        from unittest.mock import patch
+        from backend.core import review_approval_bundle as bundle
+        source = ready_v2_source()
+        approval = bundle.compile_approval_bundle(source)
+        for v in V2["invalid_bundles"]:
+            malformed = ref.mutate(approval.document, v["mutations"])
+            with self.subTest(vector=v["id"]), patch.object(bundle, "compile_body", side_effect=AssertionError("read compiler")):
+                self.reject(lambda: bundle.validate_bundle(malformed, approval=approval), V2["expected_errors"][v["id"]])
+
+    def test_atomic_failures_allocate_no_partial_approval(self):
+        from unittest.mock import patch
+        from backend.core import review_approval_bundle as bundle
+        from backend.core.review_display_v2_compiler import compile_body
+        source = ready_v2_source()
+        for name in ("compile_review_body", "compile_body"):
+            with patch.object(bundle, name, side_effect=RuntimeError("programming failure")), patch.object(bundle, "_allocate") as allocate:
+                with self.assertRaisesRegex(RuntimeError, "programming failure"):
+                    bundle.compile_approval_bundle(source)
+                allocate.assert_not_called()
+        bad = compile_body(source)
+        bad["sections"][1]["confidence"]["level"] = "low"
+        with patch.object(bundle, "compile_body", return_value=bad), patch.object(bundle, "_allocate") as allocate:
+            self.reject(lambda: bundle.compile_approval_bundle(source), "COMPILER_OUTPUT_MISMATCH")
+            allocate.assert_not_called()
+
+    def test_approval_alias_copy_restore_and_owner_mutation(self):
+        import pickle
+        from backend.core import review_approval_bundle as bundle
+        source = ready_v2_source()
+        approval = bundle.compile_approval_bundle(source)
+        digest, before = approval.digest, approval.json_text
+        copy_value = approval.document
+        copy_value["representations"]["v2"]["document"]["blocks"][0]["runs"][0]["text"] = "changed"
+        self.assertEqual(approval.json_text, before)
+        self.assertEqual(approval.digest, digest)
+        for call in (lambda: bundle.ApprovedReviewBundle(), lambda: copy.copy(approval),
+                     lambda: copy.deepcopy(approval), lambda: pickle.dumps(approval)):
+            with self.assertRaises(TypeError):
+                call()
+        with self.assertRaises(AttributeError):
+            approval._json = b"changed"
+        fake = object.__new__(bundle.ApprovedReviewBundle)
+        self.reject(lambda: bundle.validate_bundle(approval.document, approval=fake), "INVALID_APPROVAL")
+        original = source.objective.result.weighted_buy_price
+        try:
+            object.__setattr__(source.objective.result, "weighted_buy_price", 1234)
+            self.reject(lambda: bundle.validate_bundle(copy_value, approval=approval), "SOURCE_MUTATION")
+        finally:
+            object.__setattr__(source.objective.result, "weighted_buy_price", original)
+        # Tampering must also fail when the attacker recomputes the local digest.
+        tampered = bundle.compile_approval_bundle(source)
+        payload = tampered.document
+        payload["representations"]["v2"]["document"]["sections"][1]["confidence"]["level"] = "low"
+        encoded = bundle.encode(payload)
+        object.__setattr__(tampered, "_json", encoded)
+        object.__setattr__(tampered, "_digest", bundle._digest(encoded, tampered._source, tampered._objective))
+        self.reject(lambda: bundle.validate_bundle(payload, approval=tampered), "APPROVAL_MUTATION")
+        from backend.core.review_display_v2_compiler import compile_body
+        cyclic = ready_v2_source()
+        object.__setattr__(cyclic.semantic.lesson, "concept", cyclic.semantic)
+        self.reject(lambda: compile_body(cyclic), "INVALID_SOURCE")
+        mutable = ready_v2_source()
+        object.__setattr__(mutable.semantic, "good_points", list(mutable.semantic.good_points))
+        self.reject(lambda: compile_body(mutable), "INVALID_SOURCE")
+
+    def test_legitimate_v1_only_wrap_has_no_upgrade_or_source_reconstruction(self):
+        from unittest.mock import patch
+        from backend.core import review_approval_bundle as bundle
+        from backend.core.review_envelope_compiler import compile_review_envelope, seal_review_envelope
+        from backend.core import review_source_contract as src
+        source = ready_v2_source()
+        variants = [source, src.finish_review_source(source, semantic=source.semantic, status="missing_key", origin="chart-rules"),
+                    src.compose_review_source(review_type="basic", trades=(),
+                        objective=src.admit_objective_source(dict(kind="unavailable", reason="no_trades")),
+                        status="empty", origin="none"), src.unavailable_review_source("basic")]
+        for item in variants:
+            snapshot = seal_review_envelope(compile_review_envelope(item))
+            with patch.object(bundle, "compile_body", side_effect=AssertionError("no upgrade")):
+                approval = bundle.approve_v1_only(snapshot)
+            self.assertEqual(set(approval.document["representations"]), {"v1"})
+            self.assertEqual(approval.document["status"], item.status)
+            bundle.validate_bundle(approval.document, approval=approval)
+
+    def test_unicode_resource_bounds_and_programming_errors_are_distinct(self):
+        from backend.core.review_display_v2_contract import validate_document
+        base = V2["witnesses"][0]["expected_v2"]
+        for text in ("x" * 4097, chr(0xD800)):
+            doc = copy.deepcopy(base)
+            doc["blocks"][0]["runs"][0]["text"] = text
+            doc["canonical_text"] = ref.flatten(doc)
+            self.reject(lambda: validate_document(doc), "LIMIT_EXCEEDED" if len(text) > 4096 else "INVALID_UNICODE")
+        doc = copy.deepcopy(base)
+        doc["blocks"] *= 65
+        self.reject(lambda: validate_document(doc), "LIMIT_EXCEEDED")
+        doc = copy.deepcopy(base)
+        doc["blocks"][0]["runs"][0]["text"] = "e\u0301 😀"
+        doc["canonical_text"] = ref.flatten(doc)
+        self.assertEqual(validate_document(doc), doc["canonical_text"])
+        from backend.core.review_display_v2_compiler import compile_body
+        with self.assertRaises(TypeError):
+            compile_body(None)
+
+    def test_new_pure_modules_are_absent_from_existing_runtime_import_graph(self):
+        import ast
+        root = Path(__file__).resolve().parents[1]
+        names = {"review_display_v2_contract", "review_display_v2_compiler", "review_approval_bundle"}
+        for path in (root / "backend").rglob("*.py"):
+            if path.stem in names:
+                tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ImportFrom):
+                        self.assertFalse((node.module or "").startswith(("tests", "frontend")), path)
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    self.assertNotIn((node.module or "").split(".")[-1], names, path)
+                    self.assertFalse(any(alias.name in names for alias in node.names), path)
+                elif isinstance(node, ast.Import):
+                    self.assertFalse(any(alias.name.split(".")[-1] in names for alias in node.names), path)

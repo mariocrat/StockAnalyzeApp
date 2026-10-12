@@ -30,7 +30,8 @@ test('v2 shared body vectors enforce exact roles ownership order and bounds', ()
     assert.throws(() => validateReviewDisplay(witness.expected_v2));
   }
   for (const vector of v2.invalid_documents) {
-    assert.throws(() => validateV2(mutate(witnessFor(vector.base).expected_v2, vector.mutations), v2Schema), undefined, vector.id);
+    assert.throws(() => validateV2(mutate(witnessFor(vector.base).expected_v2, vector.mutations), v2Schema),
+      error => error.code === v2.expected_errors[vector.id], vector.id);
   }
   for (const text of ['x'.repeat(4097), String.fromCharCode(0xD800), 'x\r']) {
     const doc = structuredClone(v2.witnesses[0].expected_v2);
@@ -50,7 +51,8 @@ test('v2 atomic bundles reject either corrupt side without v1 downgrade', () => 
   }
   for (const vector of v2.invalid_bundles) {
     const witness = witnessFor(vector.base);
-    assert.throws(() => validateBundle(mutate(makeBundle(witness),vector.mutations), witness, v2Schema, validateReviewDisplay), undefined, vector.id);
+    assert.throws(() => validateBundle(mutate(makeBundle(witness),vector.mutations), witness, v2Schema, validateReviewDisplay),
+      error => error.code === v2.expected_errors[vector.id], vector.id);
   }
   for (const status of ['ready','missing_key','error','empty']) {
     const witness = v2.witnesses[0], bundle = makeBundle(witness,'v1_only');

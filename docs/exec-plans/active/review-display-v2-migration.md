@@ -1,4 +1,183 @@
-# Review display v2 migration — Slice 1
+# Review display v2 migration
+
+## Slice 2 — Current Status
+
+Base: 9b65a812f70f85b7ecc7fd7e6f0be202a866e482,
+integration/broker-import-ux-main, initially clean. User authorized pure production
+v2 validator/compiler/approval modules, tests, expected-error vector additions,
+inventory and this plan. No request/API/header/history/cache/frontend connection,
+generation activation, stage/commit/push/merge/rebase or other worktree writes.
+
+- [x] Inspect source DTO/projection, v1 coverage/A1, seal, prepared content and routes.
+- [x] Implement production pure modules and stable error codes.
+- [x] Verify reference parity and existing v1/history/client boundaries.
+- [ ] Independent Slice 2 review.
+
+## Slice 2 — Goal and Architecture
+
+Production pure code can now capture an admitted immutable review source,
+compile current v1 plus v2, independently validate both, check semantic coverage
+and exact compiler agreement, and atomically issue a paired content approval.
+Existing source admission/finalizer safety/ownership/consent/entitlement still
+have their existing responsibilities. This pure content object grants none of
+those permissions and is not a durable history approval format.
+
+### Files / Production pure modules
+
+New modules only:
+
+- backend/core/review_display_v2_contract.py: closed body shape and coded rejection.
+- backend/core/review_display_v2_compiler.py: source capture, deterministic body mapping.
+- backend/core/review_approval_bundle.py: v1-only/paired factory and immutable receipt.
+
+Supporting changes: this plan, the shared vector's expected_errors mapping,
+both test-only reference helpers, Python display-contract tests, Node canonical
+test assertions, tests/test_inventory.json, isolation_inventory baseline counts,
+and test_full_test_entrypoint aggregate expectations. No schema/role/golden rewrite.
+Total: 9 tracked modified + 3 new production modules; staged 0.
+
+### Validator / Error codes / Precedence
+
+ReviewDisplayV2Error is a ValueError subtype with stable code and a controlled
+path. Exception messages contain no rejected values. There is no catch-all that
+turns programming exceptions into admission success/rejection. Tests prove
+RuntimeError/TypeError programming failures propagate without issuing approval.
+
+The shared corpus now has error_contract_version=review-display-errors.v1 and
+expected_errors for all 41 existing negative vectors; IDs, mutations and goldens
+are unchanged. Python production/reference and JS reference match every code.
+
+Production body precedence:
+
+1. Exact root keys, version/surface/type.
+2. Ordered block shape, ID uniqueness, run/character/resource/separator checks.
+3. Fixed role/order and exact nested section fields/reference syntax.
+4. Global duplicate ownership; missing owned references; orphan blocks.
+5. Per-section missing references; repeated field references; foreign references;
+   traversal/ownership order; document block order.
+6. Canonical text identity.
+
+Bundle precedence: exact discriminator/keys/status and required representations;
+pinned compiler/type/source/objective relationships; v1/A1 admission and summary;
+v2 admission; trusted expected whole representation comparison. Paired reads
+validate both sides, including the unrequested side. UNKNOWN_KEY on an attempted
+kind downgrade is intentional; it cannot hide remaining paired fields.
+
+Examples with multiple violated invariants: duplicate-ownership precedes the
+resulting orphan; orphan-block precedes foreign field ownership; wrong-block-order
+precedes its canonical mismatch. A structurally valid state/content/ref change
+returns COMPILER_OUTPUT_MISMATCH against the original trusted output.
+Reference precedence uses its shared schema preflight; the 41 corpus cases have
+identical production/reference results. Mixed faults outside this corpus are not
+claimed as a cross-language priority guarantee.
+
+Additional source/approval codes include INVALID_SOURCE, UNSUPPORTED_V2_SOURCE,
+SEMANTIC_COVERAGE_MISMATCH, SOURCE_MUTATION, INVALID_APPROVAL, APPROVAL_MUTATION.
+Existing v1/A1 violations wrap as V1_DOCUMENT_INVALID; existing v1 code is unchanged.
+
+### Compiler / Objective / Confidence / Determinism
+
+Public compile_body accepts ValidatedReviewSource only and captures all DTO
+values with exact DTO names/types/immutable tuple shape. Current admission is
+rechecked and its type-preserving snapshot must equal the source; normalization
+cannot silently repair tampering. Mutable/cyclic/forged/uninitialized sources
+reject. Ready/openai/real objective/admitted semantic is required for v2.
+Other states and the separate fallback paths do not become v2.
+
+The mapper has explicit basic/advanced field calls and deterministic b0.. IDs;
+no locale, random, time, request or input-dictionary order dependence. Model text
+uses the existing inline-strong grammar; compiler-owned numeric text comes only
+from ObjectiveSource. No frontend text reconstruction exists in this slice.
+Sections contain refs plus declared machine enums, without duplicated body text.
+
+Both types compile under high/medium/low quality. Backend review_data_quality
+supplies level/label/reasons/missing independently. Optional detail/questions
+can own zero blocks. Objective 0 remains 0, nullable average prices remain null
+in full source/objective receipt bytes, and unavailable objective is never
+converted to zero for v2. Formatting and semantic paths are checked explicitly.
+
+Three fixed v2 goldens pass the mapping kernel; actual admitted DTO pipeline
+tests use current backend-generated quality reasons instead of forcing synthetic
+fixture reason text into a source DTO.
+
+### Approval bundle / Cross-representation consistency
+
+compile_approval_bundle uses current compile_review_body, v1 validate_document,
+compile_structured_review coverage and A1 serializer unchanged. New v2 output
+must equal the deterministic projected compiler result. Source/objective digests
+bind their complete type-preserving data, not model text or canonical_text alone.
+Both representation versions and their exact outputs bind to the approval.
+
+ApprovedReviewBundle is factory-only, immutable, not subclassable/copyable/
+pickle-restorable. It owns UTF-8 bytes and returns independent JSON copies.
+Module-owned weak issuance receipts retain original complete bundle/source/
+objective bytes, digest and original owner identity. Changing instance fields
+plus recomputing a local digest still fails; this bookkeeping is neither the
+request cache nor a persistence/restart protocol.
+
+Only successful full validation/serialization/source recheck issues a receipt;
+failure at v1, v2, coverage, consistency or serialization returns no partial
+approval. validate_bundle compares to the existing issued receipt, does not
+compile, reconstruct a side, downgrade or create approval. Source owner mutation
+is rejected, including hidden objective fields. v1_only can wrap an existing
+ApprovedReviewSnapshot without needing or inventing historical semantic input.
+No stored legacy record is migrated or overwritten.
+
+### Runtime isolation
+
+Static import AST tests and repository reference scan find new modules referenced
+only by each other and tests. Existing API routes, finalizer, history writer,
+cache/fingerprint, headers, frontend and Android do not import/call them.
+No flag was added. Production modules import existing pure compiler/source tools,
+never fixtures/reference validators. All 402 initially tracked files were hashed:
+only the 9 explicitly allowed support paths changed; 393 others (including all
+existing backend and 41 frontend src files, config/Android) remain byte-identical.
+Slice 1 contract spec/schema and golden outputs remain unchanged.
+
+### Verification — Slice 2
+
+Approved executable paths and exact final commands:
+
+~~~powershell
+$py = 'D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe'
+$node = 'C:\Program Files\nodejs\node.exe'
+& $py -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_display_contract
+& $py -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_legacy_compatibility tests.test_review_source_contract tests.test_review_envelope_contract tests.test_review_source_admission tests.test_review_history_adapter tests.test_review_history_prepared_content tests.test_review_history_approved_write tests.test_review_display_client_gate tests.test_full_test_entrypoint tests.test_storage_fixture_runner
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-entrypoint test:canonical-review-renderer --node-executable $node
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-entrypoint test:legacy-review-cross-contract --node-entrypoint test:ai-format --node-executable $node
+& $py -I -X utf8 -B tests/run_isolated_tests.py --inventory-only
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-inventory-only
+& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run lint
+git diff --check
+~~~
+
+- Final contract entrypoint: 33/33 PASS, including 14 new direct production tests.
+  Initially passed before receipt hardening; rerun only this entrypoint after
+  recomputed-digest/0-null and cyclic-source subcases were added, both PASS.
+  No materially failed test approach occurred.
+- Related Python: 219/219 PASS (legacy 14, source 32, envelope 26, source admission
+  23, history adapter 44, prepared content 18, approved write 24, client gate 21,
+  coordinator 15, storage fixture runner 2). Combined distinct direct coverage:
+  252/252 in 11 modules; repeated contract runs are not counted again.
+- Node: 15 canonical/reference + 11 legacy cross-contract + 7 format = 33/33.
+- FAIL/ERROR/SKIP, inventory issues and guarded unexpected violations: 0.
+  Restoration/patch restoration/cleanup true; coordinator negative synthetic
+  outcomes satisfy their expected contracts. Private/live I/O was blocked.
+- Python source inventory: 103 modules / 976 direct, baseline 35/904/22 + Stage 1
+  15, separate child probes 18, missing/duplicate/expected skip 0.
+- Node inventory: 23/248, missing/duplicate/extra 0, no missing source dependencies.
+- Lint PASS and tracked git diff --check PASS. New modules have no trailing spaces
+  or extra blank EOF. Full TestOnly, BuildChecks, frontend/Android builds and live
+  API/OpenAI/device/private DB were not run. Frontend build omitted because all
+  production frontend assets/config are byte-identical.
+
+Protected feature remains HEAD 609163e9dc7ff8b6bbc5ee13c34e7f8020910c54 with
+9 modified/10 untracked status entries. Main remains f779e252b823bbd724c8be277c54d494d3b93f89,
+only its existing Play README modification; SHA-256 remains
+5FDEEF682DCF0890894E8F170CFCCC3C4A5B1CC811850BC38E6C42F4E8F52328.
+No command wrote to those worktrees. No stage/commit/push/merge/rebase.
+
+## Slice 1 — Historical implementation record
 
 ## Goal
 
@@ -192,20 +371,21 @@ this slice does not authorize connecting v2 to cache/history/API/frontend.
 
 ## Remaining / Unverified
 
-Production compiler/seal/persistence, cross-version runtime replay, bridge rollout,
-generation activation and UI/device evidence remain unimplemented. Test-only
-witnesses and modeled zero-effect replay are not evidence that production v2
-execution or storage works.
+Slice 2 pure compiler/validator/approval is implemented and locally verified;
+independent Slice 2 review is pending. Persistent dual history/cache, actual
+cross-version replay, bridge rollout, activation and frontend/device remain
+unimplemented. The process-local factory receipt is not a durable storage seal.
 
-The independent-review Minor is non-blocking: 41 negative vectors currently
-assert rejection, while the reference contract tests do not pin a per-vector
-expected error code/rejection reason. Add stable codes with the production
-validator in Slice 2 and bind the vectors then; do not create a separate error
-taxonomy in the test-only validator.
+The Slice 1 Minor is addressed: all 41 negative vectors now pin stable expected
+codes, checked by production/Python reference/JS reference. No separate taxonomy
+or production import of a test helper was introduced.
 
 ## Next Step
 
-Request independent review of Slice 1, especially atomic approval/read integrity,
-execution/capability separation and ownership/traversal. After approval and a
-separate implementation request, Slice 2 builds the pure v2 compiler/admission
-and whole-bundle approval with these unchanged vectors; no runtime connection.
+Independent Slice 2 review, then wait for implementation authorization. Slice 3
+should design versioned whole-bundle history/cache write/read admission, preserving
+existing v1-only records, ownership/opt-in, atomic publication and paired corruption
+policy. A durable integrity protocol must replace process-local issuance receipts
+at the persistence boundary; do not deserialize an ApprovedReviewBundle or rebuild
+v2 by recompiling raw semantics on reads. Cache replay must keep existing execution
+identity/TTL boundaries. Client negotiation/frontend/activation remain later slices.

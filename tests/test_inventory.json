@@ -1273,7 +1273,21 @@
         "ReviewDisplayContractTest.test_v2_replay_generation_and_expiry_contract",
         "ReviewDisplayContractTest.test_v2_shared_documents_and_negative_mutations",
         "ReviewDisplayContractTest.test_v2_whole_document_identity_and_independent_confidence",
-        "ReviewDisplayContractTest.test_v2_witnesses_match_existing_v1_compiler_and_source_coverage"
+        "ReviewDisplayContractTest.test_v2_witnesses_match_existing_v1_compiler_and_source_coverage",
+        "ReviewDisplayV2ProductionTest.test_admitted_compiler_preserves_objective_and_quality_for_both_types",
+        "ReviewDisplayV2ProductionTest.test_all_bundle_negative_codes_match_reference_and_fixed_outputs",
+        "ReviewDisplayV2ProductionTest.test_all_document_negative_codes_and_fixture_restoration",
+        "ReviewDisplayV2ProductionTest.test_approval_alias_copy_restore_and_owner_mutation",
+        "ReviewDisplayV2ProductionTest.test_atomic_failures_allocate_no_partial_approval",
+        "ReviewDisplayV2ProductionTest.test_internal_mapping_kernel_matches_three_fixed_v2_goldens",
+        "ReviewDisplayV2ProductionTest.test_legitimate_v1_only_wrap_has_no_upgrade_or_source_reconstruction",
+        "ReviewDisplayV2ProductionTest.test_new_pure_modules_are_absent_from_existing_runtime_import_graph",
+        "ReviewDisplayV2ProductionTest.test_optional_collections_and_deterministic_dictionary_order",
+        "ReviewDisplayV2ProductionTest.test_ready_gate_rejects_fallback_error_empty_and_unavailable",
+        "ReviewDisplayV2ProductionTest.test_real_approval_corruption_rejects_without_recompilation",
+        "ReviewDisplayV2ProductionTest.test_shared_valid_documents_match_reference_admission",
+        "ReviewDisplayV2ProductionTest.test_unicode_resource_bounds_and_programming_errors_are_distinct",
+        "ReviewDisplayV2ProductionTest.test_v1_output_unchanged_and_pair_provenance_complete"
       ],
       "skips": {}
     },
@@ -2356,7 +2370,7 @@
           "nested structure and bounds fail closed in the actual component",
           "the same renderer and validator require the explicit approved surface for chart documents"
         ],
-        "sha256": "c7fe7b6e1bbf08d979af6f31c1b373fdb2a034c3648e49f5fa770cb5e5d6eeb4",
+        "sha256": "a8f2c3fb73dddc6c386229b4e43b4be48959981d761bc6a88a8f1f6731071d18",
         "reads": [
           "package.json",
           "scripts/canonical-review-renderer.test.js",

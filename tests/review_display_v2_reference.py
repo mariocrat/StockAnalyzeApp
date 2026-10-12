@@ -6,45 +6,90 @@ import re
 
 def require(ok, message="contract violation"):
     if not ok:
-        raise ValueError(message)
+        raise ReferenceContractError(message)
+
+
+class ReferenceContractError(ValueError):
+    def __init__(self, code):
+        self.code = code
+        super().__init__(code)
 
 
 def stable(value):
     return json.dumps(value, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
 
 
-def schema_check(value, rule):
-    require(rule is not False)
+def _exact(value, keys, path):
+    require(type(value) is dict, "INVALID_TYPE")
+    require(not (set(value) - set(keys)), "UNKNOWN_KEY")
+    missing = set(keys) - set(value)
+    if missing:
+        code = ("MISSING_BLOCK_ID" if path.startswith("$.blocks[") and "id" in missing else
+                "V1_MISSING" if path == "$.representations" and "v1" in missing else
+                "V2_MISSING" if path == "$.representations" and "v2" in missing else "MISSING_FIELD")
+        require(False, code)
+
+
+def _scalar_code(path, issue):
+    if path.endswith(".role"):
+        return "WRONG_SECTION_ORDER"
+    if path.endswith(".compiler_version"):
+        return "COMPILER_VERSION_MISMATCH"
+    if path.endswith(".schema_version"):
+        return "INVALID_VERSION"
+    if path.endswith(".surface"):
+        return "INVALID_SURFACE"
+    if path.endswith(".review_type"):
+        return "INVALID_REVIEW_TYPE"
+    if path.endswith(".status"):
+        return "INVALID_BUNDLE_STATUS"
+    if path.endswith(".level"):
+        return "INVALID_CONFIDENCE"
+    if path.endswith(".phase"):
+        return "INVALID_PHASE"
+    if path.endswith(".separator_after"):
+        return "INVALID_SEPARATOR"
+    if path.endswith(".type"):
+        return "INVALID_RUN_TYPE" if ".runs[" in path else "INVALID_BLOCK_TYPE"
+    if path.endswith(".id"):
+        return "INVALID_BLOCK_ID"
+    if path.endswith("_identity"):
+        return "INVALID_IDENTITY"
+    return "INVALID_REFERENCE" if issue == "pattern" else "INVALID_TYPE"
+
+
+def schema_check(value, rule, path="$"):
+    require(rule is not False, "INVALID_TYPE")
     if "oneOf" in rule:
-        matches = 0
-        for candidate in rule["oneOf"]:
-            try:
-                schema_check(value, candidate)
-                matches += 1
-            except ValueError:
-                pass
-        require(matches == 1, "oneOf")
+        discriminator = "kind" if any("kind" in r["properties"] for r in rule["oneOf"]) else "review_type"
+        require(type(value) is dict, "INVALID_TYPE")
+        match = next((r for r in rule["oneOf"] if value.get(discriminator) ==
+                      r["properties"][discriminator]["const"]), None)
+        require(match is not None, "INVALID_BUNDLE_KIND" if discriminator == "kind" else "INVALID_REVIEW_TYPE")
+        schema_check(value, match, path)
         return
     if "const" in rule:
-        require(value == rule["const"], "const")
+        require(value == rule["const"], _scalar_code(path, "const"))
     if "enum" in rule:
-        require(value in rule["enum"], "enum")
+        require(value in rule["enum"], _scalar_code(path, "enum"))
     kind = rule.get("type")
     if kind == "object":
-        require(type(value) is dict, "object")
+        require(type(value) is dict, "INVALID_TYPE")
         if "properties" in rule:
-            require(set(value) == set(rule["required"]), "exact keys")
+            _exact(value, rule["required"], path)
             for key, child in rule["properties"].items():
-                schema_check(value[key], child)
+                schema_check(value[key], child, path + "." + key)
     elif kind == "array":
-        require(type(value) is list and rule["minItems"] <= len(value) <= rule["maxItems"], "array")
+        require(type(value) is list, "INVALID_MISSING_INFORMATION" if path.endswith(".missing_information") else "INVALID_TYPE")
+        require(rule["minItems"] <= len(value) <= rule["maxItems"],
+                "WRONG_SECTION_ORDER" if path == "$.sections" else "LIMIT_EXCEEDED")
         for i, child in enumerate(value):
-            schema_check(child, rule["prefixItems"][i] if "prefixItems" in rule else rule["items"])
+            schema_check(child, rule["prefixItems"][i] if "prefixItems" in rule else rule["items"], f"{path}[{i}]")
     elif kind == "string":
-        require(type(value) is str, "string")
-        require(rule.get("minLength", 0) <= len(value) <= rule.get("maxLength", float("inf")), "text bounds")
+        require(type(value) is str, "INVALID_REFERENCE" if rule.get("x-block-ref") else "INVALID_TYPE")
+        require(rule.get("minLength", 0) <= len(value) <= rule.get("maxLength", float("inf")), "LIMIT_EXCEEDED")
         if "pattern" in rule:
-            require(re.fullmatch(rule["pattern"], value) is not None, "pattern")
+            require(re.fullmatch(rule["pattern"], value) is not None, _scalar_code(path, "pattern"))
 
 
 def references(value, rule):
@@ -65,28 +110,46 @@ def flatten(doc):
 
 def check_text(text):
     require(all(not (ord(c) < 9 or 10 < ord(c) < 32 or ord(c) == 127
-                     or 0xD800 <= ord(c) <= 0xDFFF) for c in text), "character")
+                     or 0xD800 <= ord(c) <= 0xDFFF) for c in text), "INVALID_UNICODE")
 
 
 def validate_v2(doc, schema):
+    _exact(doc, ("schema_version", "surface", "review_type", "blocks", "sections", "canonical_text"), "$")
+    require(doc["schema_version"] == "review-display.v2", "INVALID_VERSION")
+    require(doc["surface"] == "body", "INVALID_SURFACE")
+    shape = next((s for s in schema["oneOf"] if s["properties"]["review_type"]["const"] == doc["review_type"]), None)
+    require(shape is not None, "INVALID_REVIEW_TYPE")
+    rules = shape["properties"]["sections"]["prefixItems"]
+    require(type(doc["sections"]) is list, "INVALID_TYPE")
+    require(len(doc["sections"]) == len(rules), "WRONG_SECTION_ORDER")
+    vocabulary = {r["properties"]["role"]["const"] for s in schema["oneOf"]
+                  for r in s["properties"]["sections"]["prefixItems"]}
+    for section, rule in zip(doc["sections"], rules):
+        require(type(section) is dict, "INVALID_TYPE")
+        require(type(section.get("role")) is str and section["role"] in vocabulary, "UNKNOWN_ROLE")
+        require(section["role"] == rule["properties"]["role"]["const"], "WRONG_SECTION_ORDER")
     schema_check(doc, schema)
-    shape = next(s for s in schema["oneOf"] if s["properties"]["review_type"]["const"] == doc["review_type"])
-    owned = []
-    for section, rule in zip(doc["sections"], shape["properties"]["sections"]["prefixItems"]):
-        require(references(section, rule) == section["block_ids"], "field ownership/order")
-        owned.extend(section["block_ids"])
-    ids = [block["id"] for block in doc["blocks"]]
-    require(len(set(ids)) == len(ids) and len(set(owned)) == len(owned), "unique ownership")
-    require(ids == owned, "document ownership/order")
-    require(sum(len(b["runs"]) for b in doc["blocks"]) <= 512, "run total")
+    ids = [b["id"] for b in doc["blocks"]]
+    require(len(set(ids)) == len(ids), "DUPLICATE_BLOCK_ID")
+    require(sum(len(b["runs"]) for b in doc["blocks"]) <= 512, "LIMIT_EXCEEDED")
     for block in doc["blocks"]:
         if block["type"] == "divider":
-            require(len(block["runs"]) == 1 and block["runs"][0]["type"] == "text", "divider")
+            require(len(block["runs"]) == 1 and block["runs"][0]["type"] == "text", "INVALID_DIVIDER")
         for run in block["runs"]:
             check_text(run["text"])
-        check_text(block["separator_after"])
+    owned = [ref for section in doc["sections"] for ref in section["block_ids"]]
+    require(len(set(owned)) == len(owned), "DUPLICATE_OWNERSHIP")
+    require(set(owned) <= set(ids), "MISSING_BLOCK_REFERENCE")
+    require(set(ids) <= set(owned), "ORPHAN_BLOCK")
+    for section, rule in zip(doc["sections"], rules):
+        refs = references(section, rule)
+        require(set(refs) <= set(ids), "MISSING_BLOCK_REFERENCE")
+        require(len(set(refs)) == len(refs), "DUPLICATE_BLOCK_REFERENCE")
+        require(set(refs) <= set(section["block_ids"]), "FOREIGN_SECTION_REFERENCE")
+        require(refs == section["block_ids"], "WRONG_REFERENCE_ORDER")
+    require(ids == owned, "WRONG_BLOCK_ORDER")
     check_text(doc["canonical_text"])
-    require(flatten(doc) == doc["canonical_text"], "canonical identity")
+    require(flatten(doc) == doc["canonical_text"], "CANONICAL_TEXT_MISMATCH")
     return doc
 
 
@@ -113,19 +176,23 @@ def make_bundle(witness, kind="paired_v1_v2"):
 def validate_bundle(bundle, witness, schema, validate_v1):
     schema_check(bundle, schema["$defs"]["bundle"])
     v1 = bundle["representations"]["v1"]
-    validate_v1(v1["document"])
-    require(v1["summary"] == witness["expected_summary"] and v1["document"] == witness["expected_v1"],
-            "v1 compiler/A1")
-    require(bundle["review_type"] == witness["source"]["review_type"], "review type")
+    try:
+        validate_v1(v1["document"])
+    except ValueError as error:
+        raise ReferenceContractError("V1_DOCUMENT_INVALID") from error
+    require(v1["summary"] == witness["expected_summary"], "A1_SUMMARY_MISMATCH")
+    require(bundle["review_type"] == witness["source"]["review_type"], "REVIEW_TYPE_MISMATCH")
     if bundle["kind"] == "paired_v1_v2":
         validate_v2(bundle["representations"]["v2"]["document"], schema)
-        for key in ("source_identity", "objective_identity"):
-            require(bundle[key] == witness[key], "source/objective identity")
         for version, rep in bundle["representations"].items():
-            require(rep["source_identity"] == witness["source_identity"]
-                    and rep["objective_identity"] == witness["objective_identity"]
-                    and rep["review_type"] == bundle["review_type"], "representation provenance")
-            require(rep["document"] == witness[f"expected_{version}"], "compiler output/coverage")
+            require(rep["review_type"] == bundle["review_type"], "REVIEW_TYPE_MISMATCH")
+            require(rep["source_identity"] == bundle["source_identity"], "SOURCE_IDENTITY_MISMATCH")
+            require(rep["objective_identity"] == bundle["objective_identity"], "OBJECTIVE_IDENTITY_MISMATCH")
+        for key, code in (("source_identity", "SOURCE_IDENTITY_MISMATCH"),
+                          ("objective_identity", "OBJECTIVE_IDENTITY_MISMATCH")):
+            require(bundle[key] == witness[key], code)
+    for version, rep in bundle["representations"].items():
+        require(stable(rep["document"]) == stable(witness[f"expected_{version}"]), "COMPILER_OUTPUT_MISMATCH")
     return bundle
 
 
