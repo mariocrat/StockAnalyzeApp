@@ -63,6 +63,7 @@ STORAGE_MODULES = (
     "tests.test_review_access",
     "tests.test_review_access_concurrency",
     "tests.test_review_display_contract",
+    "tests.test_review_durable_storage",
     "tests.test_review_finalizer_compatibility",
     "tests.test_review_route_compatibility",
     "tests.test_review_display_client_gate",

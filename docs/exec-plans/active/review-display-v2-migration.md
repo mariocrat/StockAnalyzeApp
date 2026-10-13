@@ -1,6 +1,221 @@
 # Review display v2 migration
 
-## Slice 3 — Current Status / Contract clarification
+## Slice 3A — Current Status (2026-10-14)
+
+Base: integration/broker-import-ux-main at
+e7604591ebfaf932c7a7087d2eb671f4b57945c8; started clean (0/0/0/0).
+The user confirmed final independent approval of the Slice 3 durable contract;
+its two-document commit is the base above. This separately authorized step
+implements only its pure 3A layer. The approved contract remains unchanged.
+
+- [x] Paired wrapper, exact field/version/kind, canonical codec and framed SHA-256.
+- [x] Plain-type/duplicate/nonfinite/surrogate checks and approved resource bounds.
+- [x] Original finalizer source/snapshot/prepared/bundle capture association.
+- [x] Typed durable issuance and independent restart-equivalent read admission.
+- [x] Required AI auxiliary, separate SQL chart, complete objective/context/binds.
+- [x] Current whole-record safety walk with required caller-supplied pure policy.
+- [x] Official isolated tests, exact inventories, lint and runtime isolation checks.
+- [ ] Independent review of the Slice 3A implementation; no commit authorized.
+- [ ] 3B/3C, runtime connection, negotiation and activation remain future work.
+
+### Timeout diagnostics / Minor follow-up — 2026-10-14
+
+Independent review reported no Slice 3A code Major, but two full client-gate
+120-second timeouts. That complete command was **not repeated**. Started with
+the same base and preserved 10 uncommitted files; staged/unmerged were zero.
+
+The official Python runner previously selected only entire modules. Added
+inventory-validated `--test-case Class.test_method` for exactly one guarded
+module, with repeatable selection for small groups. Both parent/child validate
+registered identities; probes/coordinators, unknown/duplicate IDs and mixed
+modes reject. Subsets retain exact report accounting, sanitized owned storage,
+pre-import A1, external/private-access guards and cleanup. Default full-module
+coverage, all timeout values and inventory IDs are unchanged. Reports now expose
+per-case elapsed time and child bootstrap/import/test/cleanup durations.
+
+Official diagnostic command pattern (applied once to each of the 21 IDs below):
+
+~~~powershell
+& 'D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe' -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_display_client_gate --test-case ReviewDisplayClientGateTest.<test_method>
+~~~
+
+| Test method | Seconds including setup/teardown/cleanup | Result |
+| --- | ---: | --- |
+| `test_corrupt_cache_malformed_done_is_fail_closed` | 26.706 | PASS |
+| `test_corrupt_cache_malformed_entry_is_fail_closed` | 7.009 | PASS |
+| `test_corrupt_cache_malformed_pending_is_fail_closed` | 9.902 | PASS |
+| `test_corrupt_cache_missing_required_fields_is_fail_closed` | 7.066 | PASS |
+| `test_corrupt_cache_unknown_status_is_fail_closed_before_expiry_or_eviction` | 7.775 | PASS |
+| `test_duplicate_header_lines_including_identical_values_are_unsupported` | 1.941 | PASS |
+| `test_history_list_detail_export_unsupported_gate_precedes_reads_adapter_and_all_effects` | 2.022 | PASS |
+| `test_idempotency_fresh_key_executes_once` | 2.585 | PASS |
+| `test_idempotency_payload_mismatch_preserves_conflict` | 3.764 | PASS |
+| `test_idempotency_valid_done_replays_without_effects` | 4.638 | PASS |
+| `test_idempotency_valid_expired_entry_keeps_ttl_behavior` | 6.658 | PASS |
+| `test_idempotency_valid_pending_preserves_retry_conflict` | 1.205 | PASS |
+| `test_malformed_and_comma_values_are_fixed_fail_closed_on_actual_http_route` | 4.674 | PASS |
+| `test_missing_header_blocks_execute_before_lookup_charge_refund_provider_history` | 1.445 | PASS |
+| `test_supported_header_preserves_history_authentication_storage_opt_in_and_ownership` | 1.186 | PASS |
+| `test_supported_history_uses_whole_record_adapter_for_canonical_legacy_unsafe_without_db_writes` | 1.382 | PASS |
+| `test_supported_http_execution_orders_gate_lookup_charge_model_and_replay_has_zero_effects` | 3.179 | PASS |
+| `test_supported_old_cache_without_sealed_approval_never_returns_raw_or_reexecutes` | 2.481 | PASS |
+| `test_unrelated_journal_routes_do_not_require_display_header` | 0.710 | PASS |
+| `test_unsupported_clients_cannot_read_existing_replay_or_change_cache_wallet_history` | 4.138 | PASS |
+| `test_wrong_version_blocks_execute_before_lookup_charge_refund_provider_history` | 1.199 | PASS |
+
+All **21/21 PASS**, zero FAIL/ERROR/SKIP, inventory issues or unexpected guard
+violations; restoration/patch restoration/owned-root cleanup true in every
+child. Sum of independently measured testcase times: **101.664161 seconds**;
+this is not a measurement of the full 21-case process, and repeated cold-start
+wall time must not be substituted for a one-process suite duration.
+
+The five `test_corrupt_cache_*` cases were additionally selected together via
+five repeated `--test-case` arguments, still using the unchanged 120s budget.
+**5/5 PASS**: tests 60.588852s, bootstrap 1.029170s, import 4.657350s,
+isolation teardown 0.000807s; restoration/cleanup true, violations zero.
+The slowest grouped case took 28.572298s. This confirms finite costly mutation
+loops rather than a testcase hang or expensive final isolation teardown.
+
+Baseline evidence: gate module, route fixture, API setup/guards and all existing
+request production modules have no diff from committed HEAD. The only existing
+display-contract test change adds pure-module names to an import-graph assertion;
+it does not alter gate fixtures. New 3A modules have no existing request-path
+import. The gate's baseline loops execute a fresh `asyncio.run` ASGI request for
+each subcase, genuine synthetic SQLite authentication/audit writes and repeated
+before/after `get_user_entitlements` (which persists the wallet). These costs
+already exist at HEAD; no production performance defect or 3A regression was
+established. Aggregate baseline work and execution-time variability are plausible
+contributors, **not a proven explanation of the two earlier timeouts**. No
+separate full baseline run, full-21 under-120 guarantee or profiler attribution
+to a particular database syscall is claimed.
+
+Minor: the existing body-corruption ID now constructs a canonical carrier with
+a **recomputed public digest**, bypassing semantic encode validation, and calls
+typed read admission. Missing v1/v2, mutated v1/v2 canonical text and invalid
+compiler metadata are rejected with their precise contract codes. No production
+code change or new test ID was needed.
+
+Validation:
+- Durable storage **28/28 PASS**, including direct recomputed-digest read rejection.
+- Final H4 coordinator/results/runner **26/26 PASS** (15 + 8 + 3), covering exact
+  subset identities, rejected selections before process launch, unchanged gate
+  120s timeout and timeout-owned-root cleanup. The first synthetic selector
+  self-test failed because its nested classes retained enclosing-class/module
+  identity; fixed only those synthetic identities. Second run 15/15 PASS, and
+  final expanded regression passed. This was not a production/gate failure.
+- Official `--inventory-only`: 104 modules / 1004 direct / 18 probes,
+  missing/duplicate/expected skips zero. `--node-inventory-only`: 23/248,
+  missing/extra/duplicate/dependency issues zero; no metadata edit this step.
+- `git diff --check` PASS. No full TestOnly, frontend/build, live service or
+  provider/model invocation. Only runner, coordinator subcases, durable-test
+  subcases and this plan changed relative to step start.
+- Original feature retains HEAD 609163e9 and 9 modified / 10 untracked entries;
+  main retains HEAD f779e252 and its existing Play README modification.
+  No other worktree was modified.
+
+### Implementation / Authority
+
+[review_history_json_codec.py](../../../backend/core/review_history_json_codec.py)
+owns strict UTF-8/JSON, canonical type-preserving bytes, lexical nesting preflight,
+value-node/string checks, and outer versus SQL snapshot budgets.
+[review_durable_storage_contract.py](../../../backend/core/review_durable_storage_contract.py)
+owns the exact wrapper/payload/context/objective/auxiliary schema, versioned public
+checksum domains, complete SQL snapshot checks and whole-paired admission.
+No checksum is authenticity or cryptographic authorization; no HMAC or key config.
+
+[review_durable_storage_approval.py](../../../backend/core/review_durable_storage_approval.py)
+supplies LivePairedHistoryApproval, ApprovedDurableHistoryEnvelope and
+DurableReadAdmission. Capture requires the private finalizer capability and
+original issued bundle's source owner, original snapshot and prepared content.
+The live-only full source-to-envelope check prevents an equal body/objective from
+substituting another source's charts. Typed existing ApprovedHistoryWrite must
+match the captured prepared record, complete metadata/access and actual binds.
+Issuance rechecks originals after encoding and validates independently decoded
+bytes before publishing a process-local receipt. No raw-dict write approval.
+
+Read checks full paired structure/provenance/objective, exact actual row scalars
+and four canonical snapshot digests. It reuses the existing pure history adapter's
+whole-record safety walk; the caller must provide the current unsafe-text predicate.
+Missing/nonboolean policy rejects; callback programming errors propagate rather
+than becoming success/unavailable. Read creates no source DTO, live receipt, body
+compilation, repair or legacy fallback. Its immutable byte-backed projections own
+copies of admitted v1 body/A1, AI charts/cards B and independent SQL chart A.
+Original approval/read objects cannot be copied/pickle-restored into write authority.
+
+The new modules import only stdlib and existing pure contracts/compilers. No
+existing request/finalizer/history/cache/frontend caller imports them. Existing
+API, DB writer/reader, cache/idempotency, frontend, Android and environment have
+no content diff. No activation flag is added; paired generation stays OFF.
+
+### Verification / Actual outcomes
+
+Official commands used from this worktree (approved executable, no PATH fallback):
+
+~~~powershell
+$py = 'D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe'
+& $py -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_durable_storage
+& $py -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_durable_storage tests.test_review_display_contract tests.test_review_legacy_compatibility tests.test_review_source_contract tests.test_review_envelope_contract tests.test_review_source_admission tests.test_review_history_adapter tests.test_review_history_prepared_content tests.test_review_history_approved_write tests.test_review_display_client_gate tests.test_full_test_entrypoint tests.test_storage_fixture_runner
+& $py -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_durable_storage tests.test_review_history_adapter tests.test_full_test_entrypoint
+& $py -I -X utf8 -B tests/run_isolated_tests.py --inventory-only
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-inventory-only
+& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run lint
+git diff --check
+~~~
+
+- Initial new entrypoint: 25/27 PASS, one failure and one error. Empty nested root
+  object rejection is INVALID_KEYS, not DEPTH_LIMIT; maximum fixture imported
+  core.ai_review_v2 before the official API module context. Corrected those two
+  harness issues, without relaxing product/guard checks; second run 27/27 PASS.
+- Full related focused command: 279/279 PASS (12 modules), after original-source/
+  full-snapshot association hardening. Existing distinct regression is 252/252:
+  display 33, legacy 14, source 32, envelope 26, source admission 23, history adapter
+  44, prepared 18, approved write 24, client gate 21, coordinator 15, storage runner 2.
+- Added mandatory read safety case and SELL-only nullable-objective subcase.
+  Safety/adapter/coordinator checks passed. This added subcase wrongly assumed
+  existing SELL-only realized_pnl=0; the actual backend calculator produces
+  4230000.0 for its synthetic input. Corrected only the expectation to compare
+  original backend value/type; no accounting behavior was changed. Final new
+  module 28/28 PASS. History adapter 44/44 and updated coordinator 15/15 PASS.
+  Final distinct focused coverage: 280 tests; repeated runs are not added again.
+- Final FAIL/ERROR/SKIP and unexpected guard violations: 0. Restoration, patch
+  restoration and cleanup true; no test-owned temp residue. Existing intentional
+  negative isolation probes satisfied their expected contracts. No live network,
+  provider/OpenAI, private credential or production database access.
+- Actual isolated request/builders/chart producer/finalizer/prepared/write chain,
+  with model/market mocks: both basic and advanced approve 200 input trades,
+  140 AI candles, 20 markers and 20 cards, then preserve them through durable read.
+  SQL producer A independently returns its valid unavailable chart, while AI B
+  remains available. No durable DB insert. Samples fit the derived 1064696-byte/
+  20898-node upper bound. This covers simultaneous producer collection maxima,
+  not a claim that every schema/string maximum is jointly attainable.
+- Canonical Unicode/int/float/null/-0.0/extreme finite float goldens, duplicate keys,
+  nonfinite/surrogates, body/aux/context/snapshot corruption, A != B, approved empty
+  and chart-only auxiliary, objective nullable-average/type identity, restart read
+  without live receipts/compilers, raw-dict/read-to-write rejection and immutability
+  pass. Exact payload 1310720 / outer 2622464 / nodes 32768 / depth 16 pass resource
+  preflight; limit+1 rejects. Carrier boundary scaffolds are not production witnesses.
+- Python inventory: 104 modules / 1004 direct, baseline 35/932/22 plus Stage 1 15;
+  18 separate child probes. Missing/duplicate/expected skips 0. Registered exactly
+  28 new IDs and the migrated module, with quantitative coordinator updates only.
+- Node inventory remains 23/248; missing/duplicate/extra/source dependency issues 0.
+  Node execution/allowlists/coordinator/guard and frontend fixtures are unchanged.
+- Frontend lint and whitespace checks PASS. Full TestOnly, build/Android artifacts,
+  package install, live API/model/device and actual history/cache integration were
+  not run. Validation is isolated/static evidence, not rollout evidence.
+
+### Remaining / Next Step
+
+Return the 21 independent official PASS records and strengthened read-admission
+negative evidence for independent review. The earlier two 120s full-module
+timeouts have no reproduced specific hang/cleanup/3A defect; their exact
+environmental trigger and full-21-under-120 completion remain unverified. Do not
+repeat that whole command or enlarge the budget without a separately approved
+next approach. Report and wait; no stage/commit/push.
+Only after separate authorization may 3B connect typed paired history read/write
+with owned synthetic/temp SQL tests; 3C cache and all generation/negotiation/activation
+remain outside 3A. Existing protected worktrees are not modified.
+
+## Slice 3 — Historical contract clarification
 
 2026-10-12; integration/broker-import-ux-main at
 3682af800771f8bc285765d0b288aa9086a823d5, initially clean (0/0/0/0).

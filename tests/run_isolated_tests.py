@@ -16,6 +16,7 @@ import sys
 import tempfile
 import unittest
 import traceback
+import time
 from collections import Counter
 from contextvars import ContextVar
 import socket
@@ -58,9 +59,11 @@ class CaseResult(unittest.TextTestResult):
         self.current = {"id": test.id(), "status": "ERROR", "finished": False}
         self.cases.append(self.current)
         self.owner_token = _owner.set(test.id())
+        self.started = time.perf_counter()
 
     def stopTest(self, test):
         self.current["finished"] = True
+        self.current["elapsed_seconds"] = round(time.perf_counter() - self.started, 6)
         _owner.reset(self.owner_token)
         self.current = None
         super().stopTest(test)
@@ -113,25 +116,54 @@ def result_fields(result):
             "cases": result.cases if result else [], "events": result.events if result else []}
 
 
-def run_suite(module):
+def selected_entry(entry, cases):
+    """Diagnostic subsets retain exact reviewed identities and the A1 boundary."""
+    if (entry["execution_role"] != "guarded" or not cases
+            or len(cases) != len(set(cases)) or any(case not in entry["cases"] for case in cases)):
+        raise ValueError("explicit unique registered guarded testcases required")
+    return dict(entry, cases=list(cases), skips={case: policy for case, policy in entry["skips"].items() if case in cases})
+
+
+def run_suite(module, cases=()):
     suite = unittest.defaultTestLoader.loadTestsFromModule(module)
+    if cases:
+        def flatten(value):
+            for test in value:
+                if isinstance(test, unittest.TestSuite):
+                    yield from flatten(test)
+                else:
+                    yield test
+        registered = {test.id(): test for test in flatten(suite)}
+        ids = [module.__name__ + "." + case for case in cases]
+        if len(ids) != len(set(ids)) or any(identifier not in registered for identifier in ids):
+            raise ValueError("testcase selection does not match loaded suite")
+        suite = unittest.TestSuite(registered[identifier] for identifier in ids)
     return unittest.TextTestRunner(verbosity=2, resultclass=CaseResult).run(suite)
 
 
-def execute_child(module, root, protected):
+def execute_child(module, root, protected, cases=()):
     result = None
     boundary = Boundary(root, protected)
     completed = False
     stage = "bootstrap"
     error_kind = None
+    timings = {}
+    started = time.perf_counter()
     old_cwd, old_env, old_temp = Path.cwd(), dict(os.environ), tempfile.tempdir
     try:
         with isolated_module(root, protected, boundary=boundary):
+            timings["bootstrap"] = round(time.perf_counter() - started, 6)
             stage = "import"
+            started = time.perf_counter()
             target = importlib.import_module(module)
+            timings["import"] = round(time.perf_counter() - started, 6)
             stage = "test"
-            result = run_suite(target)
+            started = time.perf_counter()
+            result = run_suite(target, cases)
+            timings["tests"] = round(time.perf_counter() - started, 6)
             stage = "cleanup"
+            started = time.perf_counter()
+        timings["cleanup"] = round(time.perf_counter() - started, 6)
         completed = True
     except BaseException as error:
         error_kind = type(error).__name__
@@ -148,19 +180,20 @@ def execute_child(module, root, protected):
         "violation_kinds": boundary.violations,
         "restored": restored, "patches_restored": boundary.patches_restored,
         "error_stage": stage if error_kind else None, "error_kind": error_kind,
+        "phase_seconds": timings,
         "passed": bool(completed and result is not None and result.wasSuccessful() and result.testsRun
                        and not boundary.unexpected and restored and boundary.patches_restored),
     }
 
 
-def child(module, root, protected):
-    report = execute_child(module, root, protected)
+def child(module, root, protected, cases=()):
+    report = execute_child(module, root, protected, cases)
     print(REPORT_PREFIX + json.dumps(report), flush=True)
     return 0 if report["passed"] else 1
 
 
-def run_module(module, host=None):
-    report = launch_module(module, host)
+def run_module(module, host=None, *, cases=()):
+    report = launch_module(module, host, cases=cases)
     if _nested.get() is not None:
         _nested.get().append({"owner": _owner.get(), "report": dict(report)})
     return report
@@ -172,13 +205,17 @@ def run_coordinator_module(module, host=None):
     return launch_module(module, host, coordinator=True)
 
 
-def launch_module(module, host=None, *, coordinator=False):
+def launch_module(module, host=None, *, coordinator=False, cases=()):
     if not re.fullmatch(r"tests\.[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", module):
         raise ValueError("an explicit tests.* module is required")
     if module == "tests.diagnose_phase_a_probe":
         raise ValueError("excluded diagnostic module")
     if coordinator and module not in COORDINATORS:
         raise ValueError("not an approved coordinator self-test")
+    if cases:
+        if coordinator:
+            raise ValueError("coordinator testcase selection is not supported")
+        selected_entry(load_inventory()[module], cases)
     host = dict(os.environ if host is None else host)
     report = {"module": module, "tests": 0, "violations": 0, "unexpected": 0,
               "restored": False, "patches_restored": False, "passed": False,
@@ -193,6 +230,8 @@ def launch_module(module, host=None, *, coordinator=False):
         report["root"] = str(root)
         command = [sys.executable, "-I", "-X", "utf8", "-B", str(Path(__file__).resolve()),
                    "--coordinator-child" if coordinator else "--child", module, "--root", str(root)]
+        for case in cases:
+            command.extend(("--test-case", case))
         process = subprocess.run(command, cwd=container, env=sanitized_environment(host, root),
                                  input=json.dumps(protected_paths(host).metadata()),
                                  text=True, encoding="utf-8", capture_output=True, timeout=600 if coordinator else _MODULE_TIMEOUT_SECONDS.get(module, 120))
@@ -569,6 +608,7 @@ def run_node_regressions(executable):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("modules", nargs="*")
+    parser.add_argument("--test-case", action="append", default=[], help="registered Class.test_method; one guarded module only")
     parser.add_argument("--child", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--coordinator-child", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--root", type=Path, help=argparse.SUPPRESS)
@@ -581,6 +621,14 @@ def main():
     parser.add_argument("--node-regressions", action="store_true", help="synthetic Stage 2 checks only; no full suite")
     parser.add_argument("--node-regression-child", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.test_case:
+        if (len(args.modules) != 1 or any((args.coordinator_child, args.all, args.inventory_only,
+                args.node_inventory_only, args.node_all, args.node_entrypoint, args.node_regressions, args.node_regression_child))):
+            parser.error("testcase selection requires one guarded Python module")
+        try:
+            selected_entry(load_inventory()[args.modules[0]], args.test_case)
+        except (ValueError, KeyError, TypeError, OSError, SyntaxError):
+            parser.error("testcase selection is not in the reviewed guarded inventory")
     node_modes = sum((args.node_inventory_only, args.node_all, bool(args.node_entrypoint), args.node_regressions, args.node_regression_child))
     if node_modes:
         if node_modes != 1 or args.modules or args.root or any((args.child, args.coordinator_child, args.all, args.inventory_only)):
@@ -622,7 +670,7 @@ def main():
             report = coordinator_child(args.modules[0])
             print(REPORT_PREFIX + json.dumps(report), flush=True)
             return 0 if report["passed"] else 1
-        return child(args.modules[0], args.root, ProtectedPaths(**json.loads(sys.stdin.read())))
+        return child(args.modules[0], args.root, ProtectedPaths(**json.loads(sys.stdin.read())), args.test_case)
     if args.root is not None or ((args.all or args.inventory_only) and args.modules):
         parser.error("invalid mode arguments")
     try:
@@ -646,7 +694,9 @@ def main():
     passed = True
     for module in args.modules:
         entry = entries[module]
-        report = run_coordinator_module(module) if entry["execution_role"] == "coordinator" else run_module(module)
+        if args.test_case:
+            entry = selected_entry(entry, args.test_case)
+        report = run_coordinator_module(module) if entry["execution_role"] == "coordinator" else run_module(module, cases=args.test_case)
         report["inventory_issues"] = check_report(entry, report, probe=entry["execution_role"] == "probe")
         report["passed"] = report["passed"] and not report["inventory_issues"]
         print(report.pop("stderr"), file=sys.stderr, end="")

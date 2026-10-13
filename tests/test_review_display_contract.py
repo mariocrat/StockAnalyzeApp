@@ -557,7 +557,8 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
     def test_new_pure_modules_are_absent_from_existing_runtime_import_graph(self):
         import ast
         root = Path(__file__).resolve().parents[1]
-        names = {"review_display_v2_contract", "review_display_v2_compiler", "review_approval_bundle"}
+        names = {"review_display_v2_contract", "review_display_v2_compiler", "review_approval_bundle",
+                 "review_history_json_codec", "review_durable_storage_contract", "review_durable_storage_approval"}
         for path in (root / "backend").rglob("*.py"):
             if path.stem in names:
                 tree = ast.parse(path.read_text(encoding="utf-8-sig"))

@@ -368,14 +368,14 @@ class FullTestEntrypointTest(unittest.TestCase):
     def test_live_inventory_preserves_baseline_and_counts_source_probes(self):
         entries = inventory.load_inventory()
         summary = inventory.inventory_summary(entries)
-        self.assertEqual(summary["baseline_direct"], 961)
+        self.assertEqual(summary["baseline_direct"], 989)
         self.assertEqual(summary["baseline_classification"], inventory.BASELINE)
         source = inventory.source_inventory(runner.REPOSITORY)
         probes = {name: cases for name, cases in source.items() if entries[name]["execution_role"] == "probe"}
         self.assertEqual(sum(map(len, probes.values())), 18)
         self.assertEqual(summary["child_probes"], 18)
         self.assertEqual(len(probes), 6)
-        self.assertEqual(summary["direct"], 961 + len(entries[inventory.STAGE1]["cases"]))
+        self.assertEqual(summary["direct"], 989 + len(entries[inventory.STAGE1]["cases"]))
         self.assertNotIn("tests.diagnose_phase_a_probe", entries)
 
     def test_manifest_rejects_missing_duplicate_zero_and_invalid_skip(self):
@@ -464,12 +464,35 @@ class FullTestEntrypointTest(unittest.TestCase):
                 pass
 
         module.SubtestCase, module.SetupCase = SubtestCase, SetupCase
+        for cls in (SubtestCase, SetupCase):
+            cls.__module__, cls.__qualname__ = module.__name__, cls.__name__
         with redirect_stderr(io.StringIO()):
             result = runner.run_suite(module)
         self.assertFalse(result.wasSuccessful())
         self.assertEqual(result.testsRun, 1)
         self.assertEqual(result.cases[0]["status"], "FAIL")
         self.assertEqual({event["status"] for event in result.events}, {"FAIL", "ERROR"})
+        self.assertGreaterEqual(result.cases[0]["elapsed_seconds"], 0)
+
+        # A diagnostic subset cannot select another module, probe/coordinator,
+        # unregistered method, duplicate ID or suppress the default full suite.
+        spec = {"module": "tests.synthetic_result_records", "execution_role": "guarded",
+                "cases": ["SubtestCase.test_body", "SetupCase.test_body"], "skips": {}}
+        chosen = runner.selected_entry(spec, ["SubtestCase.test_body"])
+        self.assertEqual(chosen["cases"], ["SubtestCase.test_body"])
+        self.assertEqual(len(spec["cases"]), 2)
+        for cases in ([], ["missing.test_body"], ["SubtestCase.test_body"] * 2):
+            with self.subTest(cases=cases), self.assertRaises(ValueError):
+                runner.selected_entry(spec, cases)
+        for role in ("probe", "coordinator"):
+            with self.subTest(role=role), self.assertRaises(ValueError):
+                runner.selected_entry(dict(spec, execution_role=role), ["SubtestCase.test_body"])
+        with redirect_stderr(io.StringIO()):
+            selected = runner.run_suite(module, chosen["cases"])
+        self.assertEqual(selected.testsRun, 1)
+        self.assertEqual(len(selected.events), 1)  # No unrelated setUpClass error.
+        with self.assertRaises(ValueError):
+            runner.run_suite(module, ["SubtestCase.test_missing"])
 
     def test_coordinator_separates_primary_coverage_and_expected_negative_probe(self):
         owner, target, parent = probe_fixture()
@@ -565,6 +588,7 @@ class FullTestEntrypointTest(unittest.TestCase):
             ("tests.test_review_route_compatibility_unregistered", False, 120),
             ("tests.test_ai_review_idempotency_cache", False, 180),
             ("tests.test_ai_review_idempotency_cache_unregistered", False, 120),
+            ("tests.test_review_display_client_gate", False, 120),
             ("tests.test_full_test_entrypoint", True, 600),
         )
         for module, coordinator, seconds in budgets:
@@ -587,6 +611,24 @@ class FullTestEntrypointTest(unittest.TestCase):
                 self.assertEqual(0, report["tests"])
                 self.assertTrue(report["cleanup"])
                 self.assertFalse(owned_roots[0].exists())
+
+        gate = inventory.load_inventory()["tests.test_review_display_client_gate"]
+        selected_case = gate["cases"][0]
+        def selected_timeout(*args, **kwargs):
+            self.assertEqual(120, kwargs["timeout"])
+            self.assertEqual(args[0][-2:], ["--test-case", selected_case])
+            raise subprocess.TimeoutExpired(args[0], 120)
+        with patch.object(runner.subprocess, "run", side_effect=selected_timeout):
+            subset = runner.launch_module(gate["module"], host={}, cases=[selected_case])
+        self.assertEqual(subset["coordinator_error"], "TimeoutExpired")
+        self.assertTrue(subset["cleanup"])
+        with patch.object(runner.subprocess, "run") as process:
+            for cases in (["missing.test"], [selected_case] * 2):
+                with self.subTest(cases=cases), self.assertRaises(ValueError):
+                    runner.launch_module(gate["module"], host={}, cases=cases)
+            with self.assertRaises(ValueError):
+                runner.launch_module("tests.test_full_test_entrypoint", host={}, cases=[selected_case])
+            process.assert_not_called()
 
         roots = []
         for fault in ("missing", "duplicate", "malformed", "forged-root", "timeout"):
