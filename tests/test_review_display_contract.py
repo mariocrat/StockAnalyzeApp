@@ -559,6 +559,8 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         names = {"review_display_v2_contract", "review_display_v2_compiler", "review_approval_bundle",
                  "review_history_json_codec", "review_durable_storage_contract", "review_durable_storage_approval"}
+        storage = {"review_history", "review_history_adapter", "review_history_paired"}
+        durable = {"review_history_json_codec", "review_durable_storage_contract", "review_durable_storage_approval"}
         for path in (root / "backend").rglob("*.py"):
             if path.stem in names:
                 tree = ast.parse(path.read_text(encoding="utf-8-sig"))
@@ -567,9 +569,10 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
                         self.assertFalse((node.module or "").startswith(("tests", "frontend")), path)
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+            allowed = durable if path.stem in storage else set()
             for node in ast.walk(tree):
                 if isinstance(node, ast.ImportFrom):
-                    self.assertNotIn((node.module or "").split(".")[-1], names, path)
-                    self.assertFalse(any(alias.name in names for alias in node.names), path)
+                    self.assertNotIn((node.module or "").split(".")[-1], names - allowed, path)
+                    self.assertFalse(any(alias.name in names - allowed for alias in node.names), path)
                 elif isinstance(node, ast.Import):
-                    self.assertFalse(any(alias.name.split(".")[-1] in names for alias in node.names), path)
+                    self.assertFalse(any(alias.name.split(".")[-1] in names - allowed for alias in node.names), path)

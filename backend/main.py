@@ -1749,7 +1749,7 @@ def export_me_data(
         "saved_trades": list_trades(limit=5000, user_id=user["id"]),
         "entitlements": entitlements,
         "review_history": [
-            safe_legacy_history_snapshot(row)
+            safe_legacy_history_snapshot(row, paired_storage_enabled=bool(user.get("journal_storage_enabled")))
             for row in list_review_history(user_id=user["id"], limit=5000)
         ],
         "server_keeps_ai_review_history": bool(user.get("journal_storage_enabled")),

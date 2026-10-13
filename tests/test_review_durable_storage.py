@@ -61,7 +61,7 @@ def sql_chart_a():
             "차트 주기: daily", "봉 간격: 1d", "기간: 2026-07-10", "차트 출처: daily OHLCV"])}]}
 
 
-def fixture(review_type="basic", *, empty=False, cards=True, sell_only=False):
+def fixture(review_type="basic", *, empty=False, cards=True, sell_only=False, owner="synthetic-owner"):
     base = ready_v2_source("basic-high" if review_type == "basic" else "advanced-low")
     chart = approved_chart_fixture()
     if not cards:
@@ -88,7 +88,7 @@ def fixture(review_type="basic", *, empty=False, cards=True, sell_only=False):
     prepared_content = prepared.prepare_history_content(metadata=meta, result=result, snapshot=snapshot,
         finalizer_model=result["model"], _authority=prepared._CAPTURE)
     access = access_tests.access_fixture(review_type=review_type)
-    record = dict(meta, user_id="synthetic-owner", review_type=review_type, model=result["model"],
+    record = dict(meta, user_id=owner, review_type=review_type, model=result["model"],
                   source="openai", created_at="2026-10-13T01:02:03+00:00",
                   ai_review=dict(result, access=access), access_snapshot=copy.deepcopy(access))
     return assemble(source, snapshot, prepared_content, record)
@@ -521,6 +521,16 @@ class DurableStorageTest(unittest.TestCase):
                 self.assertEqual(result["chart_display_snapshot"], auxiliary)
                 self.assertLess(len(codec.canonical_json(read.payload)), 1_064_696)
                 self.assertLess(codec.validate_json_tree(read.payload), 20_898)
+                # Slice 3B: persist the actual producer maxima in the same
+                # H4-owned temp DB and check the whole reopened display identity.
+                committed = case.history.add_paired_review_history(
+                    value["capture"], value["write"], unsafe_text=unsafe_text)
+                reopened = case.ai.safe_legacy_history_snapshot(
+                    case.history.get_review_history(committed.id, user_id=state["user_id"]))
+                self.assertEqual(reopened, committed.record)
+                self.assertEqual(reopened["ai_review"]["display_snapshot"], result["display_snapshot"])
+                self.assertEqual(reopened["ai_review"]["chart_display_snapshot"], auxiliary)
+                self.assertEqual(reopened["chart_snapshot"], meta["chart_snapshot"])
                 print("DURABLE_MAX_VALID_RESULT " + json.dumps({"review_type": kind, "trades": 200,
                     "candles": 140, "markers": 20, "cards": 20,
                     "payload_bytes": len(codec.canonical_json(read.payload)),
@@ -534,9 +544,9 @@ class DurableStorageTest(unittest.TestCase):
             imports = [name for node in ast.walk(tree) for name in (
                 [node.module or "", *((node.module or "") + "." + item.name for item in node.names)] if isinstance(node, ast.ImportFrom) else
                 [item.name for item in node.names] if isinstance(node, ast.Import) else [])]
-            if path.stem not in modules:
+            if path.stem not in modules | {"review_history", "review_history_adapter", "review_history_paired"}:
                 self.assertFalse(any(name.split(".")[-1] in modules for name in imports), str(path))
-            else:
+            elif path.stem in modules:
                 self.assertFalse(any(name.split(".")[-1] in {"main", "review_history", "sqlite3", "os", "env",
                     "socket", "requests", "urllib", "ai_review_v2", "idempotency_cache", "hmac"} for name in imports))
                 self.assertFalse(any(name.split(".")[0] in {"socket", "sqlite3", "urllib", "requests", "os", "hmac"}

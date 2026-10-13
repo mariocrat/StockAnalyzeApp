@@ -39,6 +39,7 @@ STORAGE_MODULES = (
     "tests.test_user_journal_storage",
     "tests.test_review_history",
     "tests.test_review_history_adapter",
+    "tests.test_review_history_paired",
     "tests.test_review_history_producers",
     "tests.test_review_unicode_safety",
     "tests.test_review_history_strict_writer",

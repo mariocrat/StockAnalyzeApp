@@ -253,6 +253,10 @@ def launch_module(module, host=None, *, coordinator=False, cases=()):
             raise ValueError("child supplied parent-owned fields")
         report.update(payload)
         report["passed"] = report["passed"] and process.returncode == 0
+    except subprocess.TimeoutExpired as error:
+        diagnostic = error.stderr or ""
+        report.update(passed=False, coordinator_error="TimeoutExpired", timeout_seconds=error.timeout,
+                      stderr=diagnostic.decode("utf-8", errors="replace") if type(diagnostic) is bytes else diagnostic)
     except Exception as error:
         report.update(passed=False, coordinator_error=type(error).__name__)
     finally:

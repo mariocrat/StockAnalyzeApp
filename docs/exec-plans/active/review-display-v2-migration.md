@@ -1,6 +1,156 @@
 # Review display v2 migration
 
-## Slice 3A — Current Status (2026-10-14)
+## Slice 3B — Current Status (2026-10-14)
+
+Started clean at 39f561307d929f53eb0148a9354cad2f23a26e44 on
+integration/broker-import-ux-main. The user confirmed final independent Slice 3A
+approval (Major 0 / Minor 0) and separately authorized this history integration.
+The approved durable contract, codec/resource limits and generation eligibility
+are unchanged. The Slice 3B implementation is independently approved
+(Major 0 / Minor 0); this scoped commit is separately authorized.
+
+- [x] Typed paired SQL write, actual locked ID allocation, one complete INSERT.
+- [x] Frozen admitted result prepared before commit, acknowledgement only afterward.
+- [x] Committed publication failure versus unknown commit outcome boundaries.
+- [x] Raw SQL owner/context/snapshot retention and reserved-marker read dispatch.
+- [x] Whole admission before list/detail/reopen/export v1-compatible projection.
+- [x] SQL chart A versus approved AI charts/cards B and approved empty B retention.
+- [x] Existing v1/legacy writer/reader/consent/generation regression coverage.
+- [x] Official isolated SQL/HTTP tests, inventories, lint and whitespace validation.
+- [x] Independent Slice 3B review: approved (Major 0 / Minor 0); the discovery
+  finding and correction are recorded below.
+- [ ] 3C cache, negotiation, frontend v2 and activation remain future work.
+
+### Implementation / Boundaries
+
+[review_history.py](../../../backend/core/review_history.py) keeps the existing
+v1-only 14-bind auto-ID writer intact. Its separate add_paired_review_history
+validates original typed capture/write inputs before opening SQL, then uses
+BEGIN IMMEDIATE and max(max(id), sqlite_sequence)+1 under that lock. The final
+INSERT boundary accepts an issued ApprovedDurableHistoryEnvelope, never a raw
+dict. Its fifteen immutable binds include the actual id and one complete wrapper
+in existing ai_review_json TEXT. No placeholder, UPDATE, new schema or backfill.
+
+Slice 3A approval gains only validated SQL bind/read snapshot projections and a
+factored original-capture/write validator. It retains its live-only ownership
+checks and separate durable-read authority. No raw-row write issuance is added.
+
+The full admitted v1 view and CommittedPairedHistoryWrite object are allocated
+before INSERT/commit. Its committed flag becomes true only after commit returns.
+The writer returns its known id/owner and owned result without a post-commit SELECT.
+Optional reread and post-commit close faults carry PairedHistoryPublicationError
+with that same result. A commit exception with an ended SQL transaction carries
+PairedHistoryCommitUnknown with the reserved id/owner, including acknowledged-write
+loss and automatic-rollback simulations. Neither class automatically retries AI,
+INSERT, entitlement consumption or compensation. Existing owner-scoped DELETE
+and v1 route refund/compensation remain unchanged; there is no distributed atomic
+transaction or cross-restart POST deduplication claim.
+
+[review_history_paired.py](../../../backend/core/review_history_paired.py) has no
+DB/generation dependency. Its bounded-token root-key dispatch scan preserves
+markerless legacy limits and identifies reserved/escaped storage or bundle markers
+before paired tree decoding. Malformed/ambiguous JSON also uses rejection-only
+paired dispatch. StoredPairedHistoryRow retains actual SQL owner/scalars and four
+raw JSON snapshots internally. The strict 3A reader checks the whole wrapper,
+both bodies, B, objective/provenance and actual SQL context/snapshot bindings.
+Programming/safety callback faults propagate; only controlled contract failures
+become the existing fixed unavailable view.
+
+The common history adapter dispatches the typed SQL carrier before any legacy
+compiler. Success projects the admitted bundle's v1 body/summary and exact AI B,
+with SQL A/trades/access from admitted SQL snapshots. No v2 response or redundant
+raw semantic data is published. Body, charts and chart_cards retain complete
+approved identity. No SQL A fallback, body regeneration or read-time DB write.
+Raw unwrapped reserved markers reject before legacy normalization.
+
+The existing safe_legacy_history_snapshot wrapper remains the single surface for
+list/detail/reopen/export. List/detail retain their existing ownership/opt-in gates.
+Export forwards the authenticated user's storage flag for paired admission;
+storage-off paired rows are unavailable before payload admission, while the old
+legacy/v1 data-export behavior is preserved. The only main.py change is this read
+flag. No AI generation/finalizer, POST/cache identity or entitlement policy change.
+The paired writer/capture/bundle compiler is not called by runtime generation;
+normal mocked production requests still write the original v1-only format.
+
+### Verification / Actual outcomes
+
+All tests use the approved Python with -I -X utf8 -B and the official
+tests/run_isolated_tests.py boundary, H4-owned synthetic/temp SQLite and mocked
+model/market/providers. No live OpenAI/provider/network/private DB was used.
+
+- New paired integration: **23/23 distinct PASS**, first as eight subsets of at
+  most three IDs, then final-code 12/11 subsets (25.108s / 19.026s test phases).
+  Exact registered IDs retained; no skips or weakened fixture/guard allowances.
+  Independent review found the test module imported `ReviewDisplayClientGateTest`
+  into its own namespace, so default unittest discovery also collected that
+  class's 21 cases. The test now imports the helper module and references the
+  class through it. The official default module run then discovered exactly the
+  registered 23 cases and passed **23/23** in 39.342s.
+  Both basic/advanced A != B and empty/chart-only auxiliary retain exact display
+  data; real HTTP list/detail/reopen/export share whole admission. Reserved,
+  unknown, partial, duplicate, oversized and malformed carriers, either body,
+  auxiliary, objective, row/context and all SQL snapshot corruptions fail closed.
+  Recomputed-digest invalid-body/auxiliary negatives reject directly on read.
+- SQL trace verifies BEGIN IMMEDIATE before allocation, one full INSERT and zero
+  UPDATE/post-commit SELECT. Deleted/high/NULL sequence and safe-id overflow,
+  raw dict/read authority rejection, INSERT/commit/result-allocation failures,
+  unknown commit with/without an actual row, reread/close publication failure,
+  immutable projection copies and owner-scoped compensation pass.
+- Actual production-shaped basic/advanced maximum fixture also saves and reopens
+  in SQL: 200 source fills, 140 AI candles, 20 markers and 20 cards. Original SQL
+  producer A and independently approved AI B/body survive unchanged. Pure codec
+  and exact-limit/limit+1 tests remain; resource limits were not changed.
+- Related existing Python **203/203 PASS** in 12 modules: durable 28, display 33,
+  adapter 44, approved write 24, strict v1 writer 23, history 2, legacy 14,
+  history consent 7, coordinator 15, storage runner 2, isolation results 8,
+  isolation runner 3. After final commit-result hardening, the maximum fixture
+  was rerun and passed; it is not counted a second time.
+- Affected existing client gate: **4/4 PASS** via explicit selectors (unsupported
+  history access, supported canonical/legacy/unsafe history, auth/opt-in/ownership,
+  fresh idempotent v1 execution). The previously twice-timed-out full 21-case gate
+  command was not run. Total distinct focused Python coverage is **230 PASS**.
+- Official Node canonical/reference + legacy cross-contract + ai-format:
+  **33/33 PASS**, missing/extra/duplicate and unexpected guard violations zero.
+  These are existing compatibility checks, not a new v2 frontend renderer.
+- Official source inventories: Python 105 modules / 1027 direct / 18 probes,
+  missing/duplicate/expected skips zero; Node remains 23/248, missing/extra/
+  duplicate/dependency issues zero. Only the 23 new Python IDs/migrated registry
+  and exact baseline/coordinator counts are added. No boundary/allowlist widening.
+- All successful test reports have restoration/patch restoration/cleanup true,
+  unexpected guarded access zero and no test-owned temp residue. Existing
+  intentional negative coordinator probes satisfy their expected contracts.
+- npm --prefix frontend run lint and git diff --check PASS. No build, full
+  TestOnly, deployment, production writes or other-worktree changes.
+
+Historical verification failure: before the discovery fix, the full paired
+entrypoint exceeded its unchanged 120s child timeout (TimeoutExpired), without a
+complete child report. The imported gate class accounts for 21 unintended cases
+in addition to the 23 registered paired cases, which is a concrete mechanism
+that likely explains the timeout. The old 44-case run was not replayed, so its
+exact timing cause cannot be established. After the fix, official default
+discovery ran exactly 23 cases successfully; guard, restoration, patch
+restoration and cleanup passed. The runner preserves timeout stderr and budgets;
+no timeout increase or direct unittest/Node bypass was used.
+
+### Changed files
+
+- Production: review_history.py, review_history_paired.py, review_history_adapter.py,
+  review_durable_storage_approval.py, ai_review_v2.py (read wrapper only), main.py
+  (export read flag only).
+- Tests/meta: test_review_history_paired.py, test_review_durable_storage.py,
+  test_review_display_contract.py, run_isolated_tests.py, isolation_inventory.py,
+  test_inventory.json, test_full_test_entrypoint.py, test_storage_fixture_runner.py.
+- This plan. No frontend, schema migration, env/config, cache or contract-spec diff.
+
+### Remaining / Next Step
+
+Independent review of the 3B SQL authority/atomicity, internal row dispatch,
+paired export opt-in and committed/unknown outcome handling is complete with
+Major 0 / Minor 0. This scoped commit is the current authorized action; after
+reporting it, wait. Generation remains OFF. Cache 3C, client negotiation,
+frontend v2, activation and production rollout require separate authorization.
+
+## Slice 3A — Historical implementation (2026-10-14)
 
 Base: integration/broker-import-ux-main at
 e7604591ebfaf932c7a7087d2eb671f4b57945c8; started clean (0/0/0/0).
@@ -15,7 +165,7 @@ implements only its pure 3A layer. The approved contract remains unchanged.
 - [x] Required AI auxiliary, separate SQL chart, complete objective/context/binds.
 - [x] Current whole-record safety walk with required caller-supplied pure policy.
 - [x] Official isolated tests, exact inventories, lint and runtime isolation checks.
-- [ ] Independent review of the Slice 3A implementation; no commit authorized.
+- [x] Independent Slice 3A final approval (Major 0 / Minor 0), committed at 39f5613.
 - [ ] 3B/3C, runtime connection, negotiation and activation remain future work.
 
 ### Timeout diagnostics / Minor follow-up — 2026-10-14

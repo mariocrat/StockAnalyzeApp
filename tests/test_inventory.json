@@ -1414,6 +1414,38 @@
       "skips": {}
     },
     {
+      "module": "tests.test_review_history_paired",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "PairedHistoryIntegrationTest.test_absent_null_sequence_and_safe_id_overflow",
+        "PairedHistoryIntegrationTest.test_actual_id_reservation_obeys_deleted_autoincrement_sequence",
+        "PairedHistoryIntegrationTest.test_all_sql_snapshot_mutations_and_duplicate_keys_are_rejected",
+        "PairedHistoryIntegrationTest.test_basic_advanced_atomic_save_reopen_keeps_body_and_distinct_chart_sources",
+        "PairedHistoryIntegrationTest.test_committed_close_failure_preserves_result_for_owner_scoped_compensation",
+        "PairedHistoryIntegrationTest.test_copying_wrapper_to_another_actual_row_id_is_rejected",
+        "PairedHistoryIntegrationTest.test_corrupt_pair_is_unavailable_on_all_public_history_surfaces",
+        "PairedHistoryIntegrationTest.test_empty_and_chart_only_approved_auxiliary_remain_exact",
+        "PairedHistoryIntegrationTest.test_insert_failure_rolls_back_without_partial_row_or_retry",
+        "PairedHistoryIntegrationTest.test_list_detail_reopen_export_use_one_admission_without_history_writes",
+        "PairedHistoryIntegrationTest.test_live_generation_remains_v1_only_even_with_paired_history_support",
+        "PairedHistoryIntegrationTest.test_markerless_legacy_and_v1_rows_keep_existing_read_and_write_path",
+        "PairedHistoryIntegrationTest.test_ownership_and_storage_opt_in_precede_paired_admission",
+        "PairedHistoryIntegrationTest.test_paired_dispatch_is_bounded_and_does_not_decode_legacy_or_compile_body",
+        "PairedHistoryIntegrationTest.test_post_commit_reread_failure_keeps_immutable_result_without_retry",
+        "PairedHistoryIntegrationTest.test_precommit_failure_rolls_back_and_never_reports_committed",
+        "PairedHistoryIntegrationTest.test_raw_dict_and_read_authority_cannot_open_writer_or_issue_pair",
+        "PairedHistoryIntegrationTest.test_recomputed_digest_invalid_body_or_auxiliary_still_rejects_on_read",
+        "PairedHistoryIntegrationTest.test_reserved_partial_unknown_duplicate_or_malformed_markers_never_fallback",
+        "PairedHistoryIntegrationTest.test_row_scalar_context_corruption_including_owner_fails_closed",
+        "PairedHistoryIntegrationTest.test_single_complete_insert_no_placeholder_update_or_post_commit_select",
+        "PairedHistoryIntegrationTest.test_unknown_commit_outcome_retains_identity_and_never_retries_insert",
+        "PairedHistoryIntegrationTest.test_whole_pair_corruption_rejects_both_sides_auxiliary_and_digest"
+      ],
+      "skips": {}
+    },
+    {
       "module": "tests.test_review_history_adapter",
       "h4_classification": "migrated",
       "execution_role": "guarded",

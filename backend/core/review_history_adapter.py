@@ -526,13 +526,29 @@ def _unavailable(value):
     }
 
 
-def adapt_history_record(value, *, unsafe_text, project_trade, project_chart, project_context, project_card):
+def adapt_history_record(value, *, unsafe_text, project_trade, project_chart, project_context, project_card,
+                         paired_storage_enabled=True):
     """Approve the whole stored record or return one fixed unavailable copy.
 
     The supplied projection functions are the existing pure legacy display
     compilers. All input is closed/typed and content checked before they run;
     supplied documents must agree with their deterministic projections.
     """
+    from backend.core.review_history_paired import (
+        StoredPairedHistoryRow, admit_stored_paired_history, paired_history_projection, paired_marker,
+    )
+    from backend.core.review_history_json_codec import DurableStorageError
+    if type(value) is StoredPairedHistoryRow:
+        if paired_storage_enabled is not True:
+            return _unavailable(value.context)
+        try:
+            admission = admit_stored_paired_history(value, unsafe_text=unsafe_text)
+            return paired_history_projection(admission, unsafe_text=unsafe_text)
+        except DurableStorageError:
+            return _unavailable(value.context)
+    # Raw unwrapped markers never enter the legacy compiler/normalizer path.
+    if type(value) is dict and paired_marker(value.get("ai_review")):
+        return _unavailable(value)
     if value is None:
         return None
     try:

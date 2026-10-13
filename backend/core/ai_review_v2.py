@@ -1118,7 +1118,7 @@ def _canonical_review_extras(extras: dict) -> dict:
     return result
 
 
-def safe_legacy_history_snapshot(value: dict) -> dict:
+def safe_legacy_history_snapshot(value: dict, *, paired_storage_enabled=True) -> dict:
     """Use one closed whole-record boundary for every history read surface."""
     from backend.core.review_history_adapter import adapt_history_record
 
@@ -1126,6 +1126,7 @@ def safe_legacy_history_snapshot(value: dict) -> dict:
         value, unsafe_text=_contains_prohibited_trade_guidance,
         project_trade=_canonical_trade, project_chart=_canonical_chart,
         project_context=_canonical_context, project_card=_canonical_chart_review,
+        paired_storage_enabled=paired_storage_enabled,
     )
 
 

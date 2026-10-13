@@ -1,6 +1,6 @@
 """Typed live capture/write authority and separate restart-safe read admission.
 
-Disconnected from the runtime finalizer and stores. The finalizer capability is
+Disconnected from runtime generation. The finalizer capability is
 process-local application bookkeeping, never an authentication secret or HMAC.
 """
 import json
@@ -69,6 +69,15 @@ class ApprovedDurableHistoryEnvelope(_Immutable):
     def json_text(self):
         return self.bytes.decode("utf-8")
 
+    @property
+    def sql_bind_values(self):
+        """The original approved SQL values, with actual ID and complete wrapper."""
+        validate_durable_write(self)
+        buffer, _capture, write, row_id, _record, _digest = _receipt(self, ApprovedDurableHistoryEnvelope)
+        values = list(write.bind_values)
+        values[9] = buffer.decode("utf-8")  # Existing ai_review_json TEXT column.
+        return (row_id, *values)
+
 
 class DurableReadAdmission(_Immutable):
     """Admitted display bytes only; contains no capture/source/write authority."""
@@ -91,6 +100,10 @@ class DurableReadAdmission(_Immutable):
     @property
     def journal_chart_snapshot(self):
         return json.loads(_receipt(self, DurableReadAdmission)[1])["chart_snapshot"]
+
+    @property
+    def sql_snapshots(self):
+        return json.loads(_receipt(self, DurableReadAdmission)[1])
 
 
 def _receipt(value, expected_type):
@@ -157,7 +170,7 @@ def capture_live_paired_history(*, source, snapshot, prepared_content, bundle, _
     return _issue(LivePairedHistoryApproval, (source, snapshot, prepared_content, bundle, frozen))
 
 
-def _write_payload(capture, approved_write, row_id):
+def _validated_write_components(capture, approved_write):
     source, snapshot, prepared_content, bundle, frozen = _receipt(capture, LivePairedHistoryApproval)
     require(_live_values(source, snapshot, prepared_content, bundle) == frozen, "CAPTURE_MUTATION")
     require(type(approved_write) is ApprovedHistoryWrite, "INVALID_WRITE_AUTHORITY")
@@ -170,6 +183,16 @@ def _write_payload(capture, approved_write, row_id):
             result=record["ai_review"], snapshot=snapshot)
     except HistoryWriteContractError as error:
         raise DurableStorageError("INVALID_WRITE_AUTHORITY") from error
+    return source, snapshot, prepared_content, bundle, record
+
+
+def validate_paired_history_input(capture, approved_write):
+    """Check original live/write association before a store opens any SQL DB."""
+    _validated_write_components(capture, approved_write)
+
+
+def _write_payload(capture, approved_write, row_id):
+    source, snapshot, prepared_content, bundle, record = _validated_write_components(capture, approved_write)
     context = {key: row_id if key == "id" else record[key] for key in CONTEXT_KEYS}
     validate_context(context)
     result = json.loads(prepared_content.result_bytes)
