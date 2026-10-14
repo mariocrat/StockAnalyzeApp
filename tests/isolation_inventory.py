@@ -26,7 +26,7 @@ COORDINATORS = frozenset("tests." + name for name in (
 ))
 STAGE1 = "tests.test_full_test_entrypoint"
 CLASSIFICATIONS = ("A1/foundation/helper", "migrated", "OUT")
-BASELINE = dict(zip(CLASSIFICATIONS, (35, 955, 22)))
+BASELINE = dict(zip(CLASSIFICATIONS, (35, 969, 22)))
 
 
 class InventoryError(ValueError):

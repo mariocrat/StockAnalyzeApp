@@ -40,7 +40,7 @@ class IdempotencyCacheContractTest(unittest.TestCase):
                 "expires_at": self.now + self.main.datetime.timedelta(seconds=-1 if expired else 300)}
 
     def assert_blocked(self, cache, keys, *, capacity=1000):
-        expected = {key: ({name: value if name == "snapshot" else copy.deepcopy(value)
+        expected = {key: ({name: value if name in {"snapshot", "execution"} else copy.deepcopy(value)
                            for name, value in entry.items()} if type(entry) is dict else copy.deepcopy(entry))
                     for key, entry in cache.items()}
         identities = {key: id(entry) for key, entry in cache.items()}
@@ -207,8 +207,8 @@ class IdempotencyCacheContractTest(unittest.TestCase):
     def observe_execution(self, cache, key, *, capacity=1000):
         events = []
         validator = self.main._validate_ai_review_idempotency_entry
-        def validate(entry):
-            result = validator(entry)
+        def validate(entry, *, cache_key=None):
+            result = validator(entry, cache_key=cache_key)
             events.append(("validated", id(entry)))
             return result
         original_pop = cache.pop
@@ -245,7 +245,7 @@ class IdempotencyCacheContractTest(unittest.TestCase):
         self.assertEqual((0, 0, 0), (cache.writes, cache.overwrites, cache.removals))
         for mode in ("pending", "mismatch"):
             with self.subTest(mode=mode):
-                entry = self.pending() if mode == "pending" else {**self.done, "payload_fingerprint": "a" * 64}
+                entry = self.pending() if mode == "pending" else self.done
                 if mode == "pending":
                     entry["payload_fingerprint"] = self.main._ai_review_payload_fingerprint(self.case.batch("advanced"))
                 self.assert_blocked_valid_conflict(entry, mode)
@@ -258,17 +258,20 @@ class IdempotencyCacheContractTest(unittest.TestCase):
         self.assertEqual((2, 1, 0), (fresh.writes, fresh.overwrites, fresh.removals))
 
     def assert_blocked_valid_conflict(self, entry, mode):
-        response = self.http.assert_cached_request_has_no_effects("advanced", self.key, entry, status=409)
+        different = self.case.batch("advanced").model_copy(update={"analysis_focus": "entry"}) if mode == "mismatch" else None
+        response = self.http.assert_cached_request_has_no_effects("advanced", self.key, entry, status=409, batch=different)
         if mode == "pending":
             self.assertEqual("5", response.headers["retry-after"])
         else:
             self.assertEqual({"detail": "Idempotency key was reused with a different AI review request."}, response.json())
 
     def test_valid_expiry_prunes_only_after_full_validation(self):
-        expired = {**self.done, "expires_at": self.now - self.main.datetime.timedelta(seconds=1)}
+        expired = self.done
         pending = self.pending(expired=True)
         cache = http_fixture.ObservedIdempotencyCache({self.cache_key: expired, "f1-expired-pending": pending})
-        response, events, effects = self.observe_execution(cache, "f1-normal-expiry")
+        with patch.object(self.main, "_ai_review_idempotency_now",
+                          return_value=expired["expires_at"] + self.main.datetime.timedelta(seconds=1)):
+            response, events, effects = self.observe_execution(cache, "f1-normal-expiry")
         self.assertEqual(200, response.status_code, response.text)
         first_delete = next(index for index, event in enumerate(events) if event[0] == "delete")
         self.assertTrue({("validated", id(expired)), ("validated", id(pending))} <= set(events[:first_delete]))

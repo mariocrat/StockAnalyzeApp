@@ -39,6 +39,7 @@ from backend.core.review_history_approved_write import approve_history_write
 from backend.core.review_history_content_contract import validate_new_history_metadata, validate_new_history_result
 from backend.core.review_history_write_contract import HistoryWriteContractError
 from backend.core.review_display_client import REVIEW_DISPLAY_CONTRACT_HEADER, require_review_display_client
+from backend.core.review_execution_cache import approve_cached_execution, validate_cached_execution
 from core.journal_chart import build_journal_charts, initialize_yfinance_cache
 from core.review_history import add_review_history, list_review_history, get_review_history, delete_review_history
 from core.access_control import (
@@ -642,6 +643,10 @@ def _ai_review_idempotency_ttl_seconds() -> int:
     )
 
 
+def _ai_review_idempotency_now():
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 def _billing_rate_key(authorization: str | None, client_key: str) -> str:
     text = str(authorization or "").strip()
     if text:
@@ -788,7 +793,7 @@ def _trim_ai_review_idempotency_cache(protected_keys: set[str] | None = None):
             break
 
 
-def _validate_ai_review_idempotency_entry(cached) -> dict | None:
+def _validate_ai_review_idempotency_entry(cached, *, cache_key=None) -> dict | None:
     """Admit only the two states emitted by begin/finish, before cache mutation."""
     if type(cached) is not dict:
         raise ValueError("invalid AI review idempotency cache entry")
@@ -797,7 +802,7 @@ def _validate_ai_review_idempotency_entry(cached) -> dict | None:
         raise ValueError("invalid AI review idempotency cache state")
     fields = {"status", "payload_fingerprint", "expires_at"}
     if status == "done":
-        fields |= {"result", "snapshot"}
+        fields |= {"result", "snapshot", "execution"}
     fingerprint = cached.get("payload_fingerprint")
     expires_at = cached.get("expires_at")
     if (set(cached) != fields
@@ -816,12 +821,14 @@ def _validate_ai_review_idempotency_entry(cached) -> dict | None:
             or type(result["access"]) is not dict):
         raise ValueError("invalid completed AI review idempotency cache result")
     _validate_ai_review_cached_access(result["access"], review_type=result["review_type"], status=result["status"])
-    return _normalize_ai_review_result(result, snapshot=cached["snapshot"])
+    admitted = validate_cached_execution(cached["execution"], cache_key=cache_key,
+        fingerprint=fingerprint, expires_at=expires_at, result=result, snapshot=cached["snapshot"])
+    return _normalize_ai_review_result(admitted, snapshot=cached["snapshot"])
 
 
 def _validated_ai_review_idempotency_entries():
     """Validate the complete cache under its lock before any inspection/mutation."""
-    return [(key, item, _validate_ai_review_idempotency_entry(item))
+    return [(key, item, _validate_ai_review_idempotency_entry(item, cache_key=key))
             for key, item in _ai_review_idempotency_cache.items()]
 
 
@@ -834,7 +841,7 @@ def _begin_ai_review_idempotency(
     if not key:
         return "", None
     cache_key = _ai_review_idempotency_cache_key(authorization, key)
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = _ai_review_idempotency_now()
     with _ai_review_idempotency_lock:
         # Validate every entry before lookup, expiry or capacity decisions. A
         # different fresh key must not remove corruption and enable a recharge.
@@ -868,10 +875,10 @@ def _begin_ai_review_idempotency(
     return cache_key, None
 
 
-def _finish_ai_review_idempotency(cache_key: str, result: dict | None, *, snapshot=None):
+def _finish_ai_review_idempotency(cache_key: str, result: dict | None, *, snapshot=None, bundle=None):
     if not cache_key:
         return
-    now = datetime.datetime.now(datetime.timezone.utc)
+    now = _ai_review_idempotency_now()
     with _ai_review_idempotency_lock:
         validated = _validated_ai_review_idempotency_entries()
         if result is None:
@@ -888,7 +895,11 @@ def _finish_ai_review_idempotency(cache_key: str, result: dict | None, *, snapsh
             "payload_fingerprint": previous["payload_fingerprint"],
             "expires_at": now + datetime.timedelta(seconds=_ai_review_idempotency_ttl_seconds()),
         }
-        _validate_ai_review_idempotency_entry(completed)
+        _validate_ai_review_cached_access(stored["access"], review_type=stored["review_type"], status=stored["status"])
+        completed["execution"] = approve_cached_execution(cache_key=cache_key,
+            fingerprint=completed["payload_fingerprint"], expires_at=completed["expires_at"],
+            result=stored, snapshot=snapshot, bundle=bundle)
+        _validate_ai_review_idempotency_entry(completed, cache_key=cache_key)
         _ai_review_idempotency_cache[cache_key] = completed
         _trim_ai_review_idempotency_cache({cache_key})
 
@@ -899,7 +910,7 @@ def _abort_ai_review_idempotency(cache_key: str):
     with _ai_review_idempotency_lock:
         if cache_key in _ai_review_idempotency_cache:
             cached = _ai_review_idempotency_cache[cache_key]
-            _validate_ai_review_idempotency_entry(cached)
+            _validate_ai_review_idempotency_entry(cached, cache_key=cache_key)
             if cached["status"] == "pending":
                 _ai_review_idempotency_cache.pop(cache_key, None)
 

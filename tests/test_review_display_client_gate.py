@@ -66,11 +66,11 @@ class ReviewDisplayClientGateTest(unittest.TestCase):
         self.case.accounts.update_journal_storage_setting(authorization=self.case.token, enabled=True)
         self.enterContext(patch.object(asyncio.events, "_event_loop_policy", None))
 
-    def request(self, method, path, headers, *, review_type="basic", key="d4-synthetic-key", token=None):
+    def request(self, method, path, headers, *, review_type="basic", key="d4-synthetic-key", token=None, batch=None):
         async def send():
             fields = [("Authorization", self.case.token if token is None else token),
                       ("X-Idempotency-Key", key), *headers]
-            payload = json.dumps(self.case.batch(review_type).model_dump()).encode() if method == "POST" else b""
+            payload = json.dumps((self.case.batch(review_type) if batch is None else batch).model_dump()).encode() if method == "POST" else b""
             fields += [("Content-Type", "application/json"), ("Content-Length", str(len(payload)))]
             scope = {"type": "http", "asgi": {"version": "3.0", "spec_version": "2.4"},
                      "http_version": "1.1", "method": method, "scheme": "http", "path": path,
@@ -131,18 +131,20 @@ class ReviewDisplayClientGateTest(unittest.TestCase):
         self.assertIsNone(replay)
         return key, self.main._ai_review_idempotency_cache[cache_key]
 
-    def assert_cached_request_has_no_effects(self, kind, key, entry, *, status=500, pressure=False):
+    def assert_cached_request_has_no_effects(self, kind, key, entry, *, status=500, pressure=False, batch=None):
         cache_key = self.main._ai_review_idempotency_cache_key(self.case.token, key)
         entries = {**self.main._ai_review_idempotency_cache, cache_key: entry}
         if pressure:
-            entries["p1-eviction-pressure"] = dict(self.main._ai_review_idempotency_cache[cache_key])
+            entries["p1-eviction-pressure"] = {name: entry[name] for name in
+                ("status", "payload_fingerprint", "expires_at") if name in entry}
+            entries["p1-eviction-pressure"]["status"] = "pending"
         cache = ObservedIdempotencyCache(entries)
-        expected = ({name: value if name == "snapshot" else copy.deepcopy(value) for name, value in entry.items()}
+        expected = ({name: value if name in {"snapshot", "execution"} else copy.deepcopy(value) for name, value in entry.items()}
                     if type(entry) is dict else copy.deepcopy(entry))
         balance, history = self.case.balance(kind), self.history_state()
         with patch.object(self.main, "_ai_review_idempotency_cache", cache), patch.object(
                 self.main, "AI_REVIEW_IDEMPOTENCY_CACHE_MAX_SIZE", 1 if pressure else 1000), self.no_effects(lookup=False) as spies:
-            response = self.request("POST", "/api/journal/ai-review-once", SUPPORTED, review_type=kind, key=key)
+            response = self.request("POST", "/api/journal/ai-review-once", SUPPORTED, review_type=kind, key=key, batch=batch)
         effects = {
             "model": spies["_call_openai_review"].call_count,
             "provider": sum(spies[name].call_count for name in (
@@ -279,8 +281,8 @@ class ReviewDisplayClientGateTest(unittest.TestCase):
             pending_key, pending = self.pending_entry(kind)
             for key, entry in ((done_key, done), (pending_key, pending)):
                 with self.subTest(kind=kind, status=entry["status"]):
-                    response = self.assert_cached_request_has_no_effects(kind, key, {
-                        **entry, "payload_fingerprint": "0" * 64}, status=409)
+                    different = self.case.batch(kind).model_copy(update={"analysis_focus": "entry"})
+                    response = self.assert_cached_request_has_no_effects(kind, key, entry, status=409, batch=different)
                     self.assertEqual({"detail": "Idempotency key was reused with a different AI review request."}, response.json())
 
     def test_idempotency_valid_expired_entry_keeps_ttl_behavior(self):
@@ -290,8 +292,9 @@ class ReviewDisplayClientGateTest(unittest.TestCase):
             pending_key, pending = self.pending_entry(kind)
             for key, entry in ((done_key, done), (pending_key, pending)):
                 with self.subTest(kind=kind, status=entry["status"]):
-                    entry["expires_at"] = self.main.datetime.datetime.now(self.main.datetime.timezone.utc) - self.main.datetime.timedelta(seconds=1)
-                    cache = self.assert_fresh_idempotent_execution(kind, key)
+                    clock = entry["expires_at"] + self.main.datetime.timedelta(seconds=1)
+                    with patch.object(self.main, "_ai_review_idempotency_now", return_value=clock):
+                        cache = self.assert_fresh_idempotent_execution(kind, key)
                     self.assertGreaterEqual(cache.removals, 1)
 
     def assert_unsupported_execution(self, headers):

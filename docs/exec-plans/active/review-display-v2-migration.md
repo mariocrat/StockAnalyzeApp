@@ -1,6 +1,104 @@
 # Review display v2 migration
 
-## Slice 3B — Current Status (2026-10-14)
+## Slice 3C — Current Status (2026-10-14)
+
+Started clean on integration/broker-import-ux-main at
+f2db0ad30ad9487cc3eb9318d8750a4c1c19e779 after independent Slice 3B approval
+(Major 0 / Minor 0). The user authorizes process-memory whole execution cache
+support only. Generation remains v1-only; no negotiation, durable POST ledger,
+frontend, history schema, env/config or Git mutation is authorized.
+
+### Decisions / Implementation
+
+ApprovedCachedExecution captures the issued ApprovedReviewBundle, original
+snapshot and immutable complete response bytes, including access/history identity.
+Its process-local weak receipt binds the actual cache key, existing execution
+fingerprint and original expiry. Done entries preserve existing result/snapshot
+keys and add this typed execution receipt. Whole receipt/bundle/snapshot/response
+validation precedes lookup, pruning, trimming or v1-compatible response projection.
+Corruption is an error before execution, never a miss. No read-time compiler,
+history search, durable wrapper or AI repair is used. Snapshotless rejected terminals
+remain bundleless and retain complete response integrity.
+
+Normal finish derives v1_only approval from the existing original snapshot. An
+explicit issued paired bundle is accepted only at the internal cache publication
+boundary; original live source-to-snapshot identity is checked there once.
+Production generation supplies no paired bundle. TTL clock is exposed as a pure
+helper so tests advance time without modifying issued immutable expiry. Existing
+tests simulate body conflicts using actual changed requests and capacity pressure
+with valid pending entries, rather than substituting issued execution identity.
+
+### Verification / Remaining / Next Step
+
+- [x] Inspect actual cache, finalizer/snapshot, whole bundle and H4 boundaries.
+- [x] Implement whole cache receipt and add 14 guarded cache regression cases.
+- [x] Official isolated cache, v1 route/history and H4 regression verification.
+- [x] Exact inventories, lint, diff/scope and protected worktree checks.
+- [ ] Independent Slice 3C review; no stage/commit/push authorized.
+
+Actual official H4 results (approved Python 3.12.14, -I -X utf8 -B):
+
+- New whole execution cache: 14/14 PASS; final full-module test phase 31.908s.
+  After adding actual empty basic/advanced replay coverage to an existing ID,
+  reran that one registered case: 1/1 PASS. Repeated cases are counted once.
+- Existing cache 14/14 (63.153s), paired history 23/23 (41.752s), display contract
+  33/33, H4 coordinator 15/15 and storage fixture runner 2/2; combined command
+  exited 0. All registered counts/lifecycle contracts passed. Its captured output
+  was truncated by the tool; no tests were rerun merely to regenerate logs.
+- Selected actual v1 route regressions: 13/13 (25.398s); ready/strong body, approved
+  AI chart identity, missing-key fallback, safety/invalid-output terminal, refund/
+  publication failure, storage off, mutable alias and corrupt-wire behavior pass.
+- Selected client gate/cache cases: 8/8 (39.985s); done/pending/body conflict,
+  expiry and required-field/malformed/status corruption pass. The previously
+  twice-timed-out whole 21-case command was not repeated; official selectors
+  retain exact case IDs and original hard timeout/guard/lifecycle checks.
+- Total distinct Python coverage: 122 direct PASS in eight modules, FAIL/ERROR/
+  unexpected SKIP 0. H4 guarded unexpected accesses zero; restoration, patch
+  restoration and cleanup pass. Coordinator-owned intentional negative probes
+  satisfy their contracts, not product failures. All providers/model calls were
+  mocked or blocked; SQLite/files are H4-owned temporary data only.
+- Python inventory: 106 modules / 1041 direct / 18 separate probes; missing,
+  duplicate and expected skips zero. Baseline is 35/969/22 plus Stage 1 15.
+  Node inventory remains 23 entrypoints / 248 direct, missing/extra/duplicate and
+  missing source dependencies zero. No Node test execution is claimed here.
+- npm --prefix frontend run lint and git diff --check PASS. No full TestOnly,
+  BuildChecks, package install/build, actual OpenAI/provider/private DB or device
+  validation was performed.
+
+Commands use D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe and the
+official tests/run_isolated_tests.py: --inventory-only, --node-inventory-only;
+tests.test_review_execution_cache (then its one updated registered ID);
+tests.test_ai_review_idempotency_cache tests.test_review_history_paired
+tests.test_review_display_contract tests.test_full_test_entrypoint
+tests.test_storage_fixture_runner. The route selection covers the thirteen cases
+listed by behavior above; gate selection covers its five idempotency cases and
+three required-field/malformed/status cases. No direct unittest execution or
+guard bypass, allowance expansion or timeout change was introduced.
+
+Changed files: backend/main.py and new backend/core/review_execution_cache.py;
+tests/test_review_execution_cache.py (new), test_ai_review_idempotency_cache.py,
+test_review_display_client_gate.py, test_review_display_contract.py,
+test_storage_fixture_runner.py, isolation_inventory.py, test_full_test_entrypoint.py,
+test_inventory.json; this plan. Only the exact cache module may import bundle
+approval; storage/runtime graph guards remain otherwise unchanged. Original
+history, pure durable primitives, finalizer, fingerprint function, frontend,
+model/provider and environment configuration have no diff.
+
+Git: integration/broker-import-ux-main, unchanged f2db0ad30ad9487cc3eb9318d8750a4c1c19e779;
+staged 0 / tracked modified 9 / untracked 2. Protected feature remains at
+609163e9dc7ff8b6bbc5ee13c34e7f8020910c54 with 9 modified/10 untracked entries;
+main remains at f779e252b823bbd724c8be277c54d494d3b93f89 with only its existing
+Play README change. No command wrote to either protected worktree.
+
+Next Step: independent Slice 3C review of whole receipt/bundle, original key/body/
+expiry and access/history associations, fail-closed behavior and v1 compatibility.
+Report and wait; no commit authorized. Negotiation, frontend v2, paired generation,
+durable POST replay ledger and rollout remain later work.
+
+## Slice 3B — Historical implementation (2026-10-14)
+
+Independently approved Major 0 / Minor 0 and committed at
+f2db0ad30ad9487cc3eb9318d8750a4c1c19e779 before Slice 3C began.
 
 Started clean at 39f561307d929f53eb0148a9354cad2f23a26e44 on
 integration/broker-import-ux-main. The user confirmed final independent Slice 3A

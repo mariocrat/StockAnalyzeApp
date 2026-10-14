@@ -570,6 +570,8 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8-sig"))
             allowed = durable if path.stem in storage else set()
+            if path.stem == "review_execution_cache":
+                allowed = {"review_approval_bundle"}
             for node in ast.walk(tree):
                 if isinstance(node, ast.ImportFrom):
                     self.assertNotIn((node.module or "").split(".")[-1], names - allowed, path)

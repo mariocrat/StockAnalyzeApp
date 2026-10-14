@@ -69,6 +69,7 @@ STORAGE_MODULES = (
     "tests.test_review_route_compatibility",
     "tests.test_review_display_client_gate",
     "tests.test_ai_review_idempotency_cache",
+    "tests.test_review_execution_cache",
     "tests.test_review_legacy_compatibility",
     "tests.test_review_envelope_contract",
     "tests.test_review_source_contract",

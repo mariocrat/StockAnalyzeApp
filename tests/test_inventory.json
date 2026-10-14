@@ -1414,6 +1414,29 @@
       "skips": {}
     },
     {
+      "module": "tests.test_review_execution_cache",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "WholeExecutionCacheTest.test_bodyless_terminal_remains_bundleless_but_whole_response_is_protected",
+        "WholeExecutionCacheTest.test_cross_key_copy_is_corruption_even_before_expiry_or_capacity_pruning",
+        "WholeExecutionCacheTest.test_display_capability_is_not_execution_fingerprint_or_paired_activation",
+        "WholeExecutionCacheTest.test_each_representation_and_provenance_corruption_is_fail_closed_not_a_miss",
+        "WholeExecutionCacheTest.test_hit_checks_receipts_without_body_compilers_and_owns_projection_copies",
+        "WholeExecutionCacheTest.test_invalid_publication_leaves_only_pending_and_never_replaces_with_partial_pair",
+        "WholeExecutionCacheTest.test_live_basic_advanced_generation_and_existing_history_stay_v1_only",
+        "WholeExecutionCacheTest.test_paired_basic_and_advanced_hit_project_v1_without_any_execution_effects",
+        "WholeExecutionCacheTest.test_raw_or_restored_execution_authority_and_receipt_substitution_reject",
+        "WholeExecutionCacheTest.test_response_access_history_and_execution_metadata_are_bound_exactly",
+        "WholeExecutionCacheTest.test_restart_equivalent_cache_loss_executes_again_without_history_post_ledger",
+        "WholeExecutionCacheTest.test_same_key_changed_body_conflicts_and_token_exclusions_preserve_replay",
+        "WholeExecutionCacheTest.test_source_and_snapshot_mutation_reject_without_read_time_repair",
+        "WholeExecutionCacheTest.test_ttl_expiry_keeps_new_execution_semantics_without_receipt_mutation"
+      ],
+      "skips": {}
+    },
+    {
       "module": "tests.test_review_history_paired",
       "h4_classification": "migrated",
       "execution_role": "guarded",
