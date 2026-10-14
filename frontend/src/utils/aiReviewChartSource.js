@@ -1,4 +1,6 @@
 import { validateReviewDisplay } from '../components/CanonicalReviewRenderer.js';
+import { validateReviewBody } from '../components/ReviewBodyRenderer.js';
+import { REVIEW_DISPLAY_V2 } from './reviewDisplayV2.js';
 
 const EMPTY_CHART_SOURCE = Object.freeze({ charts: Object.freeze([]), chart_cards: Object.freeze([]) });
 
@@ -11,7 +13,7 @@ export function aiReviewChartSource(review, historyRecord = null) {
   }
   if (!historyRecord && !['ready', 'missing_key'].includes(review.status)) return EMPTY_CHART_SOURCE;
   try {
-    validateReviewDisplay(review.display_snapshot);
+    validateReviewBody(review.display_snapshot, review.review_type);
   } catch {
     return EMPTY_CHART_SOURCE;
   }
@@ -38,7 +40,7 @@ export function aiReviewChartSource(review, historyRecord = null) {
   }
   // Only the whole-record history adapter can admit older stored chart surfaces.
   // Missing/invalid live snapshots never use general charts or raw AI extras.
-  if (!historyRecord) return EMPTY_CHART_SOURCE;
+  if (!historyRecord || review.display_snapshot?.schema_version === REVIEW_DISPLAY_V2) return EMPTY_CHART_SOURCE;
   return {
     charts: historyRecord.chart_snapshot?.charts || [],
     chart_cards: review.chart_reviews || historyRecord.chart_snapshot?.chart_reviews || [],

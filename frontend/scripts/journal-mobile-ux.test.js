@@ -6,6 +6,7 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ts from 'typescript';
 import CanonicalReviewRenderer from '../src/components/CanonicalReviewRenderer.js';
+import ReviewBodyRenderer from '../src/components/ReviewBodyRenderer.js';
 import { aiReviewChartSource } from '../src/utils/aiReviewChartSource.js';
 import { basicReviewInput, captureReviewInput } from '../src/utils/basicReviewInput.js';
 import { buildAiReviewIdempotencyKey } from '../src/utils/aiReviewIdempotency.js';
@@ -110,18 +111,18 @@ function renderProductionReview(aiReview) {
   const observed = [];
   function ObserveCanonical(props) {
     observed.push(props);
-    return React.createElement(CanonicalReviewRenderer, props);
+    return React.createElement(ReviewBodyRenderer, props);
   }
   const view = compileProduction(`const view = ${liveExpression};`, {
     React, aiReview, aiLoading: false, aiChartSource: aiReviewChartSource(aiReview),
     basicReviewInput, aiReviewSource: null, adLoading: false, aiConsentAccepted: true,
     deepenBasicReview: () => assert.fail('rendering must not execute advanced review'),
-    reviewAccessText: () => '', CanonicalReviewRenderer: ObserveCanonical,
+    reviewAccessText: () => '', CanonicalReviewRenderer, ReviewBodyRenderer: ObserveCanonical,
   }, 'view');
   const html = renderToStaticMarkup(view);
   const body = observed.find(props => props.expectedSurface === undefined);
   assert.ok(body, 'actual production JSX must use the canonical body renderer');
-  const bodyHtml = renderToStaticMarkup(React.createElement(CanonicalReviewRenderer, body));
+  const bodyHtml = renderToStaticMarkup(React.createElement(ReviewBodyRenderer, body));
   assert.ok(html.includes(bodyHtml));
   for (const raw of ['RAW_LEGACY_SUMMARY', 'RAW_STRUCTURED_REVIEW', 'RAW_CHART_TITLE', 'RAW_CHART_DETAIL']) {
     assert.ok(!html.includes(raw), raw);
@@ -512,7 +513,7 @@ function reviewSelectionHarness(rows, targetTradeId = 42) {
     aiReviewInFlightRef: { current: false }, basicReviewFocusIndexRef: { current: 0 }, BASIC_REVIEW_FOCUSES: ['balanced'],
     captureReviewInput, basicReviewInput, aiReviewSourceRef: { current: null },
     aiReviewSource: null,
-    CanonicalReviewRenderer, reviewAccessText: () => '',
+    CanonicalReviewRenderer, ReviewBodyRenderer, reviewAccessText: () => '',
     DEV_TOOLS_ENABLED: false, DEV_ACCESS_PLAN: 'free', DEV_AD_REWARD_TOKEN: '', DEV_ENTITLEMENT_TOKEN: '',
     buildAiReviewIdempotencyKey, aiReviewChartSource, reviewDisplayHeaders, reviewDisplayFailureMessage,
     rewardedBasicNeedsFreeUsage: false, mobileAdStatus: { native: false },

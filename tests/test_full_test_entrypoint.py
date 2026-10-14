@@ -56,7 +56,7 @@ def node_regression_suite(executable):
         def test_inventory_package_source_manifest_exact_and_fail_closed(self):
             live = inventory.load_node_inventory()
             self.assertEqual(len(live), 23)
-            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 248)
+            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 259)
             self.assertIn("test:broker-import", live)
             self.assertIn("test:mobile-bundle", live)
             review = live["test:canonical-review-renderer"]

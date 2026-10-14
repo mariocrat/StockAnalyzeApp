@@ -12,7 +12,8 @@ import { buildAiReviewIdempotencyKey } from '../src/utils/aiReviewIdempotency.js
 import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../src/utils/reviewDisplayContract.js';
 import { installAxiosRequestIdMessages } from '../src/utils/apiErrorRequestId.js';
 import CanonicalReviewRenderer from '../src/components/CanonicalReviewRenderer.js';
-import { nodeEvidence, readRenderedDom, renderEvidence, textContent } from './review-render-evidence.js';
+import ReviewBodyRenderer from '../src/components/ReviewBodyRenderer.js';
+import { nodeEvidence, readRenderedDom, renderEvidence, canonicalBodyEvidence, textContent } from './review-render-evidence.js';
 import { getTooltipPosition } from '../src/utils/chartLayout.js';
 import { MARKET_UP, MARKET_DOWN, MARKET_UP_ALPHA, MARKET_DOWN_ALPHA } from '../src/theme/marketColors.js';
 
@@ -70,10 +71,15 @@ function canonicalProbe(observed) {
   return props => { observed.push(props); return React.createElement(CanonicalReviewRenderer, props); };
 }
 
+function bodyProbe(observed) {
+  return props => { observed.push({ ...props, bodyRenderer: true }); return React.createElement(ReviewBodyRenderer, props); };
+}
+
 function surfaces(observed) {
   return observed.map(props => ({ document: props.document, surface: props.expectedSurface || 'body',
     defaultBody: props.expectedSurface === undefined,
-    ...renderEvidence(renderToStaticMarkup(React.createElement(CanonicalReviewRenderer, props))) }));
+    ...(props.bodyRenderer ? canonicalBodyEvidence : renderEvidence)(renderToStaticMarkup(
+      React.createElement(props.bodyRenderer ? ReviewBodyRenderer : CanonicalReviewRenderer, props))) }));
 }
 
 const chartSource = readFileSync(new URL('../src/components/JournalTradeChart.jsx', import.meta.url), 'utf8');
@@ -153,6 +159,7 @@ function renderLiveResult(aiReview, aiLoading = false) {
     basicReviewInput, aiReviewSource: null, adLoading: false, aiConsentAccepted: true,
     deepenBasicReview: () => assert.fail('rendering must not execute advanced review'),
     CanonicalReviewRenderer: canonicalProbe(observed),
+    ReviewBodyRenderer: bodyProbe(observed),
   }, 'view');
   const html = renderToStaticMarkup(view);
   const documents = surfaces(observed);
@@ -172,6 +179,7 @@ function renderHistory(record, reviewHistoryLoading = false, activeChartTicker =
     loadReviewHistory: noop, openReviewHistoryDetail: noop, deleteReviewHistoryItem: noop,
     restoreReviewHistoryTrades: noop, dateTimeText: value => value,
     CanonicalReviewRenderer: canonicalProbe(canonicalObserved), JournalTradeChart: ChartProbe,
+    ReviewBodyRenderer: bodyProbe(canonicalObserved),
   })();
   const html = renderToStaticMarkup(view);
   const documents = surfaces(canonicalObserved);
@@ -285,6 +293,89 @@ function chartEffect(chartData, approvedSnapshot = true) {
 
 const unavailable = '복기 내용을 표시할 수 없습니다.';
 const resultRows = [...handoff.results, ...handoff.body_results];
+
+test('actual approved paired v2 current history export and cache use identical semantic body and AI chart sources', async () => {
+  assert.deepEqual(handoff.v2_results.map(row => row.review_type), ['basic', 'advanced']);
+  for (const row of handoff.v2_results) {
+    const before = JSON.stringify(row);
+    assert.equal(row.response.display_snapshot.schema_version, 'review-display.v2');
+    assert.equal(row.v1.display_snapshot.schema_version, 'review-display.v1');
+    assert.deepEqual(row.replay_effects, { ai: 0, charge: 0, history_insert: 0 });
+    assert.deepEqual(row.detail, row.exported);
+    assert.deepEqual(row.response.display_snapshot, row.detail.ai_review.display_snapshot);
+    assert.deepEqual(row.response.chart_display_snapshot, row.snapshot);
+    assert.deepEqual(row.detail.ai_review.chart_display_snapshot, row.snapshot);
+    assert.notDeepEqual(row.detail.chart_snapshot.charts[0].candles, row.snapshot.charts[0].candles);
+    const live = renderLiveResult(row.response);
+    const history = renderHistory(row.detail, false, '', [row.listed]);
+    assert.equal(live.body.html, history.body.html);
+    assert.equal(live.body.text, row.response.display_snapshot.canonical_text);
+    assert.deepEqual(live.body.strongRanges, history.body.strongRanges);
+    assert.strictEqual(aiReviewChartSource(row.response), row.response.chart_display_snapshot);
+    assert.strictEqual(aiReviewChartSource(row.detail.ai_review, row.detail), row.detail.ai_review.chart_display_snapshot);
+    assert.strictEqual(history.observed[0].chartData, row.detail.ai_review.chart_display_snapshot.charts[0]);
+    assert.deepEqual(renderImmediate(row.response).observed[0].chartData, row.snapshot.charts[0]);
+    for (const card of row.snapshot.chart_cards) {
+      assert.ok(live.html.includes(renderToStaticMarkup(React.createElement(CanonicalReviewRenderer, { document: card.display, expectedSurface: 'chart_card' }))));
+    }
+    const h = harness(row.response);
+    await h.run([{ id: 1 }]);
+    assert.equal(h.calls.filter(call => call.url.endsWith('/ai-review-once')).length, 1);
+    assert.equal(h.calls.filter(call => call.url.endsWith('/charts-once')).length, 0);
+    assert.equal(h.calls[0].config.headers['X-Review-Display-Contract'], 'review-display.v1');
+    assert.strictEqual(h.state.aiReview, row.response);
+    assert.equal(JSON.stringify(row), before);
+  }
+});
+
+test('malformed partial unknown and mismatched v2 bodies fail closed in both actual views without raw or chart fallback', () => {
+  for (const row of handoff.v2_results) {
+    for (const mutate of [
+      review => { delete review.display_snapshot.sections; },
+      review => { review.display_snapshot.schema_version = 'review-display.v99'; },
+      review => { review.display_snapshot.canonical_text += 'not approved'; },
+      review => { review.display_snapshot.sections.at(-1).role = 'unknown'; },
+      review => { review.display_snapshot.blocks.at(-1).runs[0].type = 'html'; },
+      review => { review.review_type = row.review_type === 'basic' ? 'advanced' : 'basic'; },
+    ]) {
+      const review = structuredClone(row.response);
+      review.summary = 'RAW_SUMMARY_DO_NOT_RENDER';
+      review.structured_review = { main_issue: 'RAW_STRUCTURED_DO_NOT_RENDER' };
+      mutate(review);
+      const record = { ...row.detail, ai_review: review };
+      for (const view of [renderLiveResult(review), renderHistory(record)]) {
+        assert.equal(view.body.text, unavailable);
+        assert.deepEqual(view.body.blocks, []);
+        assert.ok(!view.html.includes('RAW_SUMMARY_DO_NOT_RENDER'));
+        assert.ok(!view.html.includes('RAW_STRUCTURED_DO_NOT_RENDER'));
+        assert.ok(!view.html.includes('journal-ai-card'));
+      }
+      assert.deepEqual(aiReviewChartSource(review, record), { charts: [], chart_cards: [] });
+      assert.equal(renderImmediate(review).observed.length, 0);
+      assert.equal(basicReviewInput(review, { review, input: {} }), null);
+    }
+  }
+});
+
+test('v2 chart auxiliary preserves approved emptiness and never uses SQL or raw charts to replace missing AI data', () => {
+  for (const row of handoff.v2_results) {
+    const missing = structuredClone(row.detail);
+    delete missing.ai_review.chart_display_snapshot;
+    assert.equal(basicReviewInput(missing.ai_review, { review: missing.ai_review, input: {} }), null);
+    assert.ok(missing.chart_snapshot.charts.length);
+    assert.deepEqual(aiReviewChartSource(missing.ai_review, missing), { charts: [], chart_cards: [] });
+    assert.equal(renderHistory(missing).observed.length, 0);
+    const empty = { ...missing, ai_review: { ...missing.ai_review, chart_display_snapshot: { charts: [], chart_cards: [] } } };
+    assert.strictEqual(aiReviewChartSource(empty.ai_review, empty), empty.ai_review.chart_display_snapshot);
+    assert.equal(renderHistory(empty).body.text, row.response.display_snapshot.canonical_text);
+    const wrongSurface = structuredClone(row.response);
+    wrongSurface.chart_display_snapshot.charts[0].header = wrongSurface.display_snapshot;
+    assert.deepEqual(aiReviewChartSource(wrongSurface), { charts: [], chart_cards: [] }, 'charts remain v1 surfaces');
+    const input = captureReviewInput([{ id: 1, ticker: '005930', name: '합성', side: 'buy',
+      trade_date: '2026-10-14', price: 70000, quantity: 1 }]);
+    assert.equal(basicReviewInput(row.response, { review: row.response, input }), row.review_type === 'basic' ? input : null);
+  }
+});
 
 function verifyLegacyTooltipCss() {
   const rule = tooltipCss.match(/([^{}]*\.journal-marker-tooltip[^{}]*)\{\s*display:\s*block;\s*\}/);

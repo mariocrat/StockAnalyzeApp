@@ -29,6 +29,7 @@ def prepare_chart_results(root, host):
             or [row.get("review_type") for row in report.get("results", [])] != ["basic", "advanced"]
             or [(row.get("review_type"), row.get("body_case")) for row in report.get("body_results", [])]
                 != [(kind, shape) for kind in ("basic", "advanced") for shape in ("plain", "strong")]
+            or [row.get("review_type") for row in report.get("v2_results", [])] != ["basic", "advanced"]
             or set(report.get("failures", {})) != {"safety", "invalid", "compatibility"}):
         raise ValueError("chart handoff lifecycle/coverage mismatch")
     destination = root / HANDOFF
@@ -47,7 +48,7 @@ def child(runtime):
     protected = ProtectedPaths(**json.loads(sys.stdin.read()))
     boundary = Boundary(runtime, protected)
     baseline = Path.cwd(), dict(os.environ), tempfile.tempdir
-    results, body_results, failures, legacy, history_titles = [], [], {}, {}, []
+    results, body_results, failures, legacy, history_titles, v2_results = [], [], {}, {}, [], []
     with isolated_module(runtime, protected, boundary=boundary):
         # Reuse fixture/setup/assertions, never clone the generation/route/adapter.
         from tests.test_review_route_compatibility import ProductionRouteCompatibilityTest, model_output
@@ -144,9 +145,53 @@ def child(runtime):
                                    "listed": history_list_projection(detail)})
         finally:
             case.doCleanups()
+        # Synthetic paired issuance only: production generation remains v1-only.
+        # Capture the SAME approved bundle through actual cache/SQL/HTTP boundaries.
+        from tests import test_review_display_negotiation as negotiation
+        from tests.test_review_durable_storage import assemble
+        from backend.core.review_source_projection import trade_payload
+        paired_case = negotiation.ReviewDisplayNegotiationTest()
+        try:
+            paired_case.setUp()
+            for kind in ("basic", "advanced"):
+                _, seed = paired_case.cache.seed(kind)
+                value = paired_case.history.value(kind)
+                access = copy.deepcopy(seed["result"]["access"])
+                value["record"]["ai_review"]["access"] = access
+                value["record"]["access_snapshot"] = copy.deepcopy(access)
+                value = assemble(value["source"], value["snapshot"], value["prepared"], value["record"])
+                committed = paired_case.history.save(value)
+                batch = paired_case.main.JournalAiReviewIn(privacy_consent=True, review_type=kind,
+                    trades=[paired_case.main.JournalTradeIn(**trade_payload(trade)) for trade in value["source"].trades])
+                key = "slice5-paired-handoff-" + kind
+                cache_key, _ = paired_case.main._begin_ai_review_idempotency(paired_case.case.token, key,
+                    paired_case.main._ai_review_payload_fingerprint(batch))
+                result = copy.deepcopy(value["record"]["ai_review"])
+                result["review_history_id"] = committed.id
+                paired_case.main._finish_ai_review_idempotency(cache_key, result,
+                    snapshot=value["snapshot"], bundle=value["bundle"])
+                before, wallet = paired_case.http.history_state(), paired_case.case.balance(kind)
+                response = paired_case.replay(key, batch, negotiation.DUAL)
+                v1 = paired_case.replay(key, batch, negotiation.V1)
+                with paired_case.http.no_effects(lookup=False, reads=False) as effects:
+                    detail = paired_case.http.request("GET", f"/api/journal/review-history/{committed.id}", negotiation.DUAL)
+                    listed = paired_case.http.request("GET", "/api/journal/review-history", negotiation.DUAL)
+                    exported = paired_case.http.request("GET", "/api/me/export-data", negotiation.DUAL)
+                for received in (detail, listed, exported):
+                    paired_case.assertEqual(received.status_code, 200)
+                paired_case.assertTrue(all(spy.call_count == 0 for spy in effects.values()))
+                paired_case.assertEqual(before, paired_case.http.history_state())
+                paired_case.assertEqual(wallet, paired_case.case.balance(kind))
+                v2_results.append({"review_type": kind, "response": response, "v1": v1,
+                    "snapshot": value["record"]["ai_review"]["chart_display_snapshot"], "detail": detail.json(),
+                    "listed": next(row for row in listed.json() if row["id"] == committed.id),
+                    "exported": next(row for row in exported.json()["review_history"] if row["id"] == committed.id),
+                    "replay_effects": {"ai": 0, "charge": 0, "history_insert": 0}})
+        finally:
+            paired_case.doCleanups()
     restored = (Path.cwd(), dict(os.environ), tempfile.tempdir) == baseline
     report = {"results": results, "body_results": body_results, "failures": failures, "legacy": legacy,
-              "history_titles": history_titles,
+              "history_titles": history_titles, "v2_results": v2_results,
               "unexpected": boundary.unexpected, "restored": restored,
               "patches_restored": boundary.patches_restored}
     report["passed"] = restored and boundary.patches_restored and boundary.unexpected == 0

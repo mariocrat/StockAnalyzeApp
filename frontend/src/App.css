@@ -2516,6 +2516,42 @@ body {
   line-height: 1.72;
 }
 
+.canonical-review-v2 {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.review-v2-section {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #2c3650;
+  border-radius: 8px;
+  background: #10141f;
+  overflow-wrap: anywhere;
+}
+
+.review-v2-section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.journal-ai-document .review-v2-section h5 {
+  margin: 0 0 8px;
+}
+
+.review-v2-field + .review-v2-field { margin-top: 10px; }
+.review-v2-shell-label { display: block; color: #a7afbf; font-size: 12px; }
+.review-v2-content { min-width: 0; white-space: pre-wrap; }
+.review-v2-confidence { padding: 2px 8px; border-radius: 12px; background: #202c46; color: #d3dfff; }
+.review-v2-section[data-confidence="medium"] { border-color: #a78643; }
+.review-v2-section[data-confidence="low"] { border-color: #d9a64d; }
+.review-v2-section[data-confidence="low"] .review-v2-confidence { background: #45351f; color: #ffe1a3; }
+.review-v2-section > summary { cursor: pointer; min-height: 32px; color: #aec4ff; }
+
 .journal-ai-document h4,
 .journal-ai-document h5 {
   margin: 18px 0 9px;

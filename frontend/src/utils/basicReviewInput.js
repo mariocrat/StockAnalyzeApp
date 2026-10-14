@@ -1,5 +1,6 @@
-import { validateReviewDisplay } from '../components/CanonicalReviewRenderer.js';
+import { validateReviewBody } from '../components/ReviewBodyRenderer.js';
 import { aiReviewChartSource } from './aiReviewChartSource.js';
+import { REVIEW_DISPLAY_V2 } from './reviewDisplayV2.js';
 
 // Capture request data, never semantic/display output or a later selection.
 // Failure only removes the optional CTA; it does not change existing execution.
@@ -31,8 +32,9 @@ export function basicReviewInput(review, source) {
   if (!source?.input || source.review !== review || review?.review_type !== 'basic'
     || !['ready', 'missing_key'].includes(review.status) || review.internal_status) return null;
   try {
-    validateReviewDisplay(review.display_snapshot);
-    if ('chart_display_snapshot' in review && aiReviewChartSource(review) !== review.chart_display_snapshot) return null;
+    validateReviewBody(review.display_snapshot, 'basic');
+    if (('chart_display_snapshot' in review || review.display_snapshot.schema_version === REVIEW_DISPLAY_V2)
+      && aiReviewChartSource(review) !== review.chart_display_snapshot) return null;
     return source.input;
   } catch {
     return null;

@@ -5,7 +5,10 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 import CanonicalReviewRenderer, { validateReviewDisplay } from '../src/components/CanonicalReviewRenderer.js';
-import { renderEvidence } from './review-render-evidence.js';
+import ReviewBodyRenderer, { validateReviewBody } from '../src/components/ReviewBodyRenderer.js';
+import { validateReviewDisplayV2 } from '../src/utils/reviewDisplayV2.js';
+import { reviewDisplayHeaders, REVIEW_DISPLAY_CONTRACT_HEADER } from '../src/utils/reviewDisplayContract.js';
+import { renderEvidence, canonicalBodyEvidence } from './review-render-evidence.js';
 
 import { validateV2, validateBundle, makeBundle, mutate, flatten, stable, replay, generation } from './review-display-v2-reference.js';
 
@@ -23,6 +26,125 @@ function textPaths(value,path) {
 const vectors = JSON.parse(readFileSync(new URL('./fixtures/review-display-v1.json', import.meta.url), 'utf8'));
 const valid = id => vectors.valid.find(vector => vector.id === id);
 const unavailable = '복기 내용을 표시할 수 없습니다.';
+
+function dualRendered(document, reviewType = null) {
+  return canonicalBodyEvidence(renderToStaticMarkup(React.createElement(ReviewBodyRenderer, { document, reviewType })));
+}
+
+test('production dual reader keeps every v1 body and HTML unchanged', () => {
+  for (const vector of vectors.valid) {
+    assert.equal(validateReviewBody(vector.document), vector.expected_canonical_text);
+    assert.equal(dualRendered(vector.document).html, rendered(vector.document).html);
+  }
+  for (const vector of vectors.invalid) assert.equal(dualRendered(vector.document).text, unavailable);
+});
+
+test('production v2 basic advanced render declared roles and every exact canonical block once', () => {
+  for (const witness of v2.witnesses) {
+    const document = structuredClone(witness.expected_v2), before = structuredClone(document);
+    assert.equal(validateReviewDisplayV2(document), document.canonical_text);
+    assert.equal(validateReviewBody(document, document.review_type), document.canonical_text);
+    const result = dualRendered(document, document.review_type);
+    assert.equal(result.text, document.canonical_text, witness.id);
+    assert.deepEqual(result.blocks, document.blocks.map(block => block.type));
+    assert.deepEqual(result.strong, document.blocks.flatMap(block => block.runs.filter(run => run.type === 'strong').map(run => run.text)));
+    assert.deepEqual([...result.html.matchAll(/data-review-block-id="([^"]+)"/g)].map(match => match[1]), document.blocks.map(block => block.id));
+    assert.deepEqual([...result.html.matchAll(/data-review-section="([^"]+)"/g)].map(match => match[1]),
+      document.sections.filter(section => section.block_ids.length).map(section => section.role));
+    assert.deepEqual(document, before, 'rendering must not mutate approved content');
+  }
+});
+
+test('production v2 rejects shared negative vectors with pinned codes and no good prefix fallback', () => {
+  for (const vector of v2.invalid_documents) {
+    const document = mutate(witnessFor(vector.base).expected_v2, vector.mutations);
+    assert.throws(() => validateReviewDisplayV2(document), error => error.code === v2.expected_errors[vector.id], vector.id);
+    const result = dualRendered(document, document.review_type);
+    assert.equal(result.text, unavailable, vector.id);
+    assert.deepEqual(result.blocks, []);
+    assert.ok(!result.html.includes('data-review-section'));
+  }
+  const base = v2.witnesses[0].expected_v2;
+  for (const document of [null, {}, { ...base, schema_version: 'review-display.v99' },
+    { ...base, sections: undefined }, { ...base, surface: 'chart_card' }]) {
+    assert.equal(dualRendered(document).text, unavailable);
+  }
+  assert.equal(dualRendered(base, 'advanced').text, unavailable);
+  assert.throws(() => validateReviewDisplay(base), 'the original v1 surface validator stays v1-only');
+});
+
+test('production v2 enforces Unicode scalar bounds and exact identifiers without normalization', () => {
+  const base = v2.witnesses[0].expected_v2;
+  const accepted = structuredClone(base);
+  accepted.blocks[0].runs = [{ type: 'text', text: '😀'.repeat(4096) }];
+  accepted.canonical_text = flatten(accepted);
+  assert.equal(validateReviewDisplayV2(accepted), accepted.canonical_text);
+  for (const text of ['😀'.repeat(4097), String.fromCharCode(0xD800), 'x\r', 'x\u0000']) {
+    const document = structuredClone(base);
+    document.blocks[0].runs[0].text = text;
+    document.canonical_text = flatten(document);
+    assert.equal(dualRendered(document).text, unavailable);
+  }
+  const badId = structuredClone(base);
+  badId.blocks[0].id += '\n';
+  assert.throws(() => validateReviewDisplayV2(badId), error => error.code === 'INVALID_BLOCK_ID');
+});
+
+test('v2 confidence and missing information use separate machine metadata not label inference', () => {
+  for (const witness of v2.witnesses) {
+    const document = structuredClone(witness.expected_v2);
+    const section = document.sections.find(value => value.role === 'data_quality');
+    const label = document.blocks.find(block => block.id === section.confidence.label);
+    label.runs = [{ type: 'text', text: '낮음 높음 보통: 이 문자열은 상태를 결정하지 않습니다.' }];
+    document.canonical_text = flatten(document);
+    const result = dualRendered(document);
+    assert.match(result.html, new RegExp('data-confidence="' + section.confidence.level + '"'));
+    assert.equal(result.text, document.canonical_text);
+    assert.equal(result.html.includes('data-review-shell="true">정보 부족</span>'), section.missing_information.length > 0);
+  }
+});
+
+test('v2 collapsed details validate hidden content and expansion retains the complete approved sequence', () => {
+  const document = structuredClone(v2.witnesses.find(witness => witness.source.review_type === 'advanced').expected_v2);
+  const result = dualRendered(document);
+  assert.match(result.html, /<details class="review-v2-section" data-review-section="detailed_analysis">/);
+  assert.ok(!result.html.includes('<details open'));
+  assert.equal(result.text, document.canonical_text, 'all detail text is admitted and retained in the native disclosure');
+  const details = document.sections.find(section => section.role === 'detailed_analysis');
+  assert.ok(details.block_ids.length);
+  const broken = structuredClone(document);
+  broken.blocks.find(block => block.id === details.block_ids.at(-1)).runs[0].type = 'html';
+  assert.equal(dualRendered(broken).text, unavailable, 'closed disclosure cannot hide an invalid tail');
+  const removed = new Set([...details.block_ids, ...document.sections.at(-1).block_ids]);
+  document.blocks = document.blocks.filter(block => !removed.has(block.id));
+  for (const section of [details, document.sections.at(-1)]) { section.items = []; section.block_ids = []; }
+  document.canonical_text = flatten(document);
+  const empty = dualRendered(document);
+  assert.equal(empty.text, document.canonical_text);
+  assert.ok(!empty.html.includes('data-review-section="detailed_analysis"'));
+  assert.ok(!empty.html.includes('data-review-section="reflection_questions"'));
+});
+
+test('v2 React preserves exact whitespace combining Unicode strong spans and escaped HTML content', () => {
+  const document = structuredClone(v2.witnesses[0].expected_v2);
+  document.blocks[0].runs = [{ type: 'text', text: ' e\u0301 😀 <script>& ' },
+    { type: 'strong', text: '수' }, { type: 'text', text: '익  \t' }];
+  document.blocks[0].separator_after = '\n\n';
+  document.canonical_text = flatten(document);
+  const result = dualRendered(document);
+  assert.equal(result.text, document.canonical_text);
+  assert.deepEqual(result.strongRanges[0], { start: 16, end: 17, text: '수' });
+  assert.match(result.html, /&lt;script&gt;&amp;/);
+  assert.ok(!result.html.includes('<script>'));
+  assert.ok(result.text.includes('e\u0301'));
+  const rootReordered = Object.fromEntries(Object.keys(document).reverse().map(key => [key, document[key]]));
+  assert.equal(dualRendered(rootReordered).text, result.text);
+});
+
+test('dual-reader support leaves outgoing capability pinned to v1 until separately approved activation', () => {
+  assert.deepEqual(reviewDisplayHeaders({ Authorization: 'Bearer synthetic', [REVIEW_DISPLAY_CONTRACT_HEADER]: 'review-display.v2' }),
+    { Authorization: 'Bearer synthetic', [REVIEW_DISPLAY_CONTRACT_HEADER]: 'review-display.v1' });
+});
 
 test('v2 shared body vectors enforce exact roles ownership order and bounds', () => {
   for (const witness of v2.witnesses) {

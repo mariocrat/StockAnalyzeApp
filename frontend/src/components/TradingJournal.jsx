@@ -8,6 +8,7 @@ import kakaoLoginSymbol from '../assets/kakao-login-symbol.svg';
 import naverLoginSymbol from '../assets/naver-login-symbol.svg';
 import JournalTradeChart from './JournalTradeChart';
 import CanonicalReviewRenderer from './CanonicalReviewRenderer';
+import ReviewBodyRenderer from './ReviewBodyRenderer';
 import { getAdMobRuntimeStatus, initializeAdMob, showReviewHistoryInterstitial, showRewardedReviewAd } from '../mobile/admob';
 import { shouldShowReviewHistoryInterstitial } from '../mobile/admobPolicy';
 import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct, recoverGooglePlayPurchases } from '../mobile/billing';
@@ -2001,8 +2002,8 @@ export default function TradingJournal({
                     </>
                   )}
                   <div className="journal-ai-document">
-                    <CanonicalReviewRenderer document={['canonical', 'adapted'].includes(activeReviewHistory.history_read_status)
-                      ? savedReview?.display_snapshot : null} />
+                    <ReviewBodyRenderer document={['canonical', 'adapted'].includes(activeReviewHistory.history_read_status)
+                      ? savedReview?.display_snapshot : null} reviewType={savedReview?.review_type} />
                   </div>
                   <div className="journal-chart-review-list">
                     {savedCards.map((item, idx) => (
@@ -2854,7 +2855,7 @@ export default function TradingJournal({
                 <h4>{aiReview.review_type === 'advanced' ? '심화복기 결과' : '일반복기 결과'}</h4>
               )}
               <div className="journal-ai-document">
-                <CanonicalReviewRenderer document={aiReview.display_snapshot} />
+                <ReviewBodyRenderer document={aiReview.display_snapshot} reviewType={aiReview.review_type} />
               </div>
               {aiReview.access && (
                 <div className="journal-ai-entitlement">

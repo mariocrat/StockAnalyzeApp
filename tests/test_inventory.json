@@ -2358,6 +2358,9 @@
         "file": "scripts/ai-review-chart-source.test.js",
         "profile": "standard",
         "cases": [
+          "actual approved paired v2 current history export and cache use identical semantic body and AI chart sources",
+          "malformed partial unknown and mismatched v2 bodies fail closed in both actual views without raw or chart fallback",
+          "v2 chart auxiliary preserves approved emptiness and never uses SQL or raw charts to replace missing AI data",
           "production basic and advanced AI requests declare exact display support and retain auth and idempotency",
           "production history list and detail requests declare exact display support",
           "production ordinary journal chart review and data summary requests have no display header",
@@ -2402,7 +2405,7 @@
           "legacy canonical adapted and unavailable history titles and tabs preserve adapter document identity",
           "history title and legacy tab sinks never fall back to raw names or rebuild invalid documents"
         ],
-        "sha256": "0624484794fbb1f54db29ecb38fcdc0674454c97a5287dec74fd526cd26d7a16",
+        "sha256": "f85b48894c71d00963f7c4d997afe624017305a254cb93c44b37771283f80803",
         "reads": [
           "package.json",
           "scripts/ai-review-chart-source.test.js",
@@ -2417,7 +2420,9 @@
           "scripts/review-render-evidence.js",
           "src/utils/apiErrorRequestId.js",
           "src/utils/reviewDisplayContract.js",
-          "src/App.css"
+          "src/App.css",
+          "src/components/ReviewBodyRenderer.js",
+          "src/utils/reviewDisplayV2.js"
         ],
         "release_eval_sha256": [],
         "react_snapshot": {
@@ -2435,9 +2440,9 @@
           "typescript/package.json": "4752e28a76cd00f882e0f054ce2d68ac58e0caceb98df0ec9d2a41ef3730240f",
           "typescript/lib/typescript.js": "ed5f8d1c93d625c9a1a2d282a6e0d3899aca2ac58e508828402a0203d335935b"
         },
-        "component_sha256": "e1525901a1ed7dcfabf54010deea9646383ff79020abb72a80c80141775a2f48",
+        "component_sha256": "b6327166457c0a50cd6d3ef2731eccb1a7a22405a51581e4e156e00cf88dc683",
         "chart_component_sha256": "28a8ae4be58130b348b310318935dac040448092ecdb41c9bd87e43b4f26dab2",
-        "chart_source_sha256": "148d9aa6d871731b661bbaeecc4ed25e7629209819ab9006599a5db6283b51ab",
+        "chart_source_sha256": "1a5159558b3d8b0d9982a24b2b0cec4fed890fe24ca4db8ef8c602d196bc0228",
         "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570"
       },
       {
@@ -2469,6 +2474,14 @@
         "file": "scripts/canonical-review-renderer.test.js",
         "profile": "standard",
         "cases": [
+          "production dual reader keeps every v1 body and HTML unchanged",
+          "production v2 basic advanced render declared roles and every exact canonical block once",
+          "production v2 rejects shared negative vectors with pinned codes and no good prefix fallback",
+          "production v2 enforces Unicode scalar bounds and exact identifiers without normalization",
+          "v2 confidence and missing information use separate machine metadata not label inference",
+          "v2 collapsed details validate hidden content and expansion retains the complete approved sequence",
+          "v2 React preserves exact whitespace combining Unicode strong spans and escaped HTML content",
+          "dual-reader support leaves outgoing capability pinned to v1 until separately approved activation",
           "v2 shared body vectors enforce exact roles ownership order and bounds",
           "v2 atomic bundles reject either corrupt side without v1 downgrade",
           "v2 semantic witnesses cover text slots and backend objective without inference",
@@ -2485,7 +2498,7 @@
           "nested structure and bounds fail closed in the actual component",
           "the same renderer and validator require the explicit approved surface for chart documents"
         ],
-        "sha256": "a8f2c3fb73dddc6c386229b4e43b4be48959981d761bc6a88a8f1f6731071d18",
+        "sha256": "8eb29f3ef89e1bd2257816cf018d988a3c1efe712af0f96d1a22dc40e967149c",
         "reads": [
           "package.json",
           "scripts/canonical-review-renderer.test.js",
@@ -2494,7 +2507,10 @@
           "scripts/review-render-evidence.js",
           "scripts/review-display-v2-reference.js",
           "scripts/fixtures/review-display-v2.schema.json",
-          "scripts/fixtures/review-display-v2-vectors.json"
+          "scripts/fixtures/review-display-v2-vectors.json",
+          "src/components/ReviewBodyRenderer.js",
+          "src/utils/reviewDisplayV2.js",
+          "src/utils/reviewDisplayContract.js"
         ],
         "vector_sha256": "db225f6fcec00ec5def4e839652c8e76016216819009c86aad8676a51762f4e5",
         "component_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570",
@@ -2540,7 +2556,7 @@
           "src/components/CanonicalReviewRenderer.js"
         ],
         "vector_sha256": "68996d3776b3584561f0a3320d79f830e59f28d8b2c5f04a77a05bcdbdff2711",
-        "component_sha256": "e1525901a1ed7dcfabf54010deea9646383ff79020abb72a80c80141775a2f48",
+        "component_sha256": "b6327166457c0a50cd6d3ef2731eccb1a7a22405a51581e4e156e00cf88dc683",
         "format_sha256": "3d8ee36c975a472e92a5d2ea4dabb73ae688fa8a6712ad3dac825dbef6a38ea9",
         "react_snapshot": {
           "react/package.json": "e631b6ac066fa758d9b36f226d96e8fc05425d1e8993ffcc99c6de2d6aa7268c",
@@ -2640,7 +2656,7 @@
           "account changes clear the previous account journal workspace before loading tenant data",
           "review archive entry uses a throttled interstitial policy"
         ],
-        "sha256": "fc9c5a38a042e7008a964c455ea65be1c74de9e74d51e4acb15524ccd26767f8",
+        "sha256": "104cf1d7580e32dbfa3602da95ad82ed7c217058f407e995cf44a30187b27004",
         "reads": [
           "package.json",
           "scripts/journal-mobile-ux.test.js",
@@ -2656,7 +2672,9 @@
           "src/utils/reviewDisplayContract.js",
           "src/utils/brokerReviewInput.js",
           "src/utils/brokerImport.js",
-          "src/utils/reviewTradeSelection.js"
+          "src/utils/reviewTradeSelection.js",
+          "src/components/ReviewBodyRenderer.js",
+          "src/utils/reviewDisplayV2.js"
         ],
         "release_eval_sha256": [],
         "react_snapshot": {
@@ -2675,9 +2693,9 @@
           "typescript/lib/typescript.js": "ed5f8d1c93d625c9a1a2d282a6e0d3899aca2ac58e508828402a0203d335935b"
         },
         "vector_sha256": "db225f6fcec00ec5def4e839652c8e76016216819009c86aad8676a51762f4e5",
-        "chart_source_sha256": "148d9aa6d871731b661bbaeecc4ed25e7629209819ab9006599a5db6283b51ab",
+        "chart_source_sha256": "1a5159558b3d8b0d9982a24b2b0cec4fed890fe24ca4db8ef8c602d196bc0228",
         "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570",
-        "component_sha256": "e1525901a1ed7dcfabf54010deea9646383ff79020abb72a80c80141775a2f48"
+        "component_sha256": "b6327166457c0a50cd6d3ef2731eccb1a7a22405a51581e4e156e00cf88dc683"
       },
       {
         "name": "test:review-selection",

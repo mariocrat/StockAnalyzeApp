@@ -1,6 +1,130 @@
 # Review display v2 migration
 
-## Slice 4 — Current Status (2026-10-14)
+## Slice 5 — Current Status (2026-10-14)
+
+Started clean on integration/broker-import-ux-main at
+78cf71a030e71ae4d5989fb66d81ad1c3356a1be after independent Slice 4 approval
+(Major 0 / Minor 0) and commit. Authorized: frontend dual body admission and
+semantic renderer, related isolated tests/inventory and this plan only.
+Backend contracts and generation remain unchanged. The existing outgoing
+review-display.v1 header remains pinned; dual capability advertisement, rollout
+and paired production generation require the later separately approved Slice 6.
+
+### Decisions / Verification / Remaining
+
+- Keep the original v1 validator/renderer, including every non-body surface.
+- Admit the entire v2 body before rendering any visible or collapsed section.
+  Use declared roles/enums/local block references, exact approved runs/separators;
+  never parse semantic labels, compile raw review fields or repair rejected bodies.
+- Current result/history body, AI chart selection and optional basic-to-advanced
+  CTA must share dual body admission. AI chart auxiliary remains its original B;
+  SQL chart A cannot repair an invalid v2 response or missing approved auxiliary.
+- [x] Confirm requested worktree/branch/HEAD/clean status and inspect current paths.
+- [x] Implement bounded production v2 validator and semantic renderer.
+- [x] Official focused Node/H4 regressions, inventories, lint/build/diff checks.
+- [x] Independent Slice 5 code review and browser visual verification at 320px / 360px.
+- [ ] Android WebView/device smoke test — NOT RUN: this execution environment has no JDK,
+  Android SDK, adb, device, or emulator. Android code/config remain unchanged.
+
+### Implementation
+
+New reviewDisplayV2.js admits the exact body grammar, bounded Unicode/runs/blocks,
+fixed roles, enum/collection limits, unique ownership and explicit field traversal,
+references/order and full canonical identity. Errors have controlled codes; all
+24 shared negative document vectors match their pinned rejection codes. It imports
+no shared fixture/schema/reference helper. This is transport/display validation,
+not a new source approval or frontend authenticity proof.
+
+New ReviewBodyRenderer uses the original CanonicalReviewRenderer unchanged for v1.
+V2 renders declared semantic references into scoped cards; field/phase/collapse
+labels are presentation shell only. All run text, strong spans, separators and
+order remain exact. The complete document, including hidden detail/questions, is
+admitted before optional empty sections are hidden or native details is collapsed.
+Confidence comes from its enum, independently of missing_information and labels.
+
+Live and admitted history AI body use this same renderer; chart selection and the
+optional live basic-to-advanced CTA use the same dual body validator/type check.
+V2 cannot fall through to legacy SQL A/raw chart extras if B is missing. The optional
+CTA also rejects missing/malformed B for v2; correctly approved empty B is valid.
+V1's original chart fallback and CTA behavior are preserved. All chart documents,
+history titles and other surfaces still use the unchanged v1 surface validator.
+No loader request, fingerprint, consent/entitlement/ad/AI/storage path was changed.
+
+### Actual Verification
+
+Approved existing Python/Node executables and official H4 coordinator only:
+
+~~~powershell
+$py = 'D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe'
+$node = 'C:\Program Files\nodejs\node.exe'
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-entrypoint test:canonical-review-renderer --node-executable $node
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-entrypoint test:ai-chart-source --node-entrypoint test:journal-mobile-ux --node-executable $node
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-entrypoint test:legacy-review-cross-contract --node-entrypoint test:review-selection --node-entrypoint test:broker-import --node-entrypoint test:app-navigation --node-entrypoint test:ai-idempotency --node-executable $node
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-regressions --node-executable $node
+& $py -I -X utf8 -B tests/run_isolated_tests.py tests.test_full_test_entrypoint
+& $py -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_display_negotiation --test-case ReviewDisplayNegotiationTest.test_fresh_dual_requests_generate_only_v1_then_replay_without_more_execution
+& $py -I -X utf8 -B tests/run_isolated_tests.py --inventory-only
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-inventory-only
+& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run lint
+& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run build
+git diff --check
+~~~
+
+- Node direct: 146/146 PASS in eight entrypoints: canonical 23, actual AI chart/
+  live/history 46, journal-mobile 35, legacy 11, selection 5, broker 19, navigation
+  5, idempotency 2. Includes 11 new IDs (eight canonical and three chart), exact v1
+  HTML, three v2 goldens, all negative document vectors, Unicode/strong/escaping,
+  role/phase/confidence/missing metadata, collapsed-tail and empty-section behavior.
+- The existing chart handoff now captures actual typed paired approval, temp SQL
+  persistence, whole-row admission and HTTP v1/dual cache/history/export responses
+  for basic/advanced. SAME original bundle is used by cache and SQL. Actual original
+  frontend JSX and React renderer retain body/B/cards; A != B, replay/charge/insert
+  zero-effect assertions and empty/missing B/no-fallback checks pass. No oracle
+  replacement or mocked display renderer. Synthetic model inputs only.
+- Python: coordinator 15/15 and existing selected generation-OFF case 1/1 PASS.
+  Fresh dual basic/advanced still generate v1-only; replay adds no execution.
+  Separate Node coordinator 9/9 PASS, not counted as manifest direct tests.
+- All commands exit 0; final FAIL/ERROR/SKIP and missing/extra/duplicate zero.
+  Guarded unexpected accesses zero; restoration, patch restoration and cleanup
+  true. Coordinator intentional negative probes retain their expected contracts.
+- Final Node inventory: 23 entrypoints / 259 direct; Python 107 modules / 1055
+  direct / 18 separate probes unchanged. Register exact new source reads and test
+  IDs/hashes; no runner/guard/timeout/allowlist expansion. Coordinator's old 248
+  literal is updated to the exact 259 total, not relaxed to a range.
+- Lint and final Vite build PASS; git diff --check and new-source whitespace PASS.
+  After the final missing-B CTA guard/test, reran only chart/mobile, Node inventory,
+  lint and build. Repeated cases are counted once. No test approach failed. One
+  metadata patch-format failure wrote nothing; context-only apply_patch succeeded.
+- Original v1 renderer/header helper, all backend runtime/cache/history, schema/
+  vectors, package/lock/config/env, Android and official guards remain unchanged.
+  No full TestOnly, actual OpenAI/provider/production DB, install or Android build.
+
+Changed 14 files: production TradingJournal.jsx, App.css, aiReviewChartSource.js,
+basicReviewInput.js and new ReviewBodyRenderer.js/reviewDisplayV2.js; tests
+canonical-review-renderer.test.js, ai-review-chart-source.test.js,
+journal-mobile-ux.test.js, review-render-evidence.js, review_chart_handoff.py,
+test_full_test_entrypoint.py, test_inventory.json; this plan.
+Git: same branch/HEAD, staged 0 / modified 12 / untracked 2 / unmerged 0.
+Protected feature remains 609163e9dc7ff8b6bbc5ee13c34e7f8020910c54 with its 9
+modified/10 untracked entries; main retains f779e252b823bbd724c8be277c54d494d3b93f89
+and its existing Play README change. No command wrote either worktree's files.
+
+Browser visual verification passed at 320px and 360px using the production frontend
+build with local sanitized fixtures; screenshots and DOM/layout evidence are saved
+outside the repository. Android WebView/device rendering and the real bottom-ad
+interaction remain unverified (NOT RUN because the execution environment lacks the
+Android toolchain and a device/emulator). Android code/config are unchanged.
+
+Next Step: run the Android Debug build/install and real-device WebView smoke test
+when JDK, Android SDK/adb, and a device/emulator are available. Capability
+advertisement, rollout/rollback and production activation/generation require later
+separate authorization (Slice 6).
+No stage/commit/push/merge/rebase is authorized.
+
+## Slice 4 — Historical approved implementation (2026-10-14)
+
+Independently approved Major 0 / Minor 0 and committed at
+78cf71a030e71ae4d5989fb66d81ad1c3356a1be before Slice 5 began.
 
 Started clean on integration/broker-import-ux-main at
 33b88a18f964ef416e00fef782c3ce6c32b93889. The user confirmed independent

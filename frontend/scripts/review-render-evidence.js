@@ -60,3 +60,24 @@ export function renderEvidence(html) {
   const dom = readRenderedDom(html);
   return { html, dom, ...nodeEvidence(dom) };
 }
+
+// V2 has semantic shell labels around the original canonical parts. Observe
+// actual DOM block parents (including their exact separators), not source text.
+export function canonicalBodyEvidence(html) {
+  const rendered = renderEvidence(html);
+  if (!html.includes('data-review-version="review-display.v2"')) return rendered;
+  const parts = [];
+  function walk(node) {
+    if (node.children?.some(child => child.block)) parts.push(nodeEvidence(node));
+    else node.children?.forEach(walk);
+  }
+  walk(rendered.dom);
+  const strongRanges = [];
+  let offset = 0;
+  for (const part of parts) {
+    strongRanges.push(...part.strongRanges.map(range => ({ ...range, start: offset + range.start, end: offset + range.end })));
+    offset += Array.from(part.text).length;
+  }
+  return { ...rendered, text: parts.map(part => part.text).join(''),
+    blocks: parts.flatMap(part => part.blocks), strongRanges, strong: strongRanges.map(range => range.text) };
+}
