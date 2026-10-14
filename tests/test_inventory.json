@@ -1414,6 +1414,29 @@
       "skips": {}
     },
     {
+      "module": "tests.test_review_display_negotiation",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReviewDisplayNegotiationTest.test_bodyless_terminal_and_empty_execution_do_not_acquire_a_v2_body",
+        "ReviewDisplayNegotiationTest.test_corrupt_paired_history_never_selects_good_side_or_legacy_fallback",
+        "ReviewDisplayNegotiationTest.test_corrupt_unrequested_cache_side_fails_closed_for_both_capabilities",
+        "ReviewDisplayNegotiationTest.test_display_capability_preserves_fingerprint_and_changed_body_conflict",
+        "ReviewDisplayNegotiationTest.test_dual_after_ttl_or_restart_is_ordinary_new_execution_not_history_post_replay",
+        "ReviewDisplayNegotiationTest.test_dual_history_preserves_approved_empty_ai_auxiliary",
+        "ReviewDisplayNegotiationTest.test_dual_history_retains_ownership_and_storage_gates_before_admission",
+        "ReviewDisplayNegotiationTest.test_exact_capabilities_and_early_malformed_rejection_on_every_surface",
+        "ReviewDisplayNegotiationTest.test_fresh_dual_requests_generate_only_v1_then_replay_without_more_execution",
+        "ReviewDisplayNegotiationTest.test_legacy_and_canonical_v1_history_dual_projection_is_unchanged",
+        "ReviewDisplayNegotiationTest.test_paired_history_list_detail_reopen_export_project_same_admission_and_chart_sources",
+        "ReviewDisplayNegotiationTest.test_same_paired_execution_switches_v1_v2_v1_without_effects_or_aliases",
+        "ReviewDisplayNegotiationTest.test_v1_only_ready_and_fallback_remain_v1_without_missing_side_regeneration",
+        "ReviewDisplayNegotiationTest.test_whole_cache_admission_precedes_selection_and_uses_no_compilers"
+      ],
+      "skips": {}
+    },
+    {
       "module": "tests.test_review_execution_cache",
       "h4_classification": "migrated",
       "execution_role": "guarded",

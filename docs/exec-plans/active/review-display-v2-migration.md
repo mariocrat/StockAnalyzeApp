@@ -1,6 +1,134 @@
 # Review display v2 migration
 
-## Slice 3C — Current Status (2026-10-14)
+## Slice 4 — Current Status (2026-10-14)
+
+Started clean on integration/broker-import-ux-main at
+33b88a18f964ef416e00fef782c3ce6c32b93889. The user confirmed independent
+Slice 3C approval (Major 0 / Minor 0) and its commit. This step authorizes the
+backend bridge only; frontend dual admission/rendering belongs to Slice 5.
+Generation remains v1-only. No stage/commit/push/merge/rebase is authorized.
+
+### Decisions / Implementation
+
+The existing X-Review-Display-Contract header accepts EXACTLY one value:
+review-display.v1 (v1 client), or review-display.v2 (dual reader accepting v1/v2).
+Missing, unknown, malformed, whitespace/case/parameter/comma or duplicate values
+retain the existing fixed HTTP 426 before execution lookup/charge/provider/history.
+Capability is separate from request payload and execution fingerprint.
+
+Whole cache receipts and whole SQL-row durable admissions are checked before
+selection. For paired approved content, a dual reader receives the exact approved
+v2 body in display_snapshot; a v1 reader receives the unchanged approved v1 body.
+summary remains the original v1 compatibility alias, not a v2 body source.
+No internal bundle/provenance/durable wrapper is exposed. AI charts/chart_cards
+remain B, separate from journal SQL chart A; list remains its existing metadata
+projection after complete admission. Old legacy/v1-only results always remain v1;
+bodyless terminals remain bodyless. Missing v2 never triggers compilation or AI.
+
+Ordinary new/expired/restarted executions retain existing consent/entitlement/
+TTL rules and generate v1-only. Existing hits have no new AI/charge/history write.
+Paired corruption remains a whole-cache error or fixed unavailable history record,
+even for a client requesting the undamaged representation. No history POST ledger.
+
+### Verification / Remaining / Next Step
+
+- [x] Reconcile actual clean worktree, approved Slice 3C and existing contract.
+- [x] Implement early gate and post-admission cache/history body selection.
+- [x] Official H4 negotiation and existing v1/cache/history/gate regressions.
+- [x] Inventory/lint/diff checks and protected worktree preservation.
+- [ ] Independent Slice 4 review; no commit authorized.
+
+Actual verification uses the approved
+D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe with -I -X utf8 -B and
+tests/run_isolated_tests.py. Model/providers are mocked or blocked; databases are
+H4-owned synthetic/temp SQLite. No live AI, provider, production DB or build.
+
+- New negotiation: 14/14 PASS in 31.503s. The first run passed 13/14; the sole
+  error was the test replay helper parsing the expected HTTP 500 plain
+  "Internal Server Error" as JSON (JSONDecodeError). Status and no-effect checks
+  had already passed. Corrected only the helper; the second module run passed.
+- Then strengthened two existing IDs: same ORIGINAL issued bundle/approval
+  through cache and actual SQL history, matching selected body/A1/AI B/history
+  identity/wallet across v1/dual/reopen/export; and recomputed valid durable
+  digest/encoding negatives reaching whole admission. Both selected cases
+  passed 2/2 in 12.114s, counted once in the 14 distinct cases.
+- Existing cache 14/14 (27.297s), old idempotency cache 14/14 (56.483s), paired
+  history 23/23 (35.212s), legacy/canonical history adapter 44/44 (17.265s),
+  display contract 33/33, H4 coordinator 15/15 and storage runner 2/2: 145 PASS.
+  The combined official command exited 0. Reports were recovered from the
+  captured JSON object boundaries where stdout/stderr shared a line; no rerun
+  for reporting. All seven complete lifecycle reports are present.
+- Existing client gate: two official 8-ID selectors, 8/8 (12.152s) and 8/8
+  (13.609s). Cover missing/unsupported/malformed/duplicate headers, early read
+  rejection, old unapproved cache, unrelated routes, all five idempotency states,
+  gate/lookup/charge/model order and history compatibility/ownership/opt-in.
+  The previously twice-timed-out whole 21-case command was not repeated.
+- Total distinct focused Python: 175 PASS in nine modules; final FAIL/ERROR/SKIP
+  zero. Guarded unexpected access zero; restoration, patch restoration and cleanup
+  true. Coordinator intentional negative probes satisfy their expected contracts.
+- Python inventory: 107 modules / 1055 direct / 18 separate probes, missing/
+  duplicate/expected skips zero; baseline 35/983/22 plus Stage 1 15. Register
+  exactly the 14 new guarded cases; no runner timeout/guard/allowance change.
+  Node inventory remains 23 entrypoints / 248 direct, missing/duplicate/extra/
+  source dependencies zero. This is inventory verification, not Node execution.
+- Existing frontend lint and git diff --check PASS. Frontend runtime, model,
+  environment, schema, SQL writer, durable codec/digest/resource bounds unchanged.
+
+Commands:
+
+~~~powershell
+& 'D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe' -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_display_negotiation
+& 'D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe' -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_display_negotiation --test-case ReviewDisplayNegotiationTest.test_paired_history_list_detail_reopen_export_project_same_admission_and_chart_sources --test-case ReviewDisplayNegotiationTest.test_corrupt_paired_history_never_selects_good_side_or_legacy_fallback
+& 'D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe' -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_execution_cache tests.test_ai_review_idempotency_cache tests.test_review_history_paired tests.test_review_history_adapter tests.test_review_display_contract tests.test_full_test_entrypoint tests.test_storage_fixture_runner
+& 'D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe' -I -X utf8 -B tests/run_isolated_tests.py --inventory-only
+& 'D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe' -I -X utf8 -B tests/run_isolated_tests.py --node-inventory-only
+& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run lint
+git diff --check
+~~~
+
+For the two gate commands use that same Python/coordinator,
+tests.test_review_display_client_gate and repeated
+--test-case ReviewDisplayClientGateTest.<method> for these exact groups:
+
+1. test_missing_header_blocks_execute_before_lookup_charge_refund_provider_history;
+   test_wrong_version_blocks_execute_before_lookup_charge_refund_provider_history;
+   test_malformed_and_comma_values_are_fixed_fail_closed_on_actual_http_route;
+   test_duplicate_header_lines_including_identical_values_are_unsupported;
+   test_history_list_detail_export_unsupported_gate_precedes_reads_adapter_and_all_effects;
+   test_unsupported_clients_cannot_read_existing_replay_or_change_cache_wallet_history;
+   test_supported_old_cache_without_sealed_approval_never_returns_raw_or_reexecutes;
+   test_unrelated_journal_routes_do_not_require_display_header.
+2. test_idempotency_valid_done_replays_without_effects;
+   test_idempotency_valid_pending_preserves_retry_conflict;
+   test_idempotency_fresh_key_executes_once;
+   test_idempotency_payload_mismatch_preserves_conflict;
+   test_idempotency_valid_expired_entry_keeps_ttl_behavior;
+   test_supported_http_execution_orders_gate_lookup_charge_model_and_replay_has_zero_effects;
+   test_supported_history_uses_whole_record_adapter_for_canonical_legacy_unsafe_without_db_writes;
+   test_supported_header_preserves_history_authentication_storage_opt_in_and_ownership.
+
+Changed files (15): new backend/core/review_display_capability.py; existing
+review_display_client.py, review_execution_cache.py, review_history_paired.py,
+review_history_adapter.py, ai_review_v2.py (history wrapper only), backend/main.py;
+new tests/test_review_display_negotiation.py; existing test_review_execution_cache.py,
+test_review_display_client_gate.py (unsupported future version is now v3),
+test_inventory.json, isolation_inventory.py, test_full_test_entrypoint.py,
+test_storage_fixture_runner.py; this plan.
+
+Git remains integration/broker-import-ux-main at
+33b88a18f964ef416e00fef782c3ce6c32b93889, staged 0 / modified 13 / untracked 2 /
+unmerged 0. Protected feature remains 609163e9dc7ff8b6bbc5ee13c34e7f8020910c54,
+9 modified/10 untracked; main remains f779e252b823bbd724c8be277c54d494d3b93f89
+with only its existing Play README modification. No command wrote either worktree.
+
+Next Step: independent Slice 4 review of early syntax gating, whole admission,
+execution identity and v1/v2 projections. Frontend dual-reader/device, rollout and paired production generation are
+later slices. No activation, environment/DB schema or other-worktree changes.
+
+## Slice 3C — Historical implementation (2026-10-14)
+
+Independently approved Major 0 / Minor 0 and committed at
+33b88a18f964ef416e00fef782c3ce6c32b93889 before Slice 4 began.
 
 Started clean on integration/broker-import-ux-main at
 f2db0ad30ad9487cc3eb9318d8750a4c1c19e779 after independent Slice 3B approval

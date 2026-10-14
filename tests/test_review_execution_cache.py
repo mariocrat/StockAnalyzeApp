@@ -150,10 +150,13 @@ class WholeExecutionCacheTest(unittest.TestCase):
     def test_display_capability_is_not_execution_fingerprint_or_paired_activation(self):
         key, entry, batch, _ = self.paired()
         fingerprint = self.main._ai_review_payload_fingerprint(batch)
-        with self.http.no_effects():
+        with self.http.no_effects(lookup=False):
             response = self.http.request("POST", "/api/journal/ai-review-once",
                 [(http_fixture.HEADER, "review-display.v2")], key=key, batch=batch)
-        self.assertEqual(response.status_code, 426)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["display_snapshot"],
+                         entry["execution"].bundle.document["representations"]["v2"]["document"])
+        self.assertEqual(entry["execution"].bundle.document["kind"], "paired_v1_v2")
         self.assertEqual(self.main._ai_review_payload_fingerprint(batch), fingerprint)
         self.replay(key, entry, batch)
 

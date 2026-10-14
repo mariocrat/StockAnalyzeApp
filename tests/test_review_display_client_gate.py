@@ -25,7 +25,7 @@ HEADER = "X-Review-Display-Contract"
 SUPPORTED = [(HEADER, SCHEMA_VERSION)]
 UNSUPPORTED = {
     "missing": [],
-    "wrong": [(HEADER, "review-display.v2")],
+    "wrong": [(HEADER, "review-display.v3")],
     "empty": [(HEADER, "")],
     "leading_space": [(HEADER, " " + SCHEMA_VERSION)],
     "trailing_space": [(HEADER, SCHEMA_VERSION + " ")],

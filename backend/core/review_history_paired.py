@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from backend.core.review_durable_storage_approval import DurableReadAdmission, read_durable_history
 from backend.core.review_durable_storage_contract import CONTEXT_KEYS, SNAPSHOT_KEYS, validate_read_safety
 from backend.core.review_history_json_codec import DurableStorageError, MAX_OUTER_BYTES, require, sql_json
+from backend.core.review_display_capability import V1_CAPABILITY, select_admitted_body
 
 RESERVED_KEYS = frozenset(("storage_schema_version", "kind", "codec_version", "payload", "payload_digest",
                           "representations", "source_identity", "objective_identity"))
@@ -104,7 +105,7 @@ def admit_stored_paired_history(row, *, unsafe_text):
         sql_snapshots=dict(zip(SNAPSHOT_KEYS, row.snapshot_values)), unsafe_text=unsafe_text)
 
 
-def paired_history_projection(admission, *, unsafe_text):
+def paired_history_projection(admission, *, unsafe_text, display_capability=V1_CAPABILITY):
     """Preserve admitted body/B and original SQL A/trades/access without compilers."""
     require(type(admission) is DurableReadAdmission, "INVALID_READ_AUTHORITY")
     from backend.core.review_history_adapter import _restorable
@@ -115,6 +116,8 @@ def paired_history_projection(admission, *, unsafe_text):
     record.update(snapshots)
     record["ai_review"] = dict(admission.projection, status="ready", source=context["source"],
         review_type=context["review_type"], model=context["model"], access=snapshots["access_snapshot"])
+    record["ai_review"]["display_snapshot"] = select_admitted_body(
+        admission.payload["bundle"], capability=display_capability)
     record["display_snapshot"] = compile_literal_text(
         f"종목: {context['ticker']} {context['name']}" if context["ticker"] or context["name"] else "저장된 복기")
     record["history_read_status"] = "canonical"

@@ -39,6 +39,7 @@ from backend.core.review_history_approved_write import approve_history_write
 from backend.core.review_history_content_contract import validate_new_history_metadata, validate_new_history_result
 from backend.core.review_history_write_contract import HistoryWriteContractError
 from backend.core.review_display_client import REVIEW_DISPLAY_CONTRACT_HEADER, require_review_display_client
+from backend.core.review_display_capability import V1_CAPABILITY, DUAL_CAPABILITY, require_display_capability
 from backend.core.review_execution_cache import approve_cached_execution, validate_cached_execution
 from core.journal_chart import build_journal_charts, initialize_yfinance_cache
 from core.review_history import add_review_history, list_review_history, get_review_history, delete_review_history
@@ -836,7 +837,9 @@ def _begin_ai_review_idempotency(
     authorization: str | None,
     raw_key: str | None,
     payload_fingerprint: str,
+    *, display_capability=V1_CAPABILITY,
 ) -> tuple[str, dict | None]:
+    require_display_capability(display_capability)
     key = _clean_ai_review_idempotency_key(raw_key)
     if not key:
         return "", None
@@ -856,6 +859,12 @@ def _begin_ai_review_idempotency(
                         detail="Idempotency key was reused with a different AI review request.",
                     )
                 if cached["status"] == "done":
+                    if display_capability == DUAL_CAPABILITY:
+                        projected = validate_cached_execution(cached["execution"], cache_key=cache_key,
+                            fingerprint=cached["payload_fingerprint"], expires_at=cached["expires_at"],
+                            result=cached["result"], snapshot=cached["snapshot"], display_capability=display_capability)
+                        if "display_snapshot" in projected:
+                            result["display_snapshot"] = projected["display_snapshot"]
                     result["access"]["idempotent_replay"] = True
                     return "", result
                 raise HTTPException(
@@ -1747,7 +1756,7 @@ def export_me_data(
     authorization: Optional[str] = Header(default=None),
     x_review_display_contract: Optional[list[str]] = Header(default=None, alias=REVIEW_DISPLAY_CONTRACT_HEADER),
 ):
-    require_review_display_client(x_review_display_contract)
+    display_capability = require_review_display_client(x_review_display_contract)
     user = authenticate_session(authorization)
     entitlements = get_user_entitlements(
         authorization=authorization,
@@ -1760,7 +1769,8 @@ def export_me_data(
         "saved_trades": list_trades(limit=5000, user_id=user["id"]),
         "entitlements": entitlements,
         "review_history": [
-            safe_legacy_history_snapshot(row, paired_storage_enabled=bool(user.get("journal_storage_enabled")))
+            safe_legacy_history_snapshot(row, paired_storage_enabled=bool(user.get("journal_storage_enabled")),
+                                        display_capability=display_capability)
             for row in list_review_history(user_id=user["id"], limit=5000)
         ],
         "server_keeps_ai_review_history": bool(user.get("journal_storage_enabled")),
@@ -1846,11 +1856,11 @@ def get_journal_review_history(
     authorization: Optional[str] = Header(default=None),
     x_review_display_contract: Optional[list[str]] = Header(default=None, alias=REVIEW_DISPLAY_CONTRACT_HEADER),
 ):
-    require_review_display_client(x_review_display_contract)
+    display_capability = require_review_display_client(x_review_display_contract)
     user = authenticate_session(authorization)
     if not user.get("journal_storage_enabled"):
         return []
-    return [history_list_projection(safe_legacy_history_snapshot(row)) for row in
+    return [history_list_projection(safe_legacy_history_snapshot(row, display_capability=display_capability)) for row in
             list_review_history(user_id=user["id"], limit=_safe_journal_query_limit(limit, default=100))]
 
 
@@ -1860,14 +1870,14 @@ def get_journal_review_history_detail(
     authorization: Optional[str] = Header(default=None),
     x_review_display_contract: Optional[list[str]] = Header(default=None, alias=REVIEW_DISPLAY_CONTRACT_HEADER),
 ):
-    require_review_display_client(x_review_display_contract)
+    display_capability = require_review_display_client(x_review_display_contract)
     user = authenticate_session(authorization)
     if not user.get("journal_storage_enabled"):
         raise HTTPException(status_code=403, detail="매매 이력 저장을 켠 계정만 복기 보관함을 사용할 수 있습니다.")
     item = get_review_history(review_id, user_id=user["id"])
     if not item:
         raise HTTPException(status_code=404, detail="복기 이력을 찾을 수 없습니다.")
-    return safe_legacy_history_snapshot(item)
+    return safe_legacy_history_snapshot(item, display_capability=display_capability)
 
 
 @app.delete("/api/journal/review-history/{review_id}")
@@ -1982,13 +1992,14 @@ def get_journal_ai_review_once(
     x_idempotency_key: Optional[str] = Header(default=None, alias="X-Idempotency-Key"),
     x_review_display_contract: Optional[list[str]] = Header(default=None, alias=REVIEW_DISPLAY_CONTRACT_HEADER),
 ):
-    require_review_display_client(x_review_display_contract)
+    display_capability = require_review_display_client(x_review_display_contract)
     _enforce_journal_batch_limit(batch, max_trades=_ai_review_max_trades(), label="AI 복기")
     batch.review_type = _normalize_ai_review_type(batch.review_type)
     idempotency_cache_key, idempotent_result = _begin_ai_review_idempotency(
         authorization,
         x_idempotency_key,
         _ai_review_payload_fingerprint(batch),
+        display_capability=display_capability,
     )
     if idempotent_result is not None:
         return idempotent_result

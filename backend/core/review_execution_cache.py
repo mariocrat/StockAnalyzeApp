@@ -9,6 +9,7 @@ from backend.core.review_envelope_contract import (
     ApprovedReviewSnapshot, validate_envelope, approved_chart_display_snapshot,
 )
 from backend.core.review_envelope_compiler import compile_review_envelope
+from backend.core.review_display_capability import V1_CAPABILITY, require_display_capability, select_admitted_body
 
 _ISSUED = WeakKeyDictionary()
 
@@ -143,8 +144,10 @@ def approve_cached_execution(*, cache_key, fingerprint, expires_at, result, snap
     return approval
 
 
-def validate_cached_execution(approval, *, cache_key, fingerprint, expires_at, result, snapshot):
-    """Validate the whole original execution before projecting an owned v1 response."""
+def validate_cached_execution(approval, *, cache_key, fingerprint, expires_at, result, snapshot,
+                              display_capability=V1_CAPABILITY):
+    """Validate the whole original execution before selecting its owned body."""
+    require_display_capability(display_capability)
     receipt = _receipt(approval)
     _require(type(cache_key) is str and cache_key == receipt[0]
              and type(fingerprint) is str and fingerprint == receipt[1]
@@ -157,6 +160,7 @@ def validate_cached_execution(approval, *, cache_key, fingerprint, expires_at, r
     _check_content(result, snapshot, bundle)
     projection = json.loads(receipt[7])
     if bundle is not None:
-        v1 = bundle.document["representations"]["v1"]
-        projection["display_snapshot"], projection["summary"] = v1["document"], v1["summary"]
+        document = bundle.document
+        projection["display_snapshot"] = select_admitted_body(document, capability=display_capability)
+        projection["summary"] = document["representations"]["v1"]["summary"]
     return projection
