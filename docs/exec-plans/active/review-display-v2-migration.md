@@ -1,5 +1,91 @@
 # Review display v2 migration
 
+## Final integration follow-up — Current Status (2026-10-15)
+
+Started clean on integration/broker-import-ux-main at
+a2ab06a31474c5f62be6181b358d7d91018b4f27, after the approved 15-file Slice 6
+commit `feat: prepare review display v2 activation`. This follow-up changes
+tests, the chart handoff harness, inventory and documentation only.
+
+### Fixes / Contract evidence
+
+- The producer fixture replaced the shared stdlib datetime.datetime globally.
+  main's dynamic exact-type check then accepted the replacement subclass, while
+  the execution cache's earlier imported datetime class rejected it. One official
+  selected producer matrix reproduced the cache issuance ValueError in all 20
+  subcases. The pre-cache main contract already required exact UTC datetime;
+  production creates these timestamps internally, not from an API date input.
+- Freeze only account/access datetime consumers through a fixture-owned module
+  namespace, and use the existing idempotency clock seam with ordinary UTC datetime
+  values. Do not change production type admission. The producer asserts that main
+  still uses the real stdlib module/type. Cache coverage rejects an equal-valued
+  datetime subclass on both factory issuance and HTTP replay, without side effects.
+- Split the chart handoff's independent basic, advanced, failure/legacy, history
+  title and paired cohorts into five fresh H4 children. Each retains the existing
+  60-second deadline and original route/storage/cache/adapter assertions. Every
+  stage must have its exact coverage, zero unexpected accesses and successful
+  restoration before one final fixture publication. Missing/duplicate stage,
+  child error, timeout and failed lifecycle do not publish partial evidence.
+- Add fixed relative wildcard sources (`from . import *`, `from ..core import *`,
+  relative durable wildcard plus call) to both existing guard tests. The current
+  conservative backend.core wildcard rejection and exact admitted edges remain.
+- Align current TESTING/quick-verify counts and their test with the actual
+  inventory. Historical results retain their old numbers. No production source,
+  frontend header, environment/config file or Android file changed.
+
+### Timed diagnostics / Actual verification
+
+All execution uses the approved Python with -I -X utf8 -B and official
+tests/run_isolated_tests.py, synthetic H4-owned stores and blocked external I/O.
+
+- Producers: **8/8 PASS**, including all four previously reported ERROR cases.
+- strict_writer: **23/23 PASS** via registered --test-case groups of
+  4/4/4/4/4/3. Observed testcase time totals 102.26s; longest nested mutation case
+  is 32.51s. Every child restores patches/environment and cleans its owned root.
+  No single testcase hangs. The original timeout's exact cutoff stage is not
+  recoverable from the supplied 120s finding; no claim about that missing trace
+  or measured historical baseline timing is made.
+- write_content: **25/25 PASS** via 5/5/5/5/2/2/1 selected groups. Exact-type
+  mutations take 63.19s; total testcase work is 100.90s. Shared class setup costs
+  29.84–32.42s per child, so normal complete coverage exceeds the old 120s budget.
+  Class setup and finite nested mutation matrices account for measured cost;
+  cleanup is below 0.003s. These two testcase files are unchanged since the
+  pre-Slice-6 HEAD. Their source identity alone is not a timing baseline proof.
+  While registering the new coordinator test, the next content selector refused
+  the temporarily incomplete inventory before executing any case. After adding
+  that ID, only the five unexecuted cases ran; successful earlier groups were not
+  repeated.
+- Node: **71/71 PASS** (ai-chart-source 46, canonical renderer 23, idempotency 2).
+  Actual backend stages complete in basic 19.193s, advanced 19.188s, failures
+  13.947s, titles 20.285s and paired 26.390s. Their sum is 99.002s and includes
+  repeated child startup. Each stage is below 60s; no observed hang or lifecycle
+  failure. Existing current/history/export/cache, body/chart/card identity,
+  v1 header and fail-closed contracts all pass. Node coverage missing/extra/
+  duplicate, guard violation and unexpected access are zero; cleanup succeeds.
+- Related Python: **151/151 PASS** — cache 14, idempotency 14, display 33, durable
+  28, activation 14, paired history 23, coordinator 16, docs 7, storage runner 2.
+  With producers and the two selected cohorts: **207 distinct direct PASS**.
+  Guarded unexpected accesses/violations are zero; restoration, patch restoration
+  and cleanup succeed. Coordinator intentional negative probes retain their
+  expected evidence and null suite counters.
+- Inventory: Python **108 modules / 1070 direct / 18 separate probes**;
+  baseline 35/997/22 plus Stage 1 16. Node **23 entrypoints / 259 direct**.
+  No missing/duplicate/extra or missing Node source dependency. The only new
+  direct ID is the chart-handoff coordinator protocol regression.
+- Frontend lint and production build pass. Final git diff --check and Git scope
+  are checked after this plan update; no stage/commit/push/merge/rebase.
+
+### Remaining / Next Step
+
+Keep activation default OFF, frontend advertisement review-display.v1 and Android
+WebView/device verification NOT RUN. No live OpenAI/provider/production DB access.
+Full TestOnly and the original monolithic timeout commands were not repeated;
+the unchanged Python single-child default can still hit a cumulative deadline.
+The selected-case PASS ledger is not a whole-suite PASS claim. Any future full
+run must address that scheduling boundary through reviewed bounded cohorts, not
+an arbitrary timeout increase. Re-review these focused integration corrections;
+real-device smoke and actual activation remain separately authorized follow-ups.
+
 ## Slice 6 — Activation preparation (2026-10-14)
 
 Started clean on integration/broker-import-ux-main at
@@ -20,8 +106,8 @@ No deployment, live environment change, header advertisement or actual activatio
   NOT RUN; actual production activation and rollout require separate authorization.
 - [x] Implement and verify isolated actual HTTP ON/OFF, failures and replay.
 - [x] Independent Slice 6 review approved (Blocker 0 / Major 0 / Minor 1).
-- Next Step: keep activation OFF; retain the relative-wildcard fixture follow-up
-  and complete Android/device smoke before any separately authorized rollout.
+- Next Step: keep activation OFF; re-review the integration follow-up above and
+  complete Android/device smoke before any separately authorized rollout.
 
 ### Implementation / failure boundaries
 
@@ -150,19 +236,16 @@ remain unchanged. No production code changed.
   are recorded with the completion report. The wildcard cases are subcases of
   existing guard tests, so no testcase ID or inventory edit was needed.
 
-Independent Slice 6 review is approved (Blocker 0 / Major 0 / Minor 1). The Minor
-is a future guard-only follow-up to add a fixed fixture for relative wildcard
-imports; retain the current conservative `backend.core` wildcard rejection.
+Independent Slice 6 review was approved (Blocker 0 / Major 0 / Minor 1). Its
+relative wildcard fixture Minor is now covered by both guard regressions in the
+integration follow-up above; conservative `backend.core` rejection is retained.
 Android WebView/ad/scroll smoke is NOT RUN due to unavailable JDK/SDK/adb/device/
 emulator. The setting must remain OFF pending separate Android verification and
 authorization for activation/rollout/rollback.
-No stage/commit/push/merge/rebase in this step; original feature and main files
-are preserved. Current branch/HEAD remain the starting integration identity.
-Git: integration/broker-import-ux-main at 96965585416e3197ab9d49c4e203325a0c6ada92;
-staged 0 / tracked unstaged 13 / untracked 2 / unmerged 0 (15 scoped files).
-Protected feature retains 609163e9dc7ff8b6bbc5ee13c34e7f8020910c54, 9 modified /
-10 untracked; main retains f779e252b823bbd724c8be277c54d494d3b93f89 and its existing
-Play README change. No command wrote either protected worktree's files.
+Slice 6 was committed as a2ab06a31474c5f62be6181b358d7d91018b4f27 with exactly
+15 approved files and a clean worktree. The old 13 modified / 2 untracked snapshot
+was pre-commit evidence, not current status. Follow-up state is described above;
+neither original feature nor main worktree files are modified by this task.
 
 ## Slice 5 — Historical approved implementation (2026-10-14)
 

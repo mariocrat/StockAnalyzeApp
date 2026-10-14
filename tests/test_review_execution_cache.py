@@ -111,6 +111,14 @@ class WholeExecutionCacheTest(unittest.TestCase):
         result["access"]["quota"]["advanced"]["purchased_remaining"] += 1
         mutations += [{**entry, "result": result}, {**entry, "payload_fingerprint": "0" * 64},
                       {**entry, "expires_at": entry["expires_at"] + self.main.datetime.timedelta(seconds=1)}]
+        class DerivedDateTime(self.main.datetime.datetime):
+            pass
+        derived = DerivedDateTime.fromtimestamp(entry["expires_at"].timestamp(), self.main.datetime.timezone.utc)
+        self.assertEqual(derived, entry["expires_at"])
+        with self.assertRaises(ValueError):
+            execution.approve_cached_execution(cache_key=key, fingerprint=entry["payload_fingerprint"],
+                expires_at=derived, result=entry["result"], snapshot=entry["snapshot"])
+        mutations.append({**entry, "expires_at": derived})
         auxiliary = copy.deepcopy(entry["result"])
         auxiliary["chart_display_snapshot"] = {"charts": [], "chart_cards": []}
         mutations.append({**entry, "result": auxiliary})

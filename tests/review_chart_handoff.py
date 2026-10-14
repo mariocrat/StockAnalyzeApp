@@ -6,24 +6,70 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 
 REPOSITORY = Path(__file__).resolve().parents[1]
 HANDOFF = "scripts/fixtures/generated-review-chart-results.json"
+STAGES = ("basic", "advanced", "failures", "titles", "paired")
+SECTIONS = {"results": list, "body_results": list, "failures": dict, "legacy": dict,
+            "history_titles": list, "v2_results": list}
+
+
+def validate_stage(stage, report):
+    owned = {"basic": {"results", "body_results"}, "advanced": {"results", "body_results"},
+             "failures": {"failures", "legacy"}, "titles": {"history_titles"}, "paired": {"v2_results"}}
+    if (type(report) is not dict or set(report) != set(SECTIONS) | {
+            "stage", "passed", "unexpected", "restored", "patches_restored"}
+            or report["stage"] != stage or stage not in owned
+            or any(report[key] is not True for key in ("passed", "restored", "patches_restored"))
+            or type(report["unexpected"]) is not int or report["unexpected"] != 0
+            or any(type(report[key]) is not kind for key, kind in SECTIONS.items())
+            or any(report[key] for key in SECTIONS if key not in owned[stage])):
+        raise ValueError("chart handoff stage lifecycle/coverage mismatch")
+    if stage in ("basic", "advanced"):
+        valid = ([row.get("review_type") for row in report["results"]] == [stage]
+                 and [(row.get("review_type"), row.get("body_case")) for row in report["body_results"]]
+                 == [(stage, shape) for shape in ("plain", "strong")])
+    elif stage == "failures":
+        valid = (set(report["failures"]) == {"safety", "invalid", "compatibility"}
+                 and set(report["legacy"]) == {"safe", "chart", "tooltip", "trade", "canonical"})
+    elif stage == "titles":
+        valid = ([row.get("case") for row in report["history_titles"]]
+                 == ["new", "legacy_canonical", "legacy_adapted"] * 3 + ["legacy_unavailable"])
+    else:
+        valid = [row.get("review_type") for row in report["v2_results"]] == ["basic", "advanced"]
+    if not valid:
+        raise ValueError("chart handoff stage lifecycle/coverage mismatch")
 
 
 def prepare_chart_results(root, host):
     from tests.module_isolation import protected_paths, sanitized_environment
 
-    runtime = root / "tmp" / "chart-backend"
-    process = subprocess.run(
-        [sys.executable, "-I", "-X", "utf8", "-B", str(Path(__file__).resolve()), str(runtime)],
-        cwd=root, env=sanitized_environment(host, runtime),
-        input=json.dumps(protected_paths(host).metadata()), capture_output=True,
-        text=True, encoding="utf-8", timeout=60,
-    )
-    if process.returncode:
-        raise ValueError("chart route handoff child failed: " + process.stderr[-3000:])
-    report = json.loads(process.stdout)
+    report = {key: kind() for key, kind in SECTIONS.items()}
+    stage_results = {}
+    # Independent evidence cohorts keep their original 60-second child budget.
+    # Every cohort runs the same H4 boundary and must finish before publication.
+    for stage in STAGES:
+        runtime = root / "tmp" / ("chart-backend-" + stage)
+        started = time.perf_counter()
+        process = subprocess.run(
+            [sys.executable, "-I", "-X", "utf8", "-B", str(Path(__file__).resolve()), str(runtime), stage],
+            cwd=root, env=sanitized_environment(host, runtime),
+            input=json.dumps(protected_paths(host).metadata()), capture_output=True,
+            text=True, encoding="utf-8", timeout=60,
+        )
+        if process.returncode:
+            raise ValueError("chart route handoff child failed: " + process.stderr[-3000:])
+        partial = json.loads(process.stdout)
+        validate_stage(stage, partial)
+        for key in SECTIONS:
+            if type(report[key]) is list:
+                report[key].extend(partial[key])
+            else:
+                report[key].update(partial[key])
+        stage_results[stage] = {key: partial[key] for key in ("passed", "unexpected", "restored", "patches_restored")}
+        stage_results[stage]["elapsed_seconds"] = round(time.perf_counter() - started, 6)
+    report.update(passed=True, unexpected=0, restored=True, patches_restored=True)
     if (report.get("passed") is not True or report.get("unexpected") != 0
             or any(report.get(key) is not True for key in ("restored", "patches_restored"))
             or [row.get("review_type") for row in report.get("results", [])] != ["basic", "advanced"]
@@ -37,10 +83,13 @@ def prepare_chart_results(root, host):
         raise ValueError("chart handoff collision")
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
-    return {key: report[key] for key in ("passed", "unexpected", "restored", "patches_restored")}
+    return {**{key: report[key] for key in ("passed", "unexpected", "restored", "patches_restored")},
+            "stages": stage_results}
 
 
-def child(runtime):
+def child(runtime, stage):
+    if stage not in STAGES:
+        raise ValueError("unknown chart handoff stage")
     sys.path.insert(0, str(REPOSITORY))
     from backend.core.review_display_contract import SCHEMA_VERSION
     from tests.module_isolation import Boundary, ProtectedPaths, isolated_module
@@ -82,16 +131,16 @@ def child(runtime):
                         authorization=case.token, x_review_display_contract=[SCHEMA_VERSION]) if row["id"] == identity),
                     "general": case.charts,
                 }
-            for review_type in ("basic", "advanced"):
+            for review_type in ((stage,) if stage in ("basic", "advanced") else ()):
                 results.append(collect(review_type))
-            for review_type in ("basic", "advanced"):
+            for review_type in ((stage,) if stage in ("basic", "advanced") else ()):
                 for shape in ("plain", "strong"):
                     output = model_output(review_type)
                     output["main_issue"] = "**체결 기록**을 확인합니다." if shape == "strong" else "체결 기록을 확인합니다."
                     row = collect(review_type, output=output)
                     row["body_case"] = shape
                     body_results.append(row)
-            for mode in ("safety", "invalid", "compatibility"):
+            for mode in (("safety", "invalid", "compatibility") if stage == "failures" else ()):
                 output = model_output("basic")
                 output["main_issue"] = UNSAFE if mode == "safety" else "MA20을 확인했습니다."
                 failures[mode] = case.run_route(
@@ -99,10 +148,11 @@ def child(runtime):
                     status="error", internal="safety_rejected" if mode == "safety" else "invalid_structured_output",
                     storage=True, bodyless=mode in {"invalid", "compatibility"},
                 )
-            safe_legacy = legacy_record()
-            safe_legacy["ai_review"]["chart_reviews"] = safe_legacy["chart_snapshot"]["chart_reviews"]
-            legacy["safe"] = case.ai.safe_legacy_history_snapshot(safe_legacy)
-            for surface in ("chart", "tooltip", "trade", "canonical"):
+            if stage == "failures":
+                safe_legacy = legacy_record()
+                safe_legacy["ai_review"]["chart_reviews"] = safe_legacy["chart_snapshot"]["chart_reviews"]
+                legacy["safe"] = case.ai.safe_legacy_history_snapshot(safe_legacy)
+            for surface in (("chart", "tooltip", "trade", "canonical") if stage == "failures" else ()):
                 record = canonical_record()
                 if surface == "chart": record["chart_snapshot"]["charts"][0]["name"] = UNSAFE
                 elif surface == "tooltip": record["chart_snapshot"]["charts"][0]["markers"][0]["tooltip"]["label"] = UNSAFE
@@ -111,7 +161,7 @@ def child(runtime):
                 legacy[surface] = case.ai.safe_legacy_history_snapshot(record)
                 case.assertEqual("unavailable", legacy[surface]["history_read_status"])
             case.doCleanups()
-            for name in ("합성  이중  공백", "**합성** [이름](label) # 1", "합성  e\u0301 😀 한글"):
+            for name in (("합성  이중  공백", "**합성** [이름](label) # 1", "합성  e\u0301 😀 한글") if stage == "titles" else ()):
                 # Each F4 name gets fresh owned storage/account/quota state.
                 case = ProductionRouteCompatibilityTest()
                 case.setUp()
@@ -139,21 +189,27 @@ def child(runtime):
                     case.assertEqual(status, detail["history_read_status"])
                     history_titles.append({"case": "legacy_" + status, "detail": detail,
                                            "listed": history_list_projection(detail)})
+                if len(history_titles) == 9:
+                    record = canonical_record()
+                    record["chart_snapshot"]["charts"][0]["name"] = UNSAFE
+                    detail = case.ai.safe_legacy_history_snapshot(record)
+                    case.assertEqual("unavailable", detail["history_read_status"])
+                    history_titles.append({"case": "legacy_unavailable", "detail": detail,
+                                           "listed": history_list_projection(detail)})
                 case.doCleanups()
-            detail = legacy["chart"]
-            history_titles.append({"case": "legacy_unavailable", "detail": detail,
-                                   "listed": history_list_projection(detail)})
         finally:
             case.doCleanups()
         # Synthetic paired issuance only: production generation remains v1-only.
         # Capture the SAME approved bundle through actual cache/SQL/HTTP boundaries.
-        from tests import test_review_display_negotiation as negotiation
-        from tests.test_review_durable_storage import assemble
-        from backend.core.review_source_projection import trade_payload
-        paired_case = negotiation.ReviewDisplayNegotiationTest()
+        if stage == "paired":
+            from tests import test_review_display_negotiation as negotiation
+            from tests.test_review_durable_storage import assemble
+            from backend.core.review_source_projection import trade_payload
+        paired_case = negotiation.ReviewDisplayNegotiationTest() if stage == "paired" else None
         try:
-            paired_case.setUp()
-            for kind in ("basic", "advanced"):
+            if paired_case is not None:
+                paired_case.setUp()
+            for kind in (("basic", "advanced") if stage == "paired" else ()):
                 _, seed = paired_case.cache.seed(kind)
                 value = paired_case.history.value(kind)
                 access = copy.deepcopy(seed["result"]["access"])
@@ -188,9 +244,10 @@ def child(runtime):
                     "exported": next(row for row in exported.json()["review_history"] if row["id"] == committed.id),
                     "replay_effects": {"ai": 0, "charge": 0, "history_insert": 0}})
         finally:
-            paired_case.doCleanups()
+            if paired_case is not None:
+                paired_case.doCleanups()
     restored = (Path.cwd(), dict(os.environ), tempfile.tempdir) == baseline
-    report = {"results": results, "body_results": body_results, "failures": failures, "legacy": legacy,
+    report = {"stage": stage, "results": results, "body_results": body_results, "failures": failures, "legacy": legacy,
               "history_titles": history_titles, "v2_results": v2_results,
               "unexpected": boundary.unexpected, "restored": restored,
               "patches_restored": boundary.patches_restored}
@@ -200,4 +257,4 @@ def child(runtime):
 
 
 if __name__ == "__main__":
-    raise SystemExit(child(Path(sys.argv[1]).resolve()))
+    raise SystemExit(child(Path(sys.argv[1]).resolve(), sys.argv[2]))

@@ -668,6 +668,7 @@
       "execution_role": "coordinator",
       "cohort": "stage1",
       "cases": [
+        "FullTestEntrypointTest.test_chart_handoff_requires_complete_isolated_stages_before_publication",
         "FullTestEntrypointTest.test_child_protocol_errors_and_timeout_still_cleanup",
         "FullTestEntrypointTest.test_coordinator_separates_primary_coverage_and_expected_negative_probe",
         "FullTestEntrypointTest.test_expected_skip_requires_exact_id_reason_and_condition",

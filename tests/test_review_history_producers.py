@@ -16,6 +16,7 @@ import json
 import os
 import unittest
 from contextlib import ExitStack
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -90,9 +91,16 @@ class HistoryProducerTest(unittest.TestCase):
         class ProducerDateTime(original_datetime):
             @classmethod
             def now(cls, tz=None):
-                return cls.fromtimestamp(self.clock[0].timestamp(), tz)
+                return original_datetime.fromtimestamp(self.clock[0].timestamp(), tz)
 
-        self.enterContext(patch.object(datetime, "datetime", ProducerDateTime))
+        # Freeze producer consumers, not the shared stdlib type used by cache
+        # admission. Production expires_at is always an exact UTC datetime.
+        producer_clock = SimpleNamespace(**vars(datetime))
+        producer_clock.datetime = ProducerDateTime
+        self.enterContext(patch.object(self.accounts, "datetime", producer_clock))
+        self.enterContext(patch.object(self.access, "datetime", producer_clock))
+        self.enterContext(patch.object(self.main, "_ai_review_idempotency_now",
+                                     side_effect=lambda: self.clock[0]))
         self.enterContext(patch.dict(os.environ, {
             "OPENAI_API_KEY": "", "ALPHAMATE_OPENAI_API_KEY": "",
             "ALPHAMATE_REVIEW_ACCESS_ENABLED": "true",
@@ -177,6 +185,8 @@ class HistoryProducerTest(unittest.TestCase):
         return result, snapshots[0]
 
     def test_storage_variant_matrix_uses_real_auth_access_builders_and_writer(self):
+        self.assertIs(self.main.datetime, datetime)
+        self.assertIs(type(self.main._ai_review_idempotency_now()), datetime.datetime)
         for variant in ("session-free", "session-pro", "review", "dev-session-free", "dev-session-pro"):
             for review_type in ("basic", "advanced"):
                 for status in ("ready", "missing_key"):

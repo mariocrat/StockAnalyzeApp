@@ -741,6 +741,9 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
             ("backend/core/unrelated.py", "from backend.core import *\nreview_durable_storage_approval.capture_live_paired_history()"),
             ("backend/core/unrelated.py", "from backend.core.review_approval_bundle import *"),
             ("backend/core/unrelated.py", "from backend.core.review_durable_storage_approval import *"),
+            ("backend/core/unrelated.py", "from . import *"),
+            ("backend/core/unrelated.py", "from ..core import *\nreview_approval_bundle.compile_approval_bundle()"),
+            ("backend/core/unrelated.py", "from .review_durable_storage_approval import *\ncapture_live_paired_history()"),
         ):
             with self.subTest(alias_source=source), self.assertRaises(AssertionError):
                 check_accesses(relative, ast.parse(source))

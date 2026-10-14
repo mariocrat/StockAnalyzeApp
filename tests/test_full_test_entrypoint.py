@@ -331,6 +331,67 @@ def probe_fixture():
 
 
 class FullTestEntrypointTest(unittest.TestCase):
+    def test_chart_handoff_requires_complete_isolated_stages_before_publication(self):
+        from tests import review_chart_handoff as handoff
+
+        reports = []
+        for stage in handoff.STAGES:
+            report = {key: kind() for key, kind in handoff.SECTIONS.items()}
+            report.update(stage=stage, passed=True, unexpected=0, restored=True, patches_restored=True)
+            if stage in ("basic", "advanced"):
+                report["results"] = [{"review_type": stage}]
+                report["body_results"] = [{"review_type": stage, "body_case": shape} for shape in ("plain", "strong")]
+            elif stage == "failures":
+                report["failures"] = dict.fromkeys(("safety", "invalid", "compatibility"), {})
+                report["legacy"] = dict.fromkeys(("safe", "chart", "tooltip", "trade", "canonical"), {})
+            elif stage == "titles":
+                report["history_titles"] = [{"case": name} for name in
+                    ["new", "legacy_canonical", "legacy_adapted"] * 3 + ["legacy_unavailable"]]
+            else:
+                report["v2_results"] = [{"review_type": kind} for kind in ("basic", "advanced")]
+            reports.append(report)
+
+        def processes(values):
+            return [types.SimpleNamespace(returncode=0, stdout=json.dumps(value)) for value in values]
+
+        with tempfile.TemporaryDirectory(prefix="chart-handoff-regression-") as directory:
+            root = Path(directory)
+            for index, field, wrong in ((0, "passed", False), (0, "unexpected", 1),
+                    (0, "restored", False), (0, "patches_restored", False),
+                    (1, "stage", "basic"), (0, "body_results", []), (0, "v2_results", [{}]),
+                    (2, "failures", {}), (3, "history_titles", []), (4, "v2_results", [])):
+                changed = copy.deepcopy(reports)
+                changed[index][field] = wrong
+                with self.subTest(stage=index, field=field), patch.object(
+                        handoff.subprocess, "run", side_effect=processes(changed)), self.assertRaises(ValueError):
+                    handoff.prepare_chart_results(root, {})
+                self.assertFalse((root / handoff.HANDOFF).exists())
+            with patch.object(handoff.subprocess, "run", return_value=types.SimpleNamespace(
+                    returncode=1, stderr="synthetic child failure")), self.assertRaises(ValueError):
+                handoff.prepare_chart_results(root, {})
+            with patch.object(handoff.subprocess, "run", side_effect=subprocess.TimeoutExpired("synthetic", 60)) as failed:
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    handoff.prepare_chart_results(root, {})
+                self.assertEqual(failed.call_count, 1)
+            self.assertFalse((root / handoff.HANDOFF).exists())
+            with patch.object(handoff.subprocess, "run", side_effect=processes(reports)) as launch:
+                result = handoff.prepare_chart_results(root, {"PRIVATE_PROVIDER_SECRET": "synthetic"})
+            self.assertTrue(result["passed"])
+            self.assertEqual(list(result["stages"]), list(handoff.STAGES))
+            self.assertEqual(launch.call_count, len(handoff.STAGES))
+            runtime_paths = set()
+            for call, stage in zip(launch.call_args_list, handoff.STAGES):
+                self.assertEqual(call.kwargs["timeout"], 60)
+                self.assertNotIn("PRIVATE_PROVIDER_SECRET", call.kwargs["env"])
+                self.assertEqual(call.args[0][1:5], ["-I", "-X", "utf8", "-B"])
+                self.assertEqual(call.args[0][-1], stage)
+                runtime_paths.add(call.args[0][-2])
+            self.assertEqual(len(runtime_paths), len(handoff.STAGES))
+            saved = json.loads((root / handoff.HANDOFF).read_text(encoding="utf-8"))
+            self.assertEqual([row["review_type"] for row in saved["results"]], ["basic", "advanced"])
+            self.assertEqual(len(saved["history_titles"]), 10)
+        self.assertFalse(root.exists())
+
     def test_legacy_handoff_rejects_failed_child_lifecycle_and_missing_coverage(self):
         from tests import review_legacy_handoff as handoff
 

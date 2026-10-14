@@ -31,10 +31,10 @@ TestOnly 호출 구조:
 3. 같은 Python으로 `-I -X utf8 -B tests/run_isolated_tests.py --node-all --node-executable <approved absolute node.exe>`.
 Python coordinator와 module child는 모두 `-I -X utf8`로 실행되어 UTF-8 stdout/stderr를 사용합니다.
 
-2026-10-10 Phase 6 source inventory는 manifest와 testcase declaration에서 재계산한다: Python direct **957** (103 modules) = baseline **35 / 885 / 22** (A1/foundation/helper / migrated / OUT) + Stage 1 **15** 별도 cohort.
+2026-10-15 source inventory는 manifest와 testcase declaration에서 재계산한다: Python direct **1070** (108 modules) = baseline **35 / 997 / 22** (A1/foundation/helper / migrated / OUT) + Stage 1 **16** 별도 cohort.
 2026-09-23 historical baseline은 Python direct **464** = **35 / 393 / 22** + Stage 1 **14**였다. 아래 closeout 결과와 구분한다.
 Child probe **18**은 direct와 별도 집계합니다.
-Node **23 entrypoint / 233 direct testcase**, `test:ai-chart-source`, `test:broker-import`, `test:canonical-review-renderer`, `test:mobile-bundle` 포함.
+Node **23 entrypoint / 259 direct testcase**, `test:ai-chart-source`, `test:broker-import`, `test:canonical-review-renderer`, `test:mobile-bundle` 포함.
 Manifest/source/execution 누락·중복·extra 및 예상 밖 skip은 실패입니다. Nested evidence는 direct에 중복 합산하지 않습니다.
 
 일반 guarded module은 120초, coordinator self-test는 600초의 hard timeout을 유지합니다. 관측된 timeout module에만 별도 제한을 적용합니다: route 38-case mutation 회귀는 H4 계측 158.0초·공식 실행 234.4초에 근거해 360초, cache 14-case 회귀는 공식 실행 77.3초/120초 timeout·H4 계측 80.6초에 근거해 180초입니다. TimeoutExpired는 계속 실패이며 case coverage·환경/patch restoration·소유 root cleanup 판정은 완화하지 않습니다.
@@ -73,7 +73,7 @@ npm lifecycle/build 설정의 부작용을 먼저 검토해야 하며 필요한 
 
 ## 검증 상태와 범위
 
-아래 closeout 결과는 2026-09-23, 검증 HEAD `9fff3f3e84ce26f663f41619d37a4eb101bfbc32`의 historical baseline입니다. 현재 source inventory는 Python 957 direct / 18 child probe, Node 23 / 233이며, Phase 6 공식 TestOnly blocker 정리와 전체 재검증 상태는 [전용 실행 계획](exec-plans/active/phase6-testonly-blockers.md)에 기록합니다.
+아래 closeout 결과는 2026-09-23, 검증 HEAD `9fff3f3e84ce26f663f41619d37a4eb101bfbc32`의 historical baseline입니다. 현재 source inventory는 Python 1070 direct / 18 child probe, Node 23 / 259입니다. 이전 Phase 6 전체 TestOnly 결과는 [당시 실행 계획](exec-plans/active/phase6-testonly-blockers.md), 현재 Slice 6 focused 통합 검증은 [migration plan](exec-plans/active/review-display-v2-migration.md)에 구분해 기록합니다.
 
 ### Phase 2D-4 client display compatibility gate — 2026-10-05
 
