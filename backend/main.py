@@ -39,10 +39,14 @@ from backend.core.review_history_approved_write import approve_history_write
 from backend.core.review_history_content_contract import validate_new_history_metadata, validate_new_history_result
 from backend.core.review_history_write_contract import HistoryWriteContractError
 from backend.core.review_display_client import REVIEW_DISPLAY_CONTRACT_HEADER, require_review_display_client
-from backend.core.review_display_capability import V1_CAPABILITY, DUAL_CAPABILITY, require_display_capability
+from backend.core.review_display_capability import V1_CAPABILITY, DUAL_CAPABILITY, require_display_capability, select_admitted_body
+from backend.core.review_approval_bundle import validate_bundle
 from backend.core.review_execution_cache import approve_cached_execution, validate_cached_execution
 from core.journal_chart import build_journal_charts, initialize_yfinance_cache
-from core.review_history import add_review_history, list_review_history, get_review_history, delete_review_history
+from core.review_history import (
+    add_review_history, list_review_history, get_review_history, delete_review_history,
+    add_paired_review_history, PairedHistoryPublicationError, PairedHistoryCommitUnknown,
+)
 from core.access_control import (
     PRODUCTS,
     apply_dev_purchase,
@@ -367,7 +371,9 @@ def _save_ai_review_history_if_enabled(*, history_state: dict | None, result: di
     approved = history_state.get("approved") if history_state else None
     if approved is None:
         return None
-    if (type(approved) is not dict or approved.keys() != {"snapshot", "metadata_json", "prepared_content"}
+    if (type(approved) is not dict or approved.keys() not in (
+            {"snapshot", "metadata_json", "prepared_content"},
+            {"snapshot", "metadata_json", "prepared_content", "paired_capture"})
             or type(approved["metadata_json"]) is not str or type(result) is not dict):
         raise HistoryWriteContractError("invalid history save approval")
 
@@ -391,6 +397,11 @@ def _save_ai_review_history_if_enabled(*, history_state: dict | None, result: di
                   ai_review=result, access_snapshot=result["access"])
     write = approve_history_write(record=record, prepared_content=approved["prepared_content"],
                                   snapshot=approved["snapshot"])
+    if "paired_capture" in approved:
+        from core.ai_review_v2 import _contains_prohibited_trade_guidance
+        committed = add_paired_review_history(approved["paired_capture"], write,
+            unsafe_text=_contains_prohibited_trade_guidance)
+        return committed.id
     item = add_review_history(write)
     return item["id"] if item else None
 
@@ -2048,6 +2059,12 @@ def get_journal_ai_review_once(
             )
         history_result = result
         result = _normalize_ai_review_result(result, snapshot=approval_state.get("snapshot"))
+        bundle = approval_state.get("bundle")
+        selected_body = None
+        if bundle is not None:
+            admitted_bundle = bundle.document
+            validate_bundle(admitted_bundle, approval=bundle)
+            selected_body = select_admitted_body(admitted_bundle, capability=display_capability)
 
         refunded = False
         if result.get("status") == "error":
@@ -2078,9 +2095,23 @@ def get_journal_ai_review_once(
         )
         if review_history_id:
             result["review_history_id"] = review_history_id
-        _finish_ai_review_idempotency(idempotency_cache_key, result, snapshot=approval_state.get("snapshot"))
+        completion = {"snapshot": approval_state.get("snapshot")}
+        if bundle is not None:
+            completion["bundle"] = bundle
+        _finish_ai_review_idempotency(idempotency_cache_key, result, **completion)
+        if selected_body is not None:
+            result = copy.deepcopy(result)
+            result["display_snapshot"] = selected_body
         return result
     except Exception as error:
+        if isinstance(error, PairedHistoryCommitUnknown):
+            # Preserve pending identity and access until reconciliation: a row
+            # may be committed. No blind retry/second INSERT/refund on uncertainty.
+            raise
+        if isinstance(error, PairedHistoryPublicationError):
+            committed = error.committed_result
+            if access is not None and committed.user_id == access.user_id and committed.committed:
+                review_history_id = committed.id
         cleanup_error = None
         try:
             _abort_ai_review_idempotency(idempotency_cache_key)

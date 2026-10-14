@@ -198,7 +198,7 @@ def _insert_paired_review_history(conn, approved: ApprovedDurableHistoryEnvelope
 def add_paired_review_history(capture, approved_write: ApprovedHistoryWrite, *, unsafe_text):
     """Reserve an actual ID and issue/insert one full pair under one write lock.
 
-    No runtime generation caller uses this separate boundary. Successful commit
+    Activated paired generation uses this typed boundary. Successful commit
     returns its known identity/view without a post-commit SELECT dependency.
     """
     validate_paired_history_input(capture, approved_write)

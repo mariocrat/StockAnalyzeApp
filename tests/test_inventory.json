@@ -1414,6 +1414,29 @@
       "skips": {}
     },
     {
+      "module": "tests.test_review_display_activation",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReviewDisplayActivationTest.test_gate_defaults_off_and_requires_explicit_true",
+        "ReviewDisplayActivationTest.test_off_basic_advanced_keep_original_v1_generation_and_effect_counts",
+        "ReviewDisplayActivationTest.test_on_corrupt_cache_either_side_rejects_without_retry_charge_or_insert",
+        "ReviewDisplayActivationTest.test_on_corrupt_sql_pair_unavailable_on_list_detail_export_without_repair",
+        "ReviewDisplayActivationTest.test_on_display_capability_does_not_change_fingerprint_or_early_gate",
+        "ReviewDisplayActivationTest.test_on_insert_failure_rolls_back_and_refunds_once_without_retry",
+        "ReviewDisplayActivationTest.test_on_low_confidence_ready_fallback_is_not_pair_eligible",
+        "ReviewDisplayActivationTest.test_on_missing_error_bodyless_and_empty_never_compile_pairs",
+        "ReviewDisplayActivationTest.test_on_postcommit_publication_failure_compensates_known_owner_once",
+        "ReviewDisplayActivationTest.test_on_ready_basic_advanced_share_original_bundle_through_sql_and_cache",
+        "ReviewDisplayActivationTest.test_on_unknown_commit_keeps_pending_and_blocks_blind_same_key_retry",
+        "ReviewDisplayActivationTest.test_on_v2_compiler_failure_never_falls_back_or_persists_partial_v1",
+        "ReviewDisplayActivationTest.test_on_without_storage_or_idempotency_still_projects_one_approved_execution",
+        "ReviewDisplayActivationTest.test_switching_off_preserves_existing_pair_replay_and_history_rollback_floor"
+      ],
+      "skips": {}
+    },
+    {
       "module": "tests.test_review_display_negotiation",
       "h4_classification": "migrated",
       "execution_role": "guarded",

@@ -368,14 +368,14 @@ class FullTestEntrypointTest(unittest.TestCase):
     def test_live_inventory_preserves_baseline_and_counts_source_probes(self):
         entries = inventory.load_inventory()
         summary = inventory.inventory_summary(entries)
-        self.assertEqual(summary["baseline_direct"], 1040)
+        self.assertEqual(summary["baseline_direct"], 1054)
         self.assertEqual(summary["baseline_classification"], inventory.BASELINE)
         source = inventory.source_inventory(runner.REPOSITORY)
         probes = {name: cases for name, cases in source.items() if entries[name]["execution_role"] == "probe"}
         self.assertEqual(sum(map(len, probes.values())), 18)
         self.assertEqual(summary["child_probes"], 18)
         self.assertEqual(len(probes), 6)
-        self.assertEqual(summary["direct"], 1040 + len(entries[inventory.STAGE1]["cases"]))
+        self.assertEqual(summary["direct"], 1054 + len(entries[inventory.STAGE1]["cases"]))
         self.assertNotIn("tests.diagnose_phase_a_probe", entries)
 
     def test_manifest_rejects_missing_duplicate_zero_and_invalid_skip(self):

@@ -71,6 +71,7 @@ STORAGE_MODULES = (
     "tests.test_ai_review_idempotency_cache",
     "tests.test_review_execution_cache",
     "tests.test_review_display_negotiation",
+    "tests.test_review_display_activation",
     "tests.test_review_legacy_compatibility",
     "tests.test_review_envelope_contract",
     "tests.test_review_source_contract",

@@ -1,6 +1,6 @@
 """Typed live capture/write authority and separate restart-safe read admission.
 
-Disconnected from runtime generation. The finalizer capability is
+The activated finalizer supplies original live approvals. Its capability is
 process-local application bookkeeping, never an authentication secret or HMAC.
 """
 import json
@@ -163,7 +163,7 @@ def _live_values(source, snapshot, prepared_content, bundle):
 
 
 def capture_live_paired_history(*, source, snapshot, prepared_content, bundle, _authority=None):
-    """Finalizer-only association of ORIGINAL live objects; no runtime caller yet."""
+    """Finalizer-only association of ORIGINAL live objects before typed SQL write."""
     require(_authority is _FINALIZER_CAPTURE, "FINALIZER_AUTHORITY_REQUIRED")
     frozen = _live_values(source, snapshot, prepared_content, bundle)
     require(_live_values(source, snapshot, prepared_content, bundle) == frozen, "CAPTURE_MUTATION")

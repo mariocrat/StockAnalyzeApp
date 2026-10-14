@@ -112,8 +112,8 @@ def _check_content(result, snapshot, bundle):
 def approve_cached_execution(*, cache_key, fingerprint, expires_at, result, snapshot, bundle=None):
     """Capture already approved v1 results, or an explicitly supplied live paired bundle.
 
-    Production callers supply no paired bundle. The optional live bundle is a
-    storage boundary, never a flag or raw-dict route to paired generation.
+    The activated finalizer can supply its original issued paired bundle. This
+    boundary cannot enable generation or accept raw-dict content authority.
     """
     _require(type(result) is dict)
     _require(type(cache_key) is str and bool(cache_key) and type(fingerprint) is str

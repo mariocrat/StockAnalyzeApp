@@ -34,6 +34,7 @@ from backend.core.review_envelope_contract import (
 from backend.core.review_history_prepared_content import (
     _CAPTURE as _HISTORY_CONTENT_CAPTURE, prepare_history_content,
 )
+from backend.core import review_display_activation, review_approval_bundle, review_durable_storage_approval
 from backend.core.review_source_contract import (
     SourceAdmissionError, TradeSource, CompactChartSource, UnavailableChartSource,
     AnalysisContextSource, AnalysisContextErrorSource, TechnicalObservationSource,
@@ -1309,6 +1310,7 @@ def _finalize_ai_review(
         history_state["approved"] = None
     if approval_state is not None:
         approval_state["snapshot"] = None
+        approval_state.pop("bundle", None)
     response_status = getattr(raw_response, "response_status", None)
     had_model_output = bool(raw_response)
     semantic = None
@@ -1356,11 +1358,13 @@ def _finalize_ai_review(
 
     history_metadata_json = None
     history_prepared_content = None
+    paired_source = None
 
     def attempt(active_semantic, *, fixed=False):
-        nonlocal history_metadata_json, history_prepared_content
+        nonlocal history_metadata_json, history_prepared_content, paired_source
         history_metadata_json = None
         history_prepared_content = None
+        paired_source = None
         structured = None
         try:
             if fixed:
@@ -1428,6 +1432,10 @@ def _finalize_ai_review(
                     metadata=json.loads(history_metadata_json), result=result, snapshot=snapshot,
                     finalizer_model=model if ready else None, _authority=_HISTORY_CONTENT_CAPTURE,
                 )
+            # Low-confidence chart-rules substitution can retain ready status;
+            # only the original admitted model semantics are paired eligible.
+            if not fixed and ready and chosen is active_semantic:
+                paired_source = selected
             return result, snapshot, None
         except LegacyCompatibilityContractError:
             # Terminal admission failure, including fallback/fixed variants.
@@ -1456,11 +1464,28 @@ def _finalize_ai_review(
                 result, snapshot, issue = attempt(None, fixed=True)
     if issue:
         raise ReviewDisplayContractError("fixed review envelope could not be approved")
+    bundle, paired_capture = None, None
+    if paired_source is not None and review_display_activation.paired_generation_enabled():
+        # Outside fallback handling: failed paired approval must never publish
+        # the good v1 side or regenerate a chart-rules replacement.
+        bundle = review_approval_bundle.compile_approval_bundle(paired_source)
+        v1 = bundle.document["representations"]["v1"]
+        if v1["document"] != json.loads(snapshot.json_text)["body"] or v1["summary"] != result["summary"]:
+            raise ReviewDisplayContractError("paired body differs from original approved snapshot")
+        if history_prepared_content is not None:
+            paired_capture = review_durable_storage_approval.capture_live_paired_history(
+                source=paired_source, snapshot=snapshot, prepared_content=history_prepared_content,
+                bundle=bundle, _authority=review_durable_storage_approval._FINALIZER_CAPTURE,
+            )
     if approval_state is not None:
         approval_state["snapshot"] = snapshot
+        if bundle is not None:
+            approval_state["bundle"] = bundle
     if history_state is not None and snapshot is not None and history_metadata_json is not None:
         history_state["approved"] = {"snapshot": snapshot, "metadata_json": history_metadata_json,
                                      "prepared_content": history_prepared_content}
+        if paired_capture is not None:
+            history_state["approved"]["paired_capture"] = paired_capture
     return copy.deepcopy(result)
 
 
@@ -1469,6 +1494,7 @@ def _empty_review_result(review_type: str, approval_state: dict | None, history_
         history_state["approved"] = None
     if approval_state is not None:
         approval_state["snapshot"] = None
+        approval_state.pop("bundle", None)
     source = compose_review_source(review_type=review_type, trades=(), objective=_objective_review_snapshot(()),
                                    status="empty", origin="none")
     candidate = compile_review_envelope(source)

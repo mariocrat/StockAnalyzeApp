@@ -1,6 +1,173 @@
 # Review display v2 migration
 
-## Slice 5 — Current Status (2026-10-14)
+## Slice 6 — Activation preparation (2026-10-14)
+
+Started clean on integration/broker-import-ux-main at
+96965585416e3197ab9d49c4e203325a0c6ada92 after approved Slice 5 commit.
+Authorized: default-OFF production generation wiring and isolated ON/OFF evidence.
+No deployment, live environment change, header advertisement or actual activation.
+
+### Decisions / Remaining / Next Step
+
+- ALPHAMATE_REVIEW_DISPLAY_V2_ENABLED defaults OFF; only explicit true opts in.
+- Pair only approved ready/openai structured model semantics; low-confidence
+  chart-rules substitution, missing/error/empty and fixed fallback stay v1-only.
+- Reuse the original admitted source, snapshot, prepared history content and
+  one ApprovedReviewBundle through typed atomic SQL write and whole cache receipt.
+- Fresh responses and cache/history replay select admitted bodies after whole
+  approval, independently of the unchanged execution fingerprint.
+- Frontend continues advertising review-display.v1. Android/device smoke remains
+  NOT RUN; actual production activation and rollout require separate authorization.
+- [x] Implement and verify isolated actual HTTP ON/OFF, failures and replay.
+- [x] Independent Slice 6 review approved (Blocker 0 / Major 0 / Minor 1).
+- Next Step: keep activation OFF; retain the relative-wildcard fixture follow-up
+  and complete Android/device smoke before any separately authorized rollout.
+
+### Implementation / failure boundaries
+
+The existing configuration resolver reads the new setting; unset/false/unsupported
+values keep generation OFF. No environment/config file was edited. The frontend
+header helper remains byte-identical and pinned to review-display.v1.
+
+The finalizer retains the original selected ready model source only after existing
+safety/body/envelope/history-content approval. With explicit ON, it compiles one
+ApprovedReviewBundle, checks its v1 body/A1 against the original snapshot and,
+when storage is enabled, captures the original typed source/snapshot/prepared
+content/bundle association. Paired errors are outside fallback handling: no good-side
+publication, fallback re-generation or partial v1 write. Default OFF preserves the
+original snapshot/history approval keys and v1 route output.
+
+The route sends that same bundle to the existing whole execution cache and its
+typed capture to the atomic paired writer. It keeps the v1 compatibility response
+internally and selects only the admitted body for the fresh client response.
+No extra model/access/history operation; no capability in the request fingerprint.
+No storage/no idempotency key still performs one approved execution/projection.
+
+Known post-commit publication failures preserve the inserted owner/id for existing
+owner-scoped delete/refund compensation, once, without an automatic re-execution.
+Unknown commit outcomes return failure, retain the existing pending key/access and
+require reconciliation; a same-key retry while pending returns the existing 409.
+Normal TTL/restart semantics remain unchanged: this is not a durable POST ledger
+or a guarantee after cache loss/expiry. Separate DBs/cache are not a distributed
+atomic transaction. No post-commit SELECT is required to retain the known id.
+
+OFF affects new generation only. Existing approved paired cache/history still
+use whole admission and dual projection when read by a dual client; this preserves
+the approved bridge rollback floor. Old v1-only executions are never upgraded.
+
+### Actual verification
+
+Official H4 with the existing approved Python/Node executables; synthetic model
+outputs, account/wallet/history temp stores and blocked providers/network only.
+
+~~~powershell
+$py = 'D:\Project\Vibe\StockBoda\.venv\Scripts\python.exe'
+$node = 'C:\Program Files\nodejs\node.exe'
+& $py -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_display_activation
+& $py -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_display_negotiation tests.test_review_execution_cache tests.test_review_history_paired tests.test_review_history_adapter tests.test_review_finalizer_compatibility tests.test_full_test_entrypoint tests.test_storage_fixture_runner
+& $py -I -X utf8 -B tests/run_isolated_tests.py tests.test_review_history_paired tests.test_full_test_entrypoint
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-entrypoint test:canonical-review-renderer --node-entrypoint test:ai-chart-source --node-entrypoint test:journal-mobile-ux --node-entrypoint test:ai-idempotency --node-executable $node
+& $py -I -X utf8 -B tests/run_isolated_tests.py --inventory-only
+& $py -I -X utf8 -B tests/run_isolated_tests.py --node-inventory-only
+& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run lint
+& 'C:\Program Files\nodejs\npm.cmd' --prefix frontend run build
+git diff --check
+~~~
+
+- New activation: 14/14 PASS (25.962s); basic/advanced x v1/dual, original bundle
+  identity through SQL/cache, A != B/charts/cards, fallback/low-confidence/empty,
+  storage/key absence, no-effect replay, fingerprint/gate, corruption, v2 compile/
+  INSERT/publication failure and uncertain commit. Fresh normal ON executes model,
+  charges and inserts exactly once; replay adds zero. OFF fresh remains v1-only.
+- Existing focused Python: negotiation 14, cache 14, paired history 23, legacy
+  history adapter 44, finalizer 18, H4 coordinator 15, storage runner 2: 130 PASS.
+  Including activation: 144 distinct PASS; final FAIL/ERROR/SKIP zero.
+- Node: 106/106 PASS (canonical 23, actual AI chart/current/history 46, mobile 35,
+  idempotency 2); missing/extra/duplicate zero. v1 header/renderer unchanged.
+- Guarded unexpected access zero; restoration, patch restoration and cleanup true.
+  Coordinator null counters and intentional negative probes keep their contracts.
+  No timeout or guard/allowlist expansion. Python inventory: 108 modules / 1069
+  direct / 18 separate probes, baseline 35/997/22 plus Stage 1 15. Node inventory
+  remains 23 entrypoints / 259 direct, missing/extra/duplicate/dependencies zero.
+- First activation run passed 12/14; two harness assertions failed: None history
+  state was treated as a dict, and first SQLite schema bootstrap was compared to
+  a nonexistent pre-run DB. Corrected only the wrapper/zero-row rollback check;
+  second activation run passed all 14. No third same-approach attempt.
+- Initial existing regression batch passed 128/130. The old Slice 3B AST forbade
+  any main paired writer call, and the coordinator kept the previous 1040 baseline
+  literal. Preserve/strengthen runtime OFF traps for compiler/capture/route writer;
+  retain factory separation in main; pin the exact new 1054 baseline. Reran only
+  those two affected modules: 38/38 PASS. Other successful modules were not repeated.
+- Frontend lint/build, git diff --check and new-source trailing-whitespace checks
+  PASS. Final process setting has no true opt-in; no production setting was read
+  or changed remotely.
+  No full TestOnly, live OpenAI/provider/production DB, deployment, Android build,
+  header activation or actual production ON. Three existing pure-layer docstrings
+  now describe the typed activated caller; their behavior is unchanged.
+
+### Independent review guard follow-up
+
+The Slice 6 hold identified two stale runtime-import assertions, not a production
+behavior failure. The existing display and durable-storage guards now permit only
+the exact `main.py` bundle validator import/call and the exact `ai_review_v2.py`
+bundle/durable-capture import/calls. Synthetic wrong-file, wrong-symbol and
+incomplete-import cases remain rejected; the general pure-layer and no-I/O checks
+remain in force. No production code changed in this follow-up.
+
+- Official H4 guard modules: 33 + 28 PASS; activation/history/cache regressions:
+  14 + 23 + 14 PASS. All guarded unexpected-access counts were zero; restoration,
+  patch restoration and cleanup passed.
+- Python inventory: 108 modules / 1069 direct / 0 missing or duplicate. Node
+  inventory: 23 entrypoints / 259 direct / 0 missing, extra, duplicate or missing
+  source dependency. Frontend lint/build and `git diff --check` passed.
+
+### Remaining / Git
+
+Package-alias follow-up: the remaining guard Major was an AST gap for indirect
+access through `import backend.core as <alias>`. Both existing guards now share
+a test-only canonical import-binding resolver; package/direct aliases, nested
+imports and annotated accesses are checked by module/symbol and call-versus-access
+kind. The actual Slice 6 imports and exact permitted access counts remain pinned.
+Wrong-file, renamed-alias, forbidden-symbol/call and bare-module accesses are
+negative subcases; the real approved edges and aliased validator call pass.
+Pure-layer/I/O rules and production code were unchanged in this follow-up.
+
+Wildcard follow-up: `ImportFrom` star imports do not create named bindings, so
+the alias resolver alone could not see `from backend.core import *`. Both guards
+now share a test-only AST check that rejects star imports from `backend.core` and
+the exact guarded review modules (including their relative-import forms), before
+access counting. Negative subcases cover the bare package wildcard, later
+bundle/durable access and calls, and direct wildcards from both approval modules.
+Explicit imports, aliases, nested imports and the exact admitted Slice 6 edges
+remain unchanged. No production code changed.
+
+- Official H4: the five guard/activation/history/cache modules passed 112/112.
+  After adding annotation/nested-import coverage, both selected guards passed
+  again (2/2); repeated cases are not counted as new direct tests. Unexpected
+  access/violations were zero; restoration, patch restoration and cleanup passed.
+- Python inventory remains 108 modules / 1069 direct; Node remains 23 / 259,
+  with zero missing/extra/duplicate. Lint/build passed; final whitespace/Git checks
+  are recorded with the completion report. The wildcard cases are subcases of
+  existing guard tests, so no testcase ID or inventory edit was needed.
+
+Independent Slice 6 review is approved (Blocker 0 / Major 0 / Minor 1). The Minor
+is a future guard-only follow-up to add a fixed fixture for relative wildcard
+imports; retain the current conservative `backend.core` wildcard rejection.
+Android WebView/ad/scroll smoke is NOT RUN due to unavailable JDK/SDK/adb/device/
+emulator. The setting must remain OFF pending separate Android verification and
+authorization for activation/rollout/rollback.
+No stage/commit/push/merge/rebase in this step; original feature and main files
+are preserved. Current branch/HEAD remain the starting integration identity.
+Git: integration/broker-import-ux-main at 96965585416e3197ab9d49c4e203325a0c6ada92;
+staged 0 / tracked unstaged 13 / untracked 2 / unmerged 0 (15 scoped files).
+Protected feature retains 609163e9dc7ff8b6bbc5ee13c34e7f8020910c54, 9 modified /
+10 untracked; main retains f779e252b823bbd724c8be277c54d494d3b93f89 and its existing
+Play README change. No command wrote either protected worktree's files.
+
+## Slice 5 — Historical approved implementation (2026-10-14)
+
+Independently approved code/browser verification and committed at
+96965585416e3197ab9d49c4e203325a0c6ada92 before Slice 6 began.
 
 Started clean on integration/broker-import-ux-main at
 78cf71a030e71ae4d5989fb66d81ad1c3356a1be after independent Slice 4 approval

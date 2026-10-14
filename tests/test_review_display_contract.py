@@ -22,6 +22,140 @@ def witness_for(identity):
     return next(w for w in V2["witnesses"] if w["id"] == identity)
 
 
+def _canonical_import_accesses(tree):
+    """Resolve static imported bindings, including package aliases, without IO."""
+    import ast
+
+    def bindings(body):
+        result = {}
+
+        class Imports(ast.NodeVisitor):
+            def visit_Import(self, node):
+                for alias in node.names:
+                    name = alias.asname or alias.name.split(".")[0]
+                    result.setdefault(name, set()).add(alias.name if alias.asname else name)
+
+            def visit_ImportFrom(self, node):
+                for alias in node.names:
+                    result.setdefault(alias.asname or alias.name, set()).add(
+                        (node.module or "") + "." + alias.name)
+
+            def visit_FunctionDef(self, node):
+                pass
+
+            visit_AsyncFunctionDef = visit_FunctionDef
+            visit_ClassDef = visit_FunctionDef
+
+        collector = Imports()
+        for node in body:
+            collector.visit(node)
+        return result
+
+    records = []
+
+    class Accesses(ast.NodeVisitor):
+        def __init__(self):
+            self.scopes = [bindings(tree.body)]
+
+        def paths(self, node):
+            if isinstance(node, ast.Name):
+                for scope in reversed(self.scopes):
+                    if node.id in scope:
+                        return scope[node.id]
+            elif isinstance(node, ast.Attribute):
+                return {path + "." + node.attr for path in self.paths(node.value)}
+            return set()
+
+        def record(self, node, kind):
+            paths = self.paths(node)
+            for path in sorted(paths):
+                if path == "core" or path.startswith("core."):
+                    path = "backend." + path
+                records.append((path, kind))
+            return bool(paths)
+
+        def visit_Call(self, node):
+            if not self.record(node.func, "call"):
+                self.visit(node.func)
+            for value in (*node.args, *(keyword.value for keyword in node.keywords)):
+                self.visit(value)
+
+        def visit_Attribute(self, node):
+            if not self.record(node, "access"):
+                self.visit(node.value)
+
+        def visit_Name(self, node):
+            if isinstance(node.ctx, ast.Load):
+                self.record(node, "access")
+
+        def visit_Import(self, node):
+            pass
+
+        visit_ImportFrom = visit_Import
+
+        def visit_FunctionDef(self, node):
+            for value in (*node.decorator_list, *node.args.defaults,
+                          *(item for item in node.args.kw_defaults if item is not None)):
+                self.visit(value)
+            for argument in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs,
+                             *((node.args.vararg,) if node.args.vararg else ()),
+                             *((node.args.kwarg,) if node.args.kwarg else ())):
+                if argument.annotation is not None:
+                    self.visit(argument.annotation)
+            if node.returns is not None:
+                self.visit(node.returns)
+            self.scopes.append(bindings(node.body))
+            for value in node.body:
+                self.visit(value)
+            self.scopes.pop()
+
+        visit_AsyncFunctionDef = visit_FunctionDef
+
+        def visit_ClassDef(self, node):
+            for value in (*node.decorator_list, *node.bases, *(item.value for item in node.keywords)):
+                self.visit(value)
+            self.scopes.append(bindings(node.body))
+            for value in node.body:
+                self.visit(value)
+            self.scopes.pop()
+
+    Accesses().visit(tree)
+    return records
+
+
+_GUARDED_REVIEW_IMPORT_MODULES = frozenset({
+    "review_display_v2_contract", "review_display_v2_compiler", "review_approval_bundle",
+    "review_history_json_codec", "review_durable_storage_contract", "review_durable_storage_approval",
+})
+
+
+def _has_guarded_review_wildcard_import(tree, relative):
+    """Detect star imports whose resolved source is a guarded review module."""
+    import ast
+
+    path_parts = relative.replace("\\", "/").removesuffix(".py").split("/")
+    package_parts = path_parts[:-1]
+    guarded_paths = {"backend.core"}
+    guarded_paths.update(f"backend.core.{name}" for name in _GUARDED_REVIEW_IMPORT_MODULES)
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom) or not any(alias.name == "*" for alias in node.names):
+            continue
+        if node.level:
+            keep = max(0, len(package_parts) - node.level + 1)
+            module_parts = package_parts[:keep]
+            if node.module:
+                module_parts.extend(node.module.split("."))
+            module = ".".join(module_parts)
+        else:
+            module = node.module or ""
+        if module == "core" or module.startswith("core."):
+            module = "backend." + module
+        if any(module == guarded or module.startswith(guarded + ".") for guarded in guarded_paths):
+            return True
+    return False
+
+
 def text_paths(value, path):
     if type(value) is str:
         yield path
@@ -556,25 +690,104 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
 
     def test_new_pure_modules_are_absent_from_existing_runtime_import_graph(self):
         import ast
+        from collections import Counter
         root = Path(__file__).resolve().parents[1]
         names = {"review_display_v2_contract", "review_display_v2_compiler", "review_approval_bundle",
                  "review_history_json_codec", "review_durable_storage_contract", "review_durable_storage_approval"}
         storage = {"review_history", "review_history_adapter", "review_history_paired"}
         durable = {"review_history_json_codec", "review_durable_storage_contract", "review_durable_storage_approval"}
+        expected_runtime_imports = {
+            "backend/main.py": {("backend.core.review_approval_bundle", ("validate_bundle",))},
+            "backend/core/ai_review_v2.py": {
+                ("backend.core", ("review_display_activation", "review_approval_bundle",
+                                  "review_durable_storage_approval"))
+            },
+        }
+        expected_runtime_accesses = {
+            "backend/main.py": {("backend.core.review_approval_bundle.validate_bundle", "call"): 1},
+            "backend/core/ai_review_v2.py": {
+                ("backend.core.review_approval_bundle.compile_approval_bundle", "call"): 1,
+                ("backend.core.review_durable_storage_approval.capture_live_paired_history", "call"): 1,
+                ("backend.core.review_durable_storage_approval._FINALIZER_CAPTURE", "access"): 1,
+            },
+        }
+        observed_imports = {relative: set() for relative in expected_runtime_imports}
+
+        def check_accesses(relative, tree, allowed=(), exact=False):
+            self.assertFalse(_has_guarded_review_wildcard_import(tree, relative),
+                             (relative, "guarded review wildcard import"))
+            observed = Counter((target, kind) for target, kind in _canonical_import_accesses(tree)
+                               if names.intersection(target.split(".")))
+            if relative in expected_runtime_accesses:
+                expected = expected_runtime_accesses[relative]
+                self.assertFalse(set(observed) - set(expected), (relative, observed))
+                if exact:
+                    self.assertEqual(expected, dict(observed), relative)
+            else:
+                self.assertFalse(any((names - set(allowed)).intersection(target.split("."))
+                                     for target, kind in observed), (relative, observed))
+
+        for relative, source in (
+            ("backend/core/unrelated.py", "import backend.core as core\ncore.review_approval_bundle"),
+            ("backend/core/unrelated.py", "import backend.core as renamed\nrenamed.review_durable_storage_approval.capture_live_paired_history()"),
+            ("backend/main.py", "import backend.core as core\ncore.review_approval_bundle.compile_approval_bundle()"),
+            ("backend/core/ai_review_v2.py", "import backend.core as renamed\nrenamed.review_durable_storage_approval._FINALIZER_CAPTURE()"),
+            ("backend/main.py", "from backend import core as renamed\nrenamed.review_approval_bundle.unknown"),
+            ("backend/core/unrelated.py", "import backend\nbackend.core.review_approval_bundle.validate_bundle()"),
+            ("backend/core/unrelated.py", "def handler():\n import backend.core as nested\n nested.review_approval_bundle.validate_bundle()"),
+            ("backend/core/unrelated.py", "import backend.core as renamed\ndef handler(value: renamed.review_approval_bundle.Unknown):\n pass"),
+            ("backend/core/unrelated.py", "from backend.core import *"),
+            ("backend/core/unrelated.py", "from backend.core import *\nreview_approval_bundle.compile_approval_bundle()"),
+            ("backend/core/unrelated.py", "from backend.core import *\nreview_durable_storage_approval.capture_live_paired_history()"),
+            ("backend/core/unrelated.py", "from backend.core.review_approval_bundle import *"),
+            ("backend/core/unrelated.py", "from backend.core.review_durable_storage_approval import *"),
+        ):
+            with self.subTest(alias_source=source), self.assertRaises(AssertionError):
+                check_accesses(relative, ast.parse(source))
+        check_accesses("backend/main.py", ast.parse(
+            "from backend.core.review_approval_bundle import validate_bundle as admitted\nadmitted(None)"), exact=True)
+
+        def import_edge(relative, node):
+            return (relative, node.module or "", tuple(alias.name for alias in node.names))
+
+        def explicitly_allowed(relative, node):
+            return import_edge(relative, node)[1:] in expected_runtime_imports.get(relative, set())
+
+        for relative, source in (
+            ("backend/main.py", "from backend.core.review_approval_bundle import compile_approval_bundle"),
+            ("backend/core/ai_review_v2.py", "from backend.core import review_durable_storage_approval"),
+            ("backend/core/unrelated.py", "from backend.core import review_approval_bundle"),
+        ):
+            self.assertFalse(explicitly_allowed(relative, ast.parse(source).body[0]))
+
         for path in (root / "backend").rglob("*.py"):
+            relative = path.relative_to(root).as_posix()
             if path.stem in names:
                 tree = ast.parse(path.read_text(encoding="utf-8-sig"))
                 for node in ast.walk(tree):
                     if isinstance(node, ast.ImportFrom):
                         self.assertFalse((node.module or "").startswith(("tests", "frontend")), path)
-                continue
-            tree = ast.parse(path.read_text(encoding="utf-8-sig"))
-            allowed = durable if path.stem in storage else set()
-            if path.stem == "review_execution_cache":
-                allowed = {"review_approval_bundle"}
-            for node in ast.walk(tree):
-                if isinstance(node, ast.ImportFrom):
-                    self.assertNotIn((node.module or "").split(".")[-1], names - allowed, path)
-                    self.assertFalse(any(alias.name in names - allowed for alias in node.names), path)
-                elif isinstance(node, ast.Import):
-                    self.assertFalse(any(alias.name.split(".")[-1] in names - allowed for alias in node.names), path)
+            else:
+                tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+                allowed = durable if path.stem in storage else set()
+                if path.stem == "review_execution_cache":
+                    allowed = {"review_approval_bundle"}
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ImportFrom):
+                        module = node.module or ""
+                        touches_guarded_layer = (module.split(".")[-1] in names
+                            or any(alias.name in names for alias in node.names))
+                        if touches_guarded_layer and relative in expected_runtime_imports:
+                            self.assertTrue(explicitly_allowed(relative, node), (relative, ast.unparse(node)))
+                            observed_imports[relative].add(import_edge(relative, node)[1:])
+                            continue
+                        self.assertNotIn(module.split(".")[-1], names - allowed, path)
+                        self.assertFalse(any(alias.name in names - allowed for alias in node.names), path)
+                    elif isinstance(node, ast.Import):
+                        self.assertFalse(any(alias.name.split(".")[-1] in names - allowed for alias in node.names), path)
+
+            if path.stem not in names:
+                check_accesses(relative, tree, allowed, exact=relative in expected_runtime_accesses)
+
+        for relative, expected in expected_runtime_imports.items():
+            self.assertEqual(expected, observed_imports[relative], relative)

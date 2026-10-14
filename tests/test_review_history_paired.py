@@ -410,9 +410,13 @@ class PairedHistoryIntegrationTest(unittest.TestCase):
         self.assertEqual(before, self.gate.history_state())
 
     def test_live_generation_remains_v1_only_even_with_paired_history_support(self):
+        from backend.core import review_display_activation, review_approval_bundle
+        self.assertFalse(review_display_activation.paired_generation_enabled())
         for kind in ("basic", "advanced"):
             with patch.object(self.ai, "_call_openai_review", return_value=json.dumps(model_output(kind))), patch.object(
                     durable, "capture_live_paired_history", side_effect=AssertionError("paired generation")), patch.object(
+                    review_approval_bundle, "compile_approval_bundle", side_effect=AssertionError("paired compiler")), patch.object(
+                    self.gate.main, "add_paired_review_history", side_effect=AssertionError("OFF route paired writer")), patch.object(
                     self.history, "add_paired_review_history", side_effect=AssertionError("paired writer")):
                 response = self.gate.request("POST", "/api/journal/ai-review-once", _gate_support.SUPPORTED,
                                              review_type=kind, key="slice3b-generation-off-" + kind)
@@ -421,8 +425,8 @@ class PairedHistoryIntegrationTest(unittest.TestCase):
             self.assertIs(type(saved), dict)
             self.assertFalse(paired.paired_marker(saved["ai_review"]))
         root = Path(__file__).resolve().parents[1]
-        for relative in ("backend/main.py", "backend/core/ai_review_v2.py"):
-            tree = ast.parse((root / relative).read_text(encoding="utf-8-sig"))
-            calls = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
-            self.assertFalse(calls & {"compile_approval_bundle", "capture_live_paired_history",
-                                     "issue_durable_history", "add_paired_review_history"})
+        # Slice 6 adds the typed writer path, but all factories remain outside
+        # main. Above runtime traps prove default OFF cannot call that path.
+        tree = ast.parse((root / "backend/main.py").read_text(encoding="utf-8-sig"))
+        calls = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+        self.assertFalse(calls & {"compile_approval_bundle", "capture_live_paired_history", "issue_durable_history"})

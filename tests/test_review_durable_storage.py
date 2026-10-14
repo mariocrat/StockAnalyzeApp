@@ -26,7 +26,9 @@ from backend.core.review_display_contract import compile_literal_lines
 from backend.core.review_legacy_compatibility import admit_legacy_body
 from backend.core import review_source_contract as source_contract
 from backend.core.review_source_projection import structured_review_payload, trade_payload
-from tests.test_review_display_contract import ready_v2_source
+from tests.test_review_display_contract import (
+    ready_v2_source, _canonical_import_accesses, _has_guarded_review_wildcard_import,
+)
 from tests.review_source_fixtures import approved_chart_fixture
 from tests import test_review_history_write_access as access_tests
 from tests.api_test_modules import api_module_state
@@ -537,17 +539,79 @@ class DurableStorageTest(unittest.TestCase):
                     "nodes": codec.validate_json_tree(read.payload)}, sort_keys=True))
 
     def test_pure_modules_are_disconnected_from_runtime_and_have_no_io_imports(self):
+        from collections import Counter
         root = Path(__file__).resolve().parents[1]
         modules = {"review_history_json_codec", "review_durable_storage_contract", "review_durable_storage_approval"}
+        approved_relative = "backend/core/ai_review_v2.py"
+        approved_import = ("backend.core", ("review_display_activation", "review_approval_bundle",
+                                             "review_durable_storage_approval"))
+
+        def approved_edge(relative, node):
+            return (relative, node.module or "", tuple(alias.name for alias in node.names)) == (
+                approved_relative, *approved_import)
+
+        expected_accesses = {
+            ("backend.core.review_durable_storage_approval.capture_live_paired_history", "call"): 1,
+            ("backend.core.review_durable_storage_approval._FINALIZER_CAPTURE", "access"): 1,
+        }
+
+        def check_accesses(relative, tree, exact=False):
+            self.assertFalse(_has_guarded_review_wildcard_import(tree, relative),
+                             (relative, "guarded review wildcard import"))
+            observed = Counter((target, kind) for target, kind in _canonical_import_accesses(tree)
+                               if modules.intersection(target.split(".")))
+            if relative == approved_relative:
+                self.assertFalse(set(observed) - set(expected_accesses), (relative, observed))
+                if exact:
+                    self.assertEqual(expected_accesses, dict(observed))
+            else:
+                self.assertFalse(observed, (relative, observed))
+
+        for relative, source in (
+            ("backend/main.py", "import backend.core as core\ncore.review_durable_storage_approval"),
+            ("backend/main.py", "import backend.core as renamed\nrenamed.review_durable_storage_approval.capture_live_paired_history()"),
+            (approved_relative, "import backend.core as core\ncore.review_durable_storage_approval.unknown()"),
+            (approved_relative, "import backend.core as renamed\nrenamed.review_durable_storage_approval._FINALIZER_CAPTURE()"),
+            (approved_relative, "from backend import core as renamed\nrenamed.review_history_json_codec.canonical_json(None)"),
+            ("backend/core/unrelated.py", "from backend.core import *"),
+            ("backend/core/unrelated.py", "from backend.core import *\nreview_approval_bundle.compile_approval_bundle()"),
+            ("backend/core/unrelated.py", "from backend.core import *\nreview_durable_storage_approval.capture_live_paired_history()"),
+            ("backend/core/unrelated.py", "from backend.core.review_approval_bundle import *"),
+            ("backend/core/unrelated.py", "from backend.core.review_durable_storage_approval import *"),
+        ):
+            with self.subTest(alias_source=source), self.assertRaises(AssertionError):
+                check_accesses(relative, ast.parse(source))
+
+        for relative, source in (
+            ("backend/main.py", "from backend.core import review_durable_storage_approval"),
+            (approved_relative, "from backend.core import review_durable_storage_approval"),
+            (approved_relative, "from backend.core.review_durable_storage_approval import capture_live_paired_history"),
+        ):
+            self.assertFalse(approved_edge(relative, ast.parse(source).body[0]))
+
+        observed_approved_edges = set()
         for path in (root / "backend").rglob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+            relative = path.relative_to(root).as_posix()
             imports = [name for node in ast.walk(tree) for name in (
                 [node.module or "", *((node.module or "") + "." + item.name for item in node.names)] if isinstance(node, ast.ImportFrom) else
                 [item.name for item in node.names] if isinstance(node, ast.Import) else [])]
             if path.stem not in modules | {"review_history", "review_history_adapter", "review_history_paired"}:
-                self.assertFalse(any(name.split(".")[-1] in modules for name in imports), str(path))
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.ImportFrom):
+                        imported = [node.module or "", *((node.module or "") + "." + item.name for item in node.names)]
+                        if any(name.split(".")[-1] in modules for name in imported):
+                            self.assertTrue(approved_edge(relative, node), (relative, ast.unparse(node)))
+                            observed_approved_edges.add((relative, node.module or "", tuple(item.name for item in node.names)))
+                    elif isinstance(node, ast.Import):
+                        self.assertFalse(any(item.name.split(".")[-1] in modules for item in node.names), str(path))
+                if relative == approved_relative:
+                    check_accesses(relative, tree, exact=True)
+                else:
+                    check_accesses(relative, tree)
             elif path.stem in modules:
                 self.assertFalse(any(name.split(".")[-1] in {"main", "review_history", "sqlite3", "os", "env",
                     "socket", "requests", "urllib", "ai_review_v2", "idempotency_cache", "hmac"} for name in imports))
                 self.assertFalse(any(name.split(".")[0] in {"socket", "sqlite3", "urllib", "requests", "os", "hmac"}
                                      for name in imports))
+        self.assertEqual({(approved_relative, *approved_import)}, observed_approved_edges)
