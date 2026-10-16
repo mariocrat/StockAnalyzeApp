@@ -1738,8 +1738,16 @@
       "execution_role": "guarded",
       "cohort": "baseline",
       "cases": [
+        "ThemeCacheMemoryTests.test_current_naver_json_parses_paginated_utf8_themes_and_stocks",
+        "ThemeCacheMemoryTests.test_failed_refresh_is_not_memoized_and_can_recover",
+        "ThemeCacheMemoryTests.test_failed_refresh_preserves_expired_last_good_and_period_caches",
         "ThemeCacheMemoryTests.test_gradual_market_move_is_not_treated_as_corporate_action",
+        "ThemeCacheMemoryTests.test_invalid_constituents_and_repeated_cursors_cannot_publish_partial_cache",
+        "ThemeCacheMemoryTests.test_invalid_naver_responses_never_publish_cache",
+        "ThemeCacheMemoryTests.test_new_naver_membership_warms_all_periods_and_failure_writes_none",
+        "ThemeCacheMemoryTests.test_poisoned_empty_theme_cache_is_ignored_and_replaced",
         "ThemeCacheMemoryTests.test_reverse_split_is_normalized_before_return_calculation",
+        "ThemeCacheMemoryTests.test_valid_theme_cache_is_reused_without_network",
         "ThemeCacheMemoryTests.test_warm_cache_writes_separate_period_results_without_close_history_file"
       ],
       "skips": {}

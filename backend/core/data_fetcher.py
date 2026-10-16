@@ -110,9 +110,30 @@ def get_latest_cached_theme_returns(
     return pd.DataFrame()
 
 
+def _valid_naver_theme_payload(payload) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    themes, names, returns = (payload.get(key) for key in ("themes", "names", "returns"))
+    if not all(isinstance(value, dict) for value in (themes, names, returns)) or not themes:
+        return False
+    for theme, tickers in themes.items():
+        if not isinstance(theme, str) or not theme.strip() or not isinstance(tickers, list) or not tickers:
+            return False
+        if any(not isinstance(ticker, str) or not re.fullmatch(r"[0-9A-Z]{6}", ticker)
+               or not isinstance(names.get(ticker), str) or not names[ticker].strip() for ticker in tickers):
+            return False
+        rates = returns.get(theme, {})
+        if not isinstance(rates, dict):
+            return False
+        if any(ticker not in tickers or isinstance(rate, bool) or not isinstance(rate, numbers.Real)
+               or not math.isfinite(rate) for ticker, rate in rates.items()):
+            return False
+    return True
+
+
 def get_cached_naver_themes():
     cached = _read_json_cache("naver_themes_v3.json", ttl_seconds=3600*24*7)
-    if cached:
+    if _valid_naver_theme_payload(cached):
         return cached["themes"], cached["names"], cached["returns"]
     return None
 
@@ -314,137 +335,100 @@ def get_stock_names(market="ALL"):
     return names_from_themes
 
 
+def _fetch_naver_theme_items(path: str, params: dict) -> list[dict]:
+    import requests
+
+    params = dict(params)
+    items = []
+    cursors = set()
+    while True:
+        response = requests.get(
+            "https://stock.naver.com" + path,
+            params=params, headers={"User-Agent": "Mozilla/5.0"}, timeout=8,
+        )
+        response.raise_for_status()
+        response.encoding = "utf-8"
+        page = response.json()
+        if (not isinstance(page, dict) or type(page.get("hasNext")) is not bool
+                or not isinstance(page.get("items"), list)
+                or not page["items"]
+                or any(not isinstance(item, dict) for item in page["items"])):
+            raise ValueError("Invalid Naver theme page")
+        items.extend(page["items"])
+        if not page["hasNext"]:
+            return items
+        cursor = page.get("cursor")
+        if not isinstance(cursor, str) or not cursor or cursor in cursors:
+            raise ValueError("Invalid Naver theme cursor")
+        cursors.add(cursor)
+        params["cursor"] = cursor
+
+
 @ttl_cache(maxsize=100, ttl=3600*24)
 def get_krx_themes():
-    """
-    Scrape top themes and their top stocks dynamically from Naver Finance.
-    Also scrapes per-stock return rates from the theme detail page,
-    eliminating the need for yfinance bulk downloads for ranking.
-
-    Returns: (themes_dict, names_dict, theme_returns_map)
-      - themes_dict:       {ThemeName: [ticker, ...]}
-      - names_dict:        {ticker: name}
-      - theme_returns_map: {ThemeName: {ticker: return_pct}}
-    """
-    import requests
-    from bs4 import BeautifulSoup
+    """Return Naver theme membership, stock names and per-stock daily returns."""
     import concurrent.futures
 
-    cached = _read_json_cache("naver_themes_v3.json", ttl_seconds=3600*24*7)
-    if cached:
-        return cached["themes"], cached["names"], cached["returns"]
-
-    url = 'https://finance.naver.com/sise/theme.naver'
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    cached = get_cached_naver_themes()
+    if cached is not None:
+        return cached
 
     try:
-        first_res = requests.get(url, headers=headers, timeout=8)
-        first_res.encoding = 'euc-kr'
-        first_soup = BeautifulSoup(first_res.text, 'html.parser')
-        page_numbers = [1]
-        for href in [a.get('href', '') for a in first_soup.find_all('a')]:
-            if 'theme.naver' in href and 'page=' in href:
-                try:
-                    page_numbers.append(int(href.split('page=')[-1].split('&')[0]))
-                except ValueError:
-                    pass
-        last_page = max(page_numbers)
+        ranking = _fetch_naver_theme_items(
+            "/api/stockSecurity/rankings/v2/domestic/themes",
+            {"sortType": "changeRate", "size": 100, "period": "daily"},
+        )
+        for theme in ranking:
+            if (not isinstance(theme.get("code"), str) or not re.fullmatch(r"[0-9]+", theme["code"])
+                    or not isinstance(theme.get("name"), str) or not theme["name"].strip()):
+                raise ValueError("Invalid Naver theme identity")
 
-        links = []
-        seen_hrefs = set()
-        for page in range(1, last_page + 1):
-            page_url = f"{url}?&page={page}"
-            page_res = first_res if page == 1 else requests.get(page_url, headers=headers, timeout=8)
-            page_res.encoding = 'euc-kr'
-            page_soup = first_soup if page == 1 else BeautifulSoup(page_res.text, 'html.parser')
-            for a in page_soup.find_all('a', href=lambda h: h and h.startswith('/sise/sise_group_detail.naver?type=theme')):
-                href = a.get('href')
-                if href in seen_hrefs:
-                    continue
-                if not a.text.strip():
-                    continue
-                seen_hrefs.add(href)
-                links.append(a)
+        def fetch_theme_detail(theme):
+            stocks = _fetch_naver_theme_items(
+                f"/api/domestic/market/theme/{theme['code']}/stocklist",
+                {"sortType": "tradingValue", "sortDirection": "desc", "size": 100},
+            )
+            tickers, local_names, local_returns = [], {}, {}
+            for stock in stocks:
+                ticker, name = stock.get("itemCode"), stock.get("itemName")
+                if isinstance(ticker, str) and re.fullmatch(r"A[0-9]{6}", ticker):
+                    ticker = ticker[1:]
+                if (not isinstance(ticker, str) or not re.fullmatch(r"[0-9A-Z]{6}", ticker)
+                        or not isinstance(name, str) or not name.strip()):
+                    raise ValueError("Invalid Naver theme stock")
+                if ticker not in local_names:
+                    tickers.append(ticker)
+                local_names[ticker] = name.strip()
+                quote = stock.get("krx")
+                if quote is not None:
+                    if not isinstance(quote, dict):
+                        raise ValueError("Invalid Naver theme quote")
+                    rate = quote.get("changeRate")
+                    if rate is not None:
+                        if isinstance(rate, bool) or not math.isfinite(float(rate)):
+                            raise ValueError("Invalid Naver theme return")
+                        local_returns[ticker] = float(rate)
+            return theme["name"].strip(), tickers, local_names, local_returns
 
+        with concurrent.futures.ThreadPoolExecutor(max_workers=_theme_fetch_workers(len(ranking))) as executor:
+            results = list(executor.map(fetch_theme_detail, ranking))
         themes = {}
         names = {}
         theme_returns_map = {}
-
-        theme_links = links
-
-        def fetch_theme_detail(a):
-            theme_name = a.text.strip()
-            if not theme_name:
-                return None
-
-            detail_url = 'https://finance.naver.com' + a['href']
-            detail_res = requests.get(detail_url, headers=headers, timeout=8)
-            detail_res.encoding = 'euc-kr'
-            detail_soup = BeautifulSoup(detail_res.text, 'html.parser')
-
-            rows = detail_soup.select('tr')
-            tickers_list = []
-            local_names = {}
-            local_returns = {}
-
-            for row in rows:
-                link_tag = row.select_one('div.name_area a[href^="/item/main.naver?code="]')
-                if not link_tag:
-                    continue
-                ticker = link_tag['href'].split('code=')[1]
-                name = link_tag.text.strip()
-
-                # The 3rd td.number contains the rate: <span class="tah p11 red01">+18.69%</span>
-                # We find all td.number spans and look for the one with '%'
-                rate = None
-                td_numbers = row.select('td.number')
-                for td in td_numbers:
-                    span = td.select_one('span.tah')
-                    if span and '%' in span.text:
-                        try:
-                            rate = float(
-                                span.text.strip()
-                                .replace('%', '').replace(',', '').replace('+', '')
-                            )
-                        except ValueError:
-                            rate = None
-                        break
-
-                if ticker not in tickers_list:
-                    tickers_list.append(ticker)
-                    local_names[ticker] = name
-                    if rate is not None:
-                        local_returns[ticker] = rate
-            return theme_name, tickers_list, local_names, local_returns
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=_theme_fetch_workers(len(theme_links))) as executor:
-            results = list(executor.map(fetch_theme_detail, theme_links))
-
-        for result in results:
-            if result:
-                t_name, t_tickers, l_names, l_returns = result
-                if t_tickers:
-                    themes[t_name] = t_tickers
-                    names.update(l_names)
-                    theme_returns_map[t_name] = l_returns
-
+        for theme_name, tickers, local_names, local_returns in results:
+            if not tickers:
+                raise ValueError("Naver returned empty theme detail")
+            themes[theme_name] = tickers
+            names.update(local_names)
+            theme_returns_map[theme_name] = local_returns
         payload = {"themes": themes, "names": names, "returns": theme_returns_map}
+        if not _valid_naver_theme_payload(payload):
+            raise ValueError("Naver returned no valid themes")
         _write_json_cache("naver_themes_v3.json", payload)
         return themes, names, theme_returns_map
-
-    except Exception as e:
-        print(f"[get_krx_themes] Error: {e}")
-        return (
-            {
-                "반도체(에러 폴백)": ["005930", "000660"],
-                "이차전지(에러 폴백)": ["373220", "006400"]
-            },
-            {
-                "005930": "삼성전자", "000660": "SK하이닉스",
-                "373220": "LG에너지솔루션", "006400": "삼성SDI"
-            },
-            {}
-        )
+    except Exception as exc:
+        print(f"[get_krx_themes] Refresh failed ({type(exc).__name__})")
+        raise RuntimeError("Naver theme refresh failed; previous cache preserved") from exc
 
 
 def get_theme_returns_historical(start_date: str, end_date: str, period: str = "custom"):
