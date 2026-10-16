@@ -10,9 +10,9 @@ import hashlib
 import json
 import re
 
-from backend.core import review_history_content_contract as content
-from backend.core.review_history_prepared_content import validate_prepared_history_content
-from backend.core.review_history_write_contract import HistoryWriteContractError, validate_new_history_access
+from core import review_history_content_contract as content
+from core.review_history_prepared_content import validate_prepared_history_content
+from core.review_history_write_contract import HistoryWriteContractError, validate_new_history_access
 
 
 SQL_BIND_COLUMNS = (

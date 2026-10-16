@@ -4,7 +4,7 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
-from backend.core.review_display_contract import SCHEMA_VERSION
+from core.review_display_contract import SCHEMA_VERSION
 
 import copy
 from contextlib import contextmanager
@@ -15,7 +15,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from backend.core.review_legacy_compatibility import admit_legacy_body
+from core.review_legacy_compatibility import admit_legacy_body
 from tests.api_test_modules import api_module_state
 from tests.review_source_fixtures import compact_chart_fixture, approved_chart_fixture, history_chart_fixture
 from tests.test_review_finalizer_compatibility import model_output
@@ -293,7 +293,7 @@ class ProductionRouteCompatibilityTest(unittest.TestCase):
         self.assertFalse(self.fixture.paths["ALPHAMATE_REVIEW_HISTORY_DB_PATH"].exists())
 
     def test_new_history_identity_survives_all_reads_for_ready_and_missing_key(self):
-        from backend.core.review_history_adapter import history_list_projection
+        from core.review_history_adapter import history_list_projection
 
         self.compact_provider.return_value = approved_chart_fixture()
         for review_type in ("basic", "advanced"):

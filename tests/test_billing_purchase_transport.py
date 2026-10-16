@@ -59,7 +59,7 @@ def patched_env(**values):
 
 
 with _import_state():
-    from backend.core import access_control as _access_control
+    from core import access_control as _access_control
 
 
 class BillingPurchaseTransportTest(unittest.TestCase):
@@ -87,7 +87,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             with self.assertRaises(HTTPException) as raised:
@@ -121,7 +121,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
 
@@ -185,7 +185,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             for order_status in ("CANCELED", "PENDING_REFUND", "PARTIALLY_REFUNDED", "REFUNDED"):
@@ -214,7 +214,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
                 conn.close()
 
     def test_google_play_purchase_verification_loads_actual_order_amount(self):
-        from backend.core import access_control
+        from core import access_control
 
         access_control = importlib.reload(access_control)
 
@@ -264,7 +264,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(
@@ -324,7 +324,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(
@@ -372,7 +372,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(
@@ -418,7 +418,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             self.assertEqual(0, refunded_wallet["advanced"]["purchased_remaining"])
 
     def test_google_play_order_verification_reads_full_refund_details(self):
-        from backend.core import access_control
+        from core import access_control
 
         access_control = importlib.reload(access_control)
 
@@ -467,7 +467,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_BASIC_REVIEW_15_ID=long_product_id,
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_google_play_purchase = lambda **kwargs: {
@@ -506,7 +506,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
 
@@ -559,7 +559,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_google_play_purchase = lambda **kwargs: {
@@ -585,7 +585,7 @@ class BillingPurchaseTransportTest(unittest.TestCase):
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             for product_id in ("basic_review_15", "basic_review_25", "advanced_review_10"):

@@ -3,16 +3,16 @@ from datetime import datetime
 import hashlib
 import re
 
-from backend.core import review_history_content_contract as content
-from backend.core import review_source_contract as source
-from backend.core.review_approval_bundle import validate_bundle_structure
-from backend.core.review_display_v2_contract import ReviewDisplayV2Error
-from backend.core.review_envelope_contract import (
+from core import review_history_content_contract as content
+from core import review_source_contract as source
+from core.review_approval_bundle import validate_bundle_structure
+from core.review_display_v2_contract import ReviewDisplayV2Error
+from core.review_envelope_contract import (
     ReviewEnvelopeContractError, validate_chart_display_snapshot,
 )
-from backend.core.review_history_write_contract import HistoryWriteContractError, validate_new_history_access
-from backend.core.review_history_adapter import _check_content
-from backend.core.review_history_json_codec import (
+from core.review_history_write_contract import HistoryWriteContractError, validate_new_history_access
+from core.review_history_adapter import _check_content
+from core.review_history_json_codec import (
     CODEC_VERSION, DurableStorageError, canonical_json, decode_json, decode_outer,
     decode_sql, outer_json, require, sql_json, validate_json_tree, check_byte_limit, MAX_PAYLOAD_BYTES,
 )

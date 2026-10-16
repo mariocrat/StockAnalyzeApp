@@ -14,7 +14,7 @@ from fastapi import HTTPException
 
 
 with _import_state():
-    from backend.core import oauth_login as _oauth_login
+    from core import oauth_login as _oauth_login
 
 
 class OAuthLoginTest(unittest.TestCase):
@@ -30,7 +30,7 @@ class OAuthLoginTest(unittest.TestCase):
         self.addCleanup(replacement.stop)
 
     def test_oauth_login_requires_access_token(self):
-        from backend.core import oauth_login
+        from core import oauth_login
 
         with self.assertRaises(HTTPException) as raised:
             oauth_login.login_oauth_provider(provider="kakao", access_token="")
@@ -43,7 +43,7 @@ class OAuthLoginTest(unittest.TestCase):
             os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
             os.environ.pop("KAKAO_CLIENT_ID", None)
 
-            from backend.core import oauth_login
+            from core import oauth_login
 
 
             with self.assertRaises(HTTPException) as raised:
@@ -63,7 +63,7 @@ class OAuthLoginTest(unittest.TestCase):
             os.environ["KAKAO_CLIENT_ID"] = "kakao-client-id"
             os.environ.pop("KAKAO_REDIRECT_URI", None)
 
-            from backend.core import oauth_login
+            from core import oauth_login
 
             with self.assertRaises(HTTPException) as raised:
                 oauth_login._configured_redirect_uri("kakao", "https://app.alphamate.kr/auth/kakao")
@@ -84,7 +84,7 @@ class OAuthLoginTest(unittest.TestCase):
             os.environ["KAKAO_REDIRECT_URI"] = "not-a-url"
             os.environ["NAVER_REDIRECT_URI"] = "http://localhost:5174/oauth/naver"
 
-            from backend.core import oauth_login
+            from core import oauth_login
 
             with self.assertRaises(HTTPException) as kakao_raised:
                 oauth_login._configured_redirect_uri("kakao", "")
@@ -107,7 +107,7 @@ class OAuthLoginTest(unittest.TestCase):
             os.environ["ALPHAMATE_ENV"] = "production"
             os.environ["KAKAO_REDIRECT_URI"] = "https://api.alphamate.kr/api/auth/kakao/callback"
 
-            from backend.core import oauth_login
+            from core import oauth_login
 
             with self.assertRaises(HTTPException) as raised:
                 oauth_login._configured_redirect_uri("kakao", "https://app.alphamate.kr/auth/kakao")
@@ -123,7 +123,7 @@ class OAuthLoginTest(unittest.TestCase):
     def test_oauth_app_redirect_uses_one_time_app_ticket_without_session_token(self):
         from urllib.parse import parse_qs, urlparse
 
-        from backend.core import oauth_login
+        from core import oauth_login
 
         self._replace(oauth_login, "login_oauth_code", lambda **kwargs: {
             "session_token": "secret-session-token",
@@ -176,7 +176,7 @@ class OAuthLoginTest(unittest.TestCase):
         for key in ("KAKAO_CLIENT_ID", "KAKAO_REDIRECT_URI", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "NAVER_REDIRECT_URI"):
             os.environ.pop(key, None)
 
-        from backend.core import oauth_login
+        from core import oauth_login
 
         status = oauth_login.get_oauth_config_status()
 
@@ -195,7 +195,7 @@ class OAuthLoginTest(unittest.TestCase):
         os.environ["NAVER_CLIENT_SECRET"] = "naver-client-secret"
         os.environ.pop("NAVER_REDIRECT_URI", None)
 
-        from backend.core import oauth_login
+        from core import oauth_login
 
         status = oauth_login.get_oauth_config_status()
 
@@ -220,7 +220,7 @@ class OAuthLoginTest(unittest.TestCase):
             os.environ["NAVER_CLIENT_SECRET"] = "naver-client-secret"
             os.environ["NAVER_REDIRECT_URI"] = "https://your-api.example.com/api/auth/naver/callback"
 
-            from backend.core import oauth_login
+            from core import oauth_login
 
             status = oauth_login.get_oauth_config_status()
 
@@ -257,7 +257,7 @@ class OAuthLoginTest(unittest.TestCase):
             os.environ["NAVER_CLIENT_SECRET"] = "naver-client-secret"
             os.environ["NAVER_REDIRECT_URI"] = "http://localhost:5174/oauth/naver"
 
-            from backend.core import oauth_login
+            from core import oauth_login
 
             status = oauth_login.get_oauth_config_status()
 

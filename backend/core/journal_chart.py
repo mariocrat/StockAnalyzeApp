@@ -8,8 +8,8 @@ import yfinance as yf
 from core.ai_review import _fmt8, _parse_date, _prepare_ohlcv
 from core.data_fetcher import get_stock_ohlcv, get_review_stock_ohlcv, _admit_review_ohlcv
 from core.env import BACKEND_ROOT, cache_directory, is_production
-from backend.core.review_source_contract import SourceAdmissionError, TradeSource
-from backend.core.review_source_projection import trade_payload
+from core.review_source_contract import SourceAdmissionError, TradeSource
+from core.review_source_projection import trade_payload
 
 
 def _prepare_review_ohlcv(df, *, provider_ticker=None):

@@ -9,7 +9,7 @@ from contextvars import ContextVar
 from pathlib import Path
 from unittest.mock import patch
 
-from backend.core.env import DB_FILES
+from core.env import DB_FILES
 
 
 _active_root = None

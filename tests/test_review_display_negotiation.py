@@ -8,13 +8,13 @@ import json
 import unittest
 from unittest.mock import patch
 
-from backend.core import review_display_capability as capability
-from backend.core import review_execution_cache as execution
-from backend.core import review_history_paired as paired
-from backend.core import review_approval_bundle as bundles
-from backend.core.review_source_projection import trade_payload
-from backend.core.review_history_json_codec import canonical_json, outer_json
-from backend.core.review_durable_storage_contract import payload_digest
+from core import review_display_capability as capability
+from core import review_execution_cache as execution
+from core import review_history_paired as paired
+from core import review_approval_bundle as bundles
+from core.review_source_projection import trade_payload
+from core.review_history_json_codec import canonical_json, outer_json
+from core.review_durable_storage_contract import payload_digest
 from tests import test_review_execution_cache as cache_support
 from tests import test_review_history_paired as history_support
 from tests import test_review_display_client_gate as gate_support
@@ -51,7 +51,7 @@ class ReviewDisplayNegotiationTest(unittest.TestCase):
         return response.json()
 
     def test_exact_capabilities_and_early_malformed_rejection_on_every_surface(self):
-        from backend.core.review_display_client import require_review_display_client
+        from core.review_display_client import require_review_display_client
         for value in (capability.V1_CAPABILITY, capability.DUAL_CAPABILITY):
             self.assertEqual(require_review_display_client([value]), value)
         malformed = list(gate_support.UNSUPPORTED.values()) + [

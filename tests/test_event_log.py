@@ -14,7 +14,7 @@ from fastapi import HTTPException
 class EventLogTest(unittest.TestCase):
     def test_long_user_agent_is_bounded_before_sanitizing_and_boundary_secret_is_redacted(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             boundary_value = (
@@ -57,7 +57,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_event_log_redacts_credentials_but_preserves_operational_fields(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_event(
@@ -115,7 +115,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_event_log_redacts_secret_like_details(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_event(
@@ -143,7 +143,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_event_log_truncates_oversized_detail_values(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_event(
@@ -166,7 +166,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_event_log_truncates_oversized_top_level_fields(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_event(
@@ -189,7 +189,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_event_log_truncates_oversized_detail_keys(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_event(
@@ -213,7 +213,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_event_log_truncates_deeply_nested_detail_values(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             nested = "leaf"
@@ -234,7 +234,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_event_log_truncates_oversized_details_json(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             large_details = {f"field_{index}": "x" * 1000 for index in range(50)}
@@ -262,7 +262,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_api_failure_event_helper_records_without_authorization_token(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_api_failure(
@@ -291,7 +291,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_http_exception_message_is_safe_for_event_log(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             error = HTTPException(status_code=402, detail="Basic review quota exhausted.")
@@ -311,7 +311,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_list_events_can_filter_by_level_and_event_type(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_event(
@@ -335,7 +335,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_list_events_survives_invalid_details_json_rows(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             broken_event = event_log.record_event(
@@ -362,7 +362,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_list_events_omits_raw_details_json_from_results(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_event(
@@ -379,7 +379,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_list_events_can_filter_by_request_id(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_api_failure(
@@ -404,7 +404,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_list_events_treats_request_id_like_wildcards_literally(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_api_failure(
@@ -428,7 +428,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_list_events_can_filter_by_user_path_and_status_code(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_api_failure(
@@ -467,7 +467,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_list_events_can_filter_by_event_id_and_created_range(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             old_event = event_log.record_event(level="warning", event_type="old", path="/old")
@@ -504,7 +504,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_list_events_can_offset_for_next_page(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             first = event_log.record_event(level="warning", event_type="first", path="/first")
@@ -533,7 +533,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_summarize_events_groups_recent_events(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_event(level="error", event_type="google_play_purchase_failed", path="/journal")
@@ -550,7 +550,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_summarize_events_groups_status_codes_and_users(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_api_failure(
@@ -586,7 +586,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_summarize_events_reports_sample_offset(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             first = event_log.record_event(level="warning", event_type="first", path="/first")
@@ -616,7 +616,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_summarize_events_uses_the_same_filters_as_event_lookup(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             target_event = event_log.record_api_failure(
@@ -671,7 +671,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_purge_events_older_than_retention_days_keeps_recent_events(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             old_event = event_log.record_event(level="error", event_type="old_error", path="/old")
@@ -699,7 +699,7 @@ class EventLogTest(unittest.TestCase):
 
     def test_purge_events_older_than_rejects_excessive_retention_days(self):
         with storage_fixture():
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
 
@@ -712,7 +712,7 @@ class EventLogTest(unittest.TestCase):
         with storage_fixture(
             ALPHAMATE_EVENT_LOG_RETENTION_DAYS=None,
         ):
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             event_log.record_event(level="error", event_type="kept", path="/kept")
@@ -727,7 +727,7 @@ class EventLogTest(unittest.TestCase):
         with storage_fixture(
             ALPHAMATE_EVENT_LOG_RETENTION_DAYS="90",
         ):
-            from backend.core import event_log
+            from core import event_log
 
             event_log = importlib.reload(event_log)
             old_event = event_log.record_event(level="error", event_type="old_error", path="/old")

@@ -9,7 +9,7 @@ and each strong range are the compatibility invariant.
 from dataclasses import dataclass
 import re
 
-from backend.core.review_display_contract import ReviewDisplayContractError, validate_document
+from core.review_display_contract import ReviewDisplayContractError, validate_document
 
 
 CONTRACT_VERSION = "review-legacy-compatibility.v1"

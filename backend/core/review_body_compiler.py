@@ -1,14 +1,14 @@
 """Canonical body templates. Compatibility strings never enter this compiler."""
 
-from backend.core.journal import build_review
-from backend.core.review_display_contract import (
+from core.journal import build_review
+from core.review_display_contract import (
     SCHEMA_VERSION, compile_literal_text, compile_structured_review,
     parse_inline_strong, validate_document,
 )
-from backend.core.review_source_contract import (
+from core.review_source_contract import (
     ValidatedReviewSource, CompactChartSource, TechnicalObservationSource, EMPTY_REVIEW_TEXT,
 )
-from backend.core.review_source_projection import trade_payload, structured_review_payload
+from core.review_source_projection import trade_payload, structured_review_payload
 
 
 def compile_review_body(source):

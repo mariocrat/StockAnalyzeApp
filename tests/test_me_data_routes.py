@@ -4,7 +4,7 @@ require_storage_boundary()
 
 from tests.history_legacy_fixture import add_legacy_history_fixture
 
-from backend.core.review_display_contract import SCHEMA_VERSION
+from core.review_display_contract import SCHEMA_VERSION
 
 from tests.api_test_modules import api_module_state
 

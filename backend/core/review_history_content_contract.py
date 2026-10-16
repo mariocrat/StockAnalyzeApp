@@ -10,10 +10,10 @@ from datetime import date, datetime
 import math
 import re
 
-from backend.core.review_display_contract import (
+from core.review_display_contract import (
     ReviewDisplayContractError, compile_structured_review, validate_document,
 )
-from backend.core.review_history_write_contract import (
+from core.review_history_write_contract import (
     HistoryWriteContractError, validate_new_history_access,
 )
 

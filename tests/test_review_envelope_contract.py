@@ -10,9 +10,9 @@ import pickle
 import unittest
 from unittest.mock import patch
 
-from backend.core import review_envelope_contract as envelope_contract
-from backend.core.review_display_contract import ReviewDisplayContractError, validate_document
-from backend.core.review_envelope_contract import (
+from core import review_envelope_contract as envelope_contract
+from core.review_display_contract import ReviewDisplayContractError, validate_document
+from core.review_envelope_contract import (
     ApprovedReviewSnapshot, ReviewEnvelopeContractError, review_envelope_schema,
     validate_envelope,
 )

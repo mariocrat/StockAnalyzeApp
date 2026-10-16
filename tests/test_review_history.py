@@ -11,7 +11,7 @@ import unittest
 class ReviewHistoryStoreTest(unittest.TestCase):
     def test_review_history_is_isolated_by_user_and_returns_detail(self):
         with storage_fixture():
-            from backend.core import review_history
+            from core import review_history
 
             review_history = importlib.reload(review_history)
 
@@ -59,7 +59,7 @@ class ReviewHistoryStoreTest(unittest.TestCase):
 
     def test_clear_review_history_removes_only_requested_user(self):
         with storage_fixture():
-            from backend.core import review_history
+            from core import review_history
 
             review_history = importlib.reload(review_history)
 

@@ -16,7 +16,7 @@ from pathlib import Path
 from types import ModuleType
 from unittest.mock import patch
 
-from backend.core import env
+from core import env
 from tests import test_phase_a_runtime_environment as runtime
 
 # Import the real application under owned storage/HOME, never host configuration.

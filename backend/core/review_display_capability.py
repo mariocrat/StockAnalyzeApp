@@ -1,5 +1,5 @@
 """Closed display capability and selection AFTER whole bundle admission."""
-from backend.core.review_display_contract import SCHEMA_VERSION as V1_CAPABILITY
+from core.review_display_contract import SCHEMA_VERSION as V1_CAPABILITY
 
 DUAL_CAPABILITY = "review-display.v2"
 

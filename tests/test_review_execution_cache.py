@@ -11,11 +11,11 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from backend.core import review_execution_cache as execution
-from backend.core import review_approval_bundle as bundles
+from core import review_execution_cache as execution
+from core import review_approval_bundle as bundles
 from tests import test_review_display_client_gate as http_fixture
 from tests.test_review_durable_storage import fixture
-from backend.core.review_source_projection import trade_payload
+from core.review_source_projection import trade_payload
 
 
 class WholeExecutionCacheTest(unittest.TestCase):

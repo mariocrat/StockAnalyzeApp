@@ -14,8 +14,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from backend.core.review_display_contract import SCHEMA_VERSION
-from backend.core.review_history_adapter import history_list_projection
+from core.review_display_contract import SCHEMA_VERSION
+from core.review_history_adapter import history_list_projection
 from tests.test_review_history_adapter import canonical_record, legacy_record, UNSAFE
 from tests import test_review_route_compatibility as route_fixture
 from tests.test_review_route_compatibility import model_output

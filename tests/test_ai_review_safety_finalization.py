@@ -4,7 +4,7 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
-from backend.core.review_display_contract import SCHEMA_VERSION
+from core.review_display_contract import SCHEMA_VERSION
 
 from tests.review_source_fixtures import compact_chart_fixture, fallback_model_fixture, review_input_fixture
 

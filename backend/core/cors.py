@@ -1,7 +1,4 @@
-try:
-    from core.env import env_value
-except ModuleNotFoundError:
-    from backend.core.env import env_value
+from core.env import env_value
 
 
 DEFAULT_CORS_ORIGINS = [

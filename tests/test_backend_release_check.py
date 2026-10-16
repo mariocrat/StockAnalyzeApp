@@ -49,7 +49,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.enterContext(storage_fixture())
 
     def test_format_owner_release_readiness_report_hides_secret_values(self):
-        from backend.core.release_check import format_owner_release_readiness_report
+        from core.release_check import format_owner_release_readiness_report
 
         report = format_owner_release_readiness_report({
             "ok": False,
@@ -126,7 +126,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertNotIn("google-secret-json", report)
 
     def test_owner_release_report_shows_top_level_release_errors(self):
-        from backend.core.release_check import format_owner_release_readiness_report
+        from core.release_check import format_owner_release_readiness_report
 
         report = format_owner_release_readiness_report({
             "ok": False,
@@ -141,7 +141,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("운영 모드", report)
 
     def test_owner_release_report_explains_missing_oauth_redirect_uri_inputs(self):
-        from backend.core.release_check import format_owner_release_readiness_report
+        from core.release_check import format_owner_release_readiness_report
 
         report = format_owner_release_readiness_report({
             "ok": False,
@@ -175,7 +175,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("NAVER_REDIRECT_URI", report)
 
     def test_owner_release_report_explains_unsafe_data_storage_paths(self):
-        from backend.core.release_check import format_owner_release_readiness_report
+        from core.release_check import format_owner_release_readiness_report
 
         report = format_owner_release_readiness_report({
             "ok": False,
@@ -200,7 +200,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertNotIn("backend/data/accounts.sqlite3", report)
 
     def test_owner_release_report_explains_missing_data_storage_path_inputs(self):
-        from backend.core.release_check import format_owner_release_readiness_report
+        from core.release_check import format_owner_release_readiness_report
 
         report = format_owner_release_readiness_report({
             "ok": False,
@@ -236,7 +236,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("ALPHAMATE_ACCOUNT_DB_PATH", report)
 
     def test_owner_release_report_explains_missing_billing_ad_and_legal_inputs(self):
-        from backend.core.release_check import format_owner_release_readiness_report
+        from core.release_check import format_owner_release_readiness_report
 
         report = format_owner_release_readiness_report({
             "ok": False,
@@ -271,7 +271,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
         self.assertIn("ADMOB_REWARDED_AD_UNIT_ID", report)
 
     def test_owner_release_report_lists_all_next_actions(self):
-        from backend.core.release_check import format_owner_release_readiness_report
+        from core.release_check import format_owner_release_readiness_report
 
         missing = [f"SETTING_{index}" for index in range(12)]
         report = format_owner_release_readiness_report({
@@ -314,7 +314,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             ALPHAMATE_ADMIN_TOKEN=None,
             ALPHAMATE_CORS_ORIGINS=None,
         ):
-            from backend.core.release_check import format_backend_release_check, validate_backend_release_env
+            from core.release_check import format_backend_release_check, validate_backend_release_env
 
             result = validate_backend_release_env()
             formatted = format_backend_release_check(result)
@@ -364,7 +364,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             ALPHAMATE_ADMIN_TOKEN="admin-token-with-at-least-32-characters",
             ALPHAMATE_CORS_ORIGINS="https://app.alphamate.example,capacitor://localhost",
         ):
-            from backend.core.release_check import validate_backend_release_env
+            from core.release_check import validate_backend_release_env
 
             result = validate_backend_release_env()
             joined_errors = "\n".join(result["errors"])
@@ -404,7 +404,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
             ALPHAMATE_ADMIN_TOKEN="admin-token-with-at-least-32-characters",
             ALPHAMATE_CORS_ORIGINS="https://app.alphamate.example,capacitor://localhost",
         ):
-            from backend.core.release_check import format_backend_release_check, validate_backend_release_env
+            from core.release_check import format_backend_release_check, validate_backend_release_env
 
             result = validate_backend_release_env()
             formatted = format_backend_release_check(result)
@@ -480,7 +480,7 @@ class BackendReleaseCheckTest(unittest.TestCase):
                 ALPHAMATE_EVENT_LOG_DB_PATH=None,
                 ALPHAMATE_CORS_ORIGINS=None,
             ):
-                from backend.core.release_check import format_backend_release_check, validate_backend_release_env
+                from core.release_check import format_backend_release_check, validate_backend_release_env
 
                 result = validate_backend_release_env()
                 formatted = format_backend_release_check(result)

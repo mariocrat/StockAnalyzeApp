@@ -1,5 +1,5 @@
 """Default-OFF paired generation gate; display capability is not execution identity."""
-from backend.core.env import env_value
+from core.env import env_value
 
 PAIRED_GENERATION_SETTING = "ALPHAMATE_REVIEW_DISPLAY_V2_ENABLED"
 

@@ -10,10 +10,7 @@ import threading
 import time
 from pathlib import Path
 
-try:
-    from core.env import cache_directory, env_value
-except ModuleNotFoundError:
-    from backend.core.env import cache_directory, env_value
+from core.env import cache_directory, env_value
 
 
 DEFAULT_CACHE_DIR = Path(__file__).resolve().parents[1] / ".cache"
@@ -785,7 +782,7 @@ def _admit_review_ohlcv(df, *, provider_ticker=None, allow_change=False):
     Only FDR's declared optional Change and yfinance's exact single-symbol
     column layout are additional transport variants; neither hides extra data.
     """
-    from backend.core.review_source_contract import SourceAdmissionError
+    from core.review_source_contract import SourceAdmissionError
 
     if not isinstance(df, pd.DataFrame):
         raise SourceAdmissionError("invalid market frame")
@@ -845,7 +842,7 @@ def get_review_stock_ohlcv(ticker: str, start_date: str, end_date: str):
     Transport failures and genuinely empty samples may use the next provider.
     SourceAdmissionError is terminal and cannot enter that fallback handling.
     """
-    from backend.core.review_source_contract import SourceAdmissionError
+    from core.review_source_contract import SourceAdmissionError
     import warnings
 
     start_text = f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]}"

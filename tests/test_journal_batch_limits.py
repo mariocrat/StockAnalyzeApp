@@ -2,7 +2,7 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
-from backend.core.review_display_contract import SCHEMA_VERSION
+from core.review_display_contract import SCHEMA_VERSION
 
 from tests.api_test_modules import api_module_state
 

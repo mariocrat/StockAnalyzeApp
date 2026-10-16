@@ -15,18 +15,18 @@ import math
 import re
 from datetime import date, datetime
 
-from backend.core.review_display_contract import (
+from core.review_display_contract import (
     MAX_CANONICAL_CODEPOINTS, MAX_RUN_CODEPOINTS, compile_literal_text,
     compile_structured_review, parse_inline_strong, validate_document,
 )
-from backend.core.review_envelope_contract import (
+from core.review_envelope_contract import (
     MAX_DEPTH, MAX_NODES, MAX_SAFE_INTEGER, validate_chart_display_snapshot,
 )
-from backend.core.review_legacy_compatibility import admit_legacy_body
-from backend.core.review_source_contract import (
+from core.review_legacy_compatibility import admit_legacy_body
+from core.review_source_contract import (
     UNAVAILABLE_REVIEW_TEXT, admit_objective_source, admit_semantic_source,
 )
-from backend.core.trade_review_schema import structured_output_schema
+from core.trade_review_schema import structured_output_schema
 
 
 SUMMARY_FIELDS = (
@@ -534,12 +534,12 @@ def adapt_history_record(value, *, unsafe_text, project_trade, project_chart, pr
     compilers. All input is closed/typed and content checked before they run;
     supplied documents must agree with their deterministic projections.
     """
-    from backend.core.review_display_capability import require_display_capability
+    from core.review_display_capability import require_display_capability
     require_display_capability(display_capability)
-    from backend.core.review_history_paired import (
+    from core.review_history_paired import (
         StoredPairedHistoryRow, admit_stored_paired_history, paired_history_projection, paired_marker,
     )
-    from backend.core.review_history_json_codec import DurableStorageError
+    from core.review_history_json_codec import DurableStorageError
     if type(value) is StoredPairedHistoryRow:
         if paired_storage_enabled is not True:
             return _unavailable(value.context)

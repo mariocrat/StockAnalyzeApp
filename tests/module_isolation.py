@@ -15,8 +15,13 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 from unittest.mock import patch
 
-from backend.core import env as configuration
-from backend.core.env import DB_FILES, REPOSITORY_ROOT, validate_configuration
+# Standalone boundary probes use the same package root as Render, not a second alias.
+_BACKEND = str(Path(__file__).resolve().parents[1] / "backend")
+if _BACKEND not in sys.path:
+    sys.path.insert(0, _BACKEND)
+
+from core import env as configuration
+from core.env import DB_FILES, REPOSITORY_ROOT, validate_configuration
 from scripts.create_release_env_files import RELEASE_ENV_FILES
 from tests import phase_a_isolation as phase_a
 from tests.phase_a_isolation import _socketpair_operation, install_network_patches

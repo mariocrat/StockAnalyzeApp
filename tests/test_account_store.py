@@ -14,7 +14,7 @@ class AccountStoreTest(unittest.TestCase):
     def test_provider_login_reuses_user_and_authenticates_session(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
 
-            from backend.core import account_store
+            from core import account_store
 
             account_store = importlib.reload(account_store)
             first = account_store.login_dev_provider(
@@ -45,7 +45,7 @@ class AccountStoreTest(unittest.TestCase):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
             account_db = storage.paths["ALPHAMATE_ACCOUNT_DB_PATH"]
 
-            from backend.core import account_store
+            from core import account_store
 
             account_store = importlib.reload(account_store)
             session = account_store.login_dev_provider(
@@ -67,7 +67,7 @@ class AccountStoreTest(unittest.TestCase):
     def test_access_wallets_are_separated_by_login_session_user(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
 
-            from backend.core import access_control, account_store
+            from core import access_control, account_store
 
             account_store = importlib.reload(account_store)
             access_control = importlib.reload(access_control)
@@ -104,7 +104,7 @@ class AccountStoreTest(unittest.TestCase):
     def test_journal_storage_setting_can_be_changed_for_session_user(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
 
-            from backend.core import account_store
+            from core import account_store
 
             account_store = importlib.reload(account_store)
             session = account_store.login_dev_provider(
@@ -125,7 +125,7 @@ class AccountStoreTest(unittest.TestCase):
     def test_privacy_consent_can_be_recorded_for_session_user(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
 
-            from backend.core import account_store
+            from core import account_store
 
             account_store = importlib.reload(account_store)
             session = account_store.login_dev_provider(
@@ -149,7 +149,7 @@ class AccountStoreTest(unittest.TestCase):
     def test_privacy_consent_version_is_length_limited(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true") as storage:
 
-            from backend.core import account_store
+            from core import account_store
 
             account_store = importlib.reload(account_store)
             session = account_store.login_dev_provider(
@@ -170,7 +170,7 @@ class AccountStoreTest(unittest.TestCase):
 
     def test_current_privacy_consent_version_is_length_limited(self):
         with storage_fixture(ALPHAMATE_PRIVACY_CONSENT_VERSION="privacy-" + ("v" * 500)):
-            from backend.core import account_store
+            from core import account_store
 
             account_store = importlib.reload(account_store)
 
@@ -184,7 +184,7 @@ class AccountStoreTest(unittest.TestCase):
             review_history_db = storage.paths["ALPHAMATE_REVIEW_HISTORY_DB_PATH"]
             event_log_db = storage.paths["ALPHAMATE_EVENT_LOG_DB_PATH"]
 
-            from backend.core import access_control, account_store, event_log, journal, review_history
+            from core import access_control, account_store, event_log, journal, review_history
 
             account_store = importlib.reload(account_store)
             access_control = importlib.reload(access_control)

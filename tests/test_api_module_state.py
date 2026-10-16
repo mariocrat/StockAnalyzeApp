@@ -33,6 +33,56 @@ def state_snapshot():
 
 
 class ApiModuleStateTest(unittest.TestCase):
+    def test_render_backend_cwd_import_uses_one_namespace_without_side_effects(self):
+        import ast
+        import importlib
+        import importlib.abc
+        import sqlite3
+        import threading
+        from uvicorn.importer import import_from_string
+
+        backend = Path(__file__).resolve().parents[1] / "backend"
+        for path in backend.rglob("*.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8-sig"))
+            imports = [name for node in ast.walk(tree) for name in (
+                [node.module or ""] if isinstance(node, ast.ImportFrom) else
+                [alias.name for alias in node.names] if isinstance(node, ast.Import) else [])]
+            self.assertFalse(any(name == "backend" or name.startswith("backend.")
+                                 for name in imports), path)
+
+        class RenderNamespace(importlib.abc.MetaPathFinder):
+            def find_spec(self, fullname, path=None, target=None):
+                if fullname == "backend" or fullname.startswith("backend."):
+                    raise ModuleNotFoundError("backend is unavailable from Render cwd", name=fullname)
+
+        with storage_fixture() as fixture, api._import_state(), patch.dict(sys.modules), patch.object(
+                sys, "path", [str(backend), *(entry for entry in sys.path
+                    if entry and Path(entry).resolve() != backend.parent)]), patch.object(
+                sys, "meta_path", [RenderNamespace(), *sys.meta_path]):
+            os.chdir(backend)
+            before = {path.relative_to(fixture.root) for path in fixture.root.rglob("*")}
+            for name in tuple(sys.modules):
+                if name in {"main", "core", "backend"} or name.startswith(("core.", "backend.")):
+                    del sys.modules[name]
+            with patch.object(sqlite3, "connect", side_effect=AssertionError("startup DB access")) as connect, patch.object(
+                    threading.Thread, "start", side_effect=AssertionError("startup background work")) as start:
+                app = import_from_string("main:app")
+                main = sys.modules["main"]
+                ai = importlib.import_module("core.ai_review_v2")
+                source = importlib.import_module("core.review_source_contract")
+                envelope = importlib.import_module("core.review_envelope_contract")
+                self.assertIs(app, main.app)
+                self.assertIs(ai.TradeSource, source.TradeSource)
+                self.assertIs(ai.ApprovedReviewSnapshot, envelope.ApprovedReviewSnapshot)
+                self.assertIs(main.ApprovedReviewSnapshot, envelope.ApprovedReviewSnapshot)
+                self.assertFalse(any(name == "backend" or name.startswith("backend.") for name in sys.modules))
+                loaded = [Path(module.__file__).resolve() for name, module in sys.modules.items()
+                          if name.startswith("core.") and getattr(module, "__file__", None)]
+                self.assertEqual(len(loaded), len(set(loaded)))
+                connect.assert_not_called()
+                start.assert_not_called()
+                self.assertEqual(before, {path.relative_to(fixture.root) for path in fixture.root.rglob("*")})
+
     def test_market_async_lifecycle_restores_state_and_closes_loop(self):
         import asyncio
         from tests.test_market_rate_limits import MarketRateLimitTest

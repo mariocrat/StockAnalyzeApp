@@ -11,7 +11,7 @@ from fastapi import HTTPException
 class AccessControlPersistenceTest(unittest.TestCase):
     def test_first_oauth_login_advanced_ticket_is_granted_only_once(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             self.assertTrue(access_control.grant_first_login_advanced_review("dev-user"))
@@ -36,7 +36,7 @@ class AccessControlPersistenceTest(unittest.TestCase):
     def test_advanced_review_without_ticket_returns_korean_guidance(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"):
 
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             with self.assertRaises(HTTPException) as raised:
@@ -53,7 +53,7 @@ class AccessControlPersistenceTest(unittest.TestCase):
 
     def test_rewarded_ads_can_be_claimed_toward_advanced_ticket(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true", ALPHAMATE_ADS_PER_ADVANCED_TICKET="2"):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             first = access_control.claim_rewarded_ad_progress(
@@ -106,7 +106,7 @@ class AccessControlPersistenceTest(unittest.TestCase):
     def test_purchased_advanced_credits_survive_module_reload(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"):
 
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(

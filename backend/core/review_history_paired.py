@@ -2,10 +2,10 @@
 import json
 from dataclasses import dataclass
 
-from backend.core.review_durable_storage_approval import DurableReadAdmission, read_durable_history
-from backend.core.review_durable_storage_contract import CONTEXT_KEYS, SNAPSHOT_KEYS, validate_read_safety
-from backend.core.review_history_json_codec import DurableStorageError, MAX_OUTER_BYTES, require, sql_json
-from backend.core.review_display_capability import V1_CAPABILITY, select_admitted_body
+from core.review_durable_storage_approval import DurableReadAdmission, read_durable_history
+from core.review_durable_storage_contract import CONTEXT_KEYS, SNAPSHOT_KEYS, validate_read_safety
+from core.review_history_json_codec import DurableStorageError, MAX_OUTER_BYTES, require, sql_json
+from core.review_display_capability import V1_CAPABILITY, select_admitted_body
 
 RESERVED_KEYS = frozenset(("storage_schema_version", "kind", "codec_version", "payload", "payload_digest",
                           "representations", "source_identity", "objective_identity"))
@@ -108,8 +108,8 @@ def admit_stored_paired_history(row, *, unsafe_text):
 def paired_history_projection(admission, *, unsafe_text, display_capability=V1_CAPABILITY):
     """Preserve admitted body/B and original SQL A/trades/access without compilers."""
     require(type(admission) is DurableReadAdmission, "INVALID_READ_AUTHORITY")
-    from backend.core.review_history_adapter import _restorable
-    from backend.core.review_display_contract import compile_literal_text
+    from core.review_history_adapter import _restorable
+    from core.review_display_contract import compile_literal_text
 
     context, snapshots = admission.payload["row_context"], admission.sql_snapshots
     record = {key: value for key, value in context.items() if key != "user_id"}

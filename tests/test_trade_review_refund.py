@@ -4,7 +4,7 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 
 require_storage_boundary()
 
-from backend.core.review_display_contract import SCHEMA_VERSION
+from core.review_display_contract import SCHEMA_VERSION
 
 from tests.review_source_fixtures import compact_chart_fixture, fallback_model_fixture, review_input_fixture, history_chart_fixture
 
@@ -15,7 +15,7 @@ import copy
 import json
 import unittest
 from unittest.mock import patch
-from backend.core.review_legacy_compatibility import admit_legacy_body
+from core.review_legacy_compatibility import admit_legacy_body
 
 
 def _valid_advanced_output():

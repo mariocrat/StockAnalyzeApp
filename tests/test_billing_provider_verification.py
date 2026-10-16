@@ -59,7 +59,7 @@ def patched_env(**values):
 
 
 with _import_state():
-    from backend.core import access_control as _access_control
+    from core import access_control as _access_control
 
 
 class BillingProviderVerificationTest(unittest.TestCase):
@@ -76,7 +76,7 @@ class BillingProviderVerificationTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_admob_ssv_signature = lambda raw_query: {
@@ -101,7 +101,7 @@ class BillingProviderVerificationTest(unittest.TestCase):
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_admob_ssv_signature = lambda raw_query: {
@@ -143,7 +143,7 @@ class BillingProviderVerificationTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_admob_ssv_signature = lambda raw_query: {
@@ -175,7 +175,7 @@ class BillingProviderVerificationTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_admob_ssv_signature = lambda raw_query: {
@@ -195,7 +195,7 @@ class BillingProviderVerificationTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ADMOB_REWARDED_AD_UNIT_ID="ca-app-pub-1234567890123456/9876543210",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_admob_ssv_signature = lambda raw_query: {
@@ -217,7 +217,7 @@ class BillingProviderVerificationTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ADMOB_REWARDED_AD_UNIT_ID="ca-app-pub-1234567890123456/9876543210",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_admob_ssv_signature = lambda raw_query: {
@@ -245,7 +245,7 @@ class BillingProviderVerificationTest(unittest.TestCase):
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_admob_ssv_signature = lambda raw_query: {
@@ -285,7 +285,7 @@ class BillingProviderVerificationTest(unittest.TestCase):
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             ADMOB_REWARDED_AD_UNIT_ID="rewarded-unit-1",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_admob_ssv_signature = lambda raw_query: {

@@ -59,7 +59,7 @@ def patched_env(**values):
 
 
 with _import_state():
-    from backend.core import account_store as _account_store, access_control as _access_control
+    from core import account_store as _account_store, access_control as _access_control
 
 
 class BillingSubscriptionTransportTest(unittest.TestCase):
@@ -80,7 +80,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             future = "2099-01-01T00:00:00Z"
@@ -121,7 +121,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_PRO_MONTHLY_ID=long_product_id,
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_google_play_subscription = lambda **kwargs: {
@@ -158,7 +158,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_google_play_subscription = lambda **kwargs: {
@@ -193,7 +193,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_google_play_subscription = lambda **kwargs: {
@@ -231,7 +231,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
         ):
-            from backend.core import access_control, account_store
+            from core import access_control, account_store
 
             access_control = importlib.reload(access_control)
             account_store = importlib.reload(account_store)
@@ -287,7 +287,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_google_play_subscription = lambda **kwargs: {
@@ -322,7 +322,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_google_play_subscription = lambda **kwargs: {
@@ -360,7 +360,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(
@@ -418,7 +418,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(
@@ -478,7 +478,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             subscription = {
@@ -553,7 +553,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
 
@@ -587,7 +587,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             subscription = {
@@ -641,7 +641,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_PACKAGE_NAME="com.alphamate.app",
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
 
@@ -706,7 +706,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             subscription_state = {
@@ -769,7 +769,7 @@ class BillingSubscriptionTransportTest(unittest.TestCase):
             GOOGLE_PLAY_RTDN_OIDC_AUDIENCE="https://example.com/rtdn",
             GOOGLE_PLAY_RTDN_OIDC_EMAIL="pubsub-push@example.iam.gserviceaccount.com",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control._verify_rtdn_oidc_token = lambda authorization: {

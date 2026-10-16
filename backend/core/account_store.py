@@ -9,10 +9,7 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-try:
-    from core.env import database_path, dev_access_enabled, env_value, is_production
-except ModuleNotFoundError:
-    from backend.core.env import database_path, dev_access_enabled, env_value, is_production
+from core.env import database_path, dev_access_enabled, env_value, is_production
 
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
@@ -516,16 +513,10 @@ def delete_user_account_data(authorization: str | None) -> dict:
     user = authenticate_session(authorization)
     user_id = user["id"]
 
-    try:
-        from core.access_control import delete_user_access_data
-        from core.event_log import clear_events_for_user
-        from core.journal import clear_trades
-        from core.review_history import clear_review_history
-    except ModuleNotFoundError:
-        from backend.core.access_control import delete_user_access_data
-        from backend.core.event_log import clear_events_for_user
-        from backend.core.journal import clear_trades
-        from backend.core.review_history import clear_review_history
+    from core.access_control import delete_user_access_data
+    from core.event_log import clear_events_for_user
+    from core.journal import clear_trades
+    from core.review_history import clear_review_history
 
     deleted_trades = clear_trades(user_id=user_id)
     deleted_review_history = clear_review_history(user_id=user_id)

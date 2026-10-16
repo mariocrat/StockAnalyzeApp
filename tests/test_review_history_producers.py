@@ -24,8 +24,8 @@ from fastapi import HTTPException
 from tests.api_test_modules import api_module_state
 from tests.review_source_fixtures import compact_chart_fixture
 from tests.test_review_finalizer_compatibility import model_output
-from backend.core.review_display_contract import SCHEMA_VERSION
-from backend.core.review_legacy_compatibility import admit_legacy_body
+from core.review_display_contract import SCHEMA_VERSION
+from core.review_legacy_compatibility import admit_legacy_body
 
 
 # Independent declarations: do not derive expected keys/types from admission.

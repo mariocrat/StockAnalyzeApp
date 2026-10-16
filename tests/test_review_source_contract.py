@@ -12,7 +12,7 @@ import pickle
 from pathlib import Path
 import unittest
 
-from backend.core import review_source_contract as source
+from core import review_source_contract as source
 
 
 def _source_dto_classes(namespace=None):

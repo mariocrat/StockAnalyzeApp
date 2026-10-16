@@ -15,11 +15,11 @@ from pathlib import Path
 import unittest
 from unittest.mock import Mock, patch
 
-from backend.core import review_history_approved_write as contract
-from backend.core import review_history_content_contract as content
-from backend.core import review_history_prepared_content as prepared_contract
-from backend.core.review_envelope_contract import ApprovedReviewSnapshot
-from backend.core.review_history_write_contract import HistoryWriteContractError
+from core import review_history_approved_write as contract
+from core import review_history_content_contract as content
+from core import review_history_prepared_content as prepared_contract
+from core.review_envelope_contract import ApprovedReviewSnapshot
+from core.review_history_write_contract import HistoryWriteContractError
 from tests import test_review_history_write_access as access_tests
 from tests import test_review_history_write_content as content_tests
 from tests import test_review_history_producers as producers
@@ -509,12 +509,12 @@ class ApprovedHistoryWriteTest(unittest.TestCase):
         tree = ast.parse(Path(contract.__file__).read_text(encoding="utf-8"))
         imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
         imports.update(alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names)
-        self.assertEqual({"datetime", "hashlib", "json", "re", "backend.core",
-                          "backend.core.review_history_prepared_content", "backend.core.review_history_write_contract"}, imports)
+        self.assertEqual({"datetime", "hashlib", "json", "re", "core",
+                          "core.review_history_prepared_content", "core.review_history_write_contract"}, imports)
         with access_tests.producer() as case, ExitStack() as stack:
             import builtins
             import sqlite3
-            from backend.core import review_history_adapter, review_legacy_compatibility, trade_review_schema
+            from core import review_history_adapter, review_legacy_compatibility, trade_review_schema
 
             def forbidden(*args, **kwargs):
                 raise AssertionError("approved write crossed a forbidden dependency")

@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 import re
 
-from backend.core.review_display_contract import (
+from core.review_display_contract import (
     BLOCK_TYPES, RUN_TYPES, MAX_BLOCKS, MAX_RUNS_PER_BLOCK, MAX_TOTAL_RUNS,
     MAX_RUN_CODEPOINTS, MAX_CANONICAL_CODEPOINTS, MAX_SEPARATOR_CODEPOINTS,
 )

@@ -3,7 +3,7 @@ import unittest
 
 class RateLimitTest(unittest.TestCase):
     def test_allows_until_limit_then_returns_retry_after(self):
-        from backend.core.rate_limit import InMemoryRateLimiter
+        from core.rate_limit import InMemoryRateLimiter
 
         limiter = InMemoryRateLimiter()
 
@@ -19,7 +19,7 @@ class RateLimitTest(unittest.TestCase):
         self.assertEqual(40, third["retry_after_seconds"])
 
     def test_prunes_old_attempts_after_window(self):
-        from backend.core.rate_limit import InMemoryRateLimiter
+        from core.rate_limit import InMemoryRateLimiter
 
         limiter = InMemoryRateLimiter()
         limiter.check("client-a", limit=1, window_seconds=60, now=1000.0)
@@ -30,7 +30,7 @@ class RateLimitTest(unittest.TestCase):
         self.assertEqual(0, result["remaining"])
 
     def test_prunes_expired_keys_when_key_count_exceeds_cap(self):
-        from backend.core.rate_limit import InMemoryRateLimiter
+        from core.rate_limit import InMemoryRateLimiter
 
         limiter = InMemoryRateLimiter(max_keys=2)
         limiter.check("expired-a", limit=1, window_seconds=60, now=1000.0)

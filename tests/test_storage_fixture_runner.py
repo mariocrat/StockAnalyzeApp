@@ -122,8 +122,8 @@ except RuntimeError as error:
 else:
     raise AssertionError("unguarded module import succeeded")
 assert not any(name in sys.modules for name in (
-    "backend.core.account_store", "backend.core.access_control",
-    "backend.core.journal", "backend.core.review_history", "backend.core.event_log",
+    "core.account_store", "core.access_control",
+    "core.journal", "core.review_history", "core.event_log",
     "main", "backend.main"))
 '''
                     result = subprocess.run([sys.executable, "-I", "-B", "-c", code],

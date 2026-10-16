@@ -7,8 +7,8 @@ import tempfile
 from contextlib import ExitStack, closing, contextmanager
 from unittest.mock import patch
 
-from backend.core.env import validate_configuration
 from tests.module_isolation import current_boundary, sanitized_environment
+from core.env import validate_configuration
 
 
 def require_storage_boundary():

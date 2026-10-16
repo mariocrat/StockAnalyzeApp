@@ -21,14 +21,14 @@ from unittest.mock import patch
 
 import requests
 from curl_cffi import requests as curl_requests
-from backend.core import env
+from core import env
 from tests import phase_a_isolation as phase
 from tests.phase_a_isolation import isolated_runtime as _legacy_runtime
 
 # Import real store dependencies under A1 and a disposable storage environment.
 # No application/main import, reload or lifespan is needed by these 16 cases.
 with storage_fixture():
-    _STORES = tuple(importlib.import_module("backend.core." + name) for name in
+    _STORES = tuple(importlib.import_module("core." + name) for name in
                     ("account_store", "access_control", "journal", "review_history", "event_log"))
     for _name in ("fastapi.middleware.asyncexitstack", "starlette.middleware.errors",
                   "starlette.middleware.exceptions"):
@@ -296,7 +296,7 @@ class PhaseAEnvironmentTest(_OwnedCase, unittest.TestCase):
                 ("review_history", "_db_path", "ALPHAMATE_REVIEW_HISTORY_DB_PATH"),
                 ("event_log", "event_log_db_path", "ALPHAMATE_EVENT_LOG_DB_PATH"),
             ):
-                loaded = importlib.import_module(f"backend.core.{module}")
+                loaded = importlib.import_module(f"core.{module}")
                 self.assertEqual(getattr(loaded, function)(), Path(settings[key]))
                 connect = "_connect_access_db" if module == "access_control" else "_connect"
                 with closing(getattr(loaded, connect)()):
@@ -369,8 +369,8 @@ class PhaseAEnvironmentTest(_OwnedCase, unittest.TestCase):
     def test_invalid_configuration_cannot_open_any_database(self):
         with patch.dict(os.environ, ALPHAMATE_ENV="invalid"), patch.object(sqlite3, "connect") as connect, patch.object(Path, "mkdir") as mkdir:
             for module, function in (("account_store", "_connect"), ("access_control", "_connect_access_db"), ("journal", "_connect"), ("review_history", "_connect"), ("event_log", "_connect")):
-                loaded = importlib.import_module(f"backend.core.{module}")
-                # The repository supports both core.* and backend.core.* imports.
+                loaded = importlib.import_module(f"core.{module}")
+                # The repository supports both core.* and core.* imports.
                 # Assert the exact error class used by this module's resolver.
                 configuration_error = importlib.import_module(loaded.database_path.__module__).ConfigurationError
                 with self.assertRaises(configuration_error):

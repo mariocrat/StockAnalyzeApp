@@ -2,10 +2,11 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+BACKEND_ROOT = ROOT / "backend"
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
 
-from backend.core.release_check import format_backend_release_check, validate_backend_release_env
+from core.release_check import format_backend_release_check, validate_backend_release_env
 
 
 def main() -> int:

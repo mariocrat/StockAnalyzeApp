@@ -10,7 +10,7 @@ import unicodedata
 import unittest
 from unittest.mock import patch
 
-from backend.core.review_display_contract import SCHEMA_VERSION
+from core.review_display_contract import SCHEMA_VERSION
 from tests import test_review_history_write_access as access_fixture
 from tests import test_review_history_strict_writer as write_fixture
 from tests.review_source_fixtures import approved_chart_fixture

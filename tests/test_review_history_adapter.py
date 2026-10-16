@@ -6,7 +6,7 @@ require_storage_boundary()
 
 from tests.history_legacy_fixture import add_legacy_history_fixture
 
-from backend.core.review_display_contract import SCHEMA_VERSION
+from core.review_display_contract import SCHEMA_VERSION
 
 import copy
 import importlib
@@ -18,12 +18,12 @@ from unittest.mock import patch
 from fastapi import HTTPException
 from tests.api_test_modules import api_module_state
 from tests.module_isolation import current_boundary
-from backend.core.review_legacy_compatibility import admit_legacy_body
-from backend.core.review_source_contract import UNAVAILABLE_REVIEW_TEXT
-from backend.core.review_history_adapter import history_list_projection
-from backend.core.review_envelope_compiler import compile_review_envelope, seal_review_envelope
-from backend.core.review_envelope_contract import approved_chart_display_snapshot
-from backend.core.review_source_contract import finish_review_source
+from core.review_legacy_compatibility import admit_legacy_body
+from core.review_source_contract import UNAVAILABLE_REVIEW_TEXT
+from core.review_history_adapter import history_list_projection
+from core.review_envelope_compiler import compile_review_envelope, seal_review_envelope
+from core.review_envelope_contract import approved_chart_display_snapshot
+from core.review_source_contract import finish_review_source
 from tests.review_source_fixtures import approved_chart_fixture, review_input_fixture
 
 
@@ -156,7 +156,7 @@ class HistoryReadAdapterTest(unittest.TestCase):
         forbidden += [(self.main, name) for name in ("build_journal_charts", "verify_ai_review_access", "refund_ai_review_access")]
         forbidden += [(self.history, name) for name in ("_connect", "add_review_history", "delete_review_history", "clear_review_history")]
         if expected == "unavailable":
-            forbidden.append((importlib.import_module("backend.core.review_history_adapter"), "admit_semantic_source"))
+            forbidden.append((importlib.import_module("core.review_history_adapter"), "admit_semantic_source"))
         first = None
         with ExitStack() as stack:
             spies = [stack.enter_context(patch.object(module, name, side_effect=AssertionError(name))) for module, name in forbidden]
@@ -246,7 +246,7 @@ class HistoryReadAdapterTest(unittest.TestCase):
                     with self.subTest(review_type=review_type, canonical=canonical, mutation=index):
                         raw = semantic_record(review_type, canonical)
                         mutate(raw["ai_review"]["structured_review"], review_type)
-                        with patch("backend.core.review_history_adapter.admit_semantic_source", side_effect=AssertionError("unvalidated semantic")) as admission:
+                        with patch("core.review_history_adapter.admit_semantic_source", side_effect=AssertionError("unvalidated semantic")) as admission:
                             self.assert_unavailable(raw)
                             self.assertEqual(0, admission.call_count)
 

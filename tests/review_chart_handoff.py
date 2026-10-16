@@ -91,8 +91,8 @@ def child(runtime, stage):
     if stage not in STAGES:
         raise ValueError("unknown chart handoff stage")
     sys.path.insert(0, str(REPOSITORY))
-    from backend.core.review_display_contract import SCHEMA_VERSION
     from tests.module_isolation import Boundary, ProtectedPaths, isolated_module
+    from core.review_display_contract import SCHEMA_VERSION
 
     protected = ProtectedPaths(**json.loads(sys.stdin.read()))
     boundary = Boundary(runtime, protected)
@@ -103,7 +103,7 @@ def child(runtime, stage):
         from tests.test_review_route_compatibility import ProductionRouteCompatibilityTest, model_output
         from tests.test_review_history_adapter import legacy_record, canonical_record, UNSAFE
         from tests.review_source_fixtures import approved_chart_fixture, history_chart_fixture
-        from backend.core.review_history_adapter import history_list_projection
+        from core.review_history_adapter import history_list_projection
         import copy
 
         case = ProductionRouteCompatibilityTest()
@@ -204,7 +204,7 @@ def child(runtime, stage):
         if stage == "paired":
             from tests import test_review_display_negotiation as negotiation
             from tests.test_review_durable_storage import assemble
-            from backend.core.review_source_projection import trade_payload
+            from core.review_source_projection import trade_payload
         paired_case = negotiation.ReviewDisplayNegotiationTest() if stage == "paired" else None
         try:
             if paired_case is not None:

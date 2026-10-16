@@ -21,7 +21,7 @@ from unittest import mock
 import requests
 
 with _import_state():
-    from backend.core import data_fetcher as _data_fetcher
+    from core import data_fetcher as _data_fetcher
     from core import data_fetcher as _core_data_fetcher
 
 
@@ -192,7 +192,7 @@ class ThemeCacheWorkerTests(unittest.TestCase):
                     self.assertEqual(baseline, _state())
 
     def test_large_theme_fetch_keeps_outstanding_futures_and_results_bounded(self):
-        from backend.core import data_fetcher
+        from core import data_fetcher
 
         data_fetcher = importlib.reload(data_fetcher)
         ticker_count = 2393
@@ -291,7 +291,7 @@ class ThemeCacheWorkerTests(unittest.TestCase):
         self.assertEqual(ticker_count, result["1D"].iloc[0]["Num Stocks"])
 
     def test_worker_exception_still_exits_bounded_executor(self):
-        from backend.core import data_fetcher
+        from core import data_fetcher
 
         data_fetcher = importlib.reload(data_fetcher)
         themes = {"테스트 테마": ["000001", "000002", "000003"]}
@@ -332,7 +332,7 @@ class ThemeCacheWorkerTests(unittest.TestCase):
         self.assertTrue(all(reference() is None for reference in future_refs))
 
     def test_multiple_periods_are_calculated_from_one_bounded_fetch_pass(self):
-        from backend.core import data_fetcher
+        from core import data_fetcher
 
         data_fetcher = importlib.reload(data_fetcher)
         themes = {"테스트 테마": ["000001", "000002"]}
@@ -374,7 +374,7 @@ class ThemeCacheWorkerTests(unittest.TestCase):
         self._failure_paths(themes, names, rows)
 
     def test_period_returns_use_available_closes_and_exclude_tickers_without_two_rows(self):
-        from backend.core import data_fetcher
+        from core import data_fetcher
 
         data_fetcher = importlib.reload(data_fetcher)
         themes = {"테스트 테마": ["000001", "000002", "000003"]}

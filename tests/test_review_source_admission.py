@@ -16,8 +16,8 @@ import pandas as pd
 
 from tests.api_test_modules import _import_state
 from tests.test_review_source_contract import trade, chart, basic_semantic, advanced_semantic, _normal_context
-from backend.core import review_source_contract as contract
-from backend.core.review_source_projection import semantic_payload
+from core import review_source_contract as contract
+from core.review_source_projection import semantic_payload
 
 
 def journal_chart():

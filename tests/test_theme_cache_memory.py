@@ -82,7 +82,7 @@ class _Response:
 
 
 with _import_state():
-    from backend.core import data_fetcher as _data_fetcher
+    from core import data_fetcher as _data_fetcher
 
 
 class ThemeCacheMemoryTests(unittest.TestCase):
@@ -267,7 +267,7 @@ class ThemeCacheMemoryTests(unittest.TestCase):
         self.assertEqual(len(list(self.storage.cache.glob("theme_returns_v4_*.json"))), 4)
 
     def test_warm_cache_writes_separate_period_results_without_close_history_file(self):
-        from backend.core import data_fetcher
+        from core import data_fetcher
 
         with tempfile.TemporaryDirectory() as tmp:
             with mock.patch.dict(os.environ, {"ALPHAMATE_CACHE_DIR": tmp}):
@@ -301,7 +301,7 @@ class ThemeCacheMemoryTests(unittest.TestCase):
                 self.assertFalse(any(name.startswith("naver_closes_") for name in files))
 
     def test_reverse_split_is_normalized_before_return_calculation(self):
-        from backend.core import data_fetcher
+        from core import data_fetcher
 
         rows = [
             {"date": "20260716", "open": 181, "high": 181, "low": 181, "close": 181, "volume": 0},
@@ -315,7 +315,7 @@ class ThemeCacheMemoryTests(unittest.TestCase):
         self.assertAlmostEqual(-4.64, ((adjusted[1]["close"] / adjusted[0]["close"]) - 1) * 100, places=2)
 
     def test_gradual_market_move_is_not_treated_as_corporate_action(self):
-        from backend.core import data_fetcher
+        from core import data_fetcher
 
         rows = [
             {"date": "20260716", "open": 100, "high": 130, "low": 100, "close": 130, "volume": 100},

@@ -14,10 +14,10 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from backend.core.review_display_contract import SCHEMA_VERSION
-from backend.core.review_envelope_contract import ApprovedReviewSnapshot
-from backend.core import review_history_approved_write as approval_contract
-from backend.core.review_history_write_contract import HistoryWriteContractError
+from core.review_display_contract import SCHEMA_VERSION
+from core.review_envelope_contract import ApprovedReviewSnapshot
+from core import review_history_approved_write as approval_contract
+from core.review_history_write_contract import HistoryWriteContractError
 from tests import test_review_history_write_access as access_tests
 from tests import test_review_history_write_content as content_tests
 from tests import test_review_history_producers as producers

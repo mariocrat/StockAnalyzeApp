@@ -345,6 +345,7 @@
         "ApiModuleStateTest.test_billing_limiter_restores_after_consuming_testcase_and_failures",
         "ApiModuleStateTest.test_market_async_lifecycle_restores_state_and_closes_loop",
         "ApiModuleStateTest.test_partial_reload_failure_restores_modules_and_logger_filters",
+        "ApiModuleStateTest.test_render_backend_cwd_import_uses_one_namespace_without_side_effects",
         "ApiModuleStateTest.test_route_state_and_patches_restore_after_each_testcase_outcome"
       ],
       "skips": {}

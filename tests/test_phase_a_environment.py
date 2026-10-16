@@ -18,7 +18,7 @@ from tests import test_phase_a_runtime_environment as runtime
 with storage_fixture():
     from tests import test_oauth_login as local
     from tests import test_oauth_login_transport as transport
-    from backend.core import oauth_login
+    from core import oauth_login
 
 
 def _state():
@@ -27,7 +27,7 @@ def _state():
         name: {key: id(value) for key, value in vars(module).items()}
         for name, module in modules.items()
         if isinstance(module, ModuleType) and
-        (name == __name__ or name == "main" or name.startswith(("core.", "backend.core."))
+        (name == __name__ or name == "main" or name.startswith(("core.", "core."))
          or "__path__" in vars(module))
     }
     targets = ((oauth_login.requests, "get"), (oauth_login.requests, "post"),

@@ -25,6 +25,7 @@ import sqlite3
 REPOSITORY = Path(__file__).resolve().parents[1]
 # -I excludes the caller's CWD and PYTHONPATH; insert this trusted checkout only.
 sys.path.insert(0, str(REPOSITORY))
+sys.path.insert(0, str(REPOSITORY / "backend"))
 from tests.module_isolation import Boundary, IsolationViolation, isolated_module, sanitized_environment, protected_paths, ProtectedPaths
 from tests.isolation_inventory import COORDINATORS, InventoryError, expected_skips, inventory_summary, load_inventory
 from tests.isolation_inventory import NODE_SUPPORT, load_node_inventory, node_inventory_summary, node_source_path, node_source_hash, validated_node_fixture, validated_react_snapshot, _unique_object

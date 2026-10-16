@@ -15,8 +15,8 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from backend.core import review_history_content_contract as contract
-from backend.core.review_history_write_contract import HistoryWriteContractError
+from core import review_history_content_contract as contract
+from core.review_history_write_contract import HistoryWriteContractError
 from tests import test_review_history_write_access as access_tests
 from tests.review_source_fixtures import approved_chart_fixture
 
@@ -582,11 +582,11 @@ class NewHistoryContentTest(unittest.TestCase):
         tree = ast.parse(Path(contract.__file__).read_text(encoding="utf-8"))
         imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
         imports.update(alias.name for node in ast.walk(tree) if isinstance(node, ast.Import) for alias in node.names)
-        self.assertEqual({"datetime", "math", "re", "backend.core.review_display_contract", "backend.core.review_history_write_contract"}, imports)
+        self.assertEqual({"datetime", "math", "re", "core.review_display_contract", "core.review_history_write_contract"}, imports)
         with access_tests.producer() as case, ExitStack() as stack:
             import builtins
             import sqlite3
-            from backend.core import review_source_contract, trade_review_schema, review_history_adapter, review_legacy_compatibility
+            from core import review_source_contract, trade_review_schema, review_history_adapter, review_legacy_compatibility
 
             def forbidden(*args, **kwargs):
                 raise AssertionError("new content contract crossed a forbidden dependency")

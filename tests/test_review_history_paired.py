@@ -11,10 +11,10 @@ import sqlite3
 import unittest
 from unittest.mock import patch
 
-from backend.core import review_durable_storage_approval as durable
-from backend.core import review_history_paired as paired
-from backend.core.review_history_json_codec import DurableStorageError, canonical_json, outer_json
-from backend.core.review_durable_storage_contract import payload_digest
+from core import review_durable_storage_approval as durable
+from core import review_history_paired as paired
+from core.review_history_json_codec import DurableStorageError, canonical_json, outer_json
+from core.review_durable_storage_contract import payload_digest
 from tests.test_review_durable_storage import fixture, unsafe_text
 import tests.test_review_display_client_gate as _gate_support
 from tests.test_review_history_adapter import legacy_record, canonical_record
@@ -387,9 +387,9 @@ class PairedHistoryIntegrationTest(unittest.TestCase):
         with patch.object(self.history, "_json_loads", side_effect=AssertionError("legacy parser")):
             stored = self.history._row_to_detail(row)
         self.assertIs(type(stored), paired.StoredPairedHistoryRow)
-        with patch("backend.core.review_body_compiler.compile_review_body", side_effect=AssertionError("v1 compile")), patch(
-                "backend.core.review_display_v2_compiler.compile_body", side_effect=AssertionError("v2 compile")), patch(
-                "backend.core.review_envelope_compiler.compile_review_envelope", side_effect=AssertionError("envelope compile")):
+        with patch("core.review_body_compiler.compile_review_body", side_effect=AssertionError("v1 compile")), patch(
+                "core.review_display_v2_compiler.compile_body", side_effect=AssertionError("v2 compile")), patch(
+                "core.review_envelope_compiler.compile_review_envelope", side_effect=AssertionError("envelope compile")):
             self.assertEqual(self.ai.safe_legacy_history_snapshot(stored), committed.record)
         self.assertTrue(paired.paired_marker_in_text('{"p\\u0061yload":"x"}'))
         self.assertFalse(paired.paired_marker_in_text('{"summary":"payload", "chart_snapshot":{"payload":"nested"}}'))
@@ -410,7 +410,7 @@ class PairedHistoryIntegrationTest(unittest.TestCase):
         self.assertEqual(before, self.gate.history_state())
 
     def test_live_generation_remains_v1_only_even_with_paired_history_support(self):
-        from backend.core import review_display_activation, review_approval_bundle
+        from core import review_display_activation, review_approval_bundle
         self.assertFalse(review_display_activation.paired_generation_enabled())
         for kind in ("basic", "advanced"):
             with patch.object(self.ai, "_call_openai_review", return_value=json.dumps(model_output(kind))), patch.object(

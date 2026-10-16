@@ -57,7 +57,7 @@ def patched_env(**values):
 
 
 with _import_state():
-    from backend.core import access_control as _access_control, readiness as _readiness
+    from core import access_control as _access_control, readiness as _readiness
 
 
 class BillingReadinessTest(unittest.TestCase):
@@ -73,7 +73,7 @@ class BillingReadinessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             conn = access_control._connect_access_db()
@@ -129,7 +129,7 @@ class BillingReadinessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             conn = access_control._connect_access_db()
@@ -167,7 +167,7 @@ class BillingReadinessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             conn = access_control._connect_access_db()
@@ -212,7 +212,7 @@ class BillingReadinessTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir, patched_env(
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             conn = access_control._connect_access_db()
@@ -290,7 +290,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_RTDN_OIDC_AUDIENCE=None,
             GOOGLE_PLAY_RTDN_OIDC_EMAIL=None,
         ):
-            from backend.core import readiness
+            from core import readiness
 
             readiness = importlib.reload(readiness)
             status = readiness.get_app_readiness()
@@ -312,7 +312,7 @@ class BillingReadinessTest(unittest.TestCase):
 
     def test_app_readiness_rejects_short_admin_token_without_exposing_value(self):
         with patched_env(ALPHAMATE_ADMIN_TOKEN="short-token"):
-            from backend.core import readiness
+            from core import readiness
 
             readiness = importlib.reload(readiness)
             status = readiness.get_app_readiness()
@@ -342,7 +342,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ENV="production",
             ALPHAMATE_CORS_ORIGINS=None,
         ):
-            from backend.core import readiness
+            from core import readiness
 
             readiness = importlib.reload(readiness)
             status = readiness.get_app_readiness()
@@ -369,7 +369,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_REVIEW_HISTORY_DB_PATH="D:/secure/alphamate/review-history.sqlite3",
             ALPHAMATE_EVENT_LOG_DB_PATH="backend/data/event_log.sqlite3",
         ):
-            from backend.core import readiness
+            from core import readiness
 
             readiness = importlib.reload(readiness)
             status = readiness.get_app_readiness()
@@ -404,7 +404,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ENV="production",
             ALPHAMATE_CORS_ORIGINS="https://your-app.example.com,capacitor://localhost",
         ):
-            from backend.core import access_control, readiness
+            from core import access_control, readiness
 
             access_control = importlib.reload(access_control)
             readiness = importlib.reload(readiness)
@@ -421,7 +421,7 @@ class BillingReadinessTest(unittest.TestCase):
         with patched_env(
             ALPHAMATE_CORS_ORIGINS="*,http://localhost:5174,capacitor://localhost",
         ):
-            from backend.core import readiness
+            from core import readiness
 
             readiness = importlib.reload(readiness)
             status = readiness.get_app_readiness()
@@ -434,7 +434,7 @@ class BillingReadinessTest(unittest.TestCase):
         with patched_env(
             ALPHAMATE_CORS_ORIGINS="https://alphamate.co.kr,https://localhost,capacitor://localhost",
         ):
-            from backend.core import readiness
+            from core import readiness
 
             readiness = importlib.reload(readiness)
             status = readiness.get_app_readiness()
@@ -451,7 +451,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ADS_PER_ADVANCED_TICKET="3",
             ALPHAMATE_FORCE_REWARDED_AD_CHAIN="false",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             catalog = access_control.get_product_catalog()
@@ -468,7 +468,7 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertNotIn("fake-private-key", str(catalog))
 
     def test_product_catalog_matches_current_review_offers(self):
-        from backend.core import access_control
+        from core import access_control
 
         access_control = importlib.reload(access_control)
         catalog = access_control.get_product_catalog()
@@ -500,7 +500,7 @@ class BillingReadinessTest(unittest.TestCase):
 
     def test_ad_policy_caps_ads_per_advanced_ticket_setting(self):
         with patched_env(ALPHAMATE_ADS_PER_ADVANCED_TICKET="999999"):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             catalog = access_control.get_product_catalog()
@@ -513,7 +513,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON="not-json",
             GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             catalog = access_control.get_product_catalog()
@@ -537,7 +537,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=malformed,
             GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             catalog = access_control.get_product_catalog()
@@ -560,7 +560,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_ADVANCED_REVIEW_20_ID=None,
             GOOGLE_PLAY_PRO_MONTHLY_ID=None,
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             catalog = access_control.get_product_catalog()
@@ -584,7 +584,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=fake_service_account_json(),
             GOOGLE_PLAY_PURCHASE_TOKEN_ENCRYPTION_KEY=None,
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             catalog = access_control.get_product_catalog()
@@ -607,7 +607,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-token-with-at-least-32-characters",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             catalog = access_control.get_product_catalog()
@@ -630,7 +630,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_PRO_MONTHLY_ID="alphamate.pro.monthly",
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="short-rtdn-token",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             catalog = access_control.get_product_catalog()
@@ -655,7 +655,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_RTDN_OIDC_AUDIENCE="https://your-api.example.com/api/journal/google-play-rtdn",
             GOOGLE_PLAY_RTDN_OIDC_EMAIL="pubsub-push@your-project.iam.gserviceaccount.com",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             catalog = access_control.get_product_catalog()
@@ -677,7 +677,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
             ALPHAMATE_ADS_PER_ADVANCED_TICKET="2",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             for _ in range(6):
@@ -739,7 +739,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             for _ in range(6):
@@ -777,7 +777,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=None,
             GOOGLE_PLAY_SERVICE_ACCOUNT_FILE=None,
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             with self.assertRaises(HTTPException) as raised:
@@ -795,7 +795,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(
@@ -839,7 +839,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(
@@ -872,7 +872,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(
@@ -906,7 +906,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(
@@ -940,7 +940,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ACCESS_DB_PATH=os.path.join(tmpdir, "access.sqlite3"),
             ALPHAMATE_ALLOW_DEV_ACCESS="true",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             access_control.apply_dev_purchase(
@@ -970,7 +970,7 @@ class BillingReadinessTest(unittest.TestCase):
 
     def test_rtdn_requires_shared_token(self):
         with patched_env(GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret"):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             with self.assertRaises(HTTPException) as raised:
@@ -983,7 +983,7 @@ class BillingReadinessTest(unittest.TestCase):
 
     def test_rtdn_shared_token_uses_constant_time_compare(self):
         with patched_env(GOOGLE_PLAY_RTDN_SHARED_TOKEN="rtdn-secret"):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             calls = []
@@ -1009,7 +1009,7 @@ class BillingReadinessTest(unittest.TestCase):
             ALPHAMATE_ENV="production",
             GOOGLE_PLAY_RTDN_SHARED_TOKEN="short-rtdn-token",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             with self.assertRaises(HTTPException) as raised:
@@ -1027,7 +1027,7 @@ class BillingReadinessTest(unittest.TestCase):
             GOOGLE_PLAY_RTDN_OIDC_AUDIENCE="https://example.com/rtdn",
             GOOGLE_PLAY_RTDN_OIDC_EMAIL="pubsub-push@example.iam.gserviceaccount.com",
         ):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             with self.assertRaises(HTTPException) as raised:
@@ -1040,7 +1040,7 @@ class BillingReadinessTest(unittest.TestCase):
 
     def test_admob_ssv_signature_requires_required_fields(self):
         with patched_env(ADMOB_REWARDED_AD_UNIT_ID=""):
-            from backend.core import access_control
+            from core import access_control
 
             access_control = importlib.reload(access_control)
             with self.assertRaises(HTTPException) as raised:
@@ -1049,7 +1049,7 @@ class BillingReadinessTest(unittest.TestCase):
             self.assertEqual(400, raised.exception.status_code)
 
     def test_admob_ssv_signature_content_decodes_percent_encoded_reward_text(self):
-        from backend.core import access_control
+        from core import access_control
 
         content = access_control._admob_content_to_verify(
             "ad_unit=1234567890&reward_item=%EA%B4%91%EA%B3%A0%20%EC%8B%9C%EC%B2%AD"
@@ -1062,7 +1062,7 @@ class BillingReadinessTest(unittest.TestCase):
         )
 
     def test_voided_purchase_reconciliation_defaults_to_thirty_day_window(self):
-        from backend.core import access_control
+        from core import access_control
 
         start_time_millis, end_time_millis = access_control._voided_purchase_window(
             start_time_millis=None,

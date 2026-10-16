@@ -7,8 +7,8 @@ from pathlib import Path
 from time import perf_counter
 from types import SimpleNamespace
 
-from backend.core.credential_redaction import sanitize_text
-from backend.core.http_access_log import (
+from core.credential_redaction import sanitize_text
+from core.http_access_log import (
     CredentialRedactingLogFilter,
     CredentialSafeHttpSummaryMiddleware,
     install_credential_safe_error_logging,

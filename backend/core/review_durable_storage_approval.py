@@ -6,17 +6,17 @@ process-local application bookkeeping, never an authentication secret or HMAC.
 import json
 from weakref import WeakKeyDictionary
 
-from backend.core.review_approval_bundle import ApprovedReviewBundle, validate_bundle
-from backend.core.review_display_v2_compiler import _dto_tree, capture_source
-from backend.core.review_display_v2_contract import ReviewDisplayV2Error
-from backend.core.review_envelope_contract import ApprovedReviewSnapshot, validate_envelope
-from backend.core.review_envelope_compiler import compile_review_envelope
-from backend.core.review_source_contract import ValidatedReviewSource
-from backend.core import review_history_prepared_content as prepared
-from backend.core.review_history_approved_write import ApprovedHistoryWrite, validate_approved_history_write
-from backend.core.review_history_write_contract import HistoryWriteContractError
-from backend.core.review_source_projection import structured_review_payload
-from backend.core.review_durable_storage_contract import (
+from core.review_approval_bundle import ApprovedReviewBundle, validate_bundle
+from core.review_display_v2_compiler import _dto_tree, capture_source
+from core.review_display_v2_contract import ReviewDisplayV2Error
+from core.review_envelope_contract import ApprovedReviewSnapshot, validate_envelope
+from core.review_envelope_compiler import compile_review_envelope
+from core.review_source_contract import ValidatedReviewSource
+from core import review_history_prepared_content as prepared
+from core.review_history_approved_write import ApprovedHistoryWrite, validate_approved_history_write
+from core.review_history_write_contract import HistoryWriteContractError
+from core.review_source_projection import structured_review_payload
+from core.review_durable_storage_contract import (
     CONTEXT_KEYS, SNAPSHOT_KEYS, DurableStorageError, admit_envelope, canonical_json,
     encode_envelope, require, snapshot_digest, sql_json, validate_context, validate_read_safety,
 )

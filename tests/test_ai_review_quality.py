@@ -3,7 +3,7 @@ from tests.storage_fixture import require_storage_boundary, storage_fixture
 require_storage_boundary()
 
 from tests.review_source_fixtures import review_input_fixture
-from backend.core.review_source_contract import admit_trade_sources
+from core.review_source_contract import admit_trade_sources
 
 from tests.api_test_modules import _import_state
 

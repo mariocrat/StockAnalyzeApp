@@ -18,7 +18,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from backend.core import review_history_write_contract as contract
+from core import review_history_write_contract as contract
 
 
 SOURCES = {
@@ -498,7 +498,7 @@ class NewHistoryAccessTest(unittest.TestCase):
         self.assertEqual({"datetime", "re"}, imports)
         values = list(fixtures())
         with producer() as case, ExitStack() as stack:
-            from backend.core import review_legacy_compatibility as legacy
+            from core import review_legacy_compatibility as legacy
             import builtins
             import sqlite3
 

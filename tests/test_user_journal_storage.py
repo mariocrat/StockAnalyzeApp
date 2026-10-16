@@ -10,7 +10,7 @@ class UserJournalStorageTest(unittest.TestCase):
     def test_saved_trades_are_visible_only_to_their_owner(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"):
 
-            from backend.core import account_store, journal
+            from core import account_store, journal
 
             account_store = importlib.reload(account_store)
             journal = importlib.reload(journal)
@@ -46,7 +46,7 @@ class UserJournalStorageTest(unittest.TestCase):
     def test_clear_trades_removes_only_the_requested_user_records(self):
         with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"):
 
-            from backend.core import account_store, journal
+            from core import account_store, journal
 
             account_store = importlib.reload(account_store)
             journal = importlib.reload(journal)

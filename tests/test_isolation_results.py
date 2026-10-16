@@ -8,7 +8,7 @@ import types
 import unittest
 from unittest.mock import patch
 
-from backend.core import env
+from core import env
 from tests import module_isolation as isolation
 from tests import run_isolated_tests as runner
 

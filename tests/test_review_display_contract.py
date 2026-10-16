@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import unittest
 
-from backend.core import review_display_contract as contract
+from core import review_display_contract as contract
 
 from tests import review_display_v2_reference as ref
 
@@ -69,8 +69,8 @@ def _canonical_import_accesses(tree):
         def record(self, node, kind):
             paths = self.paths(node)
             for path in sorted(paths):
-                if path == "core" or path.startswith("core."):
-                    path = "backend." + path
+                if path == "backend.core" or path.startswith("backend.core."):
+                    path = path.removeprefix("backend.")
                 records.append((path, kind))
             return bool(paths)
 
@@ -135,8 +135,8 @@ def _has_guarded_review_wildcard_import(tree, relative):
 
     path_parts = relative.replace("\\", "/").removesuffix(".py").split("/")
     package_parts = path_parts[:-1]
-    guarded_paths = {"backend.core"}
-    guarded_paths.update(f"backend.core.{name}" for name in _GUARDED_REVIEW_IMPORT_MODULES)
+    guarded_paths = {"core"}
+    guarded_paths.update(f"core.{name}" for name in _GUARDED_REVIEW_IMPORT_MODULES)
 
     for node in ast.walk(tree):
         if not isinstance(node, ast.ImportFrom) or not any(alias.name == "*" for alias in node.names):
@@ -149,8 +149,8 @@ def _has_guarded_review_wildcard_import(tree, relative):
             module = ".".join(module_parts)
         else:
             module = node.module or ""
-        if module == "core" or module.startswith("core."):
-            module = "backend." + module
+        if module == "backend.core" or module.startswith("backend.core."):
+            module = module.removeprefix("backend.")
         if any(module == guarded or module.startswith(guarded + ".") for guarded in guarded_paths):
             return True
     return False
@@ -348,7 +348,7 @@ class ReviewDisplayContractTest(unittest.TestCase):
             ref.validate_bundle(bundle, witness, V2_SCHEMA, contract.validate_document)
 
     def test_v2_witnesses_match_existing_v1_compiler_and_source_coverage(self):
-        from backend.core.review_legacy_compatibility import admit_legacy_body
+        from core.review_legacy_compatibility import admit_legacy_body
         for witness in V2["witnesses"]:
             source = witness["source"]
             doc, coverage = contract.compile_structured_review(source)
@@ -428,7 +428,7 @@ class ReviewDisplayContractTest(unittest.TestCase):
             self.assertEqual(ref.generation(row), row["expected"])
 
 def ready_v2_source(identity="basic-high", level="high"):
-    from backend.core import review_source_contract as src
+    from core import review_source_contract as src
     w = witness_for(identity)
     value = w["source"]
     t = value["review_type"]
@@ -453,20 +453,20 @@ def ready_v2_source(identity="basic-high", level="high"):
 
 class ReviewDisplayV2ProductionTest(unittest.TestCase):
     def reject(self, call, code):
-        from backend.core.review_display_v2_contract import ReviewDisplayV2Error
+        from core.review_display_v2_contract import ReviewDisplayV2Error
         with self.assertRaises(ReviewDisplayV2Error) as raised:
             call()
         self.assertEqual(raised.exception.code, code)
 
     def test_shared_valid_documents_match_reference_admission(self):
-        from backend.core.review_display_v2_contract import validate_document
+        from core.review_display_v2_contract import validate_document
         for w in V2["witnesses"]:
             before = copy.deepcopy(w["expected_v2"])
             self.assertEqual(validate_document(before), ref.validate_v2(before, V2_SCHEMA)["canonical_text"])
             self.assertEqual(before, w["expected_v2"])
 
     def test_all_document_negative_codes_and_fixture_restoration(self):
-        from backend.core.review_display_v2_contract import validate_document
+        from core.review_display_v2_contract import validate_document
         for v in V2["invalid_documents"]:
             w = witness_for(v["base"])
             before = copy.deepcopy(w)
@@ -479,7 +479,7 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
             self.assertEqual(before, w)
 
     def test_all_bundle_negative_codes_match_reference_and_fixed_outputs(self):
-        from backend.core.review_approval_bundle import _validate_candidate
+        from core.review_approval_bundle import _validate_candidate
         for v in V2["invalid_bundles"]:
             w = witness_for(v["base"])
             base = ref.make_bundle(w)
@@ -494,7 +494,7 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
         self.assertEqual(set(V2["expected_errors"]), {v["id"] for v in V2["invalid_documents"] + V2["invalid_bundles"]})
 
     def test_internal_mapping_kernel_matches_three_fixed_v2_goldens(self):
-        from backend.core.review_display_v2_compiler import _compile_projected
+        from core.review_display_v2_compiler import _compile_projected
         for w in V2["witnesses"]:
             doc, coverage = _compile_projected(copy.deepcopy(w["source"]))
             self.assertEqual(doc, w["expected_v2"], w["id"])
@@ -502,8 +502,8 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
             self.assertIn(("summary", "data_confidence", "level"), coverage)
 
     def test_admitted_compiler_preserves_objective_and_quality_for_both_types(self):
-        from backend.core.review_display_v2_compiler import compile_body
-        from backend.core.review_source_projection import structured_review_payload
+        from core.review_display_v2_compiler import compile_body
+        from core.review_source_projection import structured_review_payload
         for identity in ("basic-high", "advanced-low"):
             for level in ("high", "medium", "low"):
                 source = ready_v2_source(identity, level)
@@ -516,9 +516,9 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
                 self.assertEqual(len(quality["missing_information"]), len(projected["summary"]["missing_information"]))
                 self.assertEqual(len(quality["missing_information"]), 1 if level == "medium" else 0)
                 self.assertEqual(source.objective.result.weighted_buy_price, 7000)
-        from backend.core import review_source_contract as src
-        from backend.core.review_source_projection import objective_payload
-        from backend.core.review_approval_bundle import compile_approval_bundle
+        from core import review_source_contract as src
+        from core.review_source_projection import objective_payload
+        from core.review_approval_bundle import compile_approval_bundle
         original = ready_v2_source()
         objective = objective_payload(original.objective)
         objective["result"].update(realized_pnl=0, realized_return_pct=0,
@@ -534,9 +534,9 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
                             compile_approval_bundle(original).document["objective_identity"])
 
     def test_optional_collections_and_deterministic_dictionary_order(self):
-        from backend.core import review_source_contract as src
-        from backend.core.review_source_projection import semantic_payload
-        from backend.core.review_display_v2_compiler import compile_body
+        from core import review_source_contract as src
+        from core.review_source_projection import semantic_payload
+        from core.review_display_v2_compiler import compile_body
         source = ready_v2_source("advanced-low")
         semantic = semantic_payload(source.semantic)
         semantic.update(detailed_analysis=[], reflection_questions=[])
@@ -552,9 +552,9 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
         self.assertEqual(empty_roles, {"detailed_analysis", "reflection_questions"})
 
     def test_ready_gate_rejects_fallback_error_empty_and_unavailable(self):
-        from backend.core import review_source_contract as src
-        from backend.core.review_display_v2_compiler import compile_body
-        from backend.core.review_approval_bundle import compile_approval_bundle
+        from core import review_source_contract as src
+        from core.review_display_v2_compiler import compile_body
+        from core.review_approval_bundle import compile_approval_bundle
         original = ready_v2_source()
         for status in ("missing_key", "error"):
             source = src.finish_review_source(original, semantic=original.semantic, status=status, origin="chart-rules")
@@ -569,9 +569,9 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
             compile_body({})
 
     def test_v1_output_unchanged_and_pair_provenance_complete(self):
-        from backend.core.review_body_compiler import compile_review_body
-        from backend.core.review_approval_bundle import compile_approval_bundle, validate_bundle
-        from backend.core.review_legacy_compatibility import admit_legacy_body
+        from core.review_body_compiler import compile_review_body
+        from core.review_approval_bundle import compile_approval_bundle, validate_bundle
+        from core.review_legacy_compatibility import admit_legacy_body
         for name in ("basic-high", "advanced-low"):
             source = ready_v2_source(name)
             original = compile_review_body(source)
@@ -587,7 +587,7 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
 
     def test_real_approval_corruption_rejects_without_recompilation(self):
         from unittest.mock import patch
-        from backend.core import review_approval_bundle as bundle
+        from core import review_approval_bundle as bundle
         source = ready_v2_source()
         approval = bundle.compile_approval_bundle(source)
         for v in V2["invalid_bundles"]:
@@ -597,8 +597,8 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
 
     def test_atomic_failures_allocate_no_partial_approval(self):
         from unittest.mock import patch
-        from backend.core import review_approval_bundle as bundle
-        from backend.core.review_display_v2_compiler import compile_body
+        from core import review_approval_bundle as bundle
+        from core.review_display_v2_compiler import compile_body
         source = ready_v2_source()
         for name in ("compile_review_body", "compile_body"):
             with patch.object(bundle, name, side_effect=RuntimeError("programming failure")), patch.object(bundle, "_allocate") as allocate:
@@ -613,7 +613,7 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
 
     def test_approval_alias_copy_restore_and_owner_mutation(self):
         import pickle
-        from backend.core import review_approval_bundle as bundle
+        from core import review_approval_bundle as bundle
         source = ready_v2_source()
         approval = bundle.compile_approval_bundle(source)
         digest, before = approval.digest, approval.json_text
@@ -643,7 +643,7 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
         object.__setattr__(tampered, "_json", encoded)
         object.__setattr__(tampered, "_digest", bundle._digest(encoded, tampered._source, tampered._objective))
         self.reject(lambda: bundle.validate_bundle(payload, approval=tampered), "APPROVAL_MUTATION")
-        from backend.core.review_display_v2_compiler import compile_body
+        from core.review_display_v2_compiler import compile_body
         cyclic = ready_v2_source()
         object.__setattr__(cyclic.semantic.lesson, "concept", cyclic.semantic)
         self.reject(lambda: compile_body(cyclic), "INVALID_SOURCE")
@@ -653,9 +653,9 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
 
     def test_legitimate_v1_only_wrap_has_no_upgrade_or_source_reconstruction(self):
         from unittest.mock import patch
-        from backend.core import review_approval_bundle as bundle
-        from backend.core.review_envelope_compiler import compile_review_envelope, seal_review_envelope
-        from backend.core import review_source_contract as src
+        from core import review_approval_bundle as bundle
+        from core.review_envelope_compiler import compile_review_envelope, seal_review_envelope
+        from core import review_source_contract as src
         source = ready_v2_source()
         variants = [source, src.finish_review_source(source, semantic=source.semantic, status="missing_key", origin="chart-rules"),
                     src.compose_review_source(review_type="basic", trades=(),
@@ -670,7 +670,7 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
             bundle.validate_bundle(approval.document, approval=approval)
 
     def test_unicode_resource_bounds_and_programming_errors_are_distinct(self):
-        from backend.core.review_display_v2_contract import validate_document
+        from core.review_display_v2_contract import validate_document
         base = V2["witnesses"][0]["expected_v2"]
         for text in ("x" * 4097, chr(0xD800)):
             doc = copy.deepcopy(base)
@@ -684,7 +684,7 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
         doc["blocks"][0]["runs"][0]["text"] = "e\u0301 😀"
         doc["canonical_text"] = ref.flatten(doc)
         self.assertEqual(validate_document(doc), doc["canonical_text"])
-        from backend.core.review_display_v2_compiler import compile_body
+        from core.review_display_v2_compiler import compile_body
         with self.assertRaises(TypeError):
             compile_body(None)
 
@@ -697,18 +697,18 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
         storage = {"review_history", "review_history_adapter", "review_history_paired"}
         durable = {"review_history_json_codec", "review_durable_storage_contract", "review_durable_storage_approval"}
         expected_runtime_imports = {
-            "backend/main.py": {("backend.core.review_approval_bundle", ("validate_bundle",))},
+            "backend/main.py": {("core.review_approval_bundle", ("validate_bundle",))},
             "backend/core/ai_review_v2.py": {
-                ("backend.core", ("review_display_activation", "review_approval_bundle",
+                ("core", ("review_display_activation", "review_approval_bundle",
                                   "review_durable_storage_approval"))
             },
         }
         expected_runtime_accesses = {
-            "backend/main.py": {("backend.core.review_approval_bundle.validate_bundle", "call"): 1},
+            "backend/main.py": {("core.review_approval_bundle.validate_bundle", "call"): 1},
             "backend/core/ai_review_v2.py": {
-                ("backend.core.review_approval_bundle.compile_approval_bundle", "call"): 1,
-                ("backend.core.review_durable_storage_approval.capture_live_paired_history", "call"): 1,
-                ("backend.core.review_durable_storage_approval._FINALIZER_CAPTURE", "access"): 1,
+                ("core.review_approval_bundle.compile_approval_bundle", "call"): 1,
+                ("core.review_durable_storage_approval.capture_live_paired_history", "call"): 1,
+                ("core.review_durable_storage_approval._FINALIZER_CAPTURE", "access"): 1,
             },
         }
         observed_imports = {relative: set() for relative in expected_runtime_imports}
@@ -728,19 +728,19 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
                                      for target, kind in observed), (relative, observed))
 
         for relative, source in (
-            ("backend/core/unrelated.py", "import backend.core as core\ncore.review_approval_bundle"),
-            ("backend/core/unrelated.py", "import backend.core as renamed\nrenamed.review_durable_storage_approval.capture_live_paired_history()"),
-            ("backend/main.py", "import backend.core as core\ncore.review_approval_bundle.compile_approval_bundle()"),
-            ("backend/core/ai_review_v2.py", "import backend.core as renamed\nrenamed.review_durable_storage_approval._FINALIZER_CAPTURE()"),
+            ("backend/core/unrelated.py", "import core as core\ncore.review_approval_bundle"),
+            ("backend/core/unrelated.py", "import core as renamed\nrenamed.review_durable_storage_approval.capture_live_paired_history()"),
+            ("backend/main.py", "import core as core\ncore.review_approval_bundle.compile_approval_bundle()"),
+            ("backend/core/ai_review_v2.py", "import core as renamed\nrenamed.review_durable_storage_approval._FINALIZER_CAPTURE()"),
             ("backend/main.py", "from backend import core as renamed\nrenamed.review_approval_bundle.unknown"),
-            ("backend/core/unrelated.py", "import backend\nbackend.core.review_approval_bundle.validate_bundle()"),
-            ("backend/core/unrelated.py", "def handler():\n import backend.core as nested\n nested.review_approval_bundle.validate_bundle()"),
-            ("backend/core/unrelated.py", "import backend.core as renamed\ndef handler(value: renamed.review_approval_bundle.Unknown):\n pass"),
-            ("backend/core/unrelated.py", "from backend.core import *"),
-            ("backend/core/unrelated.py", "from backend.core import *\nreview_approval_bundle.compile_approval_bundle()"),
-            ("backend/core/unrelated.py", "from backend.core import *\nreview_durable_storage_approval.capture_live_paired_history()"),
-            ("backend/core/unrelated.py", "from backend.core.review_approval_bundle import *"),
-            ("backend/core/unrelated.py", "from backend.core.review_durable_storage_approval import *"),
+            ("backend/core/unrelated.py", "import core\ncore.review_approval_bundle.validate_bundle()"),
+            ("backend/core/unrelated.py", "def handler():\n import core as nested\n nested.review_approval_bundle.validate_bundle()"),
+            ("backend/core/unrelated.py", "import core as renamed\ndef handler(value: renamed.review_approval_bundle.Unknown):\n pass"),
+            ("backend/core/unrelated.py", "from core import *"),
+            ("backend/core/unrelated.py", "from core import *\nreview_approval_bundle.compile_approval_bundle()"),
+            ("backend/core/unrelated.py", "from core import *\nreview_durable_storage_approval.capture_live_paired_history()"),
+            ("backend/core/unrelated.py", "from core.review_approval_bundle import *"),
+            ("backend/core/unrelated.py", "from core.review_durable_storage_approval import *"),
             ("backend/core/unrelated.py", "from . import *"),
             ("backend/core/unrelated.py", "from ..core import *\nreview_approval_bundle.compile_approval_bundle()"),
             ("backend/core/unrelated.py", "from .review_durable_storage_approval import *\ncapture_live_paired_history()"),
@@ -748,7 +748,7 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
             with self.subTest(alias_source=source), self.assertRaises(AssertionError):
                 check_accesses(relative, ast.parse(source))
         check_accesses("backend/main.py", ast.parse(
-            "from backend.core.review_approval_bundle import validate_bundle as admitted\nadmitted(None)"), exact=True)
+            "from core.review_approval_bundle import validate_bundle as admitted\nadmitted(None)"), exact=True)
 
         def import_edge(relative, node):
             return (relative, node.module or "", tuple(alias.name for alias in node.names))
@@ -757,9 +757,9 @@ class ReviewDisplayV2ProductionTest(unittest.TestCase):
             return import_edge(relative, node)[1:] in expected_runtime_imports.get(relative, set())
 
         for relative, source in (
-            ("backend/main.py", "from backend.core.review_approval_bundle import compile_approval_bundle"),
-            ("backend/core/ai_review_v2.py", "from backend.core import review_durable_storage_approval"),
-            ("backend/core/unrelated.py", "from backend.core import review_approval_bundle"),
+            ("backend/main.py", "from core.review_approval_bundle import compile_approval_bundle"),
+            ("backend/core/ai_review_v2.py", "from core import review_durable_storage_approval"),
+            ("backend/core/unrelated.py", "from core import review_approval_bundle"),
         ):
             self.assertFalse(explicitly_allowed(relative, ast.parse(source).body[0]))
 

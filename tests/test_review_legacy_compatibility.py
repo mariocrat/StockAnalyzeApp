@@ -11,7 +11,7 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 
-from backend.core.review_legacy_compatibility import (
+from core.review_legacy_compatibility import (
     CONTRACT_VERSION, LegacyCompatibilityContractError, admit_legacy_body, validate_legacy_body,
 )
 
@@ -23,7 +23,7 @@ VECTORS = json.loads((Path(__file__).resolve().parents[1]
 
 class LegacyCompatibilityContractTest(unittest.TestCase):
     def test_admission_only_generates_no_wire_and_preserves_all_a1_decisions(self):
-        with patch("backend.core.review_legacy_compatibility.LegacyCompatibilitySummary", side_effect=AssertionError("unsealed wire")):
+        with patch("core.review_legacy_compatibility.LegacyCompatibilitySummary", side_effect=AssertionError("unsealed wire")):
             for vector in VECTORS["pass"]:
                 self.assertIsNone(validate_legacy_body(vector["document"]))
             for vector in VECTORS["fail"]:

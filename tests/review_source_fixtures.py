@@ -5,7 +5,7 @@ explicit test fixtures here; production admission never uses this helper.
 Unknown supplied fields are retained so negative fixtures still reject.
 """
 
-from backend.core.review_source_contract import (
+from core.review_source_contract import (
     admit_trade_sources, admit_chart_source, compose_review_source,
 )
 
@@ -100,7 +100,7 @@ def history_chart_fixture(trades, *, available=True):
 
 def fallback_model_fixture(payload):
     from core.ai_review_v2 import _default_basic_semantics, _default_advanced_semantics
-    from backend.core.review_source_projection import semantic_payload
+    from core.review_source_projection import semantic_payload
     advanced = payload["review_type"] == "advanced"
     source = review_input_fixture(payload["recent_trades"] if advanced else payload["trade_episode"],
                                  payload.get("trade_chart_snapshot"), review_type=payload["review_type"],
@@ -111,10 +111,10 @@ def fallback_model_fixture(payload):
 def approved_route_fixture(summary, *, approval_state, review_type="basic", status="ready",
                            source="openai", model=None, **extras):
     """Route-operation stubs carry a real seal; production requires that approval."""
-    from backend.core.review_display_contract import compile_literal_text
-    from backend.core.review_envelope_compiler import compile_review_envelope, seal_review_envelope
-    from backend.core.review_legacy_compatibility import admit_legacy_body
-    from backend.core.review_source_contract import unavailable_review_source
+    from core.review_display_contract import compile_literal_text
+    from core.review_envelope_compiler import compile_review_envelope, seal_review_envelope
+    from core.review_legacy_compatibility import admit_legacy_body
+    from core.review_source_contract import unavailable_review_source
     body = compile_literal_text(str(summary))
     candidate = compile_review_envelope(unavailable_review_source(review_type))
     candidate.update(status=status, source=source, body=body)

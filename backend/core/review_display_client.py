@@ -2,7 +2,7 @@
 
 from fastapi import HTTPException
 
-from backend.core.review_display_capability import require_display_capability
+from core.review_display_capability import require_display_capability
 
 
 REVIEW_DISPLAY_CONTRACT_HEADER = "X-Review-Display-Contract"

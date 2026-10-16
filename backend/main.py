@@ -32,16 +32,16 @@ from core.journal import add_trade, list_trades, count_trades, delete_trade, cle
 from core.ai_review_v2 import (
     build_basic_ai_review, build_advanced_ai_review, safe_legacy_history_snapshot,
 )
-from backend.core.review_envelope_contract import ApprovedReviewSnapshot, approved_chart_display_snapshot
-from backend.core.review_legacy_compatibility import admit_legacy_body
-from backend.core.review_history_adapter import history_list_projection
-from backend.core.review_history_approved_write import approve_history_write
-from backend.core.review_history_content_contract import validate_new_history_metadata, validate_new_history_result
-from backend.core.review_history_write_contract import HistoryWriteContractError
-from backend.core.review_display_client import REVIEW_DISPLAY_CONTRACT_HEADER, require_review_display_client
-from backend.core.review_display_capability import V1_CAPABILITY, DUAL_CAPABILITY, require_display_capability, select_admitted_body
-from backend.core.review_approval_bundle import validate_bundle
-from backend.core.review_execution_cache import approve_cached_execution, validate_cached_execution
+from core.review_envelope_contract import ApprovedReviewSnapshot, approved_chart_display_snapshot
+from core.review_legacy_compatibility import admit_legacy_body
+from core.review_history_adapter import history_list_projection
+from core.review_history_approved_write import approve_history_write
+from core.review_history_content_contract import validate_new_history_metadata, validate_new_history_result
+from core.review_history_write_contract import HistoryWriteContractError
+from core.review_display_client import REVIEW_DISPLAY_CONTRACT_HEADER, require_review_display_client
+from core.review_display_capability import V1_CAPABILITY, DUAL_CAPABILITY, require_display_capability, select_admitted_body
+from core.review_approval_bundle import validate_bundle
+from core.review_execution_cache import approve_cached_execution, validate_cached_execution
 from core.journal_chart import build_journal_charts, initialize_yfinance_cache
 from core.review_history import (
     add_review_history, list_review_history, get_review_history, delete_review_history,

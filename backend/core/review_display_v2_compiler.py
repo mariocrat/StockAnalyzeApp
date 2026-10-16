@@ -3,15 +3,15 @@ from dataclasses import fields, is_dataclass
 import hashlib
 import json
 
-from backend.core.review_display_contract import parse_inline_strong
-from backend.core.review_display_v2_contract import (
+from core.review_display_contract import parse_inline_strong
+from core.review_display_v2_contract import (
     SCHEMA_VERSION, ReviewDisplayV2Error, require, validate_document,
 )
-from backend.core.review_source_contract import (
+from core.review_source_contract import (
     ValidatedReviewSource, ObjectiveSource, UnavailableObjectiveSource, SourceAdmissionError, admit_review_source,
     unavailable_review_source,
 )
-from backend.core.review_source_projection import (
+from core.review_source_projection import (
     trade_payload, chart_payload, context_payload, objective_payload, semantic_payload,
     structured_review_payload,
 )

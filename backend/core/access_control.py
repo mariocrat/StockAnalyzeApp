@@ -15,10 +15,7 @@ from zoneinfo import ZoneInfo
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException
 
-try:
-    from core.env import database_path, dev_access_enabled, env_value, is_production
-except ModuleNotFoundError:
-    from backend.core.env import database_path, dev_access_enabled, env_value, is_production
+from core.env import database_path, dev_access_enabled, env_value, is_production
 
 
 PRO_MONTHLY_BASIC = 35
@@ -653,10 +650,7 @@ def initialize_review_entitlement(
     normalized_user_id = str(user_id or "").strip()
     if not normalized_user_id:
         raise HTTPException(status_code=400, detail="user_id is required.")
-    try:
-        from core.account_store import get_review_access_status
-    except ModuleNotFoundError:
-        from backend.core.account_store import get_review_access_status
+    from core.account_store import get_review_access_status
 
     status = get_review_access_status()
     if not status.get("enabled"):
@@ -2594,10 +2588,7 @@ def _authenticate(authorization: str | None) -> tuple[str, str]:
     dev_auth_token = _env_value("ALPHAMATE_DEV_AUTH_TOKEN") or "dev-token"
     if _dev_access_enabled() and token == dev_auth_token:
         return "dev-user", "dev"
-    try:
-        from core.account_store import authenticate_session
-    except ModuleNotFoundError:
-        from backend.core.account_store import authenticate_session
+    from core.account_store import authenticate_session
 
     user = authenticate_session(authorization)
     auth_mode = "review" if any(

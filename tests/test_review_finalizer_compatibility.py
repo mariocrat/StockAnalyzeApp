@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 from tests.api_test_modules import _import_state
 from tests.review_source_fixtures import compact_chart_fixture
-from backend.core.review_legacy_compatibility import admit_legacy_body, validate_legacy_body
+from core.review_legacy_compatibility import admit_legacy_body, validate_legacy_body
 
 
 VECTORS = json.loads((Path(__file__).resolve().parents[1]

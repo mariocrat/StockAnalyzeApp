@@ -11,7 +11,7 @@ import math
 import re
 from typing import Literal
 
-from backend.core.trade_review_schema import (
+from core.trade_review_schema import (
     MAX_REVIEW_TEXT_CHARS, normalize_semantic_output, structured_output_schema,
 )
 

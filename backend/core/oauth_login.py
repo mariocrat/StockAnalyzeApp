@@ -5,14 +5,9 @@ import time
 from fastapi import HTTPException
 from urllib.parse import urlencode, urlparse
 
-try:
-    from core.env import is_production
-    from core.account_store import _env_value, get_review_access_status, login_provider_identity
-    from core.access_control import grant_first_login_advanced_review
-except ModuleNotFoundError:
-    from backend.core.env import is_production
-    from backend.core.account_store import _env_value, get_review_access_status, login_provider_identity
-    from backend.core.access_control import grant_first_login_advanced_review
+from core.env import is_production
+from core.account_store import _env_value, get_review_access_status, login_provider_identity
+from core.access_control import grant_first_login_advanced_review
 
 
 KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"

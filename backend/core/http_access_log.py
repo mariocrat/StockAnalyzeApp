@@ -2,10 +2,7 @@ import logging
 import time
 import traceback
 
-try:
-    from core.credential_redaction import sanitize_text as _sanitize_text
-except ModuleNotFoundError:
-    from backend.core.credential_redaction import sanitize_text as _sanitize_text
+from core.credential_redaction import sanitize_text as _sanitize_text
 
 
 HTTP_SUMMARY_LOGGER = logging.getLogger("uvicorn.error.stockboda_http")

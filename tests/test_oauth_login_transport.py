@@ -13,7 +13,7 @@ from fastapi import HTTPException
 
 
 with _import_state():
-    from backend.core import oauth_login as _oauth_login
+    from core import oauth_login as _oauth_login
 
 
 class OAuthTransportTest(unittest.TestCase):
@@ -33,7 +33,7 @@ class OAuthTransportTest(unittest.TestCase):
         try:
             os.environ["ALPHAMATE_OAUTH_TIMEOUT_SECONDS"] = "999"
 
-            from backend.core import oauth_login
+            from core import oauth_login
 
             captured = {}
 
@@ -69,7 +69,7 @@ class OAuthTransportTest(unittest.TestCase):
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
             os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
 
-            from backend.core import access_control, account_store, oauth_login
+            from core import access_control, account_store, oauth_login
 
 
             def fake_request_json(url, token):
@@ -115,7 +115,7 @@ class OAuthTransportTest(unittest.TestCase):
             os.environ["ALPHAMATE_ACCOUNT_DB_PATH"] = os.path.join(tmpdir, "accounts.sqlite3")
             os.environ["ALPHAMATE_ACCESS_DB_PATH"] = os.path.join(tmpdir, "access.sqlite3")
 
-            from backend.core import account_store, oauth_login
+            from core import account_store, oauth_login
 
 
             def fake_request_json(url, token):
@@ -148,7 +148,7 @@ class OAuthTransportTest(unittest.TestCase):
             os.environ["KAKAO_CLIENT_ID"] = "kakao-client-id"
             os.environ["KAKAO_CLIENT_SECRET"] = "kakao-client-secret"
 
-            from backend.core import account_store, oauth_login
+            from core import account_store, oauth_login
 
 
             def fake_exchange(url, payload, headers=None):
@@ -187,7 +187,7 @@ class OAuthTransportTest(unittest.TestCase):
             os.environ["NAVER_CLIENT_ID"] = "naver-client-id"
             os.environ["NAVER_CLIENT_SECRET"] = "naver-client-secret"
 
-            from backend.core import account_store, oauth_login
+            from core import account_store, oauth_login
 
 
             def fake_exchange(url, payload, headers=None):

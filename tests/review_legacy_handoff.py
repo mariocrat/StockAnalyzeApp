@@ -64,7 +64,7 @@ def child(runtime):
     baseline = (Path.cwd(), dict(os.environ), tempfile.tempdir)
     admissions = []
     with isolated_module(runtime, protected, boundary=boundary):
-        from backend.core.review_legacy_compatibility import (
+        from core.review_legacy_compatibility import (
             CONTRACT_VERSION, LegacyCompatibilityContractError, admit_legacy_body,
         )
 

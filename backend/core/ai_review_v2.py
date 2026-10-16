@@ -20,22 +20,22 @@ from core.review_display_contract import (
     ReviewDisplayContractError, compile_literal_lines, compile_literal_text,
     compile_structured_review, flatten_document, validate_document, serialize_compatibility_summary,
 )
-from backend.core.review_body_compiler import (
+from core.review_body_compiler import (
     compile_review_body, compile_basic_fallback_body, compile_advanced_fallback_body,
 )
-from backend.core.review_legacy_compatibility import (
+from core.review_legacy_compatibility import (
     LegacyCompatibilityContractError, validate_legacy_body, admit_legacy_body,
 )
 from core.review_envelope_compiler import compile_review_envelope, seal_review_envelope
-from backend.core.review_envelope_contract import (
+from core.review_envelope_contract import (
     ApprovedReviewSnapshot, approved_chart_display_snapshot,
     validate_envelope as validate_review_envelope,
 )
-from backend.core.review_history_prepared_content import (
+from core.review_history_prepared_content import (
     _CAPTURE as _HISTORY_CONTENT_CAPTURE, prepare_history_content,
 )
-from backend.core import review_display_activation, review_approval_bundle, review_durable_storage_approval
-from backend.core.review_source_contract import (
+from core import review_display_activation, review_approval_bundle, review_durable_storage_approval
+from core.review_source_contract import (
     SourceAdmissionError, TradeSource, CompactChartSource, UnavailableChartSource,
     AnalysisContextSource, AnalysisContextErrorSource, TechnicalObservationSource,
     ValidatedReviewSource, admit_trade_sources, admit_chart_source,
@@ -43,7 +43,7 @@ from backend.core.review_source_contract import (
     admit_journal_chart_source, select_chart_candles, compose_review_source,
     finish_review_source, unavailable_review_source, UNAVAILABLE_REVIEW_TEXT,
 )
-from backend.core.review_source_projection import (
+from core.review_source_projection import (
     trade_payload, chart_payload, context_payload, semantic_payload,
     structured_review_payload, review_data_quality,
 )
@@ -1122,7 +1122,7 @@ def _canonical_review_extras(extras: dict) -> dict:
 def safe_legacy_history_snapshot(value: dict, *, paired_storage_enabled=True,
                                 display_capability="review-display.v1") -> dict:
     """Use one closed whole-record boundary for every history read surface."""
-    from backend.core.review_history_adapter import adapt_history_record
+    from core.review_history_adapter import adapt_history_record
 
     return adapt_history_record(
         value, unsafe_text=_contains_prohibited_trade_guidance,

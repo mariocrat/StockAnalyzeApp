@@ -6,7 +6,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from backend.core.privacy_policy import account_deletion_html, privacy_policy_html
+from core.privacy_policy import account_deletion_html, privacy_policy_html
 
 
 class PrivacyPolicyTest(unittest.TestCase):

@@ -14,7 +14,7 @@ import json
 import math
 import re
 
-from backend.core.review_display_contract import (
+from core.review_display_contract import (
     MAX_BLOCKS, MAX_CANONICAL_CODEPOINTS, MAX_RUNS_PER_BLOCK,
     MAX_RUN_CODEPOINTS, MAX_SEPARATOR_CODEPOINTS, SCHEMA_VERSION as DISPLAY_VERSION,
     SURFACES, validate_document,

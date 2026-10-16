@@ -16,7 +16,7 @@ import pandas as pd
 
 from tests.api_test_modules import _import_state
 from tests.test_review_source_contract import trade, basic_semantic, advanced_semantic
-from backend.core import review_source_contract as contract
+from core import review_source_contract as contract
 
 
 class ReviewMarketSourceAdmissionTest(unittest.TestCase):

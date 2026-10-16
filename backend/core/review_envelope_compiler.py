@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from backend.core.review_body_compiler import compile_review_body
-from backend.core.review_display_contract import (
+from core.review_body_compiler import compile_review_body
+from core.review_display_contract import (
     SCHEMA_VERSION as DISPLAY_VERSION,
     parse_inline_strong, validate_document,
 )
-from backend.core.review_envelope_contract import (
+from core.review_envelope_contract import (
     SCHEMA_VERSION as ENVELOPE_VERSION, ApprovedReviewSnapshot, validate_envelope,
 )
-from backend.core.review_source_contract import (
+from core.review_source_contract import (
     CompactChartSource, ObjectiveSource, TechnicalObservationSource,
     UnavailableChartSource, UnavailableObjectiveSource, ValidatedReviewSource,
 )

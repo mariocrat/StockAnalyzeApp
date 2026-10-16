@@ -10,10 +10,10 @@ import sqlite3
 import unittest
 from unittest.mock import patch
 
-from backend.core import review_display_activation as activation
-from backend.core import review_approval_bundle as bundles
-from backend.core import review_durable_storage_approval as durable
-from backend.core.review_display_v2_contract import ReviewDisplayV2Error
+from core import review_display_activation as activation
+from core import review_approval_bundle as bundles
+from core import review_durable_storage_approval as durable
+from core.review_display_v2_contract import ReviewDisplayV2Error
 from tests import test_review_display_negotiation as support
 from tests import test_review_history_paired as history_support
 from tests.test_review_finalizer_compatibility import model_output

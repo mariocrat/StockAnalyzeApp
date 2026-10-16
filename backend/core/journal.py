@@ -3,10 +3,7 @@ import math
 import sqlite3
 from pathlib import Path
 
-try:
-    from core.env import database_path, env_value as _env_value
-except ModuleNotFoundError:
-    from backend.core.env import database_path, env_value as _env_value
+from core.env import database_path, env_value as _env_value
 
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"

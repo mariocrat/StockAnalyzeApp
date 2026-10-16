@@ -6,13 +6,13 @@ repair belongs here. Canonical documents use the same structured projection.
 
 import re
 
-from backend.core.review_source_contract import (
+from core.review_source_contract import (
     AnalysisContextErrorSource, AdvancedSemanticSource,
     BasicSemanticSource, CompactChartSource, TechnicalObservationSource,
     UnavailableChartSource, UnavailableObjectiveSource, ValidatedReviewSource,
     SourceAdmissionError, admit_semantic_source,
 )
-from backend.core.trade_review_schema import STRUCTURED_REVIEW_SCHEMA_VERSION
+from core.trade_review_schema import STRUCTURED_REVIEW_SCHEMA_VERSION
 
 
 def trade_payload(trade):

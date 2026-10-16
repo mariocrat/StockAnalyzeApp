@@ -28,7 +28,7 @@ class TradeReviewStructuredTest(unittest.TestCase):
         importlib.reload(self.ai_review_v2)
         self.schema = importlib.import_module("core.trade_review_schema")
         self.display_contract = importlib.import_module("core.review_display_contract")
-        self.compatibility = importlib.import_module("backend.core.review_legacy_compatibility")
+        self.compatibility = importlib.import_module("core.review_legacy_compatibility")
         self.real_compact_chart_snapshot = self.ai_review_v2._compact_chart_snapshot
         self.trades = [
             {
@@ -1067,7 +1067,7 @@ class TradeReviewStructuredTest(unittest.TestCase):
         self.assertEqual(result["summary"], self.display_contract.flatten_document(result["display_snapshot"]))
 
     def test_production_builders_seal_valid_closed_envelopes(self):
-        contract = importlib.import_module("backend.core.review_envelope_contract")
+        contract = importlib.import_module("core.review_envelope_contract")
         for review_type in ("basic", "advanced"):
             with self.subTest(review_type=review_type):
                 approval = {}

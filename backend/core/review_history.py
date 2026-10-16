@@ -4,19 +4,16 @@ import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend.core.review_history_approved_write import ApprovedHistoryWrite, validate_approved_history_write
-from backend.core.review_durable_storage_approval import (
+from core.review_history_approved_write import ApprovedHistoryWrite, validate_approved_history_write
+from core.review_durable_storage_approval import (
     ApprovedDurableHistoryEnvelope, issue_durable_history, validate_durable_write, validate_paired_history_input,
 )
-from backend.core.review_history_json_codec import require, sql_json
-from backend.core.review_history_paired import (
+from core.review_history_json_codec import require, sql_json
+from core.review_history_paired import (
     StoredPairedHistoryRow, admit_stored_paired_history, paired_history_projection, paired_marker, paired_marker_in_text,
 )
 
-try:
-    from core.env import database_path, env_value
-except ModuleNotFoundError:
-    from backend.core.env import database_path, env_value
+from core.env import database_path, env_value
 
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"

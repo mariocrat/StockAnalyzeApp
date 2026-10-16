@@ -15,17 +15,17 @@ import unittest
 from unittest.mock import patch
 from weakref import WeakKeyDictionary
 
-from backend.core import review_history_json_codec as codec
-from backend.core import review_durable_storage_contract as contract
-from backend.core import review_durable_storage_approval as approval
-from backend.core import review_history_prepared_content as prepared
-from backend.core.review_history_approved_write import approve_history_write
-from backend.core.review_approval_bundle import compile_approval_bundle
-from backend.core.review_envelope_compiler import compile_review_envelope, seal_review_envelope
-from backend.core.review_display_contract import compile_literal_lines
-from backend.core.review_legacy_compatibility import admit_legacy_body
-from backend.core import review_source_contract as source_contract
-from backend.core.review_source_projection import structured_review_payload, trade_payload
+from core import review_history_json_codec as codec
+from core import review_durable_storage_contract as contract
+from core import review_durable_storage_approval as approval
+from core import review_history_prepared_content as prepared
+from core.review_history_approved_write import approve_history_write
+from core.review_approval_bundle import compile_approval_bundle
+from core.review_envelope_compiler import compile_review_envelope, seal_review_envelope
+from core.review_display_contract import compile_literal_lines
+from core.review_legacy_compatibility import admit_legacy_body
+from core import review_source_contract as source_contract
+from core.review_source_projection import structured_review_payload, trade_payload
 from tests.test_review_display_contract import (
     ready_v2_source, _canonical_import_accesses, _has_guarded_review_wildcard_import,
 )
@@ -338,9 +338,9 @@ class DurableStorageTest(unittest.TestCase):
     def test_restart_equivalent_read_needs_no_live_issuance_receipt_or_compiler(self):
         value = fixture(); raw = bytes(value["durable"].bytes)
         with patch.object(approval, "_ISSUED", WeakKeyDictionary()), patch(
-                "backend.core.review_approval_bundle.compile_approval_bundle", side_effect=AssertionError("compile")), patch(
-                "backend.core.review_display_v2_compiler.compile_body", side_effect=AssertionError("compile")), patch(
-                "backend.core.review_approval_bundle.compile_review_body", side_effect=AssertionError("compile")), patch.object(
+                "core.review_approval_bundle.compile_approval_bundle", side_effect=AssertionError("compile")), patch(
+                "core.review_display_v2_compiler.compile_body", side_effect=AssertionError("compile")), patch(
+                "core.review_approval_bundle.compile_review_body", side_effect=AssertionError("compile")), patch.object(
                 approval, "compile_review_envelope", side_effect=AssertionError("compile")):
             restored = approval.read_durable_history(raw, row_context=value["context"], sql_snapshots=value["sql"],
                                                      unsafe_text=unsafe_text)
@@ -543,7 +543,7 @@ class DurableStorageTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[1]
         modules = {"review_history_json_codec", "review_durable_storage_contract", "review_durable_storage_approval"}
         approved_relative = "backend/core/ai_review_v2.py"
-        approved_import = ("backend.core", ("review_display_activation", "review_approval_bundle",
+        approved_import = ("core", ("review_display_activation", "review_approval_bundle",
                                              "review_durable_storage_approval"))
 
         def approved_edge(relative, node):
@@ -551,8 +551,8 @@ class DurableStorageTest(unittest.TestCase):
                 approved_relative, *approved_import)
 
         expected_accesses = {
-            ("backend.core.review_durable_storage_approval.capture_live_paired_history", "call"): 1,
-            ("backend.core.review_durable_storage_approval._FINALIZER_CAPTURE", "access"): 1,
+            ("core.review_durable_storage_approval.capture_live_paired_history", "call"): 1,
+            ("core.review_durable_storage_approval._FINALIZER_CAPTURE", "access"): 1,
         }
 
         def check_accesses(relative, tree, exact=False):
@@ -568,16 +568,16 @@ class DurableStorageTest(unittest.TestCase):
                 self.assertFalse(observed, (relative, observed))
 
         for relative, source in (
-            ("backend/main.py", "import backend.core as core\ncore.review_durable_storage_approval"),
-            ("backend/main.py", "import backend.core as renamed\nrenamed.review_durable_storage_approval.capture_live_paired_history()"),
-            (approved_relative, "import backend.core as core\ncore.review_durable_storage_approval.unknown()"),
-            (approved_relative, "import backend.core as renamed\nrenamed.review_durable_storage_approval._FINALIZER_CAPTURE()"),
+            ("backend/main.py", "import core as core\ncore.review_durable_storage_approval"),
+            ("backend/main.py", "import core as renamed\nrenamed.review_durable_storage_approval.capture_live_paired_history()"),
+            (approved_relative, "import core as core\ncore.review_durable_storage_approval.unknown()"),
+            (approved_relative, "import core as renamed\nrenamed.review_durable_storage_approval._FINALIZER_CAPTURE()"),
             (approved_relative, "from backend import core as renamed\nrenamed.review_history_json_codec.canonical_json(None)"),
-            ("backend/core/unrelated.py", "from backend.core import *"),
-            ("backend/core/unrelated.py", "from backend.core import *\nreview_approval_bundle.compile_approval_bundle()"),
-            ("backend/core/unrelated.py", "from backend.core import *\nreview_durable_storage_approval.capture_live_paired_history()"),
-            ("backend/core/unrelated.py", "from backend.core.review_approval_bundle import *"),
-            ("backend/core/unrelated.py", "from backend.core.review_durable_storage_approval import *"),
+            ("backend/core/unrelated.py", "from core import *"),
+            ("backend/core/unrelated.py", "from core import *\nreview_approval_bundle.compile_approval_bundle()"),
+            ("backend/core/unrelated.py", "from core import *\nreview_durable_storage_approval.capture_live_paired_history()"),
+            ("backend/core/unrelated.py", "from core.review_approval_bundle import *"),
+            ("backend/core/unrelated.py", "from core.review_durable_storage_approval import *"),
             ("backend/core/unrelated.py", "from . import *"),
             ("backend/core/unrelated.py", "from ..core import *\nreview_approval_bundle.compile_approval_bundle()"),
             ("backend/core/unrelated.py", "from .review_durable_storage_approval import *\ncapture_live_paired_history()"),
@@ -586,9 +586,9 @@ class DurableStorageTest(unittest.TestCase):
                 check_accesses(relative, ast.parse(source))
 
         for relative, source in (
-            ("backend/main.py", "from backend.core import review_durable_storage_approval"),
-            (approved_relative, "from backend.core import review_durable_storage_approval"),
-            (approved_relative, "from backend.core.review_durable_storage_approval import capture_live_paired_history"),
+            ("backend/main.py", "from core import review_durable_storage_approval"),
+            (approved_relative, "from core import review_durable_storage_approval"),
+            (approved_relative, "from core.review_durable_storage_approval import capture_live_paired_history"),
         ):
             self.assertFalse(approved_edge(relative, ast.parse(source).body[0]))
 

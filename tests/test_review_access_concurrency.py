@@ -20,7 +20,7 @@ from contextlib import ExitStack, contextmanager
 from unittest.mock import patch
 
 with api._import_state():
-    from backend.core import account_store, access_control
+    from core import account_store, access_control
 
 
 def _state():
@@ -43,7 +43,7 @@ def _state():
 
 class ReviewAccessConcurrencyTest(unittest.TestCase):
     def _configured_env(self, tmpdir, *, enabled="true", expires_at=None):
-        from backend.core import account_store
+        from core import account_store
 
         return {
             "ALPHAMATE_ACCOUNT_DB_PATH": os.path.join(tmpdir, "accounts.sqlite3"),
@@ -57,7 +57,7 @@ class ReviewAccessConcurrencyTest(unittest.TestCase):
         }
 
     def _load_modules(self):
-        from backend.core import access_control, account_store
+        from core import access_control, account_store
 
         account_store = importlib.reload(account_store)
         access_control = importlib.reload(access_control)
@@ -86,7 +86,7 @@ class ReviewAccessConcurrencyTest(unittest.TestCase):
     def _exercise(self, outcome, failure, evidence):
         with storage_fixture() as storage, api.api_module_state() as modules, ExitStack() as aliases:
             evidence["root"] = storage.root
-            # The original helper reloads backend.core aliases; main imports
+            # The original helper reloads core aliases; main imports
             # core.*. Restore both namespaces without changing either helper.
             for module in (account_store, access_control):
                 aliases.enter_context(patch.dict(module.__dict__))

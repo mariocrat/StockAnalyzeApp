@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
-from backend.core.env import DB_FILES
+from core.env import DB_FILES
 
 
 class StorageFixtureTest(unittest.TestCase):

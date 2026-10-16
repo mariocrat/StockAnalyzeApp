@@ -3,18 +3,18 @@ import json
 import re
 from weakref import WeakKeyDictionary
 
-from backend.core.review_body_compiler import compile_review_body
-from backend.core.review_display_contract import (
+from core.review_body_compiler import compile_review_body
+from core.review_display_contract import (
     ReviewDisplayContractError, compile_structured_review, validate_document as validate_v1,
 )
-from backend.core.review_legacy_compatibility import LegacyCompatibilityContractError, admit_legacy_body
-from backend.core.review_envelope_contract import ApprovedReviewSnapshot, validate_envelope
-from backend.core.review_display_v2_contract import require, exact_keys, ReviewDisplayV2Error, validate_document as validate_v2
-from backend.core.review_display_v2_compiler import (
+from core.review_legacy_compatibility import LegacyCompatibilityContractError, admit_legacy_body
+from core.review_envelope_contract import ApprovedReviewSnapshot, validate_envelope
+from core.review_display_v2_contract import require, exact_keys, ReviewDisplayV2Error, validate_document as validate_v2
+from core.review_display_v2_compiler import (
     COMPILER_VERSION, capture_source, compile_body, encode, identity, require_ready, text_leaf_paths, _dto_tree,
     _compile_projected,
 )
-from backend.core.review_source_projection import structured_review_payload, semantic_payload
+from core.review_source_projection import structured_review_payload, semantic_payload
 
 BUNDLE_VERSION = "review-approval-bundle.v1"
 V1_COMPILER_VERSION = "review-body.v1.0"

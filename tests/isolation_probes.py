@@ -9,7 +9,7 @@ import sys
 import tempfile
 import unittest
 
-from backend.core.env import DB_FILES, REPOSITORY_ROOT, validate_configuration
+from core.env import DB_FILES, REPOSITORY_ROOT, validate_configuration
 from tests.module_isolation import current_boundary
 
 BOUNDARY = current_boundary()  # This must fail if a coordinator imports this module.

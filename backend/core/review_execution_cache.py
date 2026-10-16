@@ -4,12 +4,12 @@ import math
 from datetime import datetime, timezone
 from weakref import WeakKeyDictionary
 
-from backend.core.review_approval_bundle import ApprovedReviewBundle, approve_v1_only, validate_bundle
-from backend.core.review_envelope_contract import (
+from core.review_approval_bundle import ApprovedReviewBundle, approve_v1_only, validate_bundle
+from core.review_envelope_contract import (
     ApprovedReviewSnapshot, validate_envelope, approved_chart_display_snapshot,
 )
-from backend.core.review_envelope_compiler import compile_review_envelope
-from backend.core.review_display_capability import V1_CAPABILITY, require_display_capability, select_admitted_body
+from core.review_envelope_compiler import compile_review_envelope
+from core.review_display_capability import V1_CAPABILITY, require_display_capability, select_admitted_body
 
 _ISSUED = WeakKeyDictionary()
 

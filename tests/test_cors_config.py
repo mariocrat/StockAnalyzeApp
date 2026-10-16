@@ -31,7 +31,7 @@ class CorsConfigTest(unittest.TestCase):
 
     def test_default_cors_origins_include_local_web_and_capacitor(self):
         with patched_env(ALPHAMATE_CORS_ORIGINS=None):
-            from backend.core.cors import allowed_cors_origins
+            from core.cors import allowed_cors_origins
 
             origins = allowed_cors_origins()
 
@@ -45,7 +45,7 @@ class CorsConfigTest(unittest.TestCase):
         with patched_env(
             ALPHAMATE_CORS_ORIGINS="https://app.example.com, capacitor://localhost, https://app.example.com",
         ):
-            from backend.core.cors import allowed_cors_origins
+            from core.cors import allowed_cors_origins
 
             origins = allowed_cors_origins()
 

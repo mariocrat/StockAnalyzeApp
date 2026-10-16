@@ -7,14 +7,9 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-try:
-    from core.credential_redaction import is_credential_key as _should_redact_key
-    from core.credential_redaction import sanitize_text as _sanitize_text
-    from core.env import database_path, env_value
-except ModuleNotFoundError:
-    from backend.core.credential_redaction import is_credential_key as _should_redact_key
-    from backend.core.credential_redaction import sanitize_text as _sanitize_text
-    from backend.core.env import database_path, env_value
+from core.credential_redaction import is_credential_key as _should_redact_key
+from core.credential_redaction import sanitize_text as _sanitize_text
+from core.env import database_path, env_value
 
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
