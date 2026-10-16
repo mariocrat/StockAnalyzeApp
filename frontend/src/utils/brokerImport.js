@@ -1,6 +1,6 @@
 const DATE_PATTERN = /(20\d{2})[./-](\d{1,2})[./-](\d{1,2})/;
 const TIME_PATTERN = /(?:^|\s)([01]?\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?(?=\s|$)/;
-const SIDE_PATTERN = /(매수|매도|구매|판매|\bbuy\b|\bsell\b)/i;
+const SIDE_PATTERN = /(?:^|\s)(매수|매도|구매|판매|buy|sell)(?=\s|$)/i;
 const SYMBOL_PATTERN = /^(?:[A-Za-z]?\d{6})$/;
 const NUMBER_SOURCE = String.raw`\d[\d,]*(?:\.\d+)?`;
 const QUANTITY_AT_PRICE_PATTERN = new RegExp(`^(${NUMBER_SOURCE})\\s*주\\s*@\\s*(${NUMBER_SOURCE})(?:\\s*원)?$`);
@@ -24,6 +24,13 @@ export const TRADE_SIDES = Object.freeze({
   BUY: 'buy',
   SELL: 'sell',
 });
+
+function parseTradeSide(value) {
+  const label = String(value || '').toLowerCase();
+  if (['매수', '구매', 'buy'].includes(label)) return TRADE_SIDES.BUY;
+  if (['매도', '판매', 'sell'].includes(label)) return TRADE_SIDES.SELL;
+  return null;
+}
 
 export const BROKER_STATEMENT_STATUS = Object.freeze({
   READY: 'ready',
@@ -302,12 +309,11 @@ function parseTradeLine(line, sourceIndex) {
   const sideMatch = line.match(SIDE_PATTERN);
   if (!sideMatch) return null;
 
-  const normalizedSide = sideMatch[1].toLowerCase();
-  const side = normalizedSide === '매수' || normalizedSide === 'buy'
-    ? TRADE_SIDES.BUY
-    : TRADE_SIDES.SELL;
+  const side = parseTradeSide(sideMatch[1]);
+  if (!side) return null;
   const beforeSide = normalizeWhitespace(line.slice(dateMatch.index + dateMatch[0].length, sideMatch.index));
   const afterSide = normalizeWhitespace(line.slice(sideMatch.index + sideMatch[0].length));
+  if (SIDE_PATTERN.test(afterSide)) return null;
   const beforeInstrument = stripMetadata(beforeSide);
   let instrument;
   let amount;
@@ -460,6 +466,13 @@ function parseLayoutNumber(value) {
   return match ? parseNumber(match[1]) : null;
 }
 
+function parseLayoutCost(value) {
+  const text = String(value || '').trim();
+  if (!/^(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(text)) return null;
+  const cost = Number(text.replaceAll(',', ''));
+  return Number.isFinite(cost) && cost <= Number.MAX_SAFE_INTEGER ? cost : null;
+}
+
 function parseTossInstrumentCell(value) {
   const match = String(value || '').match(/^(.+?)\s*\(\s*(A?\d{6})\s*\)$/i);
   if (!match) return null;
@@ -486,10 +499,13 @@ function parseTossLayoutTrade(row, columns, sourceIndex) {
   const price = parseLayoutNumber(layoutCellText(cells, 'price'));
   if (!tradeDate || !sideMatch || !instrument || quantity === null || price === null) return null;
 
-  const normalizedSide = sideMatch[1].toLowerCase();
-  const side = normalizedSide === '매수' || normalizedSide === '구매' || normalizedSide === 'buy'
-    ? TRADE_SIDES.BUY
-    : TRADE_SIDES.SELL;
+  const side = parseTradeSide(sideMatch[1]);
+  if (!side) return null;
+  const fee = parseLayoutCost(layoutCellText(cells, 'fee'));
+  const transactionTax = parseLayoutCost(layoutCellText(cells, 'transactionTax'));
+  const otherTax = parseLayoutCost(layoutCellText(cells, 'tax'));
+  // These are separate charges; an absent component is not an explicit zero.
+  const tax = transactionTax !== null && otherTax !== null ? transactionTax + otherTax : null;
   return {
     id: 'pdf-trade-' + (sourceIndex + 1),
     broker: 'toss',
@@ -501,8 +517,8 @@ function parseTossLayoutTrade(row, columns, sourceIndex) {
     side,
     quantity,
     price,
-    fee: null,
-    tax: null,
+    fee,
+    tax: Number.isFinite(tax) && tax <= Number.MAX_SAFE_INTEGER ? tax : null,
     sourceIndex,
   };
 }

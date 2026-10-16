@@ -30,14 +30,14 @@ TestOnly 호출 구조:
 2026-10-16 source inventory는 manifest와 testcase declaration에서 재계산한다: Python direct **1079** (108 modules) = baseline **36 / 1005 / 22** (A1/foundation/helper / migrated / OUT) + Stage 1 **16** 별도 cohort.
 2026-09-23 historical baseline은 Python direct **464** = **35 / 393 / 22** + Stage 1 **14**였다.
 Child probe **18**은 direct와 별도 집계합니다.
-Node **23 entrypoint / 259 direct testcase**, `test:ai-chart-source`, `test:broker-import`, `test:canonical-review-renderer`, `test:mobile-bundle` 포함.
+Node **23 entrypoint / 263 direct testcase**, `test:ai-chart-source`, `test:broker-import`, `test:canonical-review-renderer`, `test:mobile-bundle` 포함.
 Manifest/source/execution 누락·중복·extra 및 예상 밖 skip은 실패입니다. Nested evidence는 direct에 중복 합산하지 않습니다.
 
 일반 guarded module은 120초, coordinator self-test는 600초의 hard timeout을 유지합니다. 관측된 timeout module에만 별도 제한을 적용합니다: route 38-case mutation 회귀는 H4 계측 158.0초·공식 실행 234.4초에 근거해 360초, cache 14-case 회귀는 공식 실행 77.3초/120초 timeout·H4 계측 80.6초에 근거해 180초입니다. TimeoutExpired는 계속 실패이며 case coverage·환경/patch restoration·소유 root cleanup 판정은 완화하지 않습니다.
 
 과거 closeout 기록 (historical baseline, 2026-09-23, 검증 HEAD `9fff3f3e84ce26f663f41619d37a4eb101bfbc32`): H4 test environment isolation closeout 완료. 공식 TestOnly exit code **0**; Python **464/464 PASS**, child probe **18/18 계약 PASS**, Node **17/17 entrypoint / 128/128 direct PASS**입니다. Expected negative raw ledger 6, probe contract mismatch 0, suite unexpected 0이며 restoration/cleanup 지표는 모두 true, repo pollution은 0입니다.
 
-현재 source inventory는 Python 1079 direct / 18 child probe, Node 23 / 259입니다. Focused H4 evidence와 공식 전체 TestOnly 상태는 아래 TESTING 문서에서 구분해 확인합니다.
+현재 source inventory는 Python 1079 direct / 18 child probe, Node 23 / 263입니다. Focused H4 evidence와 공식 전체 TestOnly 상태는 아래 TESTING 문서에서 구분해 확인합니다.
 
 2026-10-05 Phase 2D-4: Phase 2C 및 Phase 2D-1/2/3는 사용자 통보로 독립 승인됐다. 새 frontend는 AI execute/history list/detail/account export에만 `X-Review-Display-Contract: review-display.v1`을 선언한다. 각 backend route의 첫 gate는 exact 단일 값만 통과하고 누락/오버전/malformed/중복은 고정 426 update-required로 거절한다. Unsupported는 replay lookup/charge/refund/model/provider/history write 0, cache 존재 시에도 content 0이다. Supported replay 및 whole-record history adapter는 유지하고 old-server snapshotless UI는 legacy summary로 fallback하지 않는다. 최종 focused Python 433/433, Node 69/69, Node coordinator 9/9와 inventory/보존 증거는 [TESTING](TESTING.md#phase-2d-4-client-display-compatibility-gate--2026-10-05) 및 [실행 계획](exec-plans/structured-trade-review.md)에 기록한다. 독립 Phase 2D-4 검토 가능 상태이며 보고 후 대기한다. 전체 TestOnly/BuildChecks, browser/CSS/device/live network/private DB, DB migration/backfill, 배포/Play 및 Git mutation은 실행하지 않았다. 아래 이전 단계 기록은 historical evidence다.
 

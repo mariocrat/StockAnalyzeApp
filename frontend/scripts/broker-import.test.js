@@ -49,7 +49,7 @@ function tossLayoutExtraction() {
     ['잔고', 748.7],
     ['잔액', 772.3],
   ];
-  const row = (y, side, amount, settlement, price) => [
+  const row = (y, side, amount, settlement, price, transactionTax) => [
     layoutItem('2026.09.02', 57, y),
     layoutItem(side, 107.9, y),
     layoutItem('원익(A032940)', 173.1, y),
@@ -58,7 +58,7 @@ function tossLayoutExtraction() {
     layoutItem(settlement, 473.4, y),
     layoutItem(price, 526.1, y),
     layoutItem('1', 584, y),
-    layoutItem('0', 625.9, y),
+    layoutItem(transactionTax, 625.9, y),
     layoutItem('0', 669.4, y),
     layoutItem('0', 713, y),
     layoutItem('9,727', 766.4, y),
@@ -78,12 +78,100 @@ function tossLayoutExtraction() {
       pageNumber: 1,
       items: [
         ...columns.map(([label, x]) => layoutItem(label, x, headerY)),
-        ...row(rowOneY, '판매', '7,710', '7,694', '7,710'),
-        ...row(rowTwoY, '구매', '7,830', '7,831', '7,830'),
+        ...row(rowOneY, '판매', '7,710', '7,694', '7,710', '15'),
+        ...row(rowTwoY, '구매', '7,830', '7,831', '7,830', '0'),
       ],
     }],
   };
 }
+
+// Cost probes change only cost cells: settlement totals must never supply missing costs.
+function tossCostExtraction(fee, transactionTax, tax) {
+  const extraction = tossLayoutExtraction();
+  const overrides = new Map([[584, fee], [625.9, transactionTax], [669.4, tax]]);
+  extraction.pages[0].items = extraction.pages[0].items.map(item => (
+    item.y === 237.8 && overrides.has(item.x) ? { ...item, str: overrides.get(item.x) } : item
+  ));
+  return extraction;
+}
+
+test('generic sides accept explicit purchase and sale labels and reject ambiguous directions', () => {
+  for (const [label, expected] of [['구매', 'buy'], ['매수', 'buy'], ['BUY', 'buy'],
+    ['판매', 'sell'], ['매도', 'sell'], ['SELL', 'sell']]) {
+    const parsed = parseTradeCandidates(`2026-09-02 ${label} 삼성전자 005930 70,000원 1주`);
+    assert.equal(parsed.length, 1, label);
+    assert.equal(parsed[0].side, expected, label);
+    assert.equal(parsed[0].fee, null);
+    assert.equal(parsed[0].tax, null);
+  }
+  for (const label of ['매수취소', '구매취소', '재매수', '매수/매도', '매수 매도', '교환', 'BUYBACK']) {
+    assert.deepEqual(parseTradeCandidates(`2026-09-02 ${label} 삼성전자 005930 70,000원 1주`), [], label);
+  }
+});
+
+test('Toss cost columns preserve nonzero values and explicit zero independently', () => {
+  for (const [fee, transactionTax, tax, expected] of [
+    ['1,234.5', '15', '2', [1234.5, 17]],
+    ['0', '0', '0', [0, 0]],
+    ['0.00', '0.0', '0', [0, 0]],
+  ]) {
+    const extraction = tossCostExtraction(fee, transactionTax, tax);
+    const parsed = parseBrokerStatement(extraction.text, extraction);
+    assert.equal(parsed.status, BROKER_STATEMENT_STATUS.READY);
+    assert.equal(parsed.trades.length, 2);
+    assert.deepEqual(parsed.trades.map(row => row.side), ['sell', 'buy']);
+    assert.deepEqual([parsed.trades[0].fee, parsed.trades[0].tax], expected);
+    assert.deepEqual([parsed.trades[0].price, parsed.trades[0].quantity], [7710, 1]);
+    assert.deepEqual([parsed.trades[1].fee, parsed.trades[1].tax], [1, 0]);
+  }
+});
+
+test('missing or malformed Toss cost components stay unknown without discarding the trade', () => {
+  for (const bad of [null, '', '-', '-1', '1,,000', '1 2', 'NaN', 'Infinity', 'unknown', '9007199254740992']) {
+    for (const column of [0, 1, 2]) {
+      const values = ['1', '15', '0'];
+      values[column] = bad;
+      const extraction = tossCostExtraction(...values);
+      const parsed = parseBrokerStatement(extraction.text, extraction);
+      assert.equal(parsed.status, BROKER_STATEMENT_STATUS.READY);
+      assert.equal(parsed.trades.length, 2);
+      const row = parsed.trades[0];
+      assert.equal(row.fee, column === 0 ? null : 1);
+      assert.equal(row.tax, column === 0 ? 15 : null);
+      assert.throws(() => prepareBrokerReviewInput([row]), /수수료와 세금 확인/);
+    }
+  }
+  for (const header of ['수수료', '거래세', '제세금']) {
+    const extraction = tossLayoutExtraction();
+    extraction.pages[0].items = extraction.pages[0].items.filter(item => item.str !== header);
+    const row = parseBrokerStatement(extraction.text, extraction).trades[0];
+    assert.equal(header === '수수료' ? row.fee : row.tax, null);
+    assert.throws(() => prepareBrokerReviewInput([row]), /수수료와 세금 확인/);
+  }
+});
+
+test('broker review preparation cannot replace unknown costs with numeric defaults', () => {
+  const extraction = tossLayoutExtraction();
+  const rows = parseBrokerStatement(extraction.text, extraction).trades.map((row, index) => ({
+    ...row, tradeTime: index ? '09:30' : '14:10', timeUnknown: false,
+  }));
+  const before = structuredClone(rows);
+  const prepared = prepareBrokerReviewInput(rows).groups[0];
+  assert.deepEqual(prepared.trades.map(row => [row.side, row.fee, row.tax]), [['buy', 1, 0], ['sell', 1, 15]]);
+  assert.deepEqual(rows, before);
+  for (const field of ['fee', 'tax']) {
+    for (const value of [null, undefined, '', '0', false, NaN, Infinity, -1]) {
+      const unknown = rows.map(row => ({ ...row, [field]: value }));
+      const snapshot = structuredClone(unknown);
+      assert.throws(() => prepareBrokerReviewInput(unknown), /수수료와 세금 확인/);
+      assert.deepEqual(unknown, snapshot);
+    }
+  }
+  const zero = prepareBrokerReviewInput(rows.map(row => ({ ...row, fee: 0, tax: 0 }))).groups[0];
+  assert.ok(zero.trades.every(row => row.fee === 0 && row.tax === 0));
+  const generic = parseTradeCandidates('2026-09-02 삼성전자 005930 구매 70,000원 1주');
+  assert.throws(() => prepareBrokerReviewInput(generic), /수수료와 세금 확인/);
+});
 
 test('keeps every clear candidate as an independent trade and sorts newest first', () => {
   const trades = parseTradeCandidates([
@@ -226,6 +314,7 @@ test('parses Toss domestic table columns from PDF.js coordinates and normalizes 
   ]);
   assert.equal(new Set(parsed.trades.map(trade => trade.id)).size, 2);
   assert.deepEqual(parsed.trades.map(trade => trade.sourceIndex), [0, 1]);
+  assert.deepEqual(parsed.trades.map(trade => [trade.fee, trade.tax]), [[1, 15], [1, 0]]);
 });
 
 test('requires actual foreign trade evidence before returning overseas unsupported', () => {

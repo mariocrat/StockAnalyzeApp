@@ -15,17 +15,19 @@ export function prepareBrokerReviewInput(selectedTrades = []) {
     const time = trade.timeUnknown === true ? null : normalizeOptionalTradeTime(trade.tradeTime);
     const price = Number(trade.price);
     const quantity = Number(trade.quantity);
-    const fee = Number(trade.fee ?? 0);
-    const tax = Number(trade.tax ?? 0);
+    const { fee, tax } = trade;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)
       || !Number.isFinite(Date.parse(`${date}T00:00:00Z`))
       || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date
       || !/^\d{6}$/.test(ticker) || !name.trim()
       || !['buy', 'sell'].includes(trade.side)
       || !Number.isFinite(price) || price <= 0 || !Number.isFinite(quantity) || quantity <= 0
-      || !Number.isFinite(fee) || fee < 0 || !Number.isFinite(tax) || tax < 0
       || (trade.timeUnknown !== true && trade.tradeTime && !time)) {
       throw new Error('가져온 거래의 날짜, 종목, 가격, 수량과 체결시간을 확인해주세요.');
+    }
+    // Omitting unknown costs would let JournalTradeIn/normalize_trade default them to zero.
+    if (![fee, tax].every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)) {
+      throw new Error('수수료와 세금 확인이 필요합니다. PDF에서 비용을 확인할 수 없는 거래는 복기 입력으로 준비할 수 없습니다.');
     }
     const input = {
       trade_date: time ? `${date}T${time}` : date,

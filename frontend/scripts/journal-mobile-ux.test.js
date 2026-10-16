@@ -277,8 +277,8 @@ async function verifyImportedPreparation() {
   assert.match(journalSource, /showCurrentReviewDetails && <section className="journal-panel">/);
   assert.ok(prepareButtonExpression);
   const rows = [
-    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: '원익', side: 'buy', price: 7830, quantity: 1, tradeTime: null, timeUnknown: true },
-    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: '원익', side: 'sell', price: 7710, quantity: 1, tradeTime: null, timeUnknown: true },
+    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: '원익', side: 'buy', price: 7830, quantity: 1, fee: 1, tax: 0, tradeTime: null, timeUnknown: true },
+    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: '원익', side: 'sell', price: 7710, quantity: 1, fee: 1, tax: 15, tradeTime: null, timeUnknown: true },
   ];
   const savedTrades = [{ id: 41, name: 'Saved trade', ticker: '005930' }];
   const state = { prepared: null, savedTrades, details: true };
@@ -313,6 +313,16 @@ async function verifyImportedPreparation() {
   assert.equal(state.prepared, null);
   assert.equal(state.cleared, undefined);
   context.importedTrades = rows.map((row, index) => ({ ...row, tradeTime: index ? '14:10' : '09:30', timeUnknown: false }));
+  const confirmedCosts = context.importedTrades;
+  for (const field of ['fee', 'tax']) {
+    context.importedTrades = confirmedCosts.map(row => ({ ...row, [field]: null }));
+    button().props.onClick();
+    assert.equal(state.prepared, null, 'unknown costs cannot publish prepared input');
+    assert.equal(state.cleared, undefined, 'unknown costs leave the pending selection available');
+    assert.match(state.message, /수수료와 세금 확인/);
+    assert.ok(context.importedTrades.every(row => row[field] === null));
+  }
+  context.importedTrades = confirmedCosts;
   view = button();
   assert.equal(view.props.disabled, false);
   assert.ok(renderToStaticMarkup(view).includes('선택한 거래로 복기 준비'));
@@ -350,6 +360,7 @@ async function verifyImportedPreparation() {
     await load(selected, type, { targetTradeId: state.prepared.groups[0].targetTradeId });
     assert.deepEqual(requests.map(value => value.url.split('/').at(-1)), ['ai-review-once', 'review-once']);
     assert.deepEqual(requests[0].payload.trades, selected);
+    assert.deepEqual(requests[0].payload.trades.map(row => [row.fee, row.tax]), [[1, 0], [1, 15]]);
     assert.equal(requests[0].payload.target_trade_id, null);
     assert.equal(requests[0].payload.review_type, type);
     assert.deepEqual(requests[0].config.headers, reviewDisplayHeaders({ ...io.authHeaders,
@@ -382,8 +393,8 @@ function verifyInputModeSelection() {
     assert.ok(expression);
   }
   const pending = [
-    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic import', side: 'buy', price: 7830, quantity: 1, tradeTime: null, timeUnknown: true },
-    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic import', side: 'sell', price: 7710, quantity: 1, tradeTime: null, timeUnknown: true },
+    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic import', side: 'buy', price: 7830, quantity: 1, fee: 1, tax: 0, tradeTime: null, timeUnknown: true },
+    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic import', side: 'sell', price: 7710, quantity: 1, fee: 1, tax: 15, tradeTime: null, timeUnknown: true },
   ];
   const saved = [
     { id: 41, trade_date: '2026-09-01T09:30', ticker: '005930', name: 'Synthetic saved', side: 'buy', price: 10000, quantity: 1 },
@@ -555,7 +566,7 @@ test('review depth cards appear only after direct selection or prepared broker i
   assert.ok(selectionExpression && basicChoiceExpression && advancedChoiceExpression);
   const direct = [{ id: 42, trade_date: '2026-09-01T14:10', ticker: '005930', name: 'Synthetic', side: 'sell', price: 10100, quantity: 1 }];
   const imported = prepareBrokerReviewInput([
-    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'buy', price: 7830, quantity: 1, tradeTime: null, timeUnknown: true },
+    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'buy', price: 7830, quantity: 1, fee: 1, tax: 0, tradeTime: null, timeUnknown: true },
   ]).groups[0].trades;
   let directHtml;
   for (const rows of [direct, imported]) {
@@ -594,8 +605,8 @@ test('review depth cards appear only after direct selection or prepared broker i
 test('selected depth execution retains actual basic advanced API and canonical payload contracts for both input paths', async () => {
   const direct = [{ id: 42, trade_date: '2026-09-01T14:10', ticker: '005930', name: 'Synthetic', side: 'sell', price: 10100, quantity: 1 }];
   const prepared = prepareBrokerReviewInput([
-    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'buy', price: 7830, quantity: 1, tradeTime: '09:30', timeUnknown: false },
-    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'sell', price: 7710, quantity: 1, tradeTime: '14:10', timeUnknown: false },
+    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'buy', price: 7830, quantity: 1, fee: 1, tax: 0, tradeTime: '09:30', timeUnknown: false },
+    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'sell', price: 7710, quantity: 1, fee: 1, tax: 15, tradeTime: '14:10', timeUnknown: false },
   ]);
   for (const rows of [direct, prepared.groups[0].trades]) {
     for (const type of ['basic', 'advanced']) {
@@ -719,8 +730,8 @@ test('live basic result deepens the exact direct or broker request without re-en
   const direct = [{ id: 42, trade_date: '2026-09-01T14:10:05', ticker: '005930', name: 'Synthetic',
     side: 'sell', price: 10100, quantity: 1, fee: 3, tax: 4, memo: 'Original reason', source: 'manual' }];
   const imported = prepareBrokerReviewInput([
-    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'buy', price: 7830, quantity: 1, tradeTime: '09:30', timeUnknown: false },
-    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'sell', price: 7710, quantity: 1, tradeTime: '14:10', timeUnknown: false },
+    { id: 'pdf-trade-1', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'buy', price: 7830, quantity: 1, fee: 1, tax: 0, tradeTime: '09:30', timeUnknown: false },
+    { id: 'pdf-trade-2', tradeDate: '2026-09-02', symbol: '032940', stockName: 'Synthetic', side: 'sell', price: 7710, quantity: 1, fee: 1, tax: 15, tradeTime: '14:10', timeUnknown: false },
   ]).groups[0].trades;
   for (const rows of [direct, imported]) {
     const target = rows === direct ? 42 : null;

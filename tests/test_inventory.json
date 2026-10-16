@@ -2689,7 +2689,7 @@
           "account changes clear the previous account journal workspace before loading tenant data",
           "review archive entry uses a throttled interstitial policy"
         ],
-        "sha256": "104cf1d7580e32dbfa3602da95ad82ed7c217058f407e995cf44a30187b27004",
+        "sha256": "d55ba39b19390ee981d7e45a894b0a3e85ccccd5de673d006895e1fabe42ac73",
         "reads": [
           "package.json",
           "scripts/journal-mobile-ux.test.js",
@@ -2756,6 +2756,10 @@
         "file": "scripts/broker-import.test.js",
         "profile": "standard",
         "cases": [
+          "generic sides accept explicit purchase and sale labels and reject ambiguous directions",
+          "Toss cost columns preserve nonzero values and explicit zero independently",
+          "missing or malformed Toss cost components stay unknown without discarding the trade",
+          "broker review preparation cannot replace unknown costs with numeric defaults",
           "keeps every clear candidate as an independent trade and sorts newest first",
           "supports side-before-name rows without merging or inventing a time",
           "rejects rows when price and quantity have no explicit meaning",
@@ -2776,7 +2780,7 @@
           "sort helper preserves source order when date and time are equal",
           "local PDF flow has no client upload, API, or browser storage call"
         ],
-        "sha256": "250f14a64787e7a4d5aaef738b1aa042d336e8f7908576c52db448b0614fbb26",
+        "sha256": "5ea37a6392686f19bf835102a874f351ae1a2f6744c1cf02076d4fe147616ff0",
         "reads": [
           "package.json",
           "scripts/broker-import.test.js",
