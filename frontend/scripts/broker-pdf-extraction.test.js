@@ -89,7 +89,6 @@ async function readPdf(pages, options) {
 }
 
 test('real local PDF.js reads synthetic File bytes and repeated-page tables with costs and numeric names', async () => {
-  try {
   const extraction = await readPdf([tablePage('2026.09.01'), tablePage('2026.09.02', '판매')]);
   assert.equal(extraction.pageCount, 2);
   assert.deepEqual(extraction.pages.map(page => page.pageNumber), [1, 2]);
@@ -187,9 +186,6 @@ test('real local PDF.js reads synthetic File bytes and repeated-page tables with
     assert.deepEqual(result.completeness, { recognizedRows: 1, parsedRows: 1 });
     assert.equal(result.trades.length, 1);
   }
-  } catch (error) {
-    throw error;
-  }
 });
 
 test('real PDF.js malformed rows and headerless continuation never expose partial trades', async () => {
@@ -217,27 +213,23 @@ test('real PDF.js malformed rows and headerless continuation never expose partia
 });
 
 test('real PDF.js tri-state composite damage rejects whole imports', async () => {
-  try {
-    for (const { name, changes, kind, samePage } of [...rowDamageMatrix(), ...transactionIdentityMatrix()]) {
-      const positions = [40, 100, 165, 340, 430];
-      const page = tablePage('2026.09.03').filter(item => item.y !== 470);
-      page.push(...tradeFields.flatMap((key, index) => {
-        const value = Object.hasOwn(changes, key) ? changes[key] : validTrade[index];
-        return value === null ? [] : [{ str: value, x: positions[index] + (samePage ? 0 : 0.25), y: 470 + index % 2 * 0.25 }];
-      }));
-      const extraction = await readPdf(samePage
-        ? [[...tablePage('2026.09.02'), ...page.filter(item => item.y < 500).map(item => ({ ...item, y: item.y - 30 }))]]
-        : [tablePage('2026.09.02'), page]);
-      const result = parseBrokerStatement(extraction.text, extraction);
-      const incomplete = kind === 'incomplete_transaction';
-      const parsed = kind === 'transaction' ? 2 : 1;
-      assert.equal(result.status, incomplete ? BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE : BROKER_STATEMENT_STATUS.READY, name);
-      assert.deepEqual(result.completeness, { recognizedRows: incomplete ? 2 : parsed, parsedRows: parsed }, name);
-      assert.equal(result.trades.length, incomplete ? 0 : parsed, name);
-      assert.equal(new Set(result.trades.map(row => row.id)).size, result.trades.length, name);
-    }
-  } catch (error) {
-    throw error;
+  for (const { name, changes, kind, samePage } of [...rowDamageMatrix(), ...transactionIdentityMatrix()]) {
+    const positions = [40, 100, 165, 340, 430];
+    const page = tablePage('2026.09.03').filter(item => item.y !== 470);
+    page.push(...tradeFields.flatMap((key, index) => {
+      const value = Object.hasOwn(changes, key) ? changes[key] : validTrade[index];
+      return value === null ? [] : [{ str: value, x: positions[index] + (samePage ? 0 : 0.25), y: 470 + index % 2 * 0.25 }];
+    }));
+    const extraction = await readPdf(samePage
+      ? [[...tablePage('2026.09.02'), ...page.filter(item => item.y < 500).map(item => ({ ...item, y: item.y - 30 }))]]
+      : [tablePage('2026.09.02'), page]);
+    const result = parseBrokerStatement(extraction.text, extraction);
+    const incomplete = kind === 'incomplete_transaction';
+    const parsed = kind === 'transaction' ? 2 : 1;
+    assert.equal(result.status, incomplete ? BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE : BROKER_STATEMENT_STATUS.READY, name);
+    assert.deepEqual(result.completeness, { recognizedRows: incomplete ? 2 : parsed, parsedRows: parsed }, name);
+    assert.equal(result.trades.length, incomplete ? 0 : parsed, name);
+    assert.equal(new Set(result.trades.map(row => row.id)).size, result.trades.length, name);
   }
 });
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
+import { brokerReviewTradeIssue, prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
 import { rowDamageMatrix, transactionIdentityMatrix, tradeFields, validTrade } from './fixtures/broker-row-damage.js';
 import {
   BROKER_STATEMENT_MESSAGES,
@@ -291,6 +291,22 @@ test('Toss text-only fallback also refuses to silently drop an identifiable brok
     assert.deepEqual(result.trades, []);
     assert.deepEqual(result.completeness, { recognizedRows: 2, parsedRows: 1 });
   }
+});
+
+test('confirmation issues use the same instrument and cost boundary as review preparation', () => {
+  const valid = parseBrokerStatement(tossLayoutExtraction().text, tossLayoutExtraction()).trades[0];
+  assert.equal(brokerReviewTradeIssue(valid), '');
+  for (const delta of [{ fee: null }, { tax: undefined }, { fee: '0' }, { tax: -1 }, { fee: NaN }]) {
+    const row = { ...valid, ...delta };
+    assert.match(brokerReviewTradeIssue(row), /수수료와 세금 확인/);
+    assert.throws(() => prepareBrokerReviewInput([row]), { message: brokerReviewTradeIssue(row) });
+  }
+  const nameOnly = parseTradeCandidates('2026-09-02 삼성전자 매수 1주 @ 70,000')[0];
+  assert.ok(nameOnly);
+  assert.equal(nameOnly.symbol, null);
+  assert.match(brokerReviewTradeIssue(nameOnly), /종목명과 6자리 종목코드/);
+  assert.throws(() => prepareBrokerReviewInput([nameOnly]), { message: brokerReviewTradeIssue(nameOnly) });
+  assert.equal(brokerReviewTradeIssue({ ...valid, fee: 0, tax: 0 }), '');
 });
 
 test('generic sides accept explicit purchase and sale labels and reject ambiguous directions', () => {

@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { Check, FileText, ShieldCheck } from 'lucide-react';
 import { extractPdfText, LocalPdfPasswordRequiredError } from '../utils/pdfTextExtractor';
+import { brokerReviewTradeIssue } from '../utils/brokerReviewInput';
 import {
   BROKER_STATEMENT_MESSAGES,
   BROKER_STATEMENT_STATUS,
@@ -10,6 +11,7 @@ import {
   formatTradeNumber,
   parseBrokerStatement,
   setTradeTimeUnknownState,
+  sortTradesByDateDesc,
   tradeSideLabel,
   validateTradeTimesForReview,
   updateTradeTimeState,
@@ -153,13 +155,17 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
 
   const allSelected = state.trades.length > 0 && state.trades.every(trade => state.selectedIds.has(trade.id));
   const isProcessing = state.status === 'processing';
-  const selectedTrades = state.trades
-    .filter(trade => state.selectedIds.has(trade.id))
-    .map(trade => ({ ...trade, ...(state.tradeStates[trade.id] || createTradeTimeState()) }));
+  const confirmationTrades = sortTradesByDateDesc(state.trades.map(trade => {
+    const timeState = state.tradeStates[trade.id] || createTradeTimeState();
+    return { ...trade, ...timeState, tradeTime: timeState.tradeTime || null };
+  }));
+  const reviewIssues = new Map(confirmationTrades.map(trade => [trade.id, brokerReviewTradeIssue(trade)]));
+  const selectedTrades = confirmationTrades.filter(trade => state.selectedIds.has(trade.id));
+  const selectedReviewIssue = selectedTrades.map(trade => reviewIssues.get(trade.id)).find(Boolean) || '';
   const selectedTimeValidation = validateTradeTimesForReview(selectedTrades);
   const requiredTradeIds = new Set(selectedTimeValidation.requiredTradeIds);
   const missingRequiredTimeIds = new Set(selectedTimeValidation.missingTradeIds);
-  const canImportSelectedTrades = selectedTrades.length > 0 && selectedTimeValidation.valid;
+  const canImportSelectedTrades = selectedTrades.length > 0 && selectedTimeValidation.valid && !selectedReviewIssue;
 
   const importSelectedTrades = () => {
     if (!selectedTrades.length) {
@@ -171,6 +177,10 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
         ...previous,
         message: REVIEW_TIME_VALIDATION_MESSAGES.BLOCKED,
       }));
+      return;
+    }
+    if (selectedReviewIssue) {
+      setState(previous => ({ ...previous, message: selectedReviewIssue }));
       return;
     }
     onImportToJournal?.(selectedTrades);
@@ -204,7 +214,7 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
           <span className="broker-import-guide-number">1</span>
           <div>
             <strong>증권사 선택</strong>
-            <p>토스증권 <em>1차 지원 예정</em></p>
+            <p>토스증권 <em>국내주식 지원</em></p>
           </div>
         </div>
         <div className="broker-import-guide-step">
@@ -226,7 +236,7 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
           </div>
         </div>
       </section>}
-      {embedded && <p className="broker-import-embedded-note">국내주식 · 첫 지원 예정: 토스증권</p>}
+      <p className="broker-import-embedded-note">토스증권 국내주식 거래내역서를 지원합니다. 그 외 단순 텍스트 형식은 제한적으로 인식합니다. 해외·환율 거래, 스캔·사진 PDF, 암호화 PDF는 지원하지 않습니다.</p>
 
       <section className="broker-import-panel">
         <div className="broker-import-panel-heading">
@@ -305,12 +315,13 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
                 </div>
               )}
               <ul className="broker-trade-list">
-                {state.trades.map(trade => {
+                {confirmationTrades.map(trade => {
                   const selected = state.selectedIds.has(trade.id);
                   const tradeState = state.tradeStates[trade.id] || createTradeTimeState();
                   const { tradeTime, timeUnknown } = tradeState;
                   const timeRequired = selected && requiredTradeIds.has(trade.id);
                   const missingRequiredTime = timeRequired && missingRequiredTimeIds.has(trade.id);
+                  const reviewIssue = reviewIssues.get(trade.id);
                   return (
                     <li key={trade.id} className={`${selected ? 'selected' : ''}${missingRequiredTime ? ' time-required' : ''}`}>
                       <div className="broker-trade-card" onClick={() => toggleTrade(trade.id)}>
@@ -325,12 +336,11 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
                             {trade.symbol && <em>{trade.symbol}</em>}
                             <time>{formatTradeDateTime({ ...trade, tradeTime })}</time>
                           </span>
+                          {reviewIssue && <span className="broker-trade-review-issue">복기 준비 불가: {reviewIssue}</span>}
                         </span>
                         <span className="broker-trade-amount">
                           <strong>{formatTradeNumber(trade.price)}원 × {formatTradeNumber(trade.quantity)}주</strong>
-                          {(trade.fee !== null || trade.tax !== null) && (
-                            <small>{trade.fee !== null ? `수수료 ${formatTradeNumber(trade.fee)}원` : ''}{trade.tax !== null ? ` 세금 ${formatTradeNumber(trade.tax)}원` : ''}</small>
-                          )}
+                          <small>수수료 {typeof trade.fee === 'number' && Number.isFinite(trade.fee) && trade.fee >= 0 ? `${formatTradeNumber(trade.fee)}원` : '확인 필요'} · 세금 {typeof trade.tax === 'number' && Number.isFinite(trade.tax) && trade.tax >= 0 ? `${formatTradeNumber(trade.tax)}원` : '확인 필요'}</small>
                         </span>
                         {selected && (
                           <div className="broker-trade-time" onClick={event => event.stopPropagation()}>
@@ -375,12 +385,14 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
                   ? '거래를 선택하면 매매 복기로 가져올 수 있습니다.'
                   : !selectedTimeValidation.valid
                     ? '필수 체결시간을 입력하면 매매 복기로 가져올 수 있습니다.'
-                    : '선택한 거래를 매매 복기로 준비합니다.'}{' '}
+                    : selectedReviewIssue
+                      ? `${selectedReviewIssue} 해당 거래를 선택 해제하면 나머지 거래를 가져올 수 있습니다.`
+                      : '선택한 거래를 매매 복기로 준비합니다.'}{' '}
                 PDF에서 읽은 정보만 준비합니다.{' '}
                 {selectedTimeValidation.requiredGroups.length > 0
                   ? '같은 날 같은 종목의 매수와 매도가 함께 선택되어 있습니다. 정확한 거래 순서를 위해 해당 거래의 체결시간을 입력해주세요.'
                   : '거래내역서에 체결시간이 없는 경우 비워둘 수 있습니다.'}{' '}
-                매매 이유와 판단은 매매복기에서 작성합니다.
+                종목·가격·수량·비용 수정 및 메모 입력은 아직 지원하지 않습니다.
               </p>
             </>
           )}

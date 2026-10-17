@@ -12,8 +12,11 @@ import { basicReviewInput, captureReviewInput } from '../src/utils/basicReviewIn
 import { buildAiReviewIdempotencyKey } from '../src/utils/aiReviewIdempotency.js';
 import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../src/utils/reviewDisplayContract.js';
 import { renderEvidence } from './review-render-evidence.js';
-import { prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
-import { BROKER_STATEMENT_MESSAGES, BROKER_STATEMENT_STATUS, parseBrokerStatement, validateTradeTimesForReview } from '../src/utils/brokerImport.js';
+import { brokerReviewTradeIssue, prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
+import { BROKER_STATEMENT_MESSAGES, BROKER_STATEMENT_STATUS, REVIEW_TIME_VALIDATION_MESSAGES,
+  createTradeTimeState, formatTradeDateTime, formatTradeNumber, parseBrokerStatement,
+  setTradeTimeUnknownState, sortTradesByDateDesc, tradeSideLabel, updateTradeTimeState,
+  validateTradeTimesForReview } from '../src/utils/brokerImport.js';
 import { buildReviewTradeGroups, reviewTradesForGroup } from '../src/utils/reviewTradeSelection.js';
 
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
@@ -154,6 +157,134 @@ test('broker file admission enforces 25MiB before extraction and renders incompl
   assert.match(html, /role="alert"/);
   assert.ok(html.includes(BROKER_STATEMENT_MESSAGES.TOSS_INCOMPLETE));
   assert.doesNotMatch(html, /매매 복기로 가져오기/);
+});
+
+// Render the real component and invoke its handlers in the existing isolated VM.
+function brokerConfirmationHarness(trades) {
+  const source = readFileSync(new URL('../src/components/BrokerImport.jsx', import.meta.url), 'utf8');
+  const fileAst = ts.createSourceFile('BrokerImport.jsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
+  assert.deepEqual(fileAst.parseDiagnostics, []);
+  const component = fileAst.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'BrokerImport');
+  let state = { status: 'ready', statementStatus: BROKER_STATEMENT_STATUS.READY, fileName: 'synthetic.pdf',
+    trades, selectedIds: new Set(), tradeStates: Object.fromEntries(trades.map(row => [row.id, createTradeTimeState(row.tradeTime)])),
+    pageCount: 1, textItemCount: 10, message: '' };
+  const transferred = [];
+  const context = syntheticContext({ React, useRef: () => ({ current: null }),
+    useState: () => [state, value => { state = typeof value === 'function' ? value(state) : value; }],
+    Check: () => null, FileText: () => null, ShieldCheck: () => null,
+    BROKER_STATEMENT_STATUS, BROKER_STATEMENT_MESSAGES, REVIEW_TIME_VALIDATION_MESSAGES,
+    brokerReviewTradeIssue, createTradeTimeState, formatTradeDateTime, formatTradeNumber,
+    setTradeTimeUnknownState, sortTradesByDateDesc, tradeSideLabel, updateTradeTimeState, validateTradeTimesForReview,
+  });
+  const Component = expressionInContext(component.getText(fileAst).replace(/^export default /, ''), context);
+  return { get state() { return state; }, transferred,
+    render: (embedded = true) => Component({ embedded, onImportToJournal: rows => transferred.push(rows) }) };
+}
+
+function brokerElements(node, predicate) {
+  if (Array.isArray(node)) return node.flatMap(child => brokerElements(child, predicate));
+  if (!React.isValidElement(node)) return [];
+  return [...(predicate(node) ? [node] : []), ...brokerElements(node.props.children, predicate)];
+}
+
+const confirmationRow = (view, id) => brokerElements(view, node => node.type === 'li' && node.key === id)[0];
+const confirmationChecks = view => brokerElements(view, node => node.type === 'input' && node.props.type === 'checkbox');
+const transferButton = view => brokerElements(view, node => node.type === 'button' && node.props.children === '매매 복기로 가져오기')[0];
+const confirmationTrade = (id, extra = {}) => ({ id, tradeDate: '2026-09-02', stockName: '합성종목', symbol: '005930',
+  side: 'buy', price: 70000, quantity: 1, fee: 0, tax: 0, tradeTime: null, sourceIndex: Number(id.slice(-1)), ...extra });
+
+test('broker confirmation re-sorts manual times while retaining row identity and selection', () => {
+  const input = [confirmationTrade('pdf-trade-0', { tradeDate: '2026-09-03' }),
+    confirmationTrade('pdf-trade-1', { tradeTime: '09:30' }), confirmationTrade('pdf-trade-2', { tradeTime: '14:00' }),
+    confirmationTrade('pdf-trade-3')];
+  const h = brokerConfirmationHarness(input);
+  const order = () => brokerElements(h.render(), node => node.type === 'li').map(node => node.key);
+  const select = id => confirmationChecks(confirmationRow(h.render(), id))[0].props.onChange();
+  select('pdf-trade-1');
+  select('pdf-trade-3');
+  assert.deepEqual(order(), ['pdf-trade-0', 'pdf-trade-2', 'pdf-trade-1', 'pdf-trade-3']);
+  const time = id => brokerElements(confirmationRow(h.render(), id), node => node.type === 'input' && node.props.type === 'time')[0];
+  time('pdf-trade-1').props.onChange({ target: { value: '16:00' } });
+  assert.deepEqual(order(), ['pdf-trade-0', 'pdf-trade-1', 'pdf-trade-2', 'pdf-trade-3']);
+  confirmationChecks(confirmationRow(h.render(), 'pdf-trade-3'))[1].props.onChange({ target: { checked: false } });
+  time('pdf-trade-3').props.onChange({ target: { value: '16:00' } });
+  assert.deepEqual(order(), ['pdf-trade-0', 'pdf-trade-1', 'pdf-trade-3', 'pdf-trade-2']);
+  confirmationChecks(confirmationRow(h.render(), 'pdf-trade-1'))[1].props.onChange({ target: { checked: true } });
+  assert.deepEqual(order(), ['pdf-trade-0', 'pdf-trade-3', 'pdf-trade-2', 'pdf-trade-1']);
+  confirmationChecks(confirmationRow(h.render(), 'pdf-trade-1'))[1].props.onChange({ target: { checked: false } });
+  assert.deepEqual(order(), ['pdf-trade-0', 'pdf-trade-3', 'pdf-trade-2', 'pdf-trade-1']);
+  assert.deepEqual([...h.state.selectedIds].sort(), ['pdf-trade-1', 'pdf-trade-3']);
+  assert.equal(confirmationChecks(confirmationRow(h.render(), 'pdf-trade-1'))[0].props.checked, true);
+  assert.deepEqual(input.map(row => [row.id, row.tradeTime]), [
+    ['pdf-trade-0', null], ['pdf-trade-1', '09:30'], ['pdf-trade-2', '14:00'], ['pdf-trade-3', null],
+  ]);
+  assert.equal(transferButton(h.render()).props.disabled, false);
+  transferButton(h.render()).props.onClick();
+  assert.deepEqual(Array.from(h.transferred[0], row => row.id), ['pdf-trade-3', 'pdf-trade-1']);
+  assert.equal(new Set(h.transferred[0].map(row => row.id)).size, 2);
+});
+
+test('broker confirmation explains blocked costs and instruments and permits deselecting them', () => {
+  const h = brokerConfirmationHarness([confirmationTrade('pdf-trade-1'),
+    confirmationTrade('pdf-trade-2', { fee: null }), confirmationTrade('pdf-trade-3', { tax: null }),
+    confirmationTrade('pdf-trade-4', { symbol: '' })]);
+  const html = renderToStaticMarkup(h.render());
+  assert.match(html, /수수료와 세금 확인/);
+  assert.match(html, /종목명과 6자리 종목코드 확인/);
+  assert.match(html, /수수료 확인 필요/);
+  assert.match(html, /세금 확인 필요/);
+  assert.match(html, /종목·가격·수량·비용 수정 및 메모 입력은 아직 지원하지 않습니다/);
+  assert.match(journalSource, /가져온 거래의 매매 메모 입력은 현재 지원하지 않습니다/);
+  assert.doesNotMatch(journalSource, /매매 이유와 판단은 매매복기에서 작성할 수 있습니다/);
+  for (const embedded of [true, false]) {
+    const support = renderToStaticMarkup(h.render(embedded));
+    assert.match(support, /토스증권 국내주식 거래내역서를 지원/);
+    assert.match(support, /그 외 단순 텍스트 형식은 제한적으로/);
+    assert.match(support, /해외·환율 거래/);
+    assert.match(support, /암호화 PDF/);
+    assert.match(support, /PDF 원본은 스톡보다 서버로 전송되거나 저장되지 않습니다/);
+    assert.doesNotMatch(support, /지원 예정/);
+  }
+  confirmationChecks(h.render())[0].props.onChange();
+  assert.equal(h.state.selectedIds.size, 4);
+  assert.equal(transferButton(h.render()).props.disabled, true);
+  assert.match(renderToStaticMarkup(h.render()), /해당 거래를 선택 해제/);
+  transferButton(h.render()).props.onClick();
+  assert.equal(h.transferred.length, 0, 'handler must also fail closed without relying on disabled');
+  for (const id of ['pdf-trade-2', 'pdf-trade-3', 'pdf-trade-4']) {
+    confirmationChecks(confirmationRow(h.render(), id))[0].props.onChange();
+  }
+  assert.equal(transferButton(h.render()).props.disabled, false);
+  transferButton(h.render()).props.onClick();
+  assert.deepEqual(Array.from(h.transferred[0], row => row.id), ['pdf-trade-1']);
+  assert.equal(prepareBrokerReviewInput(h.transferred[0]).groups[0].trades.length, 1);
+  assert.equal(h.state.trades[1].fee, null);
+  assert.equal(h.state.trades[2].tax, null);
+});
+
+test('broker confirmation preserves mixed-side required times and select-all behavior', () => {
+  const h = brokerConfirmationHarness([confirmationTrade('pdf-trade-1'), confirmationTrade('pdf-trade-2', { side: 'sell' })]);
+  confirmationChecks(h.render())[0].props.onChange();
+  assert.equal(h.state.selectedIds.size, 2);
+  assert.equal(transferButton(h.render()).props.disabled, true);
+  assert.match(renderToStaticMarkup(h.render()), /체결시간이 필요합니다/);
+  transferButton(h.render()).props.onClick();
+  assert.equal(h.transferred.length, 0);
+  confirmationChecks(confirmationRow(h.render(), 'pdf-trade-2'))[0].props.onChange();
+  assert.equal(transferButton(h.render()).props.disabled, false, 'BUY-only time is optional');
+  confirmationChecks(confirmationRow(h.render(), 'pdf-trade-2'))[0].props.onChange();
+  for (const [id, value] of [['pdf-trade-1', '09:30'], ['pdf-trade-2', '14:00']]) {
+    confirmationChecks(confirmationRow(h.render(), id))[1].props.onChange({ target: { checked: false } });
+    brokerElements(confirmationRow(h.render(), id), node => node.type === 'input' && node.props.type === 'time')[0]
+      .props.onChange({ target: { value } });
+  }
+  assert.equal(transferButton(h.render()).props.disabled, false);
+  assert.equal(prepareBrokerReviewInput(h.state.trades.map(row => ({ ...row, ...h.state.tradeStates[row.id] }))).groups.length, 1);
+  transferButton(h.render()).props.onClick();
+  assert.equal(h.transferred[0].length, 2);
+  confirmationChecks(h.render())[0].props.onChange();
+  assert.equal(h.state.selectedIds.size, 0);
+  assert.equal(transferButton(h.render()).props.disabled, true);
 });
 
 function approvedResponse(document, reviewType = 'basic') {

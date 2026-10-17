@@ -2473,7 +2473,7 @@
           "typescript/package.json": "4752e28a76cd00f882e0f054ce2d68ac58e0caceb98df0ec9d2a41ef3730240f",
           "typescript/lib/typescript.js": "ed5f8d1c93d625c9a1a2d282a6e0d3899aca2ac58e508828402a0203d335935b"
         },
-        "component_sha256": "b6327166457c0a50cd6d3ef2731eccb1a7a22405a51581e4e156e00cf88dc683",
+        "component_sha256": "6cd72a405106d02698c3f89f2aaaa07082dec491f3dba757c44961cd8218f512",
         "chart_component_sha256": "28a8ae4be58130b348b310318935dac040448092ecdb41c9bd87e43b4f26dab2",
         "chart_source_sha256": "1a5159558b3d8b0d9982a24b2b0cec4fed890fe24ca4db8ef8c602d196bc0228",
         "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570"
@@ -2589,7 +2589,7 @@
           "src/components/CanonicalReviewRenderer.js"
         ],
         "vector_sha256": "68996d3776b3584561f0a3320d79f830e59f28d8b2c5f04a77a05bcdbdff2711",
-        "component_sha256": "b6327166457c0a50cd6d3ef2731eccb1a7a22405a51581e4e156e00cf88dc683",
+        "component_sha256": "6cd72a405106d02698c3f89f2aaaa07082dec491f3dba757c44961cd8218f512",
         "format_sha256": "3d8ee36c975a472e92a5d2ea4dabb73ae688fa8a6712ad3dac825dbef6a38ea9",
         "react_snapshot": {
           "react/package.json": "e631b6ac066fa758d9b36f226d96e8fc05425d1e8993ffcc99c6de2d6aa7268c",
@@ -2654,6 +2654,9 @@
         "profile": "standard",
         "cases": [
           "broker file admission enforces 25MiB before extraction and renders incomplete tables without transfer",
+          "broker confirmation re-sorts manual times while retaining row identity and selection",
+          "broker confirmation explains blocked costs and instruments and permits deselecting them",
+          "broker confirmation preserves mixed-side required times and select-all behavior",
           "account management is reachable from both primary views",
           "mobile chart controls use compact named grid areas",
           "review UI hides internal model ids and consent versions",
@@ -2690,7 +2693,7 @@
           "account changes clear the previous account journal workspace before loading tenant data",
           "review archive entry uses a throttled interstitial policy"
         ],
-        "sha256": "0a25ab990572848275ca78549b626a1c4b0cf729c31a337afb7f942069f31f81",
+        "sha256": "6f762ae2055d45f89b57e860967830a74523bda23688f64097f49e06a2c7caf6",
         "reads": [
           "package.json",
           "scripts/journal-mobile-ux.test.js",
@@ -2730,7 +2733,7 @@
         "vector_sha256": "db225f6fcec00ec5def4e839652c8e76016216819009c86aad8676a51762f4e5",
         "chart_source_sha256": "1a5159558b3d8b0d9982a24b2b0cec4fed890fe24ca4db8ef8c602d196bc0228",
         "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570",
-        "component_sha256": "b6327166457c0a50cd6d3ef2731eccb1a7a22405a51581e4e156e00cf88dc683"
+        "component_sha256": "6cd72a405106d02698c3f89f2aaaa07082dec491f3dba757c44961cd8218f512"
       },
       {
         "name": "test:review-selection",
@@ -2765,6 +2768,7 @@
           "Toss summaries balances and ordinary dated notes are not counted as executions",
           "Toss explicit instrument code boundaries admit numeric names without guessing generic numeric prefixes",
           "Toss text-only fallback also refuses to silently drop an identifiable broken execution",
+          "confirmation issues use the same instrument and cost boundary as review preparation",
           "generic sides accept explicit purchase and sale labels and reject ambiguous directions",
           "Toss cost columns preserve nonzero values and explicit zero independently",
           "missing or malformed Toss cost components stay unknown without discarding the trade",
@@ -2789,7 +2793,7 @@
           "sort helper preserves source order when date and time are equal",
           "local PDF flow has no client upload, API, or browser storage call"
         ],
-        "sha256": "31d1d55bd2cc1b8d7995ae15426470f09898405a5147b87fc2513d8963bfea54",
+        "sha256": "f3f077cdd100fca23a12e68c68f659830f3080fd653ba96ca96c3269a996116f",
         "reads": [
           "package.json",
           "scripts/broker-import.test.js",
@@ -2815,7 +2819,7 @@
           "real PDF.js image-only PDFs have no invented OCR trades and invalid bytes are rejected",
           "real PDF.js password admission refuses encrypted input without a password exchange"
         ],
-        "sha256": "c1c1d0de818725b0dd92105117f0d75cfda42a5be6e87d9826041de866f5891c",
+        "sha256": "d67d50c0133481d4cf1707d52f4b4bcdde0f3869979ea5e49b5569d63b8e2a9b",
         "reads": [
           "package.json",
           "scripts/broker-pdf-extraction.test.js",

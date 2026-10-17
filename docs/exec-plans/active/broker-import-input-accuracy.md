@@ -1,4 +1,4 @@
-# Broker import input accuracy — Slices 1 and 2
+# Broker import input accuracy — Slices 1, 2 and 3
 
 ## Goal and scope
 
@@ -11,6 +11,11 @@ feature worktree (0 staged / 9 modified / 10 untracked) remain protected.
 Slice 2 starts clean at `f0ca1e72bad88b04d16a26d3fbf8cd4125bdfa23` on the same branch.
 Its goal is complete recognition of supported Toss rows, explicit rejection of partial
 imports, and real local PDF.js binary extraction regression. It adds no broker or AI call.
+
+Slice 2 was independently approved and committed as
+`f4189a2b7210a353e8f310409ee1ffa3c749edbd`. Slice 3 starts clean at that commit and
+finishes confirmation UX: live date/time sorting, early preparation-blocker guidance,
+selection behavior and accurate support wording. Parser/completeness remain unchanged.
 
 ## Decisions
 
@@ -26,7 +31,8 @@ imports, and real local PDF.js binary extraction regression. It adds no broker o
   activation unchanged. No cost editing UI or default estimates in this slice.
 - Slice 1 used synthetic coordinate fixtures. Slice 2 adds synthetic PDF bytes generated
   in H4-owned memory and completeness checks; no real customer PDF or new dependency.
-  Manual-time sorting, field editing, rollout and other worktree writes remain excluded.
+  Manual-time sorting was excluded from Slices 1/2 and is included only in Slice 3's
+  confirmation view. Field editing, rollout and other worktree writes remain excluded.
 
 ## Current status
 
@@ -47,14 +53,20 @@ imports, and real local PDF.js binary extraction regression. It adds no broker o
 - [x] Parser geometry and actual PDF.js binary integration responsibilities explicitly separated.
 - [x] Latest Major A/B addressed by normalized row shape -> tri-state classification -> parse, with official shared damage matrix.
 - [x] Final tri-state review Minor (non-side label in an occupied side slot) corrected by a separate transaction identity requirement; focused re-verification passed.
-- [ ] Slice 2 independent final re-verification of the identity-anchor correction and documented recognition limits.
+- [x] Slice 2 independent final re-verification: Blocker/Major/Minor 0; committed as
+  `f4189a2b7210a353e8f310409ee1ffa3c749edbd` (16 files). Final Broker/PDF H4 35/35,
+  Node inventory 24/276 and cached whitespace check passed after removing two temporary
+  stack loggers and updating the PDF test source hash.
+- [x] Slice 3 confirmation sorting, shared preparation guidance and support wording implemented.
+- [x] Slice 3 focused H4/inventory, lint/build and preservation audit.
+- [ ] Slice 3 independent review; no commit/push/merge authorized.
 
 ## Verification
 
 Tests use H4-owned synthetic data and denied external I/O. Build/lint use only existing
 approved dependencies and local ignored outputs; no env-file or production changes.
 Earlier Slice 2 correction and structural HOLD results below are historical. The tri-state
-section records current verification and support limits; independent final review remains.
+section records its verified support limits; Slice 2 final review and commit are complete.
 ### Slice 1 historical implementation evidence (before its approved commit)
 
 2026-10-16 implementation and verification:
@@ -531,15 +543,75 @@ Official H4 uses the Python and Node executables recorded above:
   hashes/status are unchanged. `git diff --check` passes; no Git mutation or other
   worktree changes occurred. Independent re-verification remains required.
 
+## Slice 3 confirmation UX — 2026-10-17
+
+- The previous list used the initial parser order while manual time changes lived in a
+  separate ID-keyed map. Confirmation now overlays current times and uses the existing
+  canonical descending date/time/source-order helper; blank/unknown times normalize to
+  null for ordering. Source rows, sourceIndex, IDs and selection Set are never reindexed.
+- The adapter's existing single-row checks are shared with confirmation. Six-digit code
+  and nonblank name are already mandatory downstream; generic name-only candidates
+  actually have null symbols. Unknown/non-finite/negative fee or tax already blocks
+  preparation. No new admission restriction or zero substitution is introduced.
+- Rows show the preparation issue and explicit unknown cost labels. Only selected
+  invalid rows disable transfer; removing them permits the remaining valid selection.
+  The actual handler repeats the guard. Mixed-side required times keep their existing
+  selected-group validator; BUY-only/SELL-only time remains optional.
+- Both embedded and standalone views describe Toss domestic support, limited generic
+  text recognition, unsupported foreign/FX/scanned/encrypted PDFs and local-only original
+  PDF handling. Broker confirmation and the existing journal preview no longer promise
+  a reason/memo entry UI that only the direct-input form has. TradingJournal changes
+  only that sentence. No issuer expansion or editable trade/cost fields were added.
+- Existing VM harness renders the actual BrokerImport component and invokes original
+  handlers with synthetic state, without API/storage/AI bindings. Four registered direct
+  cases cover shared adapter parity, sorting/identity, blockers/deselection and mixed-side
+  times/select-all. Results are recorded below.
+
+### Slice 3 verification
+
+- Official H4 Node selectors `test:broker-import`, `test:broker-pdf-extraction`,
+  `test:journal-mobile-ux`, `test:review-selection`, `test:app-navigation`,
+  `test:legacy-review-cross-contract`, `test:ai-chart-source`: **142/142 PASS**
+  (31/5/39/5/5/11/46), FAIL/SKIP 0. Expected/observed 142; missing/extra/duplicate 0.
+  All guarded entrypoints report violations/unexpected access 0 and successful
+  restoration/patch restoration/cleanup. Actual PDF binary and canonical review/chart
+  regressions remain intact; no live AI/provider or production request was made.
+- Official Python H4 `tests.test_full_test_entrypoint tests.test_quick_verify_docs`:
+  **23/23 PASS** (16/7), FAIL/ERROR/SKIP 0, inventory issues empty and lifecycle cleanup
+  successful. Coordinator-owned top-level access counters are null; its nested guard
+  contracts pass. Guarded docs report violations/unexpected 0.
+- Official `--node-inventory-only`: **24 entrypoints / 280 direct**, missing/extra/
+  duplicate 0, missing source dependencies empty. Four new Node IDs are registered;
+  affected test and TradingJournal snapshot hashes are refreshed without new reads or
+  guard permissions. `--inventory-only`: unchanged **108 Python modules / 1079 direct /
+  18 registered child probes**, missing/duplicates/expected skips 0.
+- Initial Node run was 84/85 because the existing user-copy policy rejects the literal
+  technical term OCR. Korean unsupported scanned/photo wording resolved it, followed by
+  85/85 PASS. The later journal copy change required exact raw source snapshot refresh
+  for the three existing chart/legacy/mobile entries. A verification batch stopped at
+  that hash guard before the final successful rerun; no guard was relaxed.
+- Lint initially found two no-useless-catch errors in the already committed Slice 2 PDF
+  test (confirmed unchanged against HEAD). Removed only its redundant rethrow wrappers
+  and adjusted indentation; assertions and rejection propagation remain unchanged.
+  Its five official binary cases pass, and its manifest source hash is refreshed.
+- `npm.cmd run lint` and `npm.cmd run build`: **PASS**. Build uses the existing approved
+  process-only local API settings recorded above, Vite 8.0.16 / 1865 modules; only ignored
+  dist output is generated. No env-file, installed dependency or Android sync change.
+  `git diff --check`: **PASS**.
+- Preservation audit: main retains only its existing Play README change and unchanged
+  SHA-256; the original feature worktree retains HEAD, 9 modified / 10 untracked and
+  all 19 file hashes. Target remains at `f4189a2b7210a353e8f310409ee1ffa3c749edbd` with
+  staged 0 / modified 13 / untracked 0 / unmerged 0. Parser, extractor, shared damage
+  fixtures, backend and environment sources have no diff. No stage/commit/push/merge.
+
 ## Remaining / Next step
 
-Obtain independent final review of the transaction identity correction, official composite
-damage/identity corpus and explicit unidentifiable-row limits before any stage/commit/push/
-merge or next slice.
+Obtain independent review of Slice 3's confirmation UX and shared adapter validation
+before commit or any further slice. Do not modify parser/completeness or other worktrees.
 Unknown-cost statements (including generic rows with no costs) remain blocked until
 explicit costs are available; do not bypass this using zero. Cost editing is not added.
 Headerless transaction continuations, generic multi-token numeric names, OCR and password
 PDFs remain unsupported. Completeness covers recognizable supported table/text rows,
 not recovery of arbitrary unrecognized layouts or content that yielded no text.
-Real Toss PDF corpus/browser Worker/Android device checks, manual-time re-sort, field and
+Real Toss PDF corpus/browser Worker/Android device checks, field and
 memo editing remain separate follow-ups. No rollout/activation or actual AI call occurred.

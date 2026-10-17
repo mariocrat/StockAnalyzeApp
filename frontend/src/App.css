@@ -3526,6 +3526,13 @@ body {
   white-space: normal;
 }
 
+.broker-trade-review-issue {
+  color: #ffd28a;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .broker-trade-meta {
   flex-wrap: wrap;
   color: #8c93a3;

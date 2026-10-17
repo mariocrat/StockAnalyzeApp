@@ -2102,7 +2102,7 @@ export default function TradingJournal({
                       다른 PDF 선택
                     </button>
                   </div>
-                  <p className="journal-privacy-note">PDF에서 읽은 거래를 한 건씩 유지합니다. 아직 저장되지 않았으며, 매매 이유와 판단은 매매복기에서 작성할 수 있습니다.</p>
+                  <p className="journal-privacy-note">PDF에서 읽은 거래를 한 건씩 유지합니다. 아직 저장되지 않았으며, 가져온 거래의 매매 메모 입력은 현재 지원하지 않습니다.</p>
                   {importedTimeValidation.requiredGroups.length > 0 && (
                     <div
                       className={importedTimeValidation.valid ? 'journal-import-time-warning complete' : 'journal-import-time-warning'}
