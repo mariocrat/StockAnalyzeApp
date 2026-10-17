@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
+import { rowDamageMatrix, transactionIdentityMatrix, tradeFields, validTrade } from './fixtures/broker-row-damage.js';
 import {
   BROKER_STATEMENT_MESSAGES,
   BROKER_STATEMENT_STATUS,
@@ -94,6 +95,203 @@ function tossCostExtraction(fee, transactionTax, tax) {
   ));
   return extraction;
 }
+
+function tossPages(dates = ['2026.09.02']) {
+  const extraction = tossLayoutExtraction();
+  extraction.pages = dates.map((date, index) => ({
+    pageNumber: index + 1,
+    items: extraction.pages[0].items.map(item => ({ ...item, str: item.str === '2026.09.02' ? date : item.str })),
+  }));
+  extraction.pageCount = extraction.pages.length;
+  return extraction;
+}
+
+test('Toss multi-page tables preserve all independent rows and sort dates across repeated headers', () => {
+  const extraction = tossPages(['2026.09.02', '2026.09.01', '2026.09.03']);
+  const result = parseBrokerStatement(extraction.text, extraction);
+  assert.equal(result.status, BROKER_STATEMENT_STATUS.READY);
+  assert.deepEqual(result.completeness, { recognizedRows: 6, parsedRows: 6 });
+  assert.deepEqual(result.trades.map(row => row.tradeDate), ['2026-09-03', '2026-09-03', '2026-09-02', '2026-09-02', '2026-09-01', '2026-09-01']);
+  assert.deepEqual(result.trades.map(row => row.sourceIndex), [4, 5, 0, 1, 2, 3]);
+  assert.equal(new Set(result.trades.map(row => row.id)).size, 6);
+  assert.deepEqual(result.trades.map(row => [row.fee, row.tax]), [[1, 15], [1, 0], [1, 15], [1, 0], [1, 15], [1, 0]]);
+  for (const splitAll of [false, true]) {
+    const split = tossPages(['2026.09.02', '2026.09.03']);
+    split.pages[1].items = split.pages[1].items.flatMap(item => {
+      if (item.y !== 263 || (!splitAll && item.str !== '종목명(종목코드)')) return [item];
+      const at = item.str === '종목명(종목코드)' ? 3 : 1;
+      return [{ ...item, str: item.str.slice(0, at) }, { ...item, str: item.str.slice(at), x: item.x + at * 2.5, y: item.y + 0.25 }];
+    });
+    const parsed = parseBrokerStatement(split.text, split);
+    assert.equal(parsed.status, BROKER_STATEMENT_STATUS.READY, 'split repeated header');
+    assert.deepEqual(parsed.completeness, { recognizedRows: 4, parsedRows: 4 });
+    assert.deepEqual(parsed.trades.map(row => [row.side, row.fee, row.tax]), [['sell', 1, 15], ['buy', 1, 0], ['sell', 1, 15], ['buy', 1, 0]]);
+  }
+});
+
+test('Toss rejects the whole import when one mandatory transaction field is missing or malformed', () => {
+  for (const [x, invalid] of [[57, '2026.02.30'], [57, '2026.09.02 extra'], [107.9, '교환'],
+    [173.1, '원익(A??????)'], [358.9, 'unknown'], [526.1, '1,,000']]) {
+    for (const value of [invalid, '']) {
+      const extraction = tossPages(['2026.09.01', '2026.09.02', '2026.09.03']);
+      extraction.pages[1].items = extraction.pages[1].items.map(item => item.y === 237.8 && item.x === x ? { ...item, str: value } : item);
+      const result = parseBrokerStatement(extraction.text, extraction);
+      assert.equal(result.status, BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE, String([x, value]));
+      assert.deepEqual(result.trades, []);
+      assert.deepEqual(result.completeness, { recognizedRows: 6, parsedRows: 5 });
+    }
+  }
+  assert.match(BROKER_STATEMENT_MESSAGES.TOSS_INCOMPLETE, /일부 거래를 정확히 읽지 못해 가져오기를 중단/);
+  const multiple = tossPages();
+  multiple.pages[0].items = multiple.pages[0].items.map(item => item.y === 237.8 && [107.9, 173.1].includes(item.x)
+    ? { ...item, str: '손상' } : item);
+  // With both identity anchors lost, even occupied slots cannot prove this is a trade.
+  const unidentifiable = parseBrokerStatement(multiple.text, multiple);
+  assert.equal(unidentifiable.status, BROKER_STATEMENT_STATUS.READY);
+  assert.deepEqual(unidentifiable.completeness, { recognizedRows: 1, parsedRows: 1 });
+  assert.match(componentSource, /statementStatus === BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE/);
+  assert.match(componentSource, /role="alert"[\s\S]*BROKER_STATEMENT_MESSAGES.TOSS_INCOMPLETE/);
+});
+
+test('Toss tri-state row shapes reject composite damage without guessing non-transaction rows', () => {
+  for (const { name, changes, kind } of [...rowDamageMatrix(), ...transactionIdentityMatrix()]) {
+    const extraction = tossPages();
+    extraction.pages[0].items = extraction.pages[0].items.filter(item => item.y !== 212.6);
+    const positions = [57, 107.9, 173.1, 358.9, 526.1];
+    extraction.pages[0].items.push(...tradeFields.flatMap((key, index) => {
+      const value = Object.hasOwn(changes, key) ? changes[key] : validTrade[index];
+      return value === null ? [] : [layoutItem(value, positions[index] + 0.25, 180 + index % 2 * 0.25)];
+    }));
+    const result = parseBrokerStatement(extraction.text, extraction);
+    const incomplete = kind === 'incomplete_transaction';
+    const parsed = kind === 'transaction' ? 2 : 1;
+    assert.equal(result.status, incomplete ? BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE : BROKER_STATEMENT_STATUS.READY, name);
+    assert.deepEqual(result.completeness, { recognizedRows: incomplete ? 2 : parsed, parsedRows: parsed }, name);
+    assert.equal(result.trades.length, incomplete ? 0 : parsed, name);
+    assert.equal(new Set(result.trades.map(row => row.id)).size, result.trades.length, name);
+  }
+});
+
+test('Toss headerless damaged or unextracted continuation pages cannot become partial success', () => {
+  for (const fault of ['no-header', 'partial-header', 'empty-page', 'missing-page', 'page-order', 'bad-coordinate']) {
+    const extraction = tossPages(['2026.09.01', '2026.09.02']);
+    const page = extraction.pages[1];
+    if (fault === 'no-header') page.items = page.items.filter(item => item.y !== 263);
+    if (fault === 'partial-header') page.items = page.items.filter(item => item.str !== '거래구분');
+    if (fault === 'empty-page') page.items = [];
+    if (fault === 'missing-page') extraction.pages.pop();
+    if (fault === 'page-order') page.pageNumber = 1;
+    if (fault === 'bad-coordinate') page.items[0].x = NaN;
+    const result = parseBrokerStatement(extraction.text, extraction);
+    assert.equal(result.status, BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE, fault);
+    assert.deepEqual(result.trades, []);
+  }
+  for (const side of ['구매', '판매']) for (const missing of [true, false])
+    for (const shifts of [[0, 0, 0], [0.25, 0, 0], [0, 0.25, 0], [0, 0, 0.25],
+      [-0.25, 0, 0], [0, -0.25, 0], [0, 0, -0.25], [0.25, 0.25, 0.25], [0, 20, 20]]) {
+    const extraction = tossPages();
+    extraction.pages[0].items = extraction.pages[0].items.filter(item => item.y !== 212.6);
+    const identityX = new Map([[57, 40], [107.9, 100], [173.1, 165]]);
+    extraction.pages[0].items = extraction.pages[0].items.map(item => ({ ...item, x: identityX.get(item.x) ?? item.x }));
+    extraction.pages.push({ pageNumber: 2, items: [
+      layoutItem('2026.09.03', 40 + shifts[0], 200), layoutItem(side, 100 + shifts[1], 200.25),
+      layoutItem('KODEX 200(A069500)', 165 + shifts[2], 199.75),
+      ...(missing ? [] : [layoutItem('불명', 358.9, 200), layoutItem('불명', 526.1, 200)]),
+    ] });
+    extraction.pageCount = 2;
+    const result = parseBrokerStatement(extraction.text, extraction);
+    assert.equal(result.status, BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE, JSON.stringify({ side, missing, shifts }));
+    assert.deepEqual(result.trades, []);
+    assert.deepEqual(result.completeness, { recognizedRows: 2, parsedRows: 1 });
+  }
+});
+
+test('Toss summaries balances and ordinary dated notes are not counted as executions', () => {
+  const single = tossPages();
+  single.pages[0].items = single.pages[0].items.filter(item => item.y !== 212.6);
+  const footer = structuredClone(single);
+  footer.pages[0].items.push(layoutItem('2026.09.02', 57, 180), layoutItem('2', 358.9, 180), layoutItem('7,830', 526.1, 180));
+  const explanation = structuredClone(single);
+  explanation.pages.push({ pageNumber: 2, items: [layoutItem('2026.09.02 기준 KODEX 200(A069500) 안내입니다.', 57, 200)] });
+  explanation.pageCount = 2;
+  explanation.pages[1].items.push(layoutItem('2026.09.02 구매 시 KODEX 200 (A069500) 안내입니다.', 57, 160));
+  const segmentedExplanation = structuredClone(single);
+  segmentedExplanation.pages.push({ pageNumber: 2, items: [
+    layoutItem('2026.09.02', 57, 200), layoutItem('기준', 120, 200),
+    layoutItem('KODEX 200(A069500)', 173.1, 200), layoutItem('안내입니다.', 330, 200),
+  ] });
+  segmentedExplanation.pageCount = 2;
+  const tableExplanation = structuredClone(single);
+  tableExplanation.pages[0].items.push(layoutItem('2026.09.02', 57, 180), layoutItem('기준', 107.9, 180),
+    layoutItem('KODEX 200(A069500)', 173.1, 180), layoutItem('안내입니다.', 358.9, 180));
+  const nonTransactions = [['dated numeric footer', footer], ['headerless prose', explanation],
+    ['segmented prose', segmentedExplanation], ['prose below a table header', tableExplanation]];
+  for (const side of ['구매', '판매']) {
+    const splitInstruction = structuredClone(single);
+    const identityX = new Map([[57, 40], [107.9, 100], [173.1, 165]]);
+    splitInstruction.pages[0].items = splitInstruction.pages[0].items.map(item => ({
+      ...item, x: identityX.get(item.x) ?? item.x,
+    }));
+    splitInstruction.pages.push({ pageNumber: 2, items: [
+      layoutItem('2026.09.02', 40, 200), layoutItem(side, 100, 200), layoutItem('시', 135, 200),
+      layoutItem('KODEX 200(A069500)', 165, 200), layoutItem('안내입니다.', 330, 200),
+    ] });
+    splitInstruction.pageCount = 2;
+    nonTransactions.push([side + ' split instruction', splitInstruction]);
+    for (const [index, x] of [[1, 145], [2, 270]]) {
+      const misplaced = structuredClone(splitInstruction);
+      misplaced.pages[1].items.splice(2, 1);
+      misplaced.pages[1].items.pop();
+      misplaced.pages[1].items[index].x = x;
+      nonTransactions.push([side + ' misaligned identity ' + index, misplaced]);
+    }
+    for (const x of [120, 130, 145]) {
+      const nearSide = structuredClone(splitInstruction);
+      nearSide.pages[1].items[2].x = x;
+      nonTransactions.push([side + ' prose fragment at ' + x, nearSide]);
+    }
+  }
+  for (const [name, input] of nonTransactions) {
+    const result = parseBrokerStatement(input.text, input);
+    assert.equal(result.status, BROKER_STATEMENT_STATUS.READY, name);
+    assert.deepEqual(result.completeness, { recognizedRows: 1, parsedRows: 1 }, name);
+    assert.equal(result.trades.length, 1, name);
+    assert.deepEqual([result.trades[0].side, result.trades[0].fee, result.trades[0].tax], ['sell', 1, 15], name);
+  }
+  const extraction = tossPages();
+  extraction.pages[0].items.push(
+    layoutItem('2026.09.02', 57, 180), layoutItem('잔고', 107.9, 180), layoutItem('원익(A032940)', 173.1, 180),
+    layoutItem('합계', 57, 160), layoutItem('2', 358.9, 160), layoutItem('15,540', 409.9, 160),
+    layoutItem('주의사항: 발급일 2026.09.02 기준입니다.', 57, 140),
+    layoutItem('합계', 57, 120), layoutItem('원익(A032940)', 173.1, 120), layoutItem('2', 358.9, 120), layoutItem('7,830', 526.1, 120),
+  );
+  extraction.pages.push({ pageNumber: 2, items: [layoutItem('합계 2건 / 잔고 안내', 57, 200)] });
+  extraction.pageCount = 2;
+  const result = parseBrokerStatement(extraction.text, extraction);
+  assert.equal(result.status, BROKER_STATEMENT_STATUS.READY);
+  assert.deepEqual(result.completeness, { recognizedRows: 2, parsedRows: 2 });
+});
+
+test('Toss explicit instrument code boundaries admit numeric names without guessing generic numeric prefixes', () => {
+  const extraction = tossPages();
+  let instrument = 0;
+  extraction.pages[0].items = extraction.pages[0].items.map(item => item.str === '원익(A032940)'
+    ? { ...item, str: ['KODEX 200(A069500)', 'TIGER 200(A102110)'][instrument++] } : item);
+  const result = parseBrokerStatement(extraction.text, extraction);
+  assert.equal(result.status, BROKER_STATEMENT_STATUS.READY);
+  assert.deepEqual(result.trades.map(row => [row.stockName, row.symbol]), [['KODEX 200', '069500'], ['TIGER 200', '102110']]);
+  assert.deepEqual(parseTradeCandidates('2026-09-02 구매 KODEX 200 069500 70,000원 1주'), []);
+});
+
+test('Toss text-only fallback also refuses to silently drop an identifiable broken execution', () => {
+  for (const broken of ['2026-09-02 판매 삼성전자 005930 가격불명 1주',
+    '판매 삼성전자 005930 70,000원 1주', '2026-09-02 교환 삼성전자 005930 70,000원 1주']) {
+    const result = parseBrokerStatement('토스증권 국내주식\n2026-09-02 구매 삼성전자 005930 70,000원 1주\n' + broken);
+    assert.equal(result.status, BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE);
+    assert.deepEqual(result.trades, []);
+    assert.deepEqual(result.completeness, { recognizedRows: 2, parsedRows: 1 });
+  }
+});
 
 test('generic sides accept explicit purchase and sale labels and reject ambiguous directions', () => {
   for (const [label, expected] of [['구매', 'buy'], ['매수', 'buy'], ['BUY', 'buy'],
@@ -326,6 +524,10 @@ test('requires actual foreign trade evidence before returning overseas unsupport
   assert.equal(detectBrokerStatement(actualOverseasTrade).market, 'overseas');
   assert.equal(parseBrokerStatement(actualOverseasTrade).status, BROKER_STATEMENT_STATUS.OVERSEAS_UNSUPPORTED);
   assert.deepEqual(parseBrokerStatement(actualOverseasTrade).trades, []);
+  const domestic = tossPages();
+  const mixed = parseBrokerStatement(domestic.text + '\n' + actualOverseasTrade, domestic);
+  assert.equal(mixed.status, BROKER_STATEMENT_STATUS.OVERSEAS_UNSUPPORTED);
+  assert.deepEqual(mixed.trades, []);
 });
 
 test('keeps execution time optional and never invents it', () => {

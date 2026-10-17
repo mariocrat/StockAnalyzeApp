@@ -13,7 +13,7 @@ import { buildAiReviewIdempotencyKey } from '../src/utils/aiReviewIdempotency.js
 import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../src/utils/reviewDisplayContract.js';
 import { renderEvidence } from './review-render-evidence.js';
 import { prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
-import { validateTradeTimesForReview } from '../src/utils/brokerImport.js';
+import { BROKER_STATEMENT_MESSAGES, BROKER_STATEMENT_STATUS, parseBrokerStatement, validateTradeTimesForReview } from '../src/utils/brokerImport.js';
 import { buildReviewTradeGroups, reviewTradesForGroup } from '../src/utils/reviewTradeSelection.js';
 
 const appSource = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8');
@@ -99,6 +99,62 @@ function handlerInContext(name, context) {
 function syntheticContext(values) {
   return createContext(values, { codeGeneration: { strings: false, wasm: false } });
 }
+
+test('broker file admission enforces 25MiB before extraction and renders incomplete tables without transfer', async () => {
+  const source = readFileSync(new URL('../src/components/BrokerImport.jsx', import.meta.url), 'utf8');
+  const fileAst = ts.createSourceFile('BrokerImport.jsx', source, ts.ScriptTarget.Latest, true, ts.ScriptKind.JSX);
+  assert.deepEqual(fileAst.parseDiagnostics, []);
+  const component = fileAst.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'BrokerImport');
+  const declaration = component.body.statements.filter(ts.isVariableStatement)
+    .flatMap(node => Array.from(node.declarationList.declarations)).find(node => node.name.getText(fileAst) === 'handleFileChange');
+  const pdfCheck = fileAst.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'isPdfFile');
+  const size = fileAst.statements.filter(ts.isVariableStatement)
+    .flatMap(node => Array.from(node.declarationList.declarations)).find(node => node.name.getText(fileAst) === 'MAX_PDF_BYTES');
+  let state;
+  let reads = 0;
+  let extractions = 0;
+  const header = ['거래일자', '거래구분', '종목명(종목코드)', '거래수량', '단가'];
+  const items = header.map((str, index) => ({ str, x: index * 100, y: 100 }));
+  for (const [y, quantity] of [[80, '2'], [60, '불명']]) {
+    items.push(...['2026.09.02', '구매', 'KODEX 200(A069500)', quantity, '7,830']
+      .map((str, index) => ({ str, x: index * 100, y })));
+  }
+  const extraction = { text: '토스증권 원화 거래내역', pageCount: 1, pages: [{ pageNumber: 1, items }] };
+  const context = syntheticContext({
+    setState: value => { state = typeof value === 'function' ? value(state) : value; },
+    extractPdfText: async () => { extractions += 1; return extraction; }, parseBrokerStatement,
+    createTradeTimeState: () => ({ tradeTime: null, timeUnknown: true }),
+    LocalPdfPasswordRequiredError: class extends Error {},
+  });
+  context.MAX_PDF_BYTES = expressionInContext(size.initializer.getText(fileAst), context);
+  context.isPdfFile = expressionInContext(pdfCheck.getText(fileAst), context);
+  const handle = expressionInContext(declaration.initializer.getText(fileAst), context);
+  const event = bytes => ({ target: { value: 'selected', files: [{ name: 'synthetic.pdf', type: 'application/pdf', size: bytes,
+    arrayBuffer: async () => { reads += 1; return new ArrayBuffer(0); } }] } });
+  assert.equal(context.MAX_PDF_BYTES, 25 * 1024 * 1024);
+  await handle(event(context.MAX_PDF_BYTES + 1));
+  assert.equal(state.status, 'error');
+  assert.match(state.message, /25MB/);
+  assert.equal(reads, 0);
+  assert.equal(extractions, 0);
+  await handle(event(context.MAX_PDF_BYTES));
+  assert.equal(reads, 1);
+  assert.equal(extractions, 1);
+  assert.equal(state.statementStatus, BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE);
+  assert.equal(state.trades.length, 0);
+  let incomplete;
+  function find(node) {
+    if (ts.isJsxExpression(node) && node.expression?.getText(fileAst).includes('BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE')) incomplete = node.expression.getText(fileAst);
+    ts.forEachChild(node, find);
+  }
+  find(component);
+  assert.ok(incomplete);
+  const html = renderToStaticMarkup(expressionInContext(incomplete, syntheticContext({ React, state,
+    BROKER_STATEMENT_STATUS, BROKER_STATEMENT_MESSAGES, selectAnotherPdf() {} })));
+  assert.match(html, /role="alert"/);
+  assert.ok(html.includes(BROKER_STATEMENT_MESSAGES.TOSS_INCOMPLETE));
+  assert.doesNotMatch(html, /매매 복기로 가져오기/);
+});
 
 function approvedResponse(document, reviewType = 'basic') {
   return { status: 'ready', source: 'openai', review_type: reviewType, review_history_id: 'synthetic-history',

@@ -37,11 +37,13 @@ export const BROKER_STATEMENT_STATUS = Object.freeze({
   NO_CANDIDATES: 'no-candidates',
   OVERSEAS_UNSUPPORTED: 'overseas-unsupported',
   TOSS_DOMESTIC_SAMPLE_REQUIRED: 'toss-domestic-sample-required',
+  TOSS_INCOMPLETE: 'toss-incomplete',
 });
 
 export const BROKER_STATEMENT_MESSAGES = Object.freeze({
   OVERSEAS_UNSUPPORTED: '현재 증권사 거래내역 불러오기는 국내주식만 지원합니다.\n해외주식은 추후 지원 예정입니다.',
   TOSS_DOMESTIC_SAMPLE_REQUIRED: '토스증권 국내주식 거래내역서 형식은 국내주식 샘플 확인 후 지원할 예정입니다.',
+  TOSS_INCOMPLETE: '일부 거래를 정확히 읽지 못해 가져오기를 중단했습니다. 거래 테이블과 모든 페이지가 포함된 텍스트 PDF인지 확인해주세요.',
 });
 
 export const REVIEW_TIME_VALIDATION_MESSAGES = Object.freeze({
@@ -396,11 +398,11 @@ function layoutItemText(item) {
 }
 
 function layoutItemX(item) {
-  return Number(item?.x ?? item?.transform?.[4] ?? 0);
+  return Number(item?.x ?? item?.transform?.[4]);
 }
 
 function layoutItemY(item) {
-  return Number(item?.y ?? item?.transform?.[5] ?? 0);
+  return Number(item?.y ?? item?.transform?.[5]);
 }
 
 function compactLayoutText(value) {
@@ -420,7 +422,7 @@ function groupLayoutItemsIntoRows(items) {
         row = { y, items: [] };
         rows.push(row);
       }
-      row.items.push({ x, y, text: layoutItemText(item) });
+      row.items.push({ x, y, text: layoutItemText(item), width: Number(item.width) });
     });
 
   return rows
@@ -428,42 +430,63 @@ function groupLayoutItemsIntoRows(items) {
     .map(row => ({ ...row, items: row.items.sort((a, b) => a.x - b.x) }));
 }
 
-function findTossHeaderRow(rows) {
-  return rows.find(row => TOSS_REQUIRED_COLUMN_KEYS.every(key => (
-    row.items.some(item => compactLayoutText(item.text).includes(compactLayoutText(TOSS_COLUMN_LABELS[key])))
-  )));
-}
-
 function findTossHeaderColumns(headerRow) {
-  return Object.entries(TOSS_COLUMN_LABELS)
-    .map(([key, label]) => {
-      const item = headerRow.items.find(candidate => (
-        compactLayoutText(candidate.text).includes(compactLayoutText(label))
-      ));
-      return item ? { key, x: item.x } : null;
-    })
-    .filter(Boolean);
+  const columns = [];
+  const labels = Object.entries(TOSS_COLUMN_LABELS).map(([key, label]) => [key, compactLayoutText(label)]);
+  for (let index = 0; index < headerRow.items.length;) {
+    const first = headerRow.items[index];
+    let text = '';
+    let role = null;
+    while (index < headerRow.items.length && !role) {
+      text += compactLayoutText(headerRow.items[index++].text);
+      if (!labels.some(([, label]) => label.startsWith(text))) return null;
+      role = labels.find(([, label]) => label === text);
+    }
+    if (!role || columns.some(column => column.key === role[0])) return null;
+    columns.push({ key: role[0], x: first.x });
+  }
+  if (!TOSS_REQUIRED_COLUMN_KEYS.every(key => columns.some(column => column.key === key))
+    || columns.some((column, index) => index > 0 && column.x <= columns[index - 1].x)) return null;
+  // Voronoi bands come from adjacent observed header starts, not fixed PDF coordinates.
+  return columns.map((column, index) => ({
+    ...column,
+    left: index ? (columns[index - 1].x + column.x) / 2 : column.x - (columns[1].x - column.x) / 2,
+    right: index + 1 < columns.length ? (column.x + columns[index + 1].x) / 2
+      : column.x + (column.x - columns[index - 1].x) / 2,
+  }));
 }
 
 function assignLayoutCells(row, columns) {
   const cells = Object.fromEntries(columns.map(column => [column.key, []]));
   row.items.forEach(item => {
-    const nearest = columns.reduce((best, column) => {
-      const distance = Math.abs(item.x - column.x);
-      return !best || distance < best.distance ? { column, distance } : best;
-    }, null);
-    if (nearest) cells[nearest.column.key].push(item.text);
+    const column = columns.find(column => item.x >= column.left && item.x < column.right);
+    if (column) cells[column.key].push(item);
   });
   return cells;
 }
 
 function layoutCellText(cells, key) {
-  return normalizeWhitespace((cells[key] || []).join(' '));
+  return normalizeWhitespace((cells[key] || []).map(item => item.text).join(' '));
+}
+
+function layoutIdentityText(cells, key) {
+  const runs = [];
+  let previous = null;
+  for (const item of cells[key] || []) {
+    const advance = previous?.width / Array.from(previous?.text || '').length;
+    const gap = previous ? item.x - (previous.x + previous.width) : NaN;
+    // Join PDF.js fragments only within one observed character advance; distant prose is a separate run.
+    if (previous?.width > 0 && item.width > 0 && Math.abs(gap) <= advance) {
+      runs[runs.length - 1] += (gap > 0 ? ' ' : '') + item.text;
+    } else runs.push(item.text);
+    previous = item;
+  }
+  return runs.length === 1 ? normalizeWhitespace(runs[0]) : '';
 }
 
 function parseLayoutNumber(value) {
-  const match = String(value || '').match(/^\s*(\d[\d,]*(?:\.\d+)?)\s*$/);
-  return match ? parseNumber(match[1]) : null;
+  const number = parseLayoutCost(value);
+  return number !== null && number > 0 ? number : null;
 }
 
 function parseLayoutCost(value) {
@@ -481,7 +504,7 @@ function parseTossInstrumentCell(value) {
   const symbol = rawSymbol.replace(/^A/, '');
   if (
     !stockName
-    || /\d/.test(stockName)
+    || !/[A-Za-z가-힣]/.test(stockName)
     || SENSITIVE_MARKER_PATTERN.test(stockName)
     || /[|·:;,()[\]{}]/.test(stockName)
     || !/^\d{6}$/.test(symbol)
@@ -489,12 +512,11 @@ function parseTossInstrumentCell(value) {
   return { stockName, rawSymbol, symbol };
 }
 
-function parseTossLayoutTrade(row, columns, sourceIndex) {
-  const cells = assignLayoutCells(row, columns);
-  const dateMatch = layoutCellText(cells, 'tradeDate').match(DATE_PATTERN);
+function parseTossLayoutTrade(cells, sourceIndex) {
+  const dateMatch = layoutIdentityText(cells, 'tradeDate').match(/^(20\d{2})[./-](\d{1,2})[./-](\d{1,2})$/);
   const tradeDate = dateMatch ? parseDate(dateMatch) : null;
-  const sideMatch = layoutCellText(cells, 'side').match(/^(매수|매도|구매|판매|buy|sell)$/i);
-  const instrument = parseTossInstrumentCell(layoutCellText(cells, 'instrument'));
+  const sideMatch = layoutIdentityText(cells, 'side').match(/^(매수|매도|구매|판매|buy|sell)$/i);
+  const instrument = parseTossInstrumentCell(layoutIdentityText(cells, 'instrument'));
   const quantity = parseLayoutNumber(layoutCellText(cells, 'quantity'));
   const price = parseLayoutNumber(layoutCellText(cells, 'price'));
   if (!tradeDate || !sideMatch || !instrument || quantity === null || price === null) return null;
@@ -523,40 +545,106 @@ function parseTossLayoutTrade(row, columns, sourceIndex) {
   };
 }
 
-function parseTossDomesticLayout(pages) {
-  if (!Array.isArray(pages)) return [];
+function normalizeTossTableRow(row, columns) {
+  const cells = assignLayoutCells(row, columns);
+  const fields = Object.fromEntries(TOSS_REQUIRED_COLUMN_KEYS.map(key => [key, layoutIdentityText(cells, key)]));
+  const occupied = TOSS_REQUIRED_COLUMN_KEYS.filter(key => fields[key]);
+  return { cells, fields, occupied };
+}
+
+function classifyTossLayoutRow(row, columns, sourceIndex, hasPageHeader) {
+  if (!columns) return { kind: 'non_transaction' };
+  const { cells, fields, occupied } = normalizeTossTableRow(row, columns);
+  const identityRoles = [DATE_PATTERN.test(fields.tradeDate), Boolean(parseTradeSide(fields.side)),
+    Boolean(parseTossInstrumentCell(fields.instrument))];
+  const numericSlots = ['quantity', 'price'].filter(key => /^[+-]?\d/.test(fields[key]));
+
+  if (!hasPageHeader) {
+    // Prior geometry admits only strong continuation evidence, never a parsed trade.
+    const continuationShapes = [identityRoles.every(Boolean),
+      occupied.length === 5 && identityRoles.filter(Boolean).length >= 2 && numericSlots.length === 2];
+    return { kind: continuationShapes.some(Boolean) ? 'incomplete_transaction' : 'non_transaction' };
+  }
+
+  // Occupied table slots alone cannot distinguish a trade from a summary or balance row.
+  const hasTransactionIdentity = identityRoles[1] || identityRoles[2];
+  if (!hasTransactionIdentity) return { kind: 'non_transaction' };
+
+  // Shape describes independent occupied slots, not successful mandatory-field parsing.
+  const tableShapes = [
+    occupied.length === 5,
+    identityRoles.every(Boolean),
+    occupied.length >= 3 && numericSlots.length > 0 && (identityRoles[0] || identityRoles[1])
+      && (occupied.includes('side') || occupied.includes('instrument')),
+  ];
+  if (!tableShapes.some(Boolean)) return { kind: 'non_transaction' };
+  const trade = parseTossLayoutTrade(cells, sourceIndex);
+  return trade ? { kind: 'transaction', trade } : { kind: 'incomplete_transaction' };
+}
+
+function isTossTextTransactionLine(text) {
+  const valueField = /^-?\d[\d,]*(?:\.\d+)?(?:원|주)?$/;
+  const tradePrefix = /^(?:20\d{2}[./-]\d{1,2}[./-]\d{1,2}\s+)?(?:매수|매도|구매|판매|buy|sell)(?=\s)/i;
+  const tail = text.split(/\(\s*A?\d{6}\s*\)\s*/i)[1]?.trim().split(/\s+/);
+  const numericTail = tail?.length >= 2 && tail.every(value => valueField.test(value));
+  const explicitAmounts = DOMESTIC_SYMBOL_TOKEN_PATTERN.test(text) && DOMESTIC_AMOUNT_PATTERN.test(text);
+  return Boolean(((tradePrefix.test(text) && (tail ?? text.split(/\s+/)).some(value => valueField.test(value)))
+    || numericTail || explicitAmounts) && [DATE_PATTERN.test(text), SIDE_PATTERN.test(text),
+    /\(\s*A?\d{6}\s*\)/i.test(text) || explicitAmounts].filter(Boolean).length >= 2);
+}
+
+function parseTossDomesticLayout(extraction) {
+  const { pages, pageCount } = extraction;
   const trades = [];
-  let sourceIndex = 0;
-  pages.forEach(page => {
-    const rows = groupLayoutItemsIntoRows(page?.items || []);
-    const headerRow = findTossHeaderRow(rows);
-    if (!headerRow) return;
-    const columns = findTossHeaderColumns(headerRow);
-    if (!TOSS_REQUIRED_COLUMN_KEYS.every(key => columns.some(column => column.key === key))) return;
-    rows.forEach(row => {
-      const trade = parseTossLayoutTrade(row, columns, sourceIndex);
-      if (!trade) return;
-      trades.push(trade);
-      sourceIndex += 1;
-    });
+  let recognizedRows = 0;
+  let incomplete = !pages.length || (pageCount !== undefined && pageCount !== pages.length);
+  let recognitionColumns = null;
+  pages.forEach((page, index) => {
+    if (page?.pageNumber !== index + 1 || !Array.isArray(page.items)
+      || page.items.some(item => layoutItemText(item)
+        && (!Number.isFinite(layoutItemX(item)) || !Number.isFinite(layoutItemY(item))))) {
+      incomplete = true;
+      return;
+    }
+    const rows = groupLayoutItemsIntoRows(page.items);
+    if (!rows.length) incomplete = true; // A blank/scanned page cannot prove completeness.
+    let columns = null;
+    for (const row of rows) {
+      const header = findTossHeaderColumns(row);
+      if (header) {
+        columns = header;
+        recognitionColumns = columns;
+        continue;
+      }
+      const classified = classifyTossLayoutRow(row, columns || recognitionColumns, recognizedRows, Boolean(columns));
+      if (classified.kind === 'non_transaction') continue;
+      recognizedRows += 1;
+      if (classified.kind === 'incomplete_transaction') incomplete = true;
+      else trades.push(classified.trade);
+    }
   });
-  return sortTradesByDateDesc(trades);
+  return { trades: sortTradesByDateDesc(trades), recognizedRows, incomplete };
 }
 
 export function parseTossDomesticStatement(text, extraction = null) {
   const detection = detectBrokerStatement(text);
   const hasLayout = Array.isArray(extraction?.pages);
-  const layoutTrades = hasLayout ? parseTossDomesticLayout(extraction.pages) : [];
-  const fallbackTrades = hasLayout
-    ? []
-    : parseTradeCandidates(text).filter(trade => /^\d{6}$/.test(trade.symbol || ''));
-  const domesticTrades = layoutTrades.length ? layoutTrades : fallbackTrades;
+  const result = hasLayout ? parseTossDomesticLayout(extraction) : {
+    trades: parseTradeCandidates(text).filter(trade => /^\d{6}$/.test(trade.symbol || '')),
+    recognizedRows: statementLines(text).filter(isTossTextTransactionLine).length,
+    incomplete: false,
+  };
+  const completeness = { recognizedRows: result.recognizedRows, parsedRows: result.trades.length };
+  if (result.incomplete || completeness.recognizedRows !== completeness.parsedRows) {
+    return { status: BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE, detection, trades: [], completeness };
+  }
   return {
-    status: detection.market === 'domestic' && domesticTrades.length
+    status: detection.market === 'domestic' && result.trades.length
       ? BROKER_STATEMENT_STATUS.READY
       : BROKER_STATEMENT_STATUS.TOSS_DOMESTIC_SAMPLE_REQUIRED,
     detection,
-    trades: detection.market === 'domestic' ? domesticTrades : [],
+    trades: detection.market === 'domestic' ? result.trades : [],
+    completeness,
   };
 }
 

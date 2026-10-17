@@ -28,7 +28,7 @@ sys.path.insert(0, str(REPOSITORY))
 sys.path.insert(0, str(REPOSITORY / "backend"))
 from tests.module_isolation import Boundary, IsolationViolation, isolated_module, sanitized_environment, protected_paths, ProtectedPaths
 from tests.isolation_inventory import COORDINATORS, InventoryError, expected_skips, inventory_summary, load_inventory
-from tests.isolation_inventory import NODE_SUPPORT, load_node_inventory, node_inventory_summary, node_source_path, node_source_hash, validated_node_fixture, validated_react_snapshot, _unique_object
+from tests.isolation_inventory import NODE_SUPPORT, load_node_inventory, node_inventory_summary, node_source_path, node_source_hash, validated_node_fixture, validated_react_snapshot, validated_pdfjs_snapshot, _unique_object
 from tests.isolation_inventory import NODE_LEGACY_ENTRY
 
 # Script and imported runner must share the evidence collector in coordinator children.
@@ -517,7 +517,7 @@ def run_node_entry(entry, executable, *, frontend=None, host=None, timeout=120):
         if node_source_hash(node_source_path(frontend, entry["file"]).read_text(encoding="utf-8")) != entry["sha256"]:
             raise InventoryError("Node source changed before snapshot")
         fixture = validated_node_fixture(frontend, entry)
-        react_snapshot = validated_react_snapshot(frontend, entry)
+        dependency_snapshot = validated_react_snapshot(frontend, entry) + validated_pdfjs_snapshot(frontend, entry)
         for relative in entry["reads"]:
             source = node_source_path(frontend, relative)
             destination = root / relative
@@ -532,7 +532,7 @@ def run_node_entry(entry, executable, *, frontend=None, host=None, timeout=120):
             destination.write_bytes(content)
             if destination.read_bytes() != content:
                 raise InventoryError("Node fixture copy mismatch")
-        for relative, content in react_snapshot:
+        for relative, content in dependency_snapshot:
             destination = root / relative
             if destination.exists() or not destination.resolve().is_relative_to(root):
                 raise InventoryError("React snapshot destination collision/escape")

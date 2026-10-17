@@ -72,6 +72,7 @@ export async function extractPdfText(arrayBuffer) {
             str: item.str,
             x: Number(item.transform?.[4] || 0),
             y: Number(item.transform?.[5] || 0),
+            width: Number(item.width),
           })),
       });
       page.cleanup();

@@ -2653,6 +2653,7 @@
         "file": "scripts/journal-mobile-ux.test.js",
         "profile": "standard",
         "cases": [
+          "broker file admission enforces 25MiB before extraction and renders incomplete tables without transfer",
           "account management is reachable from both primary views",
           "mobile chart controls use compact named grid areas",
           "review UI hides internal model ids and consent versions",
@@ -2689,7 +2690,7 @@
           "account changes clear the previous account journal workspace before loading tenant data",
           "review archive entry uses a throttled interstitial policy"
         ],
-        "sha256": "d55ba39b19390ee981d7e45a894b0a3e85ccccd5de673d006895e1fabe42ac73",
+        "sha256": "0a25ab990572848275ca78549b626a1c4b0cf729c31a337afb7f942069f31f81",
         "reads": [
           "package.json",
           "scripts/journal-mobile-ux.test.js",
@@ -2707,7 +2708,8 @@
           "src/utils/brokerImport.js",
           "src/utils/reviewTradeSelection.js",
           "src/components/ReviewBodyRenderer.js",
-          "src/utils/reviewDisplayV2.js"
+          "src/utils/reviewDisplayV2.js",
+          "src/components/BrokerImport.jsx"
         ],
         "release_eval_sha256": [],
         "react_snapshot": {
@@ -2756,6 +2758,13 @@
         "file": "scripts/broker-import.test.js",
         "profile": "standard",
         "cases": [
+          "Toss multi-page tables preserve all independent rows and sort dates across repeated headers",
+          "Toss rejects the whole import when one mandatory transaction field is missing or malformed",
+          "Toss tri-state row shapes reject composite damage without guessing non-transaction rows",
+          "Toss headerless damaged or unextracted continuation pages cannot become partial success",
+          "Toss summaries balances and ordinary dated notes are not counted as executions",
+          "Toss explicit instrument code boundaries admit numeric names without guessing generic numeric prefixes",
+          "Toss text-only fallback also refuses to silently drop an identifiable broken execution",
           "generic sides accept explicit purchase and sale labels and reject ambiguous directions",
           "Toss cost columns preserve nonzero values and explicit zero independently",
           "missing or malformed Toss cost components stay unknown without discarding the trade",
@@ -2780,7 +2789,7 @@
           "sort helper preserves source order when date and time are equal",
           "local PDF flow has no client upload, API, or browser storage call"
         ],
-        "sha256": "5ea37a6392686f19bf835102a874f351ae1a2f6744c1cf02076d4fe147616ff0",
+        "sha256": "31d1d55bd2cc1b8d7995ae15426470f09898405a5147b87fc2513d8963bfea54",
         "reads": [
           "package.json",
           "scripts/broker-import.test.js",
@@ -2789,9 +2798,37 @@
           "src/components/TradingJournal.jsx",
           "src/utils/brokerImport.js",
           "src/utils/pdfTextExtractor.js",
-          "src/utils/brokerReviewInput.js"
+          "src/utils/brokerReviewInput.js",
+          "scripts/fixtures/broker-row-damage.js"
         ],
         "release_eval_sha256": []
+      },
+      {
+        "name": "test:broker-pdf-extraction",
+        "command": "node --test scripts/broker-pdf-extraction.test.js",
+        "file": "scripts/broker-pdf-extraction.test.js",
+        "profile": "standard",
+        "cases": [
+          "real local PDF.js reads synthetic File bytes and repeated-page tables with costs and numeric names",
+          "real PDF.js malformed rows and headerless continuation never expose partial trades",
+          "real PDF.js tri-state composite damage rejects whole imports",
+          "real PDF.js image-only PDFs have no invented OCR trades and invalid bytes are rejected",
+          "real PDF.js password admission refuses encrypted input without a password exchange"
+        ],
+        "sha256": "c1c1d0de818725b0dd92105117f0d75cfda42a5be6e87d9826041de866f5891c",
+        "reads": [
+          "package.json",
+          "scripts/broker-pdf-extraction.test.js",
+          "src/utils/brokerImport.js",
+          "src/utils/pdfTextExtractor.js",
+          "scripts/fixtures/broker-row-damage.js"
+        ],
+        "release_eval_sha256": [],
+        "pdfjs_snapshot": {
+          "pdfjs-dist/package.json": "d7918934bf0ef5b18beed1bd2d9b49a04447de445c171305a2de082ccee369ed",
+          "pdfjs-dist/legacy/build/pdf.mjs": "842284e0d1d439e60701e3355c2128cd3016ebebf14220e27f512467682aad66",
+          "pdfjs-dist/legacy/build/pdf.worker.min.mjs": "bc0d1b88ea0b66196b1d36a58ac243c6d92adfe725624e2a9fdd381bdf8ef434"
+        }
       },
       {
         "name": "test:user-messages",

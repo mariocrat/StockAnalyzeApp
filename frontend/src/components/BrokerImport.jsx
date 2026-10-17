@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { Check, FileText, ShieldCheck } from 'lucide-react';
 import { extractPdfText, LocalPdfPasswordRequiredError } from '../utils/pdfTextExtractor';
 import {
+  BROKER_STATEMENT_MESSAGES,
   BROKER_STATEMENT_STATUS,
   REVIEW_TIME_VALIDATION_MESSAGES,
   createTradeTimeState,
@@ -392,6 +393,15 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
           <h3>해외주식 거래내역은 아직 지원하지 않습니다.</h3>
           <p>선택한 PDF는 해외주식 거래내역서입니다.</p>
           <p>현재는 토스증권 국내주식 거래내역만 지원합니다.</p>
+          <button type="button" className="journal-primary" onClick={selectAnotherPdf}>다른 PDF 선택</button>
+        </section>
+      )}
+
+      {state.status === 'ready' && state.statementStatus === BROKER_STATEMENT_STATUS.TOSS_INCOMPLETE && (
+        <section className="broker-import-state-card broker-import-state-unrecognized" role="alert">
+          <span className="broker-import-state-label">거래내역 확인 필요</span>
+          <h3>거래내역 일부를 정확히 읽지 못했습니다.</h3>
+          <p>{BROKER_STATEMENT_MESSAGES.TOSS_INCOMPLETE}</p>
           <button type="button" className="journal-primary" onClick={selectAnotherPdf}>다른 PDF 선택</button>
         </section>
       )}

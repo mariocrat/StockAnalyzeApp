@@ -55,8 +55,8 @@ def node_regression_suite(executable):
 
         def test_inventory_package_source_manifest_exact_and_fail_closed(self):
             live = inventory.load_node_inventory()
-            self.assertEqual(len(live), 23)
-            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 259)
+            self.assertEqual(len(live), 24)
+            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 276)
             self.assertIn("test:broker-import", live)
             self.assertIn("test:mobile-bundle", live)
             review = live["test:canonical-review-renderer"]
@@ -292,6 +292,45 @@ test('synthetic', () => {
             self.assertEqual(result["unexpected"], 0)
             self.assertTrue(result["restored"] and result["patches_restored"])
             self.assertFalse((self.frontend / "node_modules").exists())
+
+        def test_pdfjs_snapshot_is_exact_pinned_and_fails_before_launch(self):
+            spec = copy.deepcopy(inventory.load_node_inventory()[inventory.NODE_PDF_ENTRY])
+            frontend = inventory.REPOSITORY / "frontend"
+            original = inventory.validated_pdfjs_snapshot(frontend, spec)
+            self.assertEqual([path for path, _ in original], ["node_modules/" + path for path in inventory.NODE_PDF_FILES])
+            for fault in ("missing", "hash", "extra", "lock-version", "package-version"):
+                with self.subTest(fault=fault):
+                    for relative, content in original:
+                        destination = self.frontend / relative
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        destination.write_bytes(content)
+                    lock = {"packages": {"node_modules/pdfjs-dist": {"version": "6.2.108"}}}
+                    broken = copy.deepcopy(spec)
+                    target = self.frontend / original[0][0]
+                    if fault == "missing": target.unlink()
+                    elif fault == "hash": broken["pdfjs_snapshot"][inventory.NODE_PDF_FILES[1]] = "0" * 64
+                    elif fault == "extra": broken["pdfjs_snapshot"]["pdfjs-dist/private.js"] = "0" * 64
+                    elif fault == "lock-version": lock["packages"]["node_modules/pdfjs-dist"]["version"] = "0.0.0"
+                    else:
+                        content = b'{"version":"0.0.0"}'
+                        target.write_bytes(content)
+                        broken["pdfjs_snapshot"][inventory.NODE_PDF_FILES[0]] = inventory.hashlib.sha256(content).hexdigest()
+                    (self.frontend / "package-lock.json").write_text(json.dumps(lock), encoding="utf-8")
+                    with self.assertRaises(inventory.InventoryError):
+                        inventory.validated_pdfjs_snapshot(self.frontend, broken)
+                    # Pin validation must run before Node version/test launch.
+                    for relative in broken["reads"]:
+                        destination = self.frontend / relative
+                        destination.parent.mkdir(parents=True, exist_ok=True)
+                        destination.write_bytes((frontend / relative).read_bytes())
+                    with patch.object(runner.subprocess, "run", side_effect=AssertionError("invalid PDF.js cannot launch")) as launch:
+                        result = self.launch(broken)
+                        launch.assert_not_called()
+                    self.assertFalse(result["passed"])
+            unrelated = self.fixture("test('synthetic', () => {});")
+            unrelated["pdfjs_snapshot"] = spec["pdfjs_snapshot"]
+            with self.assertRaises(inventory.InventoryError):
+                inventory.validated_pdfjs_snapshot(self.frontend, unrelated)
 
         def test_existing_release_and_bundle_contracts_under_outer_guard(self):
             entries = inventory.load_node_inventory()

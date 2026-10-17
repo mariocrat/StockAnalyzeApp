@@ -187,6 +187,9 @@ NODE_MOBILE_REVIEW_ENTRY = "test:journal-mobile-ux"
 NODE_CHART_COMPONENT = "src/components/JournalTradeChart.jsx"
 NODE_CHART_SOURCE = "src/utils/aiReviewChartSource.js"
 NODE_TYPESCRIPT_FILES = ("typescript/package.json", "typescript/lib/typescript.js")
+NODE_PDF_ENTRY = "test:broker-pdf-extraction"
+NODE_PDF_FILES = ("pdfjs-dist/package.json", "pdfjs-dist/legacy/build/pdf.mjs",
+                  "pdfjs-dist/legacy/build/pdf.worker.min.mjs")
 NODE_REACT_FILES = (
     "react/package.json", "react/index.js", "react/cjs/react.development.js",
     "react-dom/package.json", "react-dom/index.js", "react-dom/server.node.js",
@@ -361,6 +364,33 @@ def validated_react_snapshot(frontend, entry):
     return snapshot
 
 
+def validated_pdfjs_snapshot(frontend, entry):
+    """Pin only the local text parser and bundled worker; no native addon or network."""
+    if entry["name"] != NODE_PDF_ENTRY:
+        if "pdfjs_snapshot" in entry:
+            raise InventoryError("unexpected PDF.js snapshot mapping")
+        return []
+    hashes = entry.get("pdfjs_snapshot")
+    if not isinstance(hashes, dict) or set(hashes) != set(NODE_PDF_FILES):
+        raise InventoryError("invalid PDF.js snapshot allowlist")
+    lock = json.loads((Path(frontend) / "package-lock.json").read_bytes(), object_pairs_hook=_unique_object)
+    if lock.get("packages", {}).get("node_modules/pdfjs-dist", {}).get("version") != "6.2.108":
+        raise InventoryError("PDF.js lock version mismatch")
+    installed = _installed_react_root(frontend).resolve()
+    snapshot = []
+    for relative in NODE_PDF_FILES:
+        source = installed / relative
+        if source.is_symlink() or not source.resolve().is_relative_to(installed) or not source.is_file():
+            raise InventoryError("PDF.js snapshot escapes local installation")
+        content = source.read_bytes()
+        if hashlib.sha256(content).hexdigest() != hashes[relative]:
+            raise InventoryError("PDF.js snapshot hash mismatch")
+        if relative.endswith("package.json") and json.loads(content).get("version") != "6.2.108":
+            raise InventoryError("PDF.js installed version mismatch")
+        snapshot.append(("node_modules/" + relative, content))
+    return snapshot
+
+
 def node_case_names(source):
     # Reviewed literal top-level declarations; the source hash locks the entire
     # grammar/content, including aliases or dynamic code not matched here.
@@ -405,6 +435,7 @@ def validate_node_inventory(frontend, manifest):
             node_source_path(frontend, relative)  # No private reads to validate the boundary.
         validated_node_fixture(frontend, entry)
         validated_react_snapshot(frontend, entry)
+        validated_pdfjs_snapshot(frontend, entry)
         if profile == "standard" and entry["release_eval_sha256"]:
             raise InventoryError("standard tests cannot launch children")
         entries[name] = entry

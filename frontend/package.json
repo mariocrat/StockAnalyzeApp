@@ -30,6 +30,7 @@
     "test:journal-mobile-ux": "node --test scripts/journal-mobile-ux.test.js",
     "test:review-selection": "node --test scripts/review-trade-selection.test.js",
     "test:broker-import": "node --test scripts/broker-import.test.js",
+    "test:broker-pdf-extraction": "node --test scripts/broker-pdf-extraction.test.js",
     "test:user-messages": "node --test scripts/user-message.test.js",
     "test:release-env": "node --test scripts/validate-release-env.test.js",
     "test:mobile-bundle": "node --test scripts/validate-mobile-bundle.test.js",
