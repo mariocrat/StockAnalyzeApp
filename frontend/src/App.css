@@ -3566,8 +3566,8 @@ body {
 
 .broker-trade-time {
   grid-area: time;
-  display: grid;
-  grid-template-columns: auto minmax(92px, 110px) minmax(0, max-content);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px 8px;
   width: 100%;
@@ -3582,14 +3582,19 @@ body {
 }
 
 .broker-trade-time > span {
+  flex-basis: 100%;
   color: #dbe6ff;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .broker-trade-time > input[type="time"] {
-  width: 100%;
-  min-width: 0;
+  flex: 1 1 12em;
+  width: auto;
+  /* Native localized hours/minutes need room; wrap the checkbox instead. */
+  min-width: min(100%, 12em);
+  max-width: 100%;
+  font-size: 16px;
   min-height: 32px;
   box-sizing: border-box;
   padding: 5px 6px;
@@ -3605,6 +3610,7 @@ body {
 }
 
 .broker-trade-time > label {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -3989,23 +3995,6 @@ body {
     grid-column: auto;
     justify-items: start;
     text-align: left;
-  }
-
-  .broker-trade-time {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 6px;
-  }
-
-  .broker-trade-time > span {
-    grid-column: 1 / -1;
-  }
-
-  .broker-trade-time > input[type="time"] {
-    max-width: 112px;
-  }
-
-  .broker-trade-time > label {
-    justify-self: start;
   }
 
   .journal-page,

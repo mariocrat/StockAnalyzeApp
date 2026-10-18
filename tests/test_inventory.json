@@ -2656,6 +2656,7 @@
           "broker file admission enforces 25MiB before extraction and renders incomplete tables without transfer",
           "broker confirmation re-sorts manual times while retaining row identity and selection",
           "broker confirmation explains blocked costs and instruments and permits deselecting them",
+          "broker confirmation optional times stay editable and blank across dates without unknown controls",
           "broker confirmation preserves mixed-side required times and select-all behavior",
           "account management is reachable from both primary views",
           "mobile chart controls use compact named grid areas",
@@ -2693,7 +2694,7 @@
           "account changes clear the previous account journal workspace before loading tenant data",
           "review archive entry uses a throttled interstitial policy"
         ],
-        "sha256": "6f762ae2055d45f89b57e860967830a74523bda23688f64097f49e06a2c7caf6",
+        "sha256": "2aeb8f7aabe7352e8f0003342fbae2fd5caf37b1bba286e876b49bd6c442a67e",
         "reads": [
           "package.json",
           "scripts/journal-mobile-ux.test.js",
@@ -2793,7 +2794,7 @@
           "sort helper preserves source order when date and time are equal",
           "local PDF flow has no client upload, API, or browser storage call"
         ],
-        "sha256": "f3f077cdd100fca23a12e68c68f659830f3080fd653ba96ca96c3269a996116f",
+        "sha256": "47160b5450f67cf263dc02b340ba30e05488b5e794bd515fcab6f831b22cd097",
         "reads": [
           "package.json",
           "scripts/broker-import.test.js",

@@ -59,7 +59,10 @@ selection behavior and accurate support wording. Parser/completeness remain unch
   stack loggers and updating the PDF test source hash.
 - [x] Slice 3 confirmation sorting, shared preparation guidance and support wording implemented.
 - [x] Slice 3 focused H4/inventory, lint/build and preservation audit.
-- [ ] Slice 3 independent review; no commit/push/merge authorized.
+- [x] Slice 3 independent review approved (Blocker/Major/Minor 0); committed as
+  `476d0bddbee1076c799a1fbb4aa10b2aa9e4a680` with the approved 13 files.
+- [x] Investigate and correct the subsequent Galaxy S23 Ultra / Android 16 confirmation UX report.
+- [ ] Independent review and Galaxy device re-verification of the confirmation corrections.
 
 ## Verification
 
@@ -604,10 +607,80 @@ Official H4 uses the Python and Node executables recorded above:
   staged 0 / modified 13 / untracked 0 / unmerged 0. Parser, extractor, shared damage
   fixtures, backend and environment sources have no diff. No stage/commit/push/merge.
 
+## Post-device confirmation corrections — 2026-10-19
+
+Started clean at `476d0bddbee1076c799a1fbb4aa10b2aa9e4a680` on the same branch.
+Product changes are confined to BrokerImport.jsx, its time-control CSS and the existing
+brokerReviewInput.js message helper. No parser, completeness, extractor, backend, Android,
+environment or review-display behavior is changed.
+
+- Clipping cause: the time input was capped at 112px on mobile and used a narrow fixed
+  grid track elsewhere. A wrapping flex row now gives the native localized input 12em
+  of preferred/minimum space, capped by its available width, at 16px text size. The
+  unknown checkbox wraps independently instead of shrinking the hours/minutes.
+- Optional rows expose an enabled native time input and no unknown-time checkbox.
+  Empty input remains permissible; clearing it explicitly restores null/timeUnknown=true.
+  Entering a time uses the unchanged updater. Required selected same-day/same-symbol
+  mixed-side groups retain their unknown checkbox, disabled-while-unknown behavior and
+  existing admission rule. Sorting and selection remain ID-based.
+- The shared preparation issue identifies fee-only, tax-only or both missing valid
+  costs with the requested Korean message. Rows show each known amount, missing field
+  (`정보 없음`) or invalid field (`정보 확인 필요`). Admission still requires finite,
+  nonnegative numeric costs and never substitutes zero. Deselecting blocked rows allows
+  the remaining valid selection to proceed.
+
+### BUY tax contract audit
+
+- brokerImport.js:parseTossLayoutTrade reads 거래세 and 제세금 separately. Its tax total
+  is null when either component is missing/malformed, on BUY as well as SELL; only
+  explicitly parsed zero components produce zero. Existing sanitized BUY fixtures have
+  explicit zero tax. No parser rule establishes that omitted BUY tax means zero.
+- backend/main.py:JournalTradeIn defaults fee/tax to zero, and
+  backend/core/journal.py:normalize_trade coerces omitted/null costs to zero. Those are
+  generic input defaults, not evidence of a value in a PDF. The approved Slice 1 broker
+  adapter intentionally requires known costs to prevent these defaults from hiding loss
+  of provenance. It has no BUY exemption.
+- Therefore the BUY unknown-tax blocker is retained. Deciding whether a specific Toss
+  format's absent BUY tax is an asserted zero needs sanitized source evidence and an
+  explicitly approved business contract; it is a follow-up, not inferred in this fix.
+
+### Correction verification
+
+- Official H4 Node selectors: broker-import, broker-pdf-extraction, journal-mobile-ux,
+  review-selection and app-navigation: **86/86 PASS** (31/5/40/5/5), FAIL/SKIP 0,
+  expected/observed 86 and missing/extra/duplicate 0. Guard violations/unexpected access
+  0; restoration, patch restoration and cleanup true for every entrypoint. Existing
+  selection/re-sort/mixed-time/PDF binary cases remain, with one new optional-time case.
+  Exact fee/tax/both wording is checked on BUY and SELL, including malformed costs.
+- Official Python H4 full_test_entrypoint + quick_verify_docs: **23/23 PASS** (16/7),
+  FAIL/ERROR/SKIP 0, inventory issues empty and restoration/cleanup true. The coordinator
+  has null top-level access counters; its nested guard contracts pass. Guarded docs have
+  violations/unexpected 0. No full suite or actual backend/provider request was run.
+- Official Node inventory: **24 entrypoints / 281 direct**, missing/extra/duplicate 0,
+  missing source dependencies empty. Python inventory unchanged at **108 modules /
+  1079 direct / 18 registered child probes**, missing/duplicates/expected skips 0.
+  Only the two affected Node source hashes and the new case/count metadata change.
+- `npm.cmd run lint` and frontend `npm.cmd run build`: **PASS**, Vite 8.0.16 / 1865
+  modules. Build used process-only local API settings; no env-file or dependency change.
+- Real browser native time controls were inspected at **360, 390 and 412 CSS px** using
+  the actual confirmation JSX and current built CSS in a temporary synthetic SSR harness
+  outside the repo. Required and optional layouts have no horizontal overflow or
+  input scroll clipping. Inputs measure approximately 206–274px and show Korean AM/PM
+  with full minutes (12:34/17:56). Required checkboxes wrap below the input; optional
+  layouts have none. The 360px scroll end exposes the CTA and complete blocking reason.
+  This is browser layout evidence, not an Android WebView/device retest or live app/API test.
+- The diagnostic server denies outbound connections via CSP and serves only loopback.
+  Two navigation/capture batches reported `Unable to capture screenshot`; that capture
+  approach was stopped. Separating page observation from individual screenshot calls
+  succeeded without product changes. Screenshots are outside Git in
+  `C:/Users/mario/.codex/visualizations/2026/09/04/01a06ab8-e931-71d1-8518-8543ea1b0f3b/broker-confirmation-20261019/`.
+  Temporary viewport/server/harness are cleaned up after inspection.
+
 ## Remaining / Next step
 
-Obtain independent review of Slice 3's confirmation UX and shared adapter validation
-before commit or any further slice. Do not modify parser/completeness or other worktrees.
+Obtain independent review of the post-device confirmation corrections before any commit.
+Then prepare a fresh APK and repeat Galaxy S23 Ultra / Android 16 smoke; the previous
+APK predates these uncommitted corrections. Do not modify parser/completeness or other worktrees.
 Unknown-cost statements (including generic rows with no costs) remain blocked until
 explicit costs are available; do not bypass this using zero. Cost editing is not added.
 Headerless transaction continuations, generic multi-token numeric names, OCR and password

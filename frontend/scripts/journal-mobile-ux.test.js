@@ -206,12 +206,14 @@ test('broker confirmation re-sorts manual times while retaining row identity and
   const time = id => brokerElements(confirmationRow(h.render(), id), node => node.type === 'input' && node.props.type === 'time')[0];
   time('pdf-trade-1').props.onChange({ target: { value: '16:00' } });
   assert.deepEqual(order(), ['pdf-trade-0', 'pdf-trade-1', 'pdf-trade-2', 'pdf-trade-3']);
-  confirmationChecks(confirmationRow(h.render(), 'pdf-trade-3'))[1].props.onChange({ target: { checked: false } });
+  assert.equal(time('pdf-trade-3').props.disabled, false, 'optional blank time stays editable');
   time('pdf-trade-3').props.onChange({ target: { value: '16:00' } });
   assert.deepEqual(order(), ['pdf-trade-0', 'pdf-trade-1', 'pdf-trade-3', 'pdf-trade-2']);
-  confirmationChecks(confirmationRow(h.render(), 'pdf-trade-1'))[1].props.onChange({ target: { checked: true } });
+  time('pdf-trade-1').props.onChange({ target: { value: '' } });
   assert.deepEqual(order(), ['pdf-trade-0', 'pdf-trade-3', 'pdf-trade-2', 'pdf-trade-1']);
-  confirmationChecks(confirmationRow(h.render(), 'pdf-trade-1'))[1].props.onChange({ target: { checked: false } });
+  assert.equal(h.state.tradeStates['pdf-trade-1'].timeUnknown, true);
+  assert.equal(h.state.tradeStates['pdf-trade-1'].tradeTime, null);
+  assert.equal(time('pdf-trade-1').props.disabled, false);
   assert.deepEqual(order(), ['pdf-trade-0', 'pdf-trade-3', 'pdf-trade-2', 'pdf-trade-1']);
   assert.deepEqual([...h.state.selectedIds].sort(), ['pdf-trade-1', 'pdf-trade-3']);
   assert.equal(confirmationChecks(confirmationRow(h.render(), 'pdf-trade-1'))[0].props.checked, true);
@@ -226,13 +228,15 @@ test('broker confirmation re-sorts manual times while retaining row identity and
 
 test('broker confirmation explains blocked costs and instruments and permits deselecting them', () => {
   const h = brokerConfirmationHarness([confirmationTrade('pdf-trade-1'),
-    confirmationTrade('pdf-trade-2', { fee: null }), confirmationTrade('pdf-trade-3', { tax: null }),
-    confirmationTrade('pdf-trade-4', { symbol: '' })]);
+    confirmationTrade('pdf-trade-2', { fee: null }), confirmationTrade('pdf-trade-3', { fee: 69, tax: null }),
+    confirmationTrade('pdf-trade-4', { symbol: '' }), confirmationTrade('pdf-trade-5', { fee: null, tax: null })]);
   const html = renderToStaticMarkup(h.render());
-  assert.match(html, /수수료와 세금 확인/);
+  assert.match(html, /수수료 정보가 없어 복기를 준비할 수 없습니다/);
+  assert.match(html, /세금 정보가 없어 복기를 준비할 수 없습니다/);
+  assert.match(html, /수수료와 세금 정보가 없어 복기를 준비할 수 없습니다/);
   assert.match(html, /종목명과 6자리 종목코드 확인/);
-  assert.match(html, /수수료 확인 필요/);
-  assert.match(html, /세금 확인 필요/);
+  assert.match(renderToStaticMarkup(confirmationRow(h.render(), 'pdf-trade-3')), /수수료 69원 · 세금 정보 없음/);
+  assert.match(html, /수수료 정보 없음/);
   assert.match(html, /종목·가격·수량·비용 수정 및 메모 입력은 아직 지원하지 않습니다/);
   assert.match(journalSource, /가져온 거래의 매매 메모 입력은 현재 지원하지 않습니다/);
   assert.doesNotMatch(journalSource, /매매 이유와 판단은 매매복기에서 작성할 수 있습니다/);
@@ -246,12 +250,12 @@ test('broker confirmation explains blocked costs and instruments and permits des
     assert.doesNotMatch(support, /지원 예정/);
   }
   confirmationChecks(h.render())[0].props.onChange();
-  assert.equal(h.state.selectedIds.size, 4);
+  assert.equal(h.state.selectedIds.size, 5);
   assert.equal(transferButton(h.render()).props.disabled, true);
   assert.match(renderToStaticMarkup(h.render()), /해당 거래를 선택 해제/);
   transferButton(h.render()).props.onClick();
   assert.equal(h.transferred.length, 0, 'handler must also fail closed without relying on disabled');
-  for (const id of ['pdf-trade-2', 'pdf-trade-3', 'pdf-trade-4']) {
+  for (const id of ['pdf-trade-2', 'pdf-trade-3', 'pdf-trade-4', 'pdf-trade-5']) {
     confirmationChecks(confirmationRow(h.render(), id))[0].props.onChange();
   }
   assert.equal(transferButton(h.render()).props.disabled, false);
@@ -260,6 +264,27 @@ test('broker confirmation explains blocked costs and instruments and permits des
   assert.equal(prepareBrokerReviewInput(h.transferred[0]).groups[0].trades.length, 1);
   assert.equal(h.state.trades[1].fee, null);
   assert.equal(h.state.trades[2].tax, null);
+});
+
+test('broker confirmation optional times stay editable and blank across dates without unknown controls', () => {
+  const h = brokerConfirmationHarness([confirmationTrade('pdf-trade-1', { tradeDate: '2026-08-28' }),
+    confirmationTrade('pdf-trade-2', { tradeDate: '2026-08-29', side: 'sell' })]);
+  confirmationChecks(h.render())[0].props.onChange();
+  const times = () => brokerElements(h.render(), node => node.type === 'input' && node.props.type === 'time');
+  assert.equal(times().length, 2);
+  assert.ok(times().every(node => !node.props.disabled && !node.props.required));
+  assert.equal(confirmationChecks(h.render()).length, 3, 'only select-all and two row selections');
+  assert.doesNotMatch(renderToStaticMarkup(h.render()), /시간을 모름/);
+  assert.equal(transferButton(h.render()).props.disabled, false);
+  times()[0].props.onChange({ target: { value: '12:34' } });
+  assert.deepEqual({ ...h.state.tradeStates['pdf-trade-2'] }, { tradeTime: '12:34', timeUnknown: false });
+  times()[0].props.onChange({ target: { value: '' } });
+  assert.deepEqual({ ...h.state.tradeStates['pdf-trade-2'] }, { tradeTime: null, timeUnknown: true });
+  assert.equal(transferButton(h.render()).props.disabled, false);
+  transferButton(h.render()).props.onClick();
+  const prepared = prepareBrokerReviewInput(h.transferred[0]);
+  assert.equal(prepared.groups[0].trades.length, 2);
+  assert.ok(prepared.groups[0].previewTrades.every(row => row.tradeTime === null && row.timeUnknown));
 });
 
 test('broker confirmation preserves mixed-side required times and select-all behavior', () => {
@@ -506,7 +531,7 @@ async function verifyImportedPreparation() {
     button().props.onClick();
     assert.equal(state.prepared, null, 'unknown costs cannot publish prepared input');
     assert.equal(state.cleared, undefined, 'unknown costs leave the pending selection available');
-    assert.match(state.message, /수수료와 세금 확인/);
+    assert.equal(state.message, `${field === 'fee' ? '수수료' : '세금'} 정보가 없어 복기를 준비할 수 없습니다.`);
     assert.ok(context.importedTrades.every(row => row[field] === null));
   }
   context.importedTrades = confirmedCosts;

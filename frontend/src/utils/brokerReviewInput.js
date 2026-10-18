@@ -16,8 +16,10 @@ export function brokerReviewTradeIssue(trade) {
     || (trade.timeUnknown !== true && trade.tradeTime && !time)) {
     return '가져온 거래의 날짜, 종목, 가격, 수량과 체결시간을 확인해주세요.';
   }
-  if (![trade.fee, trade.tax].every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)) {
-    return '수수료와 세금 확인이 필요합니다.';
+  const knownCosts = [trade.fee, trade.tax].map(value => typeof value === 'number' && Number.isFinite(value) && value >= 0);
+  if (!knownCosts.every(Boolean)) {
+    const missing = !knownCosts[0] && !knownCosts[1] ? '수수료와 세금' : !knownCosts[0] ? '수수료' : '세금';
+    return `${missing} 정보가 없어 복기를 준비할 수 없습니다.`;
   }
   return '';
 }

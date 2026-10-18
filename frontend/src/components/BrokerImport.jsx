@@ -340,7 +340,7 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
                         </span>
                         <span className="broker-trade-amount">
                           <strong>{formatTradeNumber(trade.price)}원 × {formatTradeNumber(trade.quantity)}주</strong>
-                          <small>수수료 {typeof trade.fee === 'number' && Number.isFinite(trade.fee) && trade.fee >= 0 ? `${formatTradeNumber(trade.fee)}원` : '확인 필요'} · 세금 {typeof trade.tax === 'number' && Number.isFinite(trade.tax) && trade.tax >= 0 ? `${formatTradeNumber(trade.tax)}원` : '확인 필요'}</small>
+                          <small>수수료 {typeof trade.fee === 'number' && Number.isFinite(trade.fee) && trade.fee >= 0 ? `${formatTradeNumber(trade.fee)}원` : trade.fee == null ? '정보 없음' : '정보 확인 필요'} · 세금 {typeof trade.tax === 'number' && Number.isFinite(trade.tax) && trade.tax >= 0 ? `${formatTradeNumber(trade.tax)}원` : trade.tax == null ? '정보 없음' : '정보 확인 필요'}</small>
                         </span>
                         {selected && (
                           <div className="broker-trade-time" onClick={event => event.stopPropagation()}>
@@ -348,20 +348,24 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
                             <input
                               type="time"
                               value={tradeTime ?? ''}
-                              disabled={timeUnknown}
+                              disabled={timeRequired && timeUnknown}
                               required={timeRequired && !timeUnknown}
                               aria-invalid={missingRequiredTime}
-                              onChange={event => updateTradeTime(trade.id, event.target.value)}
+                              onChange={event => {
+                                const value = event.target.value;
+                                if (!timeRequired && !value) markTimeUnknown(trade.id, true);
+                                else updateTradeTime(trade.id, value);
+                              }}
                               aria-label={`${trade.stockName} 체결시간`}
                             />
-                            <label>
+                            {timeRequired && <label>
                               <input
                                 type="checkbox"
                                 checked={timeUnknown}
                                 onChange={event => markTimeUnknown(trade.id, event.target.checked)}
                               />
                               시간을 모름
-                            </label>
+                            </label>}
                           </div>
                         )}
                       </div>
