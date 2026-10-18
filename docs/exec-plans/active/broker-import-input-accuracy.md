@@ -62,7 +62,9 @@ selection behavior and accurate support wording. Parser/completeness remain unch
 - [x] Slice 3 independent review approved (Blocker/Major/Minor 0); committed as
   `476d0bddbee1076c799a1fbb4aa10b2aa9e4a680` with the approved 13 files.
 - [x] Investigate and correct the subsequent Galaxy S23 Ultra / Android 16 confirmation UX report.
-- [ ] Independent review and Galaxy device re-verification of the confirmation corrections.
+- [x] Independent review approved (Blocker/Major/Minor 0); committed as
+  `ba995caeb2da43595cac3d83a937ecf7b69a3a44` (`fix: refine broker import mobile confirmation`).
+- [ ] Generate a fresh Debug APK and re-verify on Galaxy S23 Ultra / Android 16.
 
 ## Verification
 
@@ -678,9 +680,8 @@ environment or review-display behavior is changed.
 
 ## Remaining / Next step
 
-Obtain independent review of the post-device confirmation corrections before any commit.
-Then prepare a fresh APK and repeat Galaxy S23 Ultra / Android 16 smoke; the previous
-APK predates these uncommitted corrections. Do not modify parser/completeness or other worktrees.
+Prepare a fresh Debug APK and repeat Galaxy S23 Ultra / Android 16 smoke. The previous
+APK predates the committed confirmation corrections. Do not modify parser/completeness or other worktrees.
 Unknown-cost statements (including generic rows with no costs) remain blocked until
 explicit costs are available; do not bypass this using zero. Cost editing is not added.
 Headerless transaction continuations, generic multi-token numeric names, OCR and password
