@@ -685,7 +685,7 @@ class TradeReviewStructuredTest(unittest.TestCase):
 
         def fake_call(payload, *, model, instructions):
             captured.update(payload)
-            return self._model_output("basic")
+            return self._model_output(payload["review_type"])
 
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", fake_call))
         result = self.ai_review_v2.build_basic_ai_review(trades, target_trade_id=20)
@@ -693,6 +693,24 @@ class TradeReviewStructuredTest(unittest.TestCase):
         self.assertEqual(20, len(captured["trade_episode"]))
         self.assertEqual(20, result["structured_review"]["objective"]["result"]["trade_count"])
         self.assertEqual(20, result["structured_review"]["objective"]["result"]["open_quantity"])
+        for review_type in ("basic", "advanced"):
+            for fee, tax in ((69, None), (None, 1500), (None, None), (0, 0)):
+                with self.subTest(review_type=review_type, fee=fee, tax=tax):
+                    rows = [dict(row, source="broker_import", fee=fee, tax=tax) for row in self.trades]
+                    captured.clear()
+                    build = self.ai_review_v2.build_basic_ai_review if review_type == "basic" else self.ai_review_v2.build_advanced_ai_review
+                    output = build(rows, target_trade_id=2)
+                    prompt_rows = captured["trade_episode" if review_type == "basic" else "recent_trades"]
+                    self.assertTrue(all(row["fee"] == fee and row["tax"] == tax for row in prompt_rows))
+                    self.assertEqual(2 if fee is None else 0, captured["cost_completeness"]["missing_fee_count"])
+                    self.assertEqual(2 if tax is None else 0, captured["cost_completeness"]["missing_tax_count"])
+                    self.assertIn("null은 0원이 아니라", captured["data_integrity"]["rule"])
+                    objective = output["structured_review"]["objective"]["result"]
+                    self.assertEqual(2 * fee if fee is not None else 0, objective["total_fee"])
+                    self.assertEqual(2 * tax if tax is not None else 0, objective["total_tax"])
+                    if fee is None or tax is None:
+                        self.assertIn("비용 일부 미반영", output["display_snapshot"]["canonical_text"])
+                        self.assertTrue(any("미반영" in text for text in output["structured_review"]["summary"]["data_confidence"]["reasons"]))
 
     def test_twenty_one_buys_use_full_episode_for_objective(self):
         trades = [dict(self.trades[0], id=index, trade_date="2026-07-10T09:30", price=100 + index, quantity=1) for index in range(1, 22)]

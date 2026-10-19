@@ -137,6 +137,21 @@ def semantic_payload(semantic):
     return value
 
 
+def cost_completeness_payload(trades):
+    return {"missing_fee_count": sum(trade.fee is None for trade in trades),
+            "missing_tax_count": sum(trade.tax is None for trade in trades),
+            "calculation": "exclude_unknown"}
+
+
+def review_cost_warning(trades):
+    costs = cost_completeness_payload(trades)
+    fee, tax = costs["missing_fee_count"], costs["missing_tax_count"]
+    if not fee and not tax:
+        return ""
+    missing = "수수료와 세금" if fee and tax else "수수료" if fee else "세금"
+    return f"{missing} 미반영: 확인된 비용만 계산에 반영했습니다. 손익·수익률은 비용 일부 미반영 값입니다."
+
+
 def review_data_quality(source):
     if type(source) is not ValidatedReviewSource:
         raise SourceAdmissionError("quality requires admitted review source")
@@ -144,7 +159,8 @@ def review_data_quality(source):
                     for item in chart.rule_based_observations]
     gaps = [item.metrics.price_vs_close_pct for item in observations if type(item) is TechnicalObservationSource]
     context_errors = [item.error for item in source.analysis_contexts if type(item) is AnalysisContextErrorSource]
-    reasons = []
+    cost_warning = review_cost_warning(source.trades)
+    reasons = [cost_warning] if cost_warning else []
     if not source.has_market_data:
         reasons.append("차트 데이터가 없어 기술적 비교를 제한합니다.")
     reasons.extend(context_errors[:2])
@@ -153,6 +169,8 @@ def review_data_quality(source):
         reasons.append(f"체결가와 해당 차트 기준 가격의 최대 차이가 {max_gap:.2f}%입니다.")
     memos = [trade.memo.strip() for trade in source.trades]
     missing = []
+    if cost_warning:
+        missing.append(cost_warning)
     if not any(memos):
         missing.append("실제 매매 이유")
     if any(trade.side == "buy" for trade in source.trades) and not any(

@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Check, FileText, ShieldCheck } from 'lucide-react';
 import { extractPdfText, LocalPdfPasswordRequiredError } from '../utils/pdfTextExtractor';
-import { brokerReviewTradeIssue } from '../utils/brokerReviewInput';
+import { brokerReviewCostWarning, brokerReviewTradeIssue } from '../utils/brokerReviewInput';
 import {
   BROKER_STATEMENT_MESSAGES,
   BROKER_STATEMENT_STATUS,
@@ -162,6 +162,7 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
   const reviewIssues = new Map(confirmationTrades.map(trade => [trade.id, brokerReviewTradeIssue(trade)]));
   const selectedTrades = confirmationTrades.filter(trade => state.selectedIds.has(trade.id));
   const selectedReviewIssue = selectedTrades.map(trade => reviewIssues.get(trade.id)).find(Boolean) || '';
+  const selectedCostWarning = brokerReviewCostWarning(selectedTrades);
   const selectedTimeValidation = validateTradeTimesForReview(selectedTrades);
   const requiredTradeIds = new Set(selectedTimeValidation.requiredTradeIds);
   const missingRequiredTimeIds = new Set(selectedTimeValidation.missingTradeIds);
@@ -337,10 +338,11 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
                             <time>{formatTradeDateTime({ ...trade, tradeTime })}</time>
                           </span>
                           {reviewIssue && <span className="broker-trade-review-issue">복기 준비 불가: {reviewIssue}</span>}
+                          {brokerReviewCostWarning([trade]) && <span className="broker-trade-review-issue">{brokerReviewCostWarning([trade])}</span>}
                         </span>
                         <span className="broker-trade-amount">
                           <strong>{formatTradeNumber(trade.price)}원 × {formatTradeNumber(trade.quantity)}주</strong>
-                          <small>수수료 {typeof trade.fee === 'number' && Number.isFinite(trade.fee) && trade.fee >= 0 ? `${formatTradeNumber(trade.fee)}원` : trade.fee == null ? '정보 없음' : '정보 확인 필요'} · 세금 {typeof trade.tax === 'number' && Number.isFinite(trade.tax) && trade.tax >= 0 ? `${formatTradeNumber(trade.tax)}원` : trade.tax == null ? '정보 없음' : '정보 확인 필요'}</small>
+                          <small>수수료 {typeof trade.fee === 'number' && Number.isFinite(trade.fee) && trade.fee >= 0 ? `${formatTradeNumber(trade.fee)}원` : trade.fee == null ? '미반영' : '정보 확인 필요'} · 세금 {typeof trade.tax === 'number' && Number.isFinite(trade.tax) && trade.tax >= 0 ? `${formatTradeNumber(trade.tax)}원` : trade.tax == null ? '미반영' : '정보 확인 필요'}</small>
                         </span>
                         {selected && (
                           <div className="broker-trade-time" onClick={event => event.stopPropagation()}>
@@ -392,6 +394,7 @@ export default function BrokerImport({ onBackToJournal, onImportToJournal, embed
                     : selectedReviewIssue
                       ? `${selectedReviewIssue} 해당 거래를 선택 해제하면 나머지 거래를 가져올 수 있습니다.`
                       : '선택한 거래를 매매 복기로 준비합니다.'}{' '}
+                {selectedCostWarning && <span role="status">{selectedCostWarning} 손익·수익률은 비용 일부 미반영 값입니다. </span>}
                 PDF에서 읽은 정보만 준비합니다.{' '}
                 {selectedTimeValidation.requiredGroups.length > 0
                   ? '같은 날 같은 종목의 매수와 매도가 함께 선택되어 있습니다. 정확한 거래 순서를 위해 해당 거래의 체결시간을 입력해주세요.'

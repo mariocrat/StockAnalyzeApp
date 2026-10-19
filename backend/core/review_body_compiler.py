@@ -8,7 +8,7 @@ from core.review_display_contract import (
 from core.review_source_contract import (
     ValidatedReviewSource, CompactChartSource, TechnicalObservationSource, EMPTY_REVIEW_TEXT,
 )
-from core.review_source_projection import trade_payload, structured_review_payload
+from core.review_source_projection import trade_payload, structured_review_payload, review_cost_warning
 
 
 def compile_review_body(source):
@@ -93,6 +93,7 @@ def compile_basic_fallback_body(source: ValidatedReviewSource):
         weak = buy_observation or "평균 매수가 대비 매도가가 낮았습니다. 첫 매수 뒤 가격이 가설과 반대로 움직였을 때 추가 매수보다 철회 기준이 먼저 필요했습니다."
 
     return _fallback_body([
+        *([review_cost_warning(source.trades)] if review_cost_warning(source.trades) else []),
         f"이번 매매 판단: {verdict}",
         f"확인된 강점: {good}",
         f"개선할 점: {weak}",
@@ -113,6 +114,7 @@ def compile_advanced_fallback_body(source: ValidatedReviewSource):
     repeated_issue = weak_entries[0] if weak_entries else weak_exits[0] if weak_exits else "체결 전후 봉에서 반복되는 명확한 약점은 아직 표본이 부족합니다."
     loss_text = ", ".join(f"{row['name']} {row['realized_pnl']:+,.0f}원" for row in losses[:3]) or "확정 손실 종목 없음"
     return _fallback_body([
+        *([review_cost_warning(source.trades)] if review_cost_warning(source.trades) else []),
         f"최근 패턴: {len(source.trades)}건, 실현손익 {result.realized_pnl:+,.0f}원, 승률 {result.win_rate_pct:.1f}%입니다.",
         f"반복 문제: {repeated_issue}",
         f"손실 관리: {loss_text}. 미청산 종목은 {len(open_positions)}개입니다.",

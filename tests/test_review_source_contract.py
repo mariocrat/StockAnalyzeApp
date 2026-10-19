@@ -260,6 +260,13 @@ class ReviewSourceContractTest(unittest.TestCase):
         self.assertEqual(("stored", 7, "krx"), (admitted.variant, admitted.id, admitted.symbol_kind))
         raw["ticker"] = ""
         self.assertEqual("name_only", source.admit_trade_source(raw).symbol_kind)
+        for fee, tax in ((69, None), (None, 1500), (None, None), (0, 0)):
+            broker = {**trade(), "source": "broker_import", "fee": fee, "tax": tax}
+            admitted = source.admit_trade_source(broker)
+            self.assertEqual((fee, tax), (admitted.fee, admitted.tax))
+            if fee is None or tax is None:
+                with self.assertRaises(source.SourceAdmissionError):
+                    source.admit_trade_source({**broker, "source": "manual"})
 
     def test_trade_required_unknown_and_partial_variant_reject(self):
         for mutation in (lambda v: v.pop("fee"), lambda v: v.update(extra=1),

@@ -80,8 +80,8 @@ class TradeSource(_FactoryOnly):
     side: Literal["buy", "sell"]
     price: int | float
     quantity: int | float
-    fee: int | float
-    tax: int | float
+    fee: int | float | None
+    tax: int | float | None
     memo: str
     source: str
     id: int | None
@@ -435,8 +435,8 @@ def admit_trade_source(raw, *, memo_max_chars=DEFAULT_MEMO_MAX_CHARS):
         side=_enum(raw["side"], ("buy", "sell"), "trade.side"),
         price=_number(raw["price"], "trade.price", minimum=0),
         quantity=_number(raw["quantity"], "trade.quantity", minimum=0),
-        fee=_number(raw["fee"], "trade.fee", minimum=0),
-        tax=_number(raw["tax"], "trade.tax", minimum=0),
+        fee=_number(raw["fee"], "trade.fee", minimum=0, nullable=raw["source"] == "broker_import"),
+        tax=_number(raw["tax"], "trade.tax", minimum=0, nullable=raw["source"] == "broker_import"),
         memo=_text(raw["memo"], "trade.memo", maximum=limit),
         source=_text(raw["source"], "trade.source", maximum=MAX_SOURCE_CHARS, nonempty=True),
         id=_count(raw["id"], "trade.id", minimum=1) if "id" in raw else None,

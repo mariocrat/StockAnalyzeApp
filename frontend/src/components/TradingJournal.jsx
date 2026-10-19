@@ -20,7 +20,7 @@ import { basicReviewInput, captureReviewInput } from '../utils/basicReviewInput'
 import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
-import { prepareBrokerReviewInput } from '../utils/brokerReviewInput';
+import { brokerReviewCostWarning, prepareBrokerReviewInput } from '../utils/brokerReviewInput';
 import {
   buildReviewTradeGroups,
   filterReviewTradeGroups,
@@ -2720,6 +2720,7 @@ export default function TradingJournal({
         </div>
         <div className="journal-review-target">
           {preparedImportedReview && <p role="status">PDF 선택 거래 · 저장하지 않은 복기 입력입니다. 거래별 체결은 그대로 유지됩니다.</p>}
+          {brokerReviewCostWarning(selectedReviewTrades) && <p role="status">{brokerReviewCostWarning(selectedReviewTrades)} 손익·수익률은 비용 일부 미반영 값입니다.</p>}
           <div className="journal-review-target-heading">
             <strong>복기할 매매 선택</strong>
             <span>{selectedReviewTrades.length ? '1개 선택됨' : '선택 필요'}</span>
@@ -2894,10 +2895,10 @@ export default function TradingJournal({
                 <div className="wide"><span>매매일시</span><strong>{tradePeriodText(row)}</strong></div>
                 <div><span>매수액</span><strong>{money(row.buy_amount)}원</strong></div>
                 <div><span>매도액</span><strong>{money(row.sell_amount)}원</strong></div>
-                <div><span>순수익</span><strong className={(row.realized_pnl || 0) >= 0 ? 'positive' : 'negative'}>{money(row.realized_pnl)}원</strong></div>
-                <div><span>수수료</span><strong>{money(row.total_fee)}원</strong></div>
-                <div><span>세금</span><strong>{money(row.total_tax)}원</strong></div>
-                <div><span>수익률</span><strong className={(row.realized_return_pct || 0) >= 0 ? 'positive' : 'negative'}>{row.realized_return_pct || 0}%</strong></div>
+                <div><span>{row.cost_completeness ? '손익(비용 일부 미반영)' : '순수익'}</span><strong className={(row.realized_pnl || 0) >= 0 ? 'positive' : 'negative'}>{money(row.realized_pnl)}원</strong></div>
+                <div><span>{row.cost_completeness?.missing_fee_count ? '반영된 수수료(일부 미확인)' : '수수료'}</span><strong>{money(row.total_fee)}원</strong></div>
+                <div><span>{row.cost_completeness?.missing_tax_count ? '반영된 세금(일부 미확인)' : '세금'}</span><strong>{money(row.total_tax)}원</strong></div>
+                <div><span>{row.cost_completeness ? '수익률(비용 일부 미반영)' : '수익률'}</span><strong className={(row.realized_return_pct || 0) >= 0 ? 'positive' : 'negative'}>{row.realized_return_pct || 0}%</strong></div>
                 <div><span>미청산</span><strong>{row.open_quantity}주</strong></div>
               </div>
             </div>

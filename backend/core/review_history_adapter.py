@@ -201,10 +201,11 @@ def _document(value):
 
 
 def _trade(value):
+    cost = _nullable(_nonnegative) if type(value) is dict and value.get("source") == "broker_import" else _nonnegative
     _object(value, {
         "id": _nullable(_id), "trade_date": _trade_date, "ticker": _ticker,
         "name": lambda v: _text(v, 120), "side": _enum("buy", "sell"),
-        "price": _positive, "quantity": _positive, "fee": _nonnegative, "tax": _nonnegative,
+        "price": _positive, "quantity": _positive, "fee": cost, "tax": cost,
         "memo": lambda v: _text(v, 5000), "source": lambda v: _text(v, 40),
         "created_at": _datetime, "user_id": lambda v: _text(v, 256),
         "display_snapshot": _document,

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { brokerReviewTradeIssue, prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
+import { brokerReviewCostWarning, brokerReviewTradeIssue, prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
 import { rowDamageMatrix, transactionIdentityMatrix, tradeFields, validTrade } from './fixtures/broker-row-damage.js';
 import {
   BROKER_STATEMENT_MESSAGES,
@@ -293,16 +293,22 @@ test('Toss text-only fallback also refuses to silently drop an identifiable brok
   }
 });
 
-test('confirmation issues use the same instrument and cost boundary as review preparation', () => {
+test('confirmation separates unknown cost warnings from invalid review input blockers', () => {
   const valid = parseBrokerStatement(tossLayoutExtraction().text, tossLayoutExtraction()).trades[0];
   assert.equal(brokerReviewTradeIssue(valid), '');
   for (const side of ['buy', 'sell']) {
-    for (const [delta, label] of [[{ fee: null }, '수수료'], [{ tax: undefined }, '세금'],
-      [{ fee: null, tax: null }, '수수료와 세금'], [{ fee: '0' }, '수수료'], [{ tax: -1 }, '세금'], [{ fee: NaN }, '수수료']]) {
+    for (const [delta, message] of [[{ fee: null }, '수수료 정보가 없어 수수료를 제외하고 복기합니다.'],
+      [{ tax: undefined }, '세금 정보가 없어 세금을 제외하고 복기합니다.'],
+      [{ fee: null, tax: null }, '수수료와 세금 정보가 없어 해당 비용을 제외하고 복기합니다.']]) {
       const row = { ...valid, side, ...delta };
-      const message = `${label} 정보가 없어 복기를 준비할 수 없습니다.`;
-      assert.equal(brokerReviewTradeIssue(row), message);
-      assert.throws(() => prepareBrokerReviewInput([row]), { message });
+      assert.equal(brokerReviewTradeIssue(row), '');
+      assert.equal(brokerReviewCostWarning([row]), message);
+      const input = prepareBrokerReviewInput([row]).groups[0].trades[0];
+      assert.equal(input.fee, row.fee ?? null);
+      assert.equal(input.tax, row.tax ?? null);
+    }
+    for (const delta of [{ fee: '0' }, { tax: -1 }, { fee: NaN }]) {
+      assert.throws(() => prepareBrokerReviewInput([{ ...valid, side, ...delta }]), /수수료와 세금 정보를 확인/);
     }
   }
   const nameOnly = parseTradeCandidates('2026-09-02 삼성전자 매수 1주 @ 70,000')[0];
@@ -311,6 +317,7 @@ test('confirmation issues use the same instrument and cost boundary as review pr
   assert.match(brokerReviewTradeIssue(nameOnly), /종목명과 6자리 종목코드/);
   assert.throws(() => prepareBrokerReviewInput([nameOnly]), { message: brokerReviewTradeIssue(nameOnly) });
   assert.equal(brokerReviewTradeIssue({ ...valid, fee: 0, tax: 0 }), '');
+  assert.equal(brokerReviewCostWarning([{ ...valid, fee: 0, tax: 0 }]), '');
 });
 
 test('generic sides accept explicit purchase and sale labels and reject ambiguous directions', () => {
@@ -356,7 +363,9 @@ test('missing or malformed Toss cost components stay unknown without discarding 
       const row = parsed.trades[0];
       assert.equal(row.fee, column === 0 ? null : 1);
       assert.equal(row.tax, column === 0 ? 15 : null);
-      assert.throws(() => prepareBrokerReviewInput([row]), /정보가 없어 복기를 준비할 수 없습니다/);
+      const prepared = prepareBrokerReviewInput([row]).groups[0].trades[0];
+      assert.equal(prepared.fee, row.fee);
+      assert.equal(prepared.tax, row.tax);
     }
   }
   for (const header of ['수수료', '거래세', '제세금']) {
@@ -364,7 +373,9 @@ test('missing or malformed Toss cost components stay unknown without discarding 
     extraction.pages[0].items = extraction.pages[0].items.filter(item => item.str !== header);
     const row = parseBrokerStatement(extraction.text, extraction).trades[0];
     assert.equal(header === '수수료' ? row.fee : row.tax, null);
-    assert.throws(() => prepareBrokerReviewInput([row]), /정보가 없어 복기를 준비할 수 없습니다/);
+    const prepared = prepareBrokerReviewInput([row]).groups[0].trades[0];
+    assert.equal(prepared.fee, row.fee);
+    assert.equal(prepared.tax, row.tax);
   }
 });
 
@@ -381,14 +392,20 @@ test('broker review preparation cannot replace unknown costs with numeric defaul
     for (const value of [null, undefined, '', '0', false, NaN, Infinity, -1]) {
       const unknown = rows.map(row => ({ ...row, [field]: value }));
       const snapshot = structuredClone(unknown);
-      assert.throws(() => prepareBrokerReviewInput(unknown), /정보가 없어 복기를 준비할 수 없습니다/);
+      if (value == null) {
+        const input = prepareBrokerReviewInput(unknown).groups[0].trades;
+        assert.ok(input.every(row => row[field] === null));
+        assert.ok(JSON.parse(JSON.stringify(input)).every(row => row[field] === null));
+      } else assert.throws(() => prepareBrokerReviewInput(unknown), /수수료와 세금 정보를 확인/);
       assert.deepEqual(unknown, snapshot);
     }
   }
   const zero = prepareBrokerReviewInput(rows.map(row => ({ ...row, fee: 0, tax: 0 }))).groups[0];
   assert.ok(zero.trades.every(row => row.fee === 0 && row.tax === 0));
   const generic = parseTradeCandidates('2026-09-02 삼성전자 005930 구매 70,000원 1주');
-  assert.throws(() => prepareBrokerReviewInput(generic), { message: '수수료와 세금 정보가 없어 복기를 준비할 수 없습니다.' });
+  const genericInput = prepareBrokerReviewInput(generic).groups[0].trades[0];
+  assert.equal(genericInput.fee, null);
+  assert.equal(genericInput.tax, null);
 });
 
 test('keeps every clear candidate as an independent trade and sorts newest first', () => {

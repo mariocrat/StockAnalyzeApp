@@ -16,11 +16,19 @@ export function brokerReviewTradeIssue(trade) {
     || (trade.timeUnknown !== true && trade.tradeTime && !time)) {
     return '가져온 거래의 날짜, 종목, 가격, 수량과 체결시간을 확인해주세요.';
   }
-  const knownCosts = [trade.fee, trade.tax].map(value => typeof value === 'number' && Number.isFinite(value) && value >= 0);
-  if (!knownCosts.every(Boolean)) {
-    const missing = !knownCosts[0] && !knownCosts[1] ? '수수료와 세금' : !knownCosts[0] ? '수수료' : '세금';
-    return `${missing} 정보가 없어 복기를 준비할 수 없습니다.`;
+  if ([trade.fee, trade.tax].some(value => value != null
+    && (typeof value !== 'number' || !Number.isFinite(value) || value < 0))) {
+    return '수수료와 세금 정보를 확인해주세요.';
   }
+  return '';
+}
+
+export function brokerReviewCostWarning(trades = []) {
+  const feeMissing = trades.some(trade => trade.fee == null);
+  const taxMissing = trades.some(trade => trade.tax == null);
+  if (feeMissing && taxMissing) return '수수료와 세금 정보가 없어 해당 비용을 제외하고 복기합니다.';
+  if (feeMissing) return '수수료 정보가 없어 수수료를 제외하고 복기합니다.';
+  if (taxMissing) return '세금 정보가 없어 세금을 제외하고 복기합니다.';
   return '';
 }
 
@@ -41,7 +49,8 @@ export function prepareBrokerReviewInput(selectedTrades = []) {
     const time = trade.timeUnknown === true ? null : normalizeOptionalTradeTime(trade.tradeTime);
     const price = Number(trade.price);
     const quantity = Number(trade.quantity);
-    const { fee, tax } = trade;
+    const fee = trade.fee ?? null;
+    const tax = trade.tax ?? null;
     const input = {
       trade_date: time ? `${date}T${time}` : date,
       ticker, name, side: trade.side, price, quantity, fee, tax,

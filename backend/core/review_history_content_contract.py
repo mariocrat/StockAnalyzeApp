@@ -208,10 +208,12 @@ def _literal_relation(document, lines, path):
 
 def _trade(value, path):
     _require(type(value) is dict, path)
+    cost = lambda v, p: _number(v, p, floating=True, minimum=0)
+    if value.get("source") == "broker_import":
+        cost = _nullable(cost)
     fields = {"trade_date": _trade_date, "ticker": _ticker, "name": _string(120),
               "side": _enum("buy", "sell"), "price": _positive_float, "quantity": _positive_float,
-              "fee": lambda v, p: _number(v, p, floating=True, minimum=0),
-              "tax": lambda v, p: _number(v, p, floating=True, minimum=0),
+              "fee": cost, "tax": cost,
               "memo": _string(5000, nonempty=False), "source": _string(40), "display_snapshot": _document}
     if "id" in value:
         fields["id"] = _id

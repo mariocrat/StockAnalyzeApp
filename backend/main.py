@@ -8,7 +8,7 @@ validate_configuration()
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import Optional
 import uvicorn
 import pandas as pd
@@ -190,7 +190,22 @@ class JournalBatchIn(BaseModel):
     trades: list[JournalTradeIn]
 
 
-class JournalAiReviewIn(JournalBatchIn):
+class JournalReviewTradeIn(JournalTradeIn):
+    fee: Optional[float] = None
+    tax: Optional[float] = None
+
+    @model_validator(mode="after")
+    def preserve_broker_unknown_costs(self):
+        if self.source != "broker_import" and (self.fee is None or self.tax is None):
+            raise ValueError("unknown costs require broker_import provenance")
+        return self
+
+
+class JournalReviewBatchIn(JournalBatchIn):
+    trades: list[JournalReviewTradeIn | JournalTradeIn]
+
+
+class JournalAiReviewIn(JournalReviewBatchIn):
     ad_reward_token: str = ""
     entitlement_token: str = ""
     privacy_consent: bool = False
@@ -267,7 +282,8 @@ def _journal_batch_payload(batch: JournalBatchIn) -> list[dict]:
         normalized_trades = []
         for trade in batch.trades:
             payload = trade.model_dump()
-            normalized = normalize_trade(payload)
+            normalized = normalize_trade(payload, preserve_unknown_costs=(
+                isinstance(batch, JournalReviewBatchIn) and payload.get("source") == "broker_import"))
             if payload.get("id") is not None:
                 normalized["id"] = payload["id"]
             normalized_trades.append(normalized)
@@ -1848,7 +1864,7 @@ def get_journal_review(authorization: Optional[str] = Header(default=None)):
 
 
 @app.post("/api/journal/review-once")
-def get_journal_review_once(batch: JournalBatchIn):
+def get_journal_review_once(batch: JournalReviewBatchIn):
     _enforce_journal_batch_limit(batch, max_trades=_journal_once_max_trades())
     return build_review(_journal_batch_payload(batch))
 
@@ -2143,7 +2159,7 @@ def get_journal_charts(authorization: Optional[str] = Header(default=None)):
 
 
 @app.post("/api/journal/charts-once")
-def get_journal_charts_once(batch: JournalBatchIn):
+def get_journal_charts_once(batch: JournalReviewBatchIn):
     _enforce_journal_batch_limit(batch, max_trades=_journal_once_max_trades())
     return build_journal_charts(_journal_batch_payload(batch))
 

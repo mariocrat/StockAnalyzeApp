@@ -2473,7 +2473,7 @@
           "typescript/package.json": "4752e28a76cd00f882e0f054ce2d68ac58e0caceb98df0ec9d2a41ef3730240f",
           "typescript/lib/typescript.js": "ed5f8d1c93d625c9a1a2d282a6e0d3899aca2ac58e508828402a0203d335935b"
         },
-        "component_sha256": "6cd72a405106d02698c3f89f2aaaa07082dec491f3dba757c44961cd8218f512",
+        "component_sha256": "7e21b326d7dafd7d5921f30f8421baedd3066d02f6e435d53c40e07664ae2f8b",
         "chart_component_sha256": "28a8ae4be58130b348b310318935dac040448092ecdb41c9bd87e43b4f26dab2",
         "chart_source_sha256": "1a5159558b3d8b0d9982a24b2b0cec4fed890fe24ca4db8ef8c602d196bc0228",
         "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570"
@@ -2589,7 +2589,7 @@
           "src/components/CanonicalReviewRenderer.js"
         ],
         "vector_sha256": "68996d3776b3584561f0a3320d79f830e59f28d8b2c5f04a77a05bcdbdff2711",
-        "component_sha256": "6cd72a405106d02698c3f89f2aaaa07082dec491f3dba757c44961cd8218f512",
+        "component_sha256": "7e21b326d7dafd7d5921f30f8421baedd3066d02f6e435d53c40e07664ae2f8b",
         "format_sha256": "3d8ee36c975a472e92a5d2ea4dabb73ae688fa8a6712ad3dac825dbef6a38ea9",
         "react_snapshot": {
           "react/package.json": "e631b6ac066fa758d9b36f226d96e8fc05425d1e8993ffcc99c6de2d6aa7268c",
@@ -2655,7 +2655,7 @@
         "cases": [
           "broker file admission enforces 25MiB before extraction and renders incomplete tables without transfer",
           "broker confirmation re-sorts manual times while retaining row identity and selection",
-          "broker confirmation explains blocked costs and instruments and permits deselecting them",
+          "broker confirmation warns on unknown costs and permits them after invalid instruments are deselected",
           "broker confirmation optional times stay editable and blank across dates without unknown controls",
           "broker confirmation preserves mixed-side required times and select-all behavior",
           "account management is reachable from both primary views",
@@ -2694,7 +2694,7 @@
           "account changes clear the previous account journal workspace before loading tenant data",
           "review archive entry uses a throttled interstitial policy"
         ],
-        "sha256": "2aeb8f7aabe7352e8f0003342fbae2fd5caf37b1bba286e876b49bd6c442a67e",
+        "sha256": "abce97df99efff6799ee2531a4eadbf9abe118f17f49c9fb9717c84a79b213ef",
         "reads": [
           "package.json",
           "scripts/journal-mobile-ux.test.js",
@@ -2734,7 +2734,7 @@
         "vector_sha256": "db225f6fcec00ec5def4e839652c8e76016216819009c86aad8676a51762f4e5",
         "chart_source_sha256": "1a5159558b3d8b0d9982a24b2b0cec4fed890fe24ca4db8ef8c602d196bc0228",
         "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570",
-        "component_sha256": "6cd72a405106d02698c3f89f2aaaa07082dec491f3dba757c44961cd8218f512"
+        "component_sha256": "7e21b326d7dafd7d5921f30f8421baedd3066d02f6e435d53c40e07664ae2f8b"
       },
       {
         "name": "test:review-selection",
@@ -2769,7 +2769,7 @@
           "Toss summaries balances and ordinary dated notes are not counted as executions",
           "Toss explicit instrument code boundaries admit numeric names without guessing generic numeric prefixes",
           "Toss text-only fallback also refuses to silently drop an identifiable broken execution",
-          "confirmation issues use the same instrument and cost boundary as review preparation",
+          "confirmation separates unknown cost warnings from invalid review input blockers",
           "generic sides accept explicit purchase and sale labels and reject ambiguous directions",
           "Toss cost columns preserve nonzero values and explicit zero independently",
           "missing or malformed Toss cost components stay unknown without discarding the trade",
@@ -2794,7 +2794,7 @@
           "sort helper preserves source order when date and time are equal",
           "local PDF flow has no client upload, API, or browser storage call"
         ],
-        "sha256": "47160b5450f67cf263dc02b340ba30e05488b5e794bd515fcab6f831b22cd097",
+        "sha256": "5a4d7aaebf67e21939434341627c5a43f512a3e0033b0927f7be8c85f6bcb37a",
         "reads": [
           "package.json",
           "scripts/broker-import.test.js",

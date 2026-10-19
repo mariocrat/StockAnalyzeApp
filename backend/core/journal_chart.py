@@ -197,7 +197,7 @@ def _trade_outcomes(trades: list[dict]) -> dict:
     for trade in sorted(trades, key=lambda row: (row.get("trade_date", ""), row.get("id", 0))):
         qty = _to_float(trade.get("quantity"))
         price = _to_float(trade.get("price"))
-        costs = _to_float(trade.get("fee")) + _to_float(trade.get("tax"))
+        costs = sum(_to_float(trade[key]) for key in ("fee", "tax") if trade.get(key) is not None)
         if trade.get("side") == "buy":
             position_qty += qty
             position_cost += price * qty + costs

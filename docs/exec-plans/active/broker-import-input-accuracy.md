@@ -23,7 +23,8 @@ selection behavior and accurate support wording. Parser/completeness remain unch
 - Read Toss 수수료 as fee, and sum the separate 거래세 + 제세금 cells as tax only when both
   are valid. Explicit zero stays zero; absent/malformed values remain null. Do not infer
   costs from transaction/settlement totals or absent columns.
-- JournalTradeIn defaults omitted costs to zero; normalize_trade also coerces null to zero.
+- Historical Slice 1 policy (superseded by the 2026-10-19 unknown-cost amendment below):
+  JournalTradeIn defaults omitted costs to zero; normalize_trade also coerces null to zero.
   Keep that shared backend contract unchanged. The broker adapter therefore refuses any
   unknown/non-numeric/non-finite/negative cost before publishing prepared review input.
   Its existing caller displays the fee/tax confirmation error, with no API/storage/AI effect.
@@ -64,7 +65,10 @@ selection behavior and accurate support wording. Parser/completeness remain unch
 - [x] Investigate and correct the subsequent Galaxy S23 Ultra / Android 16 confirmation UX report.
 - [x] Independent review approved (Blocker/Major/Minor 0); committed as
   `ba995caeb2da43595cac3d83a937ecf7b69a3a44` (`fix: refine broker import mobile confirmation`).
-- [ ] Generate a fresh Debug APK and re-verify on Galaxy S23 Ultra / Android 16.
+- [x] Generate Debug APK 1.0.3 / 4 from `b979daa4`; packaged OAuth/API/confirmation assets verified.
+- [ ] Re-verify on Galaxy S23 Ultra / Android 16.
+- [x] Implement and run focused verification of the requested unknown-cost review policy amendment.
+- [ ] Obtain independent approval of the unknown-cost amendment; device re-verification remains open.
 
 ## Verification
 
@@ -680,12 +684,61 @@ environment or review-display behavior is changed.
 
 ## Remaining / Next step
 
-Prepare a fresh Debug APK and repeat Galaxy S23 Ultra / Android 16 smoke. The previous
-APK predates the committed confirmation corrections. Do not modify parser/completeness or other worktrees.
-Unknown-cost statements (including generic rows with no costs) remain blocked until
-explicit costs are available; do not bypass this using zero. Cost editing is not added.
+Obtain independent approval of the verified unknown-cost amendment below. Repeat Galaxy
+S23 Ultra / Android 16 smoke using a subsequently approved APK. The existing 1.0.3 / 4 APK
+predates this policy amendment. Do not modify parser/completeness or other worktrees.
+Unknown costs now remain null and only those items are excluded from arithmetic; they
+no longer block review. Invalid non-null costs and real input/time blockers still reject.
 Headerless transaction continuations, generic multi-token numeric names, OCR and password
 PDFs remain unsupported. Completeness covers recognizable supported table/text rows,
 not recovery of arbitrary unrecognized layouts or content that yielded no text.
 Real Toss PDF corpus/browser Worker/Android device checks, field and
 memo editing remain separate follow-ups. No rollout/activation or actual AI call occurred.
+
+## Unknown-cost review policy amendment — 2026-10-19
+
+Started clean at `b979daa410dbc0e53488e380d6cdd892eea5a894`. User explicitly supersedes
+the earlier unknown-cost blocker: known nonzero and explicit zero remain known; null
+fee/tax stay null through prepared input, JSON request, admitted source and model context.
+Only known cost items participate in arithmetic. No BUY tax inference or parser change.
+
+- Confirmation separates identity/value blockers from cost warnings; optional costs no
+  longer disable transfer. Row details say 미반영 and selection/review warnings identify
+  the missing fields. Required same-day mixed-side times and ID-based sorting remain.
+- The old API model rejects null and normalizer loses it. Review-only request types and
+  an explicit normalizer option preserve broker nulls; saved-trade request/defaults stay
+  unchanged. Source admission permits nullable broker costs only. Numeric subtotals are
+  sums of known items, accompanied by missing-cost counts, never claims of known zero.
+- Basic/advanced prompts receive original nullable trades and full-source completeness;
+  prompt rules forbid treating null as zero or claiming fully cost-adjusted net results.
+  Approved canonical confidence/missing information and fallback bodies retain the warning
+  for current/history output. Statistics identify partial-cost amounts and returns.
+- Prepared-history and read-adapter cost validation accepts null only on broker_import
+  trade metadata. Exact keys, numeric validation, ownership, opt-in and whole-record
+  admission stay unchanged. Actual synthetic write/detail-reopen tests preserve null,
+  known amounts and the same approved body for basic/advanced, ready/missing-key and
+  fee-only/tax-only/both-unknown/explicit-zero combinations (16 subcases).
+  Ready basic/advanced both-unknown cache replay retains the same body/history ID;
+  model, entitlement verification and history insert are forbidden mocks on replay.
+- Official focused H4 Node: **166/166 PASS**, FAIL/SKIP 0. Broker-import 31,
+  PDF binary 5, journal-mobile-ux 40, review-selection 5, app-navigation 5,
+  ai-chart-source 46, legacy-review-cross-contract 11, canonical-review-renderer 23.
+  Missing/extra/duplicate 0; guard violations/unexpected access 0; restoration,
+  patch restoration and cleanup true. Existing parser and binary corpus is unchanged.
+- Official focused Python: **213/213 distinct direct tests PASS**, FAIL/ERROR/SKIP 0:
+  batch limits 13, source contract 32, structured review 79, history adapter 44,
+  prepared history 18, selected history producer 1, selected idempotency cache 3,
+  full-test coordinator 16 and quick-verify docs 7. The producer's existing test now
+  covers the 16 nullable-cost write/reopen subcases; model/market boundaries are mocked.
+  Guarded unexpected access 0; the adapter's eight deliberately denied-access probes
+  are expected guard events. Restoration, patch restoration and cleanup true; coordinator
+  top-level access counters are null, with its nested synthetic contracts passing.
+- Official inventory-only: Node **24 entrypoints / 281 direct**, missing/extra/duplicate
+  0, missing dependencies empty; Python **108 modules / 1079 direct / 18 child probes**,
+  missing/duplicate/expected-skip 0. No direct test count, guard or access expansion.
+- `npm.cmd run lint`, frontend `npm.cmd run build` and `git diff --check`: **PASS**.
+  Build used process-only local API settings and existing dependencies, without sync/APK,
+  environment-file changes or production traffic. Main README hash remains
+  `5FDEEF682DCF0890894E8F170CFCCC3C4A5B1CC811850BC38E6C42F4E8F52328`;
+  original feature worktree remains 9 modified / 10 untracked and was not written.
+- Independent review and device re-verification remain open; no commit or deployment.

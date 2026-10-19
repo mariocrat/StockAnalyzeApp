@@ -45,7 +45,7 @@ from core.review_source_contract import (
 )
 from core.review_source_projection import (
     trade_payload, chart_payload, context_payload, semantic_payload,
-    structured_review_payload, review_data_quality,
+    structured_review_payload, review_data_quality, cost_completeness_payload,
 )
 
 
@@ -561,8 +561,8 @@ def _objective_review_snapshot(trades: tuple[TradeSource, ...]):
             "win_rate_pct": summary["win_rate_pct"],
             "weighted_buy_price": _weighted_average(tuple(ordered), "buy"),
             "weighted_sell_price": _weighted_average(tuple(ordered), "sell"),
-            "total_fee": round(sum(trade.fee for trade in ordered), 2),
-            "total_tax": round(sum(trade.tax for trade in ordered), 2),
+            "total_fee": round(sum(trade.fee for trade in ordered if trade.fee is not None), 2),
+            "total_tax": round(sum(trade.tax for trade in ordered if trade.tax is not None), 2),
             "buy_fill_count": len(buys), "sell_fill_count": len(sells),
             "open_quantity": round(max(0.0, sum(trade.quantity for trade in buys) - sum(trade.quantity for trade in sells)), 4),
             "symbol_count": len(review["by_symbol"]),
@@ -1597,12 +1597,13 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
             "priority": BASIC_REVIEW_FOCUS_LABELS[focus],
         },
         "trade_episode": [trade_payload(trade) for trade in prompt_episode],
+        "cost_completeness": cost_completeness_payload(source.trades),
         "daily_chart_contexts": contexts,
         "trade_chart_snapshot": chart_snapshot,
         "data_integrity": {
             "confidence": data_quality,
             "missing_information": missing_information,
-            "rule": "정보가 없는 사실은 만들어내지 않고, 낮은 신뢰도에서는 기술적 판단을 제한한다.",
+            "rule": "정보가 없는 사실은 만들어내지 않고, 낮은 신뢰도에서는 기술적 판단을 제한한다. fee/tax null은 0원이 아니라 미확인 비용이다. null 항목만 계산에서 제외하고 알려진 비용은 반영한다. 비용 누락 시 손익·수익률은 비용 일부 미반영 값이며 정확한 순손익·순수익률로 단정하지 않는다.",
         },
         "evaluation_anchor": evaluation_anchor,
         "consistency_policy": {
@@ -1692,12 +1693,13 @@ def build_advanced_ai_review(
         "review_type": "advanced",
         "target_trade": trade_payload(target),
         "recent_trades": [trade_payload(trade) for trade in prompt_recent],
+        "cost_completeness": cost_completeness_payload(source.trades),
         "chart_contexts": contexts,
         "trade_chart_snapshots": chart_snapshots,
         "data_integrity": {
             "confidence": data_quality,
             "missing_information": missing_information,
-            "rule": "정보가 없는 사실은 만들어내지 않고, 낮은 신뢰도에서는 기술적 판단을 제한한다.",
+            "rule": "정보가 없는 사실은 만들어내지 않고, 낮은 신뢰도에서는 기술적 판단을 제한한다. fee/tax null은 0원이 아니라 미확인 비용이다. null 항목만 계산에서 제외하고 알려진 비용은 반영한다. 비용 누락 시 손익·수익률은 비용 일부 미반영 값이며 정확한 순손익·순수익률로 단정하지 않는다.",
         },
         "output_contract": {
             "format": "structured json",

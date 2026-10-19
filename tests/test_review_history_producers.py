@@ -161,7 +161,8 @@ class HistoryProducerTest(unittest.TestCase):
         batch = self.main.JournalAiReviewIn(
             privacy_consent=True, review_type=review_type, target_trade_id=target,
             entitlement_token="dev-pro-entitlement" if variant == "dev-session-pro" else "",
-            trades=[self.main.JournalTradeIn(**trade) for trade in (self.trades if trades is None else trades)])
+            trades=[(self.main.JournalReviewTradeIn if trade.get("source") == "broker_import" else self.main.JournalTradeIn)(**trade)
+                    for trade in (self.trades if trades is None else trades)])
         with ExitStack() as stack:
             if status == "ready":
                 stack.enter_context(patch.object(self.ai, "_call_openai_review",
@@ -381,6 +382,41 @@ class HistoryProducerTest(unittest.TestCase):
                     self.assertEqual("2026-07-10T10:00", metadata["trade_date"])
                     self.assertIs(type(metadata["trade_snapshot"]["price"]), float)
                     self.assertEqual({"charts": []}, metadata["chart_snapshot"])
+
+        for review_type in ("basic", "advanced"):
+            for status in ("ready", "missing_key"):
+                for fee, tax in ((69, None), (None, 1500), (None, None), (0, 0)):
+                    with self.subTest(review_type=review_type, status=status, fee=fee, tax=tax):
+                        user_id, token = self.identity("session-free")
+                        trades = copy.deepcopy(self.trades)
+                        for trade in trades:
+                            trade.pop("id")
+                            trade.update(source="broker_import", fee=fee, tax=tax)
+                        result, (_, state) = self.route("session-free", review_type, status,
+                                                       token=token, target=None, trades=trades)
+                        self.assertIsNotNone(state)
+                        stored = self.history.get_review_history(result["review_history_id"], user_id=user_id)
+                        reopened = self.main.get_journal_review_history_detail(
+                            result["review_history_id"], authorization=token,
+                            x_review_display_contract=[SCHEMA_VERSION])
+                        for record in (stored, reopened):
+                            for trade in [record["trade_snapshot"], *record["recent_trades_snapshot"]]:
+                                self.assertEqual((fee, tax), (trade["fee"], trade["tax"]))
+                            self.assertEqual(result["display_snapshot"], record["ai_review"]["display_snapshot"])
+                            self.assertEqual(fee is None or tax is None,
+                                             "비용 일부 미반영" in record["ai_review"]["display_snapshot"]["canonical_text"])
+                        if status == "ready" and fee is None and tax is None:
+                            batch = self.main.JournalAiReviewIn(privacy_consent=True, review_type=review_type,
+                                                               trades=trades)
+                            with patch.object(self.ai, "_call_openai_review", side_effect=AssertionError("replay model")), patch.object(
+                                    self.main, "verify_ai_review_access", side_effect=AssertionError("replay charge")), patch.object(
+                                    self.main, "add_review_history", side_effect=AssertionError("replay history")):
+                                replay = self.main.get_journal_ai_review_once(
+                                    batch, authorization=token, x_review_display_contract=[SCHEMA_VERSION],
+                                    x_idempotency_key=f"producer-{self.sequence}")
+                            self.assertTrue(replay["access"]["idempotent_replay"])
+                            self.assertEqual(result["display_snapshot"], replay["display_snapshot"])
+                            self.assertEqual(result["review_history_id"], replay["review_history_id"])
 
     def test_review_quota_configuration_and_invalid_dates_follow_source(self):
         for configured, expected in (("0", 1), ("1001", 1000), ("not-an-int", 100)):

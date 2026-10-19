@@ -12,7 +12,7 @@ import { basicReviewInput, captureReviewInput } from '../src/utils/basicReviewIn
 import { buildAiReviewIdempotencyKey } from '../src/utils/aiReviewIdempotency.js';
 import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../src/utils/reviewDisplayContract.js';
 import { renderEvidence } from './review-render-evidence.js';
-import { brokerReviewTradeIssue, prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
+import { brokerReviewCostWarning, brokerReviewTradeIssue, prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
 import { BROKER_STATEMENT_MESSAGES, BROKER_STATEMENT_STATUS, REVIEW_TIME_VALIDATION_MESSAGES,
   createTradeTimeState, formatTradeDateTime, formatTradeNumber, parseBrokerStatement,
   setTradeTimeUnknownState, sortTradesByDateDesc, tradeSideLabel, updateTradeTimeState,
@@ -100,7 +100,7 @@ function handlerInContext(name, context) {
 }
 
 function syntheticContext(values) {
-  return createContext(values, { codeGeneration: { strings: false, wasm: false } });
+  return createContext({ brokerReviewCostWarning, ...values }, { codeGeneration: { strings: false, wasm: false } });
 }
 
 test('broker file admission enforces 25MiB before extraction and renders incomplete tables without transfer', async () => {
@@ -173,7 +173,7 @@ function brokerConfirmationHarness(trades) {
     useState: () => [state, value => { state = typeof value === 'function' ? value(state) : value; }],
     Check: () => null, FileText: () => null, ShieldCheck: () => null,
     BROKER_STATEMENT_STATUS, BROKER_STATEMENT_MESSAGES, REVIEW_TIME_VALIDATION_MESSAGES,
-    brokerReviewTradeIssue, createTradeTimeState, formatTradeDateTime, formatTradeNumber,
+    brokerReviewCostWarning, brokerReviewTradeIssue, createTradeTimeState, formatTradeDateTime, formatTradeNumber,
     setTradeTimeUnknownState, sortTradesByDateDesc, tradeSideLabel, updateTradeTimeState, validateTradeTimesForReview,
   });
   const Component = expressionInContext(component.getText(fileAst).replace(/^export default /, ''), context);
@@ -226,17 +226,17 @@ test('broker confirmation re-sorts manual times while retaining row identity and
   assert.equal(new Set(h.transferred[0].map(row => row.id)).size, 2);
 });
 
-test('broker confirmation explains blocked costs and instruments and permits deselecting them', () => {
+test('broker confirmation warns on unknown costs and permits them after invalid instruments are deselected', () => {
   const h = brokerConfirmationHarness([confirmationTrade('pdf-trade-1'),
     confirmationTrade('pdf-trade-2', { fee: null }), confirmationTrade('pdf-trade-3', { fee: 69, tax: null }),
     confirmationTrade('pdf-trade-4', { symbol: '' }), confirmationTrade('pdf-trade-5', { fee: null, tax: null })]);
   const html = renderToStaticMarkup(h.render());
-  assert.match(html, /수수료 정보가 없어 복기를 준비할 수 없습니다/);
-  assert.match(html, /세금 정보가 없어 복기를 준비할 수 없습니다/);
-  assert.match(html, /수수료와 세금 정보가 없어 복기를 준비할 수 없습니다/);
+  assert.match(html, /수수료 정보가 없어 수수료를 제외하고 복기합니다/);
+  assert.match(html, /세금 정보가 없어 세금을 제외하고 복기합니다/);
+  assert.match(html, /수수료와 세금 정보가 없어 해당 비용을 제외하고 복기합니다/);
   assert.match(html, /종목명과 6자리 종목코드 확인/);
-  assert.match(renderToStaticMarkup(confirmationRow(h.render(), 'pdf-trade-3')), /수수료 69원 · 세금 정보 없음/);
-  assert.match(html, /수수료 정보 없음/);
+  assert.match(renderToStaticMarkup(confirmationRow(h.render(), 'pdf-trade-3')), /수수료 69원 · 세금 미반영/);
+  assert.match(html, /수수료 미반영/);
   assert.match(html, /종목·가격·수량·비용 수정 및 메모 입력은 아직 지원하지 않습니다/);
   assert.match(journalSource, /가져온 거래의 매매 메모 입력은 현재 지원하지 않습니다/);
   assert.doesNotMatch(journalSource, /매매 이유와 판단은 매매복기에서 작성할 수 있습니다/);
@@ -255,13 +255,14 @@ test('broker confirmation explains blocked costs and instruments and permits des
   assert.match(renderToStaticMarkup(h.render()), /해당 거래를 선택 해제/);
   transferButton(h.render()).props.onClick();
   assert.equal(h.transferred.length, 0, 'handler must also fail closed without relying on disabled');
-  for (const id of ['pdf-trade-2', 'pdf-trade-3', 'pdf-trade-4', 'pdf-trade-5']) {
+  for (const id of ['pdf-trade-4']) {
     confirmationChecks(confirmationRow(h.render(), id))[0].props.onChange();
   }
   assert.equal(transferButton(h.render()).props.disabled, false);
   transferButton(h.render()).props.onClick();
-  assert.deepEqual(Array.from(h.transferred[0], row => row.id), ['pdf-trade-1']);
-  assert.equal(prepareBrokerReviewInput(h.transferred[0]).groups[0].trades.length, 1);
+  assert.deepEqual(Array.from(h.transferred[0], row => row.id), ['pdf-trade-1', 'pdf-trade-2', 'pdf-trade-3', 'pdf-trade-5']);
+  assert.equal(prepareBrokerReviewInput(h.transferred[0]).groups[0].trades.length, 4);
+  assert.match(renderToStaticMarkup(h.render()), /손익·수익률은 비용 일부 미반영/);
   assert.equal(h.state.trades[1].fee, null);
   assert.equal(h.state.trades[2].tax, null);
 });
@@ -529,9 +530,8 @@ async function verifyImportedPreparation() {
   for (const field of ['fee', 'tax']) {
     context.importedTrades = confirmedCosts.map(row => ({ ...row, [field]: null }));
     button().props.onClick();
-    assert.equal(state.prepared, null, 'unknown costs cannot publish prepared input');
-    assert.equal(state.cleared, undefined, 'unknown costs leave the pending selection available');
-    assert.equal(state.message, `${field === 'fee' ? '수수료' : '세금'} 정보가 없어 복기를 준비할 수 없습니다.`);
+    assert.ok(state.prepared.groups[0].trades.every(row => row[field] === null), 'unknown costs survive preparation');
+    assert.equal(state.cleared, true);
     assert.ok(context.importedTrades.every(row => row[field] === null));
   }
   context.importedTrades = confirmedCosts;

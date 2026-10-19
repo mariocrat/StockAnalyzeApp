@@ -106,6 +106,33 @@ class JournalBatchLimitTest(unittest.TestCase):
 
     def test_review_once_returns_bad_request_for_invalid_trade_side(self):
         main = self.modules.main
+        for fee, tax in ((69, None), (None, 1500), (None, None), (0, 0)):
+            with self.subTest(fee=fee, tax=tax):
+                buy = dict(trade_date="2026-09-01", ticker="005930", name="Synthetic", side="buy",
+                           price=1000, quantity=10, fee=fee, tax=0 if tax is not None else None,
+                           source="broker_import")
+                sell = {**buy, "trade_date": "2026-09-02", "side": "sell", "price": 1200,
+                        "fee": 0 if fee is not None else None, "tax": tax}
+                batch = main.JournalReviewBatchIn(trades=[buy, sell])
+                normalized = main._journal_batch_payload(batch)
+                self.assertEqual(fee, normalized[0]["fee"])
+                self.assertEqual(tax, normalized[1]["tax"])
+                review = main.get_journal_review_once(batch)
+                self.assertEqual(2000 - sum(v for v in (fee, tax) if v is not None), review["summary"]["realized_pnl"])
+                symbol = review["by_symbol"][0]
+                self.assertEqual(sum(v for v in (fee,) if v is not None), symbol["total_fee"])
+                self.assertEqual(sum(v for v in (tax,) if v is not None), symbol["total_tax"])
+                self.assertEqual(fee is None or tax is None, "cost_completeness" in symbol)
+                if fee is None or tax is None:
+                    with self.assertRaises(ValueError):
+                        main.JournalTradeIn(**buy)
+                    with self.assertRaises(ValueError):
+                        main.JournalReviewBatchIn(trades=[{**buy, "source": "manual"}])
+        omitted = {key: value for key, value in buy.items() if key not in ("fee", "tax")}
+        broker = main.JournalReviewBatchIn(trades=[omitted])
+        self.assertEqual((None, None), tuple(main._journal_batch_payload(broker)[0][key] for key in ("fee", "tax")))
+        manual = main.JournalReviewBatchIn(trades=[{**omitted, "source": "manual"}])
+        self.assertEqual((0, 0), tuple(main._journal_batch_payload(manual)[0][key] for key in ("fee", "tax")))
         batch = main.JournalBatchIn(trades=[_trade(main, 1, side="hold")])
 
         with self.assertRaises(HTTPException) as blocked:
