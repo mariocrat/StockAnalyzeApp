@@ -76,15 +76,17 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_BASIC_REVIEW_MODEL
-        value: gpt-5.6-luna
+        value: gpt-6-luna
       - key: OPENAI_BASIC_REVIEW_REASONING_EFFORT
         value: none
       - key: OPENAI_ADVANCED_REVIEW_MODEL
-        value: gpt-5.6-luna
+        value: gpt-6.1-sol
       - key: OPENAI_ADVANCED_REVIEW_REASONING_EFFORT
         value: medium
       - key: OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL
-        value: gpt-5.4-mini
+        value: gpt-6-luna
+      - key: OPENAI_ADVANCED_REVIEW_FALLBACK_REASONING_EFFORT
+        value: low
       - key: OPENAI_BASIC_REVIEW_MAX_OUTPUT_TOKENS
         value: 1000
       - key: OPENAI_ADVANCED_REVIEW_MAX_OUTPUT_TOKENS
