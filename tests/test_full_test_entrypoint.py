@@ -56,7 +56,7 @@ def node_regression_suite(executable):
         def test_inventory_package_source_manifest_exact_and_fail_closed(self):
             live = inventory.load_node_inventory()
             self.assertEqual(len(live), 24)
-            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 281)
+            self.assertEqual(sum(len(item["cases"]) for item in live.values()), 285)
             self.assertIn("test:broker-import", live)
             self.assertIn("test:mobile-bundle", live)
             review = live["test:canonical-review-renderer"]
@@ -468,14 +468,14 @@ class FullTestEntrypointTest(unittest.TestCase):
     def test_live_inventory_preserves_baseline_and_counts_source_probes(self):
         entries = inventory.load_inventory()
         summary = inventory.inventory_summary(entries)
-        self.assertEqual(summary["baseline_direct"], 1063)
+        self.assertEqual(summary["baseline_direct"], 1066)
         self.assertEqual(summary["baseline_classification"], inventory.BASELINE)
         source = inventory.source_inventory(runner.REPOSITORY)
         probes = {name: cases for name, cases in source.items() if entries[name]["execution_role"] == "probe"}
         self.assertEqual(sum(map(len, probes.values())), 18)
         self.assertEqual(summary["child_probes"], 18)
         self.assertEqual(len(probes), 6)
-        self.assertEqual(summary["direct"], 1063 + len(entries[inventory.STAGE1]["cases"]))
+        self.assertEqual(summary["direct"], 1066 + len(entries[inventory.STAGE1]["cases"]))
         self.assertNotIn("tests.diagnose_phase_a_probe", entries)
 
     def test_manifest_rejects_missing_duplicate_zero_and_invalid_skip(self):

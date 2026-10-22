@@ -1180,6 +1180,9 @@
       "execution_role": "guarded",
       "cohort": "baseline",
       "cases": [
+        "ReviewAccessTest.test_debug_tester_requires_real_session_marker_allowlist_and_consent",
+        "ReviewAccessTest.test_debug_tester_route_and_execution_cache_preserve_no_charge_identity",
+        "ReviewAccessTest.test_non_allowlisted_debug_and_release_keep_ordinary_quota",
         "ReviewAccessTest.test_review_access_is_off_or_expired_by_default",
         "ReviewAccessTest.test_review_credentials_are_generic_and_normal_user_has_no_review_entitlement",
         "ReviewAccessTest.test_review_login_route_seeds_examples_and_runs_both_ai_review_types",
@@ -2337,11 +2340,12 @@
           "failed logout request still releases local login controls",
           "slow development entitlement refresh does not hold the auth loading flag"
         ],
-        "sha256": "a4391d65e72462831b25a6826b9fe59292b8cfeac40e9bec395a317d6699d242",
+        "sha256": "4fed1fce7af6ad09a8a646cce648d8c9c4ec45178a123d56c1e4d4bd63a20e53",
         "reads": [
           "package.json",
           "scripts/oauth-logout.test.js",
-          "src/components/TradingJournal.jsx"
+          "src/components/TradingJournal.jsx",
+          "src/utils/reviewDisplayContract.js"
         ],
         "release_eval_sha256": []
       },
@@ -2438,7 +2442,7 @@
           "legacy canonical adapted and unavailable history titles and tabs preserve adapter document identity",
           "history title and legacy tab sinks never fall back to raw names or rebuild invalid documents"
         ],
-        "sha256": "f85b48894c71d00963f7c4d997afe624017305a254cb93c44b37771283f80803",
+        "sha256": "62e8d8da04f0f84b832eb575839ad2fcffd52f6d09422784b26849230a13ef27",
         "reads": [
           "package.json",
           "scripts/ai-review-chart-source.test.js",
@@ -2473,7 +2477,7 @@
           "typescript/package.json": "4752e28a76cd00f882e0f054ce2d68ac58e0caceb98df0ec9d2a41ef3730240f",
           "typescript/lib/typescript.js": "ed5f8d1c93d625c9a1a2d282a6e0d3899aca2ac58e508828402a0203d335935b"
         },
-        "component_sha256": "7e21b326d7dafd7d5921f30f8421baedd3066d02f6e435d53c40e07664ae2f8b",
+        "component_sha256": "33a9c536cc7d7cdd42a546c6b738049e26957405f069f59645ccf3499f97b02b",
         "chart_component_sha256": "28a8ae4be58130b348b310318935dac040448092ecdb41c9bd87e43b4f26dab2",
         "chart_source_sha256": "1a5159558b3d8b0d9982a24b2b0cec4fed890fe24ca4db8ef8c602d196bc0228",
         "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570"
@@ -2589,7 +2593,7 @@
           "src/components/CanonicalReviewRenderer.js"
         ],
         "vector_sha256": "68996d3776b3584561f0a3320d79f830e59f28d8b2c5f04a77a05bcdbdff2711",
-        "component_sha256": "7e21b326d7dafd7d5921f30f8421baedd3066d02f6e435d53c40e07664ae2f8b",
+        "component_sha256": "33a9c536cc7d7cdd42a546c6b738049e26957405f069f59645ccf3499f97b02b",
         "format_sha256": "3d8ee36c975a472e92a5d2ea4dabb73ae688fa8a6712ad3dac825dbef6a38ea9",
         "react_snapshot": {
           "react/package.json": "e631b6ac066fa758d9b36f226d96e8fc05425d1e8993ffcc99c6de2d6aa7268c",
@@ -2678,6 +2682,10 @@
           "rewarded review waits for server-side verification without consuming it while polling",
           "saved journal entry does not reveal stock details until a review is selected or completed",
           "pending PDF selection blocks review only in broker mode and survives direct input round trips",
+          "import preparation CTA is primary counted guarded and scrolls only after local preparation",
+          "pending import time controls hide optional unknown state and retain required mixed-side validation",
+          "AI failures never render success bodies and retain retry login entitlement and refund guidance",
+          "Debug marker is public build-scoped and only server tester eligibility bypasses the local zero-ticket gate",
           "review depth cards appear only after direct selection or prepared broker input and selection preserves data",
           "selected depth execution retains actual basic advanced API and canonical payload contracts for both input paths",
           "depth selection never bypasses consent busy guards or existing advanced entitlement admission",
@@ -2694,7 +2702,7 @@
           "account changes clear the previous account journal workspace before loading tenant data",
           "review archive entry uses a throttled interstitial policy"
         ],
-        "sha256": "abce97df99efff6799ee2531a4eadbf9abe118f17f49c9fb9717c84a79b213ef",
+        "sha256": "d3ecf58ff6ebed40e98745d630667811b8f94b99f095f164b30603032ca2a6f3",
         "reads": [
           "package.json",
           "scripts/journal-mobile-ux.test.js",
@@ -2734,7 +2742,7 @@
         "vector_sha256": "db225f6fcec00ec5def4e839652c8e76016216819009c86aad8676a51762f4e5",
         "chart_source_sha256": "1a5159558b3d8b0d9982a24b2b0cec4fed890fe24ca4db8ef8c602d196bc0228",
         "display_contract_sha256": "25fd67e4398ef527accf8987f63ac9e32c7ac110c01dbf3ba02d7329cf06e570",
-        "component_sha256": "7e21b326d7dafd7d5921f30f8421baedd3066d02f6e435d53c40e07664ae2f8b"
+        "component_sha256": "33a9c536cc7d7cdd42a546c6b738049e26957405f069f59645ccf3499f97b02b"
       },
       {
         "name": "test:review-selection",
@@ -2794,7 +2802,7 @@
           "sort helper preserves source order when date and time are equal",
           "local PDF flow has no client upload, API, or browser storage call"
         ],
-        "sha256": "5a4d7aaebf67e21939434341627c5a43f512a3e0033b0927f7be8c85f6bcb37a",
+        "sha256": "f815863524bb2a8e0a84e41af0cde10f9479655cdac5e2e65604752fcc258240",
         "reads": [
           "package.json",
           "scripts/broker-import.test.js",

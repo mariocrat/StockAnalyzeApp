@@ -43,6 +43,7 @@ _ACCESS_SOURCES = (
     "pro_monthly_basic", "pro_monthly_advanced", "purchased_basic",
     "purchased_advanced", "purchased_advanced_as_basic", "weekly_ad_advanced",
     "review_basic", "review_advanced",
+    "debug_tester_basic", "debug_tester_advanced",
 )
 
 
@@ -415,6 +416,9 @@ def _access(value):
     _object(value, {"auth_mode": _enum("session", "dev", "review"), "plan": _enum("free", "pro"),
                     "review_type": _enum("basic", "advanced"), "source": _enum(*_ACCESS_SOURCES),
                     "quota": _quota, "wallet": _wallet, "refunded": _boolean, "idempotent_replay": _boolean})
+    if value.get("source", "").startswith("debug_tester_"):
+        if value.get("auth_mode") != "session" or value["source"] != f"debug_tester_{value.get('review_type')}":
+            _reject()
 
 
 def _review(value):

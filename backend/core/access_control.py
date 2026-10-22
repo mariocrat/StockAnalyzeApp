@@ -2867,7 +2867,14 @@ def _wallet_snapshot(wallet: UserWallet, plan: str, user_id: str, conn=None) -> 
     }
 
 
-def get_user_entitlements(*, authorization: str | None, entitlement_token: str | None) -> dict:
+def _debug_review_tester(user_id: str, auth_mode: str, client_marker: str | None) -> bool:
+    # Public marker is not app attestation: only the authenticated server allowlist grants access.
+    allowed = {value.strip() for value in _env_value("ALPHAMATE_DEBUG_REVIEW_TESTER_USER_IDS").split(",") if value.strip()}
+    return auth_mode == "session" and client_marker == "debug" and user_id in allowed
+
+
+def get_user_entitlements(*, authorization: str | None, entitlement_token: str | None,
+                          client_marker: str | None = None) -> dict:
     user_id, auth_mode = _authenticate(authorization)
     if auth_mode == "review":
         data = _review_entitlement_snapshot(user_id)
@@ -2879,6 +2886,7 @@ def get_user_entitlements(*, authorization: str | None, entitlement_token: str |
         _save_wallet(user_id, wallet)
         data = _wallet_snapshot(wallet, plan, user_id)
     data["user"] = {"id": user_id, "auth_mode": auth_mode}
+    data["debug_review_tester"] = _debug_review_tester(user_id, auth_mode, client_marker)
     return data
 
 
@@ -3207,6 +3215,7 @@ def verify_ai_review_access(
     entitlement_token: str | None,
     privacy_consent: bool,
     review_type: str,
+    client_marker: str | None = None,
 ) -> AiAccessContext:
     if not privacy_consent:
         raise HTTPException(status_code=400, detail="Privacy consent is required before AI analysis.")
@@ -3214,6 +3223,14 @@ def verify_ai_review_access(
     user_id, auth_mode = _authenticate(authorization)
     plan = _plan_for(user_id, entitlement_token)
     normalized_type = "advanced" if review_type == "advanced" else "basic"
+    if _debug_review_tester(user_id, auth_mode, client_marker):
+        with _WALLET_LOCK:
+            snapshot = _wallet_snapshot(_wallet_for(user_id, plan), plan, user_id)
+        return AiAccessContext(
+            user_id=user_id, auth_mode=auth_mode, plan=plan, review_type=normalized_type,
+            source=f"debug_tester_{normalized_type}", source_order_id="", usage_event_key="",
+            product_balances=snapshot, quota={key: snapshot[key] for key in ("basic", "advanced")},
+        )
     if auth_mode == "review":
         with _WALLET_LOCK:
             usage_event_key = _consume_review_quota(user_id, normalized_type)
@@ -3282,6 +3299,9 @@ def verify_ai_review_access(
 def refund_ai_review_access(access: AiAccessContext) -> dict:
     if not isinstance(access, AiAccessContext):
         raise HTTPException(status_code=400, detail="AI review access context is required.")
+
+    if access.source in {"debug_tester_basic", "debug_tester_advanced"}:
+        return access.product_balances
 
     with _WALLET_LOCK:
         if access.source in {"review_basic", "review_advanced"}:

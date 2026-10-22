@@ -685,7 +685,7 @@ test('keeps timeUnknown and tradeTime independent for every selected trade', () 
   assert.deepEqual(rows[2], { id: 'sell-1', tradeTime: '14:10', timeUnknown: false });
 
   assert.equal(componentSource.includes('disabled={timeRequired && timeUnknown}'), true);
-  assert.equal(journalSource.includes('disabled={timeUnknown}'), true);
+  assert.equal(journalSource.includes('disabled={timeRequired && timeUnknown}'), true);
   assert.equal(componentSource.includes('const timeUnknown = !tradeTime'), false);
   assert.equal(journalSource.includes('const timeUnknown = !trade.tradeTime'), false);
 });

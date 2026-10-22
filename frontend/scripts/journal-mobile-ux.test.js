@@ -10,7 +10,7 @@ import ReviewBodyRenderer from '../src/components/ReviewBodyRenderer.js';
 import { aiReviewChartSource } from '../src/utils/aiReviewChartSource.js';
 import { basicReviewInput, captureReviewInput } from '../src/utils/basicReviewInput.js';
 import { buildAiReviewIdempotencyKey } from '../src/utils/aiReviewIdempotency.js';
-import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../src/utils/reviewDisplayContract.js';
+import { debugReviewClientHeaders, reviewDisplayHeaders, reviewDisplayFailureMessage } from '../src/utils/reviewDisplayContract.js';
 import { renderEvidence } from './review-render-evidence.js';
 import { brokerReviewCostWarning, brokerReviewTradeIssue, prepareBrokerReviewInput } from '../src/utils/brokerReviewInput.js';
 import { BROKER_STATEMENT_MESSAGES, BROKER_STATEMENT_STATUS, REVIEW_TIME_VALIDATION_MESSAGES,
@@ -40,7 +40,11 @@ let selectionExpression;
 let basicChoiceExpression;
 let advancedChoiceExpression;
 let deepenExpression;
+let importedListExpression;
 function findLiveBody(node) {
+  if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some(attribute =>
+    ts.isJsxAttribute(attribute) && attribute.name.text === 'className'
+      && attribute.initializer?.text === 'journal-imported-list')) importedListExpression = node.getText(ast);
   if (ts.isJsxElement(node) && node.openingElement.attributes.properties.some(attribute =>
     ts.isJsxAttribute(attribute) && attribute.name.text === 'className'
       && attribute.initializer?.text === 'journal-ai-review')) liveExpression = node.getText(ast);
@@ -100,7 +104,7 @@ function handlerInContext(name, context) {
 }
 
 function syntheticContext(values) {
-  return createContext({ brokerReviewCostWarning, ...values }, { codeGeneration: { strings: false, wasm: false } });
+  return createContext({ brokerReviewCostWarning, importedReviewIssue: null, ...values }, { codeGeneration: { strings: false, wasm: false } });
 }
 
 test('broker file admission enforces 25MiB before extraction and renders incomplete tables without transfer', async () => {
@@ -537,7 +541,8 @@ async function verifyImportedPreparation() {
   context.importedTrades = confirmedCosts;
   view = button();
   assert.equal(view.props.disabled, false);
-  assert.ok(renderToStaticMarkup(view).includes('선택한 거래로 복기 준비'));
+  assert.ok(renderToStaticMarkup(view).includes('선택한 2건으로 복기 준비'));
+  assert.equal(view.props.className, 'journal-primary');
   view.props.onClick();
   assert.equal(state.details, false);
   assert.equal(state.aiReview, null);
@@ -773,6 +778,112 @@ function reviewSelectionHarness(rows, targetTradeId = 42) {
     choose: type => expressionInContext(type === 'basic' ? basicChoiceExpression : advancedChoiceExpression, context).props.onChange(),
   };
 }
+
+test('import preparation CTA is primary counted guarded and scrolls only after local preparation', () => {
+  const rows = [confirmationTrade('pdf-trade-1'), confirmationTrade('pdf-trade-2')];
+  const context = syntheticContext({ React, importedTrades: rows, loading: false, aiLoading: false, adLoading: false,
+    importedTimeValidation: validateTradeTimesForReview(rows), prepareImportedTrades: () => {} });
+  const button = () => expressionInContext(prepareButtonExpression, context);
+  assert.equal(button().props.disabled, false);
+  assert.equal(button().props.className, 'journal-primary');
+  assert.ok(renderToStaticMarkup(button()).includes('선택한 2건으로 복기 준비'));
+  context.importedReviewIssue = brokerReviewTradeIssue({ ...rows[0], symbol: '' });
+  assert.ok(context.importedReviewIssue);
+  assert.equal(button().props.disabled, true);
+  context.importedReviewIssue = null;
+  context.aiLoading = true;
+  assert.equal(button().props.disabled, true);
+  const effect = journal.body.statements.find(statement => ts.isExpressionStatement(statement)
+    && ts.isCallExpression(statement.expression) && statement.expression.expression.getText(ast) === 'useEffect'
+    && statement.getText(ast).includes('reviewSelectionSectionRef.current?.scrollIntoView'));
+  assert.ok(effect);
+  const scrolled = [];
+  context.reviewSelectionSectionRef = { current: { scrollIntoView: options => scrolled.push(options) } };
+  context.preparedImportedReview = null;
+  const scroll = expressionInContext(effect.expression.arguments[0].getText(ast), context);
+  scroll();
+  assert.equal(scrolled.length, 0);
+  context.preparedImportedReview = { groups: [{}] };
+  scroll();
+  assert.equal(scrolled.length, 1);
+  assert.equal(scrolled[0].block, 'start');
+  assert.match(cssSource, /@media \(max-width: 767px\)[\s\S]*?\.journal-import-prepare-actions\s*\{[^}]*position: sticky;[^}]*bottom: 0;/);
+  const mobileStyles = cssSource.match(/@media \(max-width: 767px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? '';
+  assert.match(mobileStyles, /\.journal-import-prepare-actions \.journal-primary:disabled\s*\{[^}]*background: #252c3a;[^}]*color: #929bad;[^}]*opacity: 1;/);
+});
+
+test('pending import time controls hide optional unknown state and retain required mixed-side validation', () => {
+  const rows = [confirmationTrade('pdf-trade-1', { timeUnknown: true }),
+    confirmationTrade('pdf-trade-2', { side: 'sell', tradeDate: '2026-09-03', timeUnknown: true })];
+  const context = syntheticContext({ React, importedTrades: rows, importedRequiredTradeIds: new Set(),
+    importedMissingTradeIds: new Set(), sideLabels: { buy: '매수', sell: '매도' },
+    formatTradeNumber, formatTradeDateTime, updateImportedTradeTime: () => {}, markImportedTradeTimeUnknown: () => {} });
+  const view = () => expressionInContext(importedListExpression, context);
+  assert.equal(brokerElements(view(), node => node.type === 'input' && node.props.type === 'checkbox').length, 0);
+  assert.ok(brokerElements(view(), node => node.type === 'input' && node.props.type === 'time').every(node => !node.props.disabled));
+  context.importedTrades = rows.map(row => ({ ...row, tradeDate: '2026-09-02' }));
+  const validation = validateTradeTimesForReview(context.importedTrades);
+  assert.equal(validation.valid, false);
+  context.importedRequiredTradeIds = new Set(validation.requiredTradeIds);
+  context.importedMissingTradeIds = new Set(validation.missingTradeIds);
+  assert.equal(brokerElements(view(), node => node.type === 'input' && node.props.type === 'checkbox').length, 2);
+  assert.ok(brokerElements(view(), node => node.type === 'input' && node.props.type === 'time').every(node => node.props.disabled));
+  assert.match(cssSource, /\.journal-imported-time > input\[type="time"\]\s*\{[^}]*min-width: 10em;/);
+});
+
+test('AI failures never render success bodies and retain retry login entitlement and refund guidance', async () => {
+  for (const status of ['error', 'request_error', 401, 402, 500]) {
+    const h = reviewSelectionHarness([{ id: 42 }]);
+    h.context.axios.post = async () => {
+      if (typeof status === 'number') throw { response: { status } };
+      return { data: { status, review_type: 'basic', summary: 'must not render', display_snapshot: {} } };
+    };
+    h.execution().props.onClick();
+    await Promise.all(h.jobs);
+    const html = h.result();
+    assert.ok(html.includes('다시 시도'));
+    assert.ok(!html.includes('일반복기 결과') && !html.includes('심화복기 결과') && !html.includes('must not render'));
+    assert.equal(h.context.details, false);
+    assert.equal(h.context.aiLoading, false);
+    if (status === 401) assert.ok(h.context.message.includes('다시 로그인'));
+    else if (status === 402) { assert.ok(h.context.message.includes('이용권')); assert.equal(h.context.dialog, 'basic'); }
+    else assert.match(h.context.message, /돌려|환불/);
+    h.context.axios.post = async () => ({ data: approvedResponse(vectors.valid[0].document) });
+    h.execution().props.onClick();
+    await Promise.all(h.jobs);
+    assert.equal(h.context.aiReview.status, 'ready');
+  }
+});
+
+test('Debug marker is public build-scoped and only server tester eligibility bypasses the local zero-ticket gate', async () => {
+  assert.deepEqual(debugReviewClientHeaders({}, 'com.mariocrat.stockanalyze.debug'), { 'X-StockBoda-Client': 'debug' });
+  for (const scheme of ['', 'com.mariocrat.stockanalyze', 'debug']) assert.deepEqual(debugReviewClientHeaders({}, scheme), {});
+  const h = reviewSelectionHarness([{ id: 42 }]);
+  h.context.authHeaders = debugReviewClientHeaders({ Authorization: 'Bearer synthetic' }, 'com.mariocrat.stockanalyze.debug');
+  h.context.authSessionGenerationRef = { current: 0 };
+  h.context.activeAuthToken = 'synthetic';
+  h.context.debugReviewClientHeaders = headers => debugReviewClientHeaders(headers, 'com.mariocrat.stockanalyze.debug');
+  h.context.axios.get = async (url, config) => {
+    assert.ok(url.endsWith('/entitlements'));
+    assert.equal(config.headers.Authorization, 'Bearer synthetic');
+    assert.equal(config.headers['X-StockBoda-Client'], 'debug');
+    return { data: { advanced: { signup_remaining: 0 }, debug_review_tester: true } };
+  };
+  await handlerInContext('loadEntitlements', h.context)();
+  assert.equal(h.context.entitlements.debug_review_tester, true);
+  h.context.axios.post = async (url, payload) => ({ data: { ...approvedResponse(vectors.valid[0].document, payload.review_type),
+    access: { source: `debug_tester_${payload.review_type}`, wallet: { advanced: { signup_remaining: 0 } } } } });
+  h.choose('advanced');
+  for (let count = 0; count < 2; count += 1) {
+    h.execution().props.onClick();
+    await Promise.all(h.jobs);
+    assert.equal(h.context.aiReview.status, 'ready');
+    assert.equal(h.context.entitlements.debug_review_tester, true);
+  }
+  h.context.entitlements.debug_review_tester = false;
+  h.execution().props.onClick();
+  assert.equal(h.context.dialog, 'advanced');
+});
 
 test('review depth cards appear only after direct selection or prepared broker input and selection preserves data', () => {
   assert.ok(selectionExpression && basicChoiceExpression && advancedChoiceExpression);

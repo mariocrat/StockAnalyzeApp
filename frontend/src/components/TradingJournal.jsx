@@ -14,13 +14,13 @@ import { shouldShowReviewHistoryInterstitial } from '../mobile/admobPolicy';
 import { getBillingRuntimeStatus, initializeBilling, purchaseGooglePlayProduct, recoverGooglePlayPurchases } from '../mobile/billing';
 import { shouldFinishGooglePlayTransaction } from '../mobile/billingPolicy';
 import { buildAiReviewIdempotencyKey } from '../utils/aiReviewIdempotency';
-import { reviewDisplayHeaders, reviewDisplayFailureMessage } from '../utils/reviewDisplayContract';
+import { debugReviewClientHeaders, reviewDisplayHeaders, reviewDisplayFailureMessage } from '../utils/reviewDisplayContract';
 import { aiReviewChartSource } from '../utils/aiReviewChartSource';
 import { basicReviewInput, captureReviewInput } from '../utils/basicReviewInput';
 import { reportClientEvent } from '../utils/clientEventLog';
 import { parseOAuthAppReturnUrl } from '../utils/oauthAppReturn';
 import { APP_BACK_REQUEST_EVENT } from '../utils/appNavigation';
-import { brokerReviewCostWarning, prepareBrokerReviewInput } from '../utils/brokerReviewInput';
+import { brokerReviewCostWarning, brokerReviewTradeIssue, prepareBrokerReviewInput } from '../utils/brokerReviewInput';
 import {
   buildReviewTradeGroups,
   filterReviewTradeGroups,
@@ -74,6 +74,8 @@ const PRO_PRODUCT = [
   '출시 혜택 대상은 첫 3개월 월 7,900원 · 이후 월 9,900원',
 ];
 const reviewSourceLabels = {
+  debug_tester_basic: 'Debug 테스터 · 복기권 차감 없음',
+  debug_tester_advanced: 'Debug 테스터 · 복기권 차감 없음',
   signup_basic: '가입 축하 일반 복기권',
   signup_advanced: '무료 심화 복기권',
   free_daily_basic: '무료 일반 복기권',
@@ -290,6 +292,7 @@ export default function TradingJournal({
   const suppressStockSearchRef = useRef(false);
   const entitlementSectionRef = useRef(null);
   const tradeChartSectionRef = useRef(null);
+  const reviewSelectionSectionRef = useRef(null);
   const aiReviewInFlightRef = useRef(false);
   const aiReviewSourceRef = useRef(null);
   const basicReviewFocusIndexRef = useRef(0);
@@ -306,6 +309,7 @@ export default function TradingJournal({
   );
   const importedRequiredTradeIds = new Set(importedTimeValidation.requiredTradeIds);
   const importedMissingTradeIds = new Set(importedTimeValidation.missingTradeIds);
+  const importedReviewIssue = importedTrades.map(brokerReviewTradeIssue).find(Boolean);
   const reviewTargetFiltered = Boolean(reviewTargetQuery.trim() || reviewTargetFrom || reviewTargetTo);
   const visibleReviewTradeGroups = useMemo(
     () => filterReviewTradeGroups(reviewTradeGroups, {
@@ -363,7 +367,7 @@ export default function TradingJournal({
   };
 
   const activeAuthToken = authSession?.session_token || DEV_AUTH_TOKEN;
-  const authHeaders = { Authorization: `Bearer ${activeAuthToken}` };
+  const authHeaders = debugReviewClientHeaders({ Authorization: `Bearer ${activeAuthToken}` });
   const savedJournalMode = Boolean(authSession?.session_token && authSession?.user?.journal_storage_enabled);
   const transientJournalMode = oneTimeMode && !savedJournalMode;
 
@@ -624,7 +628,7 @@ export default function TradingJournal({
     try {
       const res = await axios.get(`${apiBase}/api/journal/entitlements`, {
         params: { entitlement_token: DEV_ENTITLEMENT_TOKEN },
-        headers: { Authorization: `Bearer ${token}` },
+        headers: debugReviewClientHeaders({ Authorization: `Bearer ${token}` }),
       });
       if (requestGeneration === authSessionGenerationRef.current) setEntitlements(res.data || null);
     } catch {
@@ -1125,30 +1129,34 @@ export default function TradingJournal({
         { headers: reviewDisplayHeaders({ ...authHeaders, 'X-Idempotency-Key': idempotencyKey }) },
       );
       if (!res.data) throw new Error('empty AI response');
+      if (['error', 'request_error'].includes(res.data.status)) {
+        setAiReview({ status: res.data.status });
+        if (res.data.access?.wallet) setEntitlements({ ...res.data.access.wallet,
+          ...(res.data.access.source?.startsWith('debug_tester_') ? { debug_review_tester: true } : {}) });
+        setMessage('AI 복기를 완료하지 못했습니다. 사용한 복기권은 다시 돌려드립니다. 이용권 상태를 확인한 뒤 다시 시도해 주세요.');
+        return;
+      }
       requestSource.review = res.data;
       if (aiReviewSourceRef.current === requestSource) setAiReviewSource(requestSource);
       setAiReview(res.data || null);
       setActiveChartTicker(aiReviewChartSource(res.data).charts[0]?.ticker || '');
-      if (res.data?.status !== 'error') {
-        setShowCurrentReviewDetails(true);
-        await loadReviewContextForTrades(nextTrades);
-      }
-      if (res.data?.status === 'error') {
-      setMessage('AI 서버 응답을 완료하지 못했습니다. 사용한 복기권은 다시 돌려드렸습니다.');
-      }
-      if (res.data?.access?.wallet) setEntitlements(res.data.access.wallet);
+      setShowCurrentReviewDetails(true);
+      await loadReviewContextForTrades(nextTrades);
+      if (res.data?.access?.wallet) setEntitlements({ ...res.data.access.wallet,
+        ...(res.data.access.source?.startsWith('debug_tester_') ? { debug_review_tester: true } : {}) });
       const followUpRefreshes = [];
       if (res.data?.review_history_id) followUpRefreshes.push(loadReviewHistory());
       if (authSession?.session_token) followUpRefreshes.push(loadDataSummary(authSession.session_token));
       await Promise.allSettled(followUpRefreshes);
     } catch (err) {
       if (err.response?.status === 402) {
-        setMessage('');
+        setAiReview({ status: 'request_error' });
+        setMessage(reviewDisplayFailureMessage(err, '이용권을 확인해 주세요.'));
         setReviewAccessDialog(reviewType === 'advanced' ? 'advanced' : 'basic');
         await loadEntitlements();
         return;
       }
-      setMessage(reviewDisplayFailureMessage(err, 'AI 분석을 불러오지 못했습니다.'));
+      setMessage(reviewDisplayFailureMessage(err, 'AI/서버 오류로 복기를 완료하지 못했습니다. 차감된 복기권은 실패 처리 시 환불됩니다. 응답을 받지 못했다면 이용권 상태를 먼저 확인해 주세요.'));
       setAiReview({ status: 'request_error' });
     } finally {
       aiReviewInFlightRef.current = false;
@@ -1169,7 +1177,7 @@ export default function TradingJournal({
         + (advanced.weekly_reward_remaining || 0)
         + (advanced.purchased_remaining || 0)
       : null;
-    if (availableTickets === 0) {
+    if (availableTickets === 0 && !entitlements?.debug_review_tester) {
       setMessage('');
       setReviewAccessDialog('advanced');
       return;
@@ -1526,6 +1534,10 @@ export default function TradingJournal({
       setMessage(err.message);
     }
   };
+
+  useEffect(() => {
+    if (preparedImportedReview) reviewSelectionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [preparedImportedReview]);
 
   useEffect(() => {
     const query = stockQuery.trim();
@@ -2138,33 +2150,40 @@ export default function TradingJournal({
                             <input
                               type="time"
                               value={trade.tradeTime ?? ''}
-                              disabled={timeUnknown}
+                              disabled={timeRequired && timeUnknown}
                               required={timeRequired && !timeUnknown}
                               aria-invalid={missingRequiredTime}
-                              onChange={event => updateImportedTradeTime(trade.id, event.target.value)}
+                              onChange={event => {
+                                const value = event.target.value;
+                                if (!timeRequired && !value) markImportedTradeTimeUnknown(trade.id, true);
+                                else updateImportedTradeTime(trade.id, value);
+                              }}
                               aria-label={`${trade.stockName} 체결시간`}
                             />
-                            <span className="journal-check">
+                            {timeRequired && <span className="journal-check">
                               <input
                                 type="checkbox"
                                 checked={timeUnknown}
                                 onChange={event => markImportedTradeTimeUnknown(trade.id, event.target.checked)}
                               />
                               시간을 모름
-                            </span>
+                            </span>}
                           </label>
                         </div>
                       );
                     })}
                   </div>
+                  <div className="journal-import-prepare-actions">
+                  {importedReviewIssue && <p role="alert">{importedReviewIssue}</p>}
                   <button
                     type="button"
-                    className="journal-secondary"
-                    disabled={loading || aiLoading || adLoading || !importedTimeValidation.valid}
+                    className="journal-primary"
+                    disabled={loading || aiLoading || adLoading || !importedTimeValidation.valid || Boolean(importedReviewIssue)}
                     onClick={prepareImportedTrades}
                   >
-                    선택한 거래로 복기 준비
+                    선택한 {importedTrades.length}건으로 복기 준비
                   </button>
+                  </div>
                 </div>
               ) : (
                 <Suspense fallback={<div className="themes-loading">거래내역 불러오기를 준비하는 중입니다.</div>}>
@@ -2714,7 +2733,7 @@ export default function TradingJournal({
         </button>
       </section>
 
-      <section className="journal-panel">
+      <section className="journal-panel" ref={reviewSelectionSectionRef}>
         <div className="journal-panel-title">
           <h3>AI 복기</h3>
         </div>
@@ -2845,8 +2864,12 @@ export default function TradingJournal({
                 <p>선택한 매매의 체결 기록과 당시 차트 흐름을 함께 확인하고 있습니다.</p>
               </div>
             </div>
-          ) : aiReview?.status === 'request_error' ? (
-            <p className="journal-ai-summary" role="status">AI 복기 분석을 불러오지 못했습니다.</p>
+          ) : ['error', 'request_error'].includes(aiReview?.status) ? (
+            <div className="journal-ai-failure" role="alert">
+              <p>AI 복기를 완료하지 못했습니다. {aiReview.status === 'error' ? '사용한 복기권은 환불 처리됩니다.' : '안내와 이용권 상태를 확인해 주세요.'}</p>
+              <button type="button" className="journal-secondary" onClick={startSelectedReview}
+                disabled={aiLoading || adLoading || !selectedReviewTrades.length || !aiConsentAccepted}>다시 시도</button>
+            </div>
           ) : aiReview ? (
             <>
               <div className={`journal-ai-status ${aiReview.status || 'ready'}`}>

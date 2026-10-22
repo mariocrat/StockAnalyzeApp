@@ -5,9 +5,11 @@ require_storage_boundary()
 from core.review_display_contract import SCHEMA_VERSION
 
 from tests.api_test_modules import api_module_state
-from tests.review_source_fixtures import approved_route_fixture
+from tests.review_source_fixtures import approved_route_fixture, compact_chart_fixture
+from tests.test_review_finalizer_compatibility import model_output
 
 import importlib
+import json
 import os
 import sqlite3
 import unittest
@@ -20,6 +22,106 @@ from fastapi import HTTPException
 
 
 class ReviewAccessTest(unittest.TestCase):
+    def test_debug_tester_requires_real_session_marker_allowlist_and_consent(self):
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"), api_module_state():
+            account_store, access_control = self._load_modules()
+            session = account_store.login_dev_provider(
+                provider="kakao", provider_user_id="synthetic-owner", display_name="Synthetic owner")
+            token = f"Bearer {session['session_token']}"
+            user_id = session["user"]["id"]
+            with patch.dict(os.environ, {
+                "ALPHAMATE_ENV": "production", "ALPHAMATE_ALLOW_DEV_ACCESS": "false",
+                "ALPHAMATE_DEBUG_REVIEW_TESTER_USER_IDS": f"other-user, {user_id}",
+            }):
+                before = access_control.get_user_entitlements(authorization=token, entitlement_token="")
+                self.assertFalse(before["debug_review_tester"])
+                self.assertTrue(access_control.get_user_entitlements(
+                    authorization=token, entitlement_token="", client_marker="debug")["debug_review_tester"])
+                with patch.object(access_control, "_consume_basic", side_effect=AssertionError("quota consumed")), \
+                     patch.object(access_control, "_consume_advanced", side_effect=AssertionError("quota consumed")), \
+                     patch.object(access_control, "_consume_ad_reward", side_effect=AssertionError("ad consumed")), \
+                     patch.object(access_control, "_save_wallet", side_effect=AssertionError("wallet write")):
+                    for review_type in ("basic", "advanced"):
+                        for _ in range(3):
+                            access = access_control.verify_ai_review_access(
+                                authorization=token, ad_reward_token="", entitlement_token="",
+                                privacy_consent=True, review_type=review_type, client_marker="debug")
+                            self.assertEqual(f"debug_tester_{review_type}", access.source)
+                            self.assertEqual("session", access.auth_mode)
+                            self.assertEqual(before["basic"], access.product_balances["basic"])
+                            self.assertEqual(before["advanced"], access.product_balances["advanced"])
+                            self.assertEqual(access.product_balances, access_control.refund_ai_review_access(access))
+                for consent, authorization, expected in ((False, token, 400), (True, None, 401),
+                                                          (True, "Bearer dev-token", 401)):
+                    with self.assertRaises(HTTPException) as raised:
+                        access_control.verify_ai_review_access(
+                            authorization=authorization, ad_reward_token="", entitlement_token="",
+                            privacy_consent=consent, review_type="advanced", client_marker="debug")
+                    self.assertEqual(expected, raised.exception.status_code)
+
+    def test_non_allowlisted_debug_and_release_keep_ordinary_quota(self):
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"), api_module_state():
+            account_store, access_control = self._load_modules()
+            session = account_store.login_dev_provider(
+                provider="naver", provider_user_id="synthetic-normal", display_name="Synthetic normal")
+            token, user_id = f"Bearer {session['session_token']}", session["user"]["id"]
+            for allowlist, marker in (("other-user", "debug"), ("", "debug"),
+                                      (user_id, None), (user_id, "release"), (user_id, "DEBUG")):
+                with self.subTest(allowlisted=allowlist == user_id, marker=marker), patch.dict(os.environ, {
+                    "ALPHAMATE_ENV": "production", "ALPHAMATE_ALLOW_DEV_ACCESS": "false",
+                    "ALPHAMATE_DEBUG_REVIEW_TESTER_USER_IDS": allowlist,
+                }):
+                    before = access_control.get_user_entitlements(authorization=token, entitlement_token="")
+                    access = access_control.verify_ai_review_access(
+                        authorization=token, ad_reward_token="", entitlement_token="",
+                        privacy_consent=True, review_type="basic", client_marker=marker)
+                    self.assertEqual("signup_basic", access.source)
+                    self.assertEqual(before["basic"]["signup_remaining"] - 1,
+                                     access.product_balances["basic"]["signup_remaining"])
+                    access_control.refund_ai_review_access(access)
+                    with self.assertRaises(HTTPException) as raised:
+                        access_control.verify_ai_review_access(
+                            authorization=token, ad_reward_token="", entitlement_token="",
+                            privacy_consent=True, review_type="advanced", client_marker=marker)
+                    self.assertEqual(402, raised.exception.status_code)
+
+    def test_debug_tester_route_and_execution_cache_preserve_no_charge_identity(self):
+        with storage_fixture(ALPHAMATE_ALLOW_DEV_ACCESS="true"), api_module_state():
+            account_store, access_control = self._load_modules()
+            session = account_store.login_dev_provider(
+                provider="kakao", provider_user_id="synthetic-route-owner", display_name="Synthetic route")
+            token, user_id = f"Bearer {session['session_token']}", session["user"]["id"]
+            main = importlib.import_module("main")
+            ai = importlib.import_module("core.ai_review_v2")
+            account_store.update_journal_storage_setting(authorization=token, enabled=True)
+            with patch.dict(os.environ, {
+                "ALPHAMATE_ENV": "production", "ALPHAMATE_ALLOW_DEV_ACCESS": "false",
+                "ALPHAMATE_DEBUG_REVIEW_TESTER_USER_IDS": user_id,
+            }), patch.object(main, "build_journal_charts", return_value={"charts": []}), \
+                 patch.object(ai, "_compact_chart_snapshot", return_value=compact_chart_fixture()), \
+                 patch.object(ai, "_contexts_for_trades", return_value=[]), \
+                 patch.object(access_control, "_save_wallet", side_effect=AssertionError("wallet write")):
+                batch = main.JournalAiReviewIn(
+                    trades=[main.JournalReviewTradeIn(trade_date="2026-09-02T09:00", ticker="005930",
+                                                     name="Synthetic", side="buy", price=70000, quantity=1, fee=0, tax=0)],
+                    privacy_consent=True)
+                for review_type in ("basic", "advanced"):
+                    with patch.object(ai, "_call_openai_review", return_value=json.dumps(model_output(review_type), ensure_ascii=False)) as generated:
+                        args = dict(authorization=token, x_idempotency_key=f"tester-{review_type}",
+                                    x_review_display_contract=[SCHEMA_VERSION], x_stockboda_client="debug")
+                        typed_batch = batch.model_copy(update={"review_type": review_type})
+                        first = main.get_journal_ai_review_once(typed_batch, **args)
+                        replay = main.get_journal_ai_review_once(typed_batch, **args)
+                        self.assertEqual("ready", first["status"], (review_type, first.get("internal_status"), first.get("source")))
+                        self.assertEqual(f"debug_tester_{review_type}", first["access"]["source"])
+                        self.assertTrue(replay["access"]["idempotent_replay"])
+                        self.assertEqual(first["display_snapshot"], replay["display_snapshot"])
+                        self.assertEqual(1, generated.call_count)
+                        detail = main.get_journal_review_history_detail(
+                            first["review_history_id"], authorization=token, x_review_display_contract=[SCHEMA_VERSION])
+                        self.assertEqual(first["display_snapshot"], detail["ai_review"]["display_snapshot"])
+                        self.assertEqual(f"debug_tester_{review_type}", detail["access_snapshot"]["source"])
+
     def _configured_env(self, tmpdir, *, enabled="true", expires_at=None):
         from core import account_store
 

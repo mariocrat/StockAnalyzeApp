@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { runInNewContext } from 'node:vm';
 import { setImmediate as nextTurn } from 'node:timers/promises';
+import { debugReviewClientHeaders } from '../src/utils/reviewDisplayContract.js';
 
 const source = readFileSync(new URL('../src/components/TradingJournal.jsx', import.meta.url), 'utf8');
 // Execute the actual handlers with network/storage doubles; no provider or API calls.
@@ -21,7 +22,7 @@ function harness({ provider = 'naver', scheme = 'com.mariocrat.stockanalyze.debu
   const pendingEntitlements = [];
   const authSessionGenerationRef = { current: 0 };
   const context = {
-    URL, Date, JSON, apiBase: 'https://sanitized.invalid',
+    URL, Date, JSON, debugReviewClientHeaders, apiBase: 'https://sanitized.invalid',
     AUTH_STORAGE_KEY: 'auth', OAUTH_STATE_KEY: 'state',
     DEV_AUTH_TOKEN: devToken, DEV_ACCESS_PLAN: 'free', DEV_ENTITLEMENT_TOKEN: '',
     activeAuthToken: 'old-token', authSession: state.session,

@@ -349,7 +349,7 @@ def _filter_openai_review_safety(
     return "", matched_rule_ids
 
 
-def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
+def _call_openai_review(payload: dict, *, model: str, instructions: str, reasoning_effort: str | None = None) -> str:
     api_key = _env_value("OPENAI_API_KEY") or _env_value("ALPHAMATE_OPENAI_API_KEY")
     if not api_key:
         return ""
@@ -359,7 +359,7 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str) -> str:
         "instructions": instructions,
         "input": json.dumps(payload, ensure_ascii=False),
         "max_output_tokens": _review_max_output_tokens(payload),
-        "reasoning": {"effort": _review_reasoning_effort(payload)},
+        "reasoning": {"effort": reasoning_effort or _review_reasoning_effort(payload)},
         "store": False,
     }
     response_format = (payload.get("output_contract") or {}).get("response_format")
@@ -1618,7 +1618,7 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
             "length": "짧고 실전적으로",
         },
     }
-    model = _env_value("OPENAI_BASIC_REVIEW_MODEL") or _env_value("OPENAI_MODEL") or "gpt-5.6-luna"
+    model = _env_value("OPENAI_BASIC_REVIEW_MODEL") or _env_value("OPENAI_MODEL") or "gpt-6-luna"
     instructions = (
         AI_REVIEW_SAFETY_RULES
         + "<role>너는 한국 주식 매매 복기 코치다. 같은 종목의 여러 분할 체결은 하나의 매매 에피소드로 평가한다.</role>\n"
@@ -1713,11 +1713,11 @@ def build_advanced_ai_review(
             "do_not_expand": "다른 종목이나 선택하지 않은 매매를 추측하거나 분석에 포함하지 않는다.",
         },
     }
-    model = str(model_override or "").strip() or _env_value("OPENAI_ADVANCED_REVIEW_MODEL") or "gpt-5.6-luna"
+    model = str(model_override or "").strip() or _env_value("OPENAI_ADVANCED_REVIEW_MODEL") or "gpt-6.1-sol"
     fallback_model = (
         _env_value("OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL")
         or _env_value("OPENAI_BASIC_REVIEW_MODEL")
-        or "gpt-5.4-mini"
+        or "gpt-6-luna"
     )
     instructions = (
         AI_REVIEW_SAFETY_RULES
@@ -1752,7 +1752,11 @@ def build_advanced_ai_review(
         request_failed = True
         if allow_fallback and fallback_model and fallback_model != model:
             try:
-                ai_text = _call_openai_review(payload, model=fallback_model, instructions=instructions)
+                fallback_effort = str(_env_value("OPENAI_ADVANCED_REVIEW_FALLBACK_REASONING_EFFORT") or "low").strip().lower()
+                if fallback_effort not in OPENAI_REASONING_EFFORTS:
+                    fallback_effort = "low"
+                ai_text = _call_openai_review(payload, model=fallback_model, instructions=instructions,
+                                             reasoning_effort=fallback_effort)
                 model = fallback_model
                 if ai_text:
                     request_failed = False

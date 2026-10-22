@@ -110,9 +110,9 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             "quantity": 1,
          'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}])
 
-        self.assertEqual("gpt-5.6-luna", basic["model"])
-        self.assertEqual("gpt-5.6-luna", advanced["model"])
-        self.assertEqual([("basic", "gpt-5.6-luna"), ("advanced", "gpt-5.6-luna")], captured)
+        self.assertEqual("gpt-6-luna", basic["model"])
+        self.assertEqual("gpt-6.1-sol", advanced["model"])
+        self.assertEqual([("basic", "gpt-6-luna"), ("advanced", "gpt-6.1-sol")], captured)
 
     def test_ai_review_model_ids_are_configurable(self):
         os.environ["OPENAI_BASIC_REVIEW_MODEL"] = "custom-basic-model"
@@ -468,7 +468,7 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         event = captured_events[0]
         self.assertEqual("openai_review_safety_rejected", event["event_type"])
         self.assertEqual("advanced", event["details"]["review_type"])
-        self.assertEqual("gpt-5.6-luna", event["details"]["model"])
+        self.assertEqual("gpt-6.1-sol", event["details"]["model"])
         self.assertEqual(["rule_1"], event["details"]["matched_rule_ids"])
         self.assertEqual(["target_price"], event["details"]["matched_rule_categories"])
         self.assertEqual("completed", event["details"]["response_status"])
@@ -478,20 +478,18 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
         self.assertNotIn("snippet", serialized_event.lower())
 
     def test_advanced_review_uses_configurable_fallback_model_after_primary_failure(self):
-        os.environ["OPENAI_ADVANCED_REVIEW_MODEL"] = "primary-advanced-model"
-        os.environ["OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL"] = "fallback-advanced-model"
         captured = []
 
-        def fake_call(payload, *, model, instructions):
-            captured.append(model)
-            if model == "primary-advanced-model":
+        def fake_call(payload, *, model, instructions, reasoning_effort=None):
+            captured.append((model, reasoning_effort))
+            if len(captured) == 1:
                 raise RuntimeError("primary failed")
             return self._valid_model_output("advanced")
 
         self.enterContext(patch.object(self.ai_review_v2, "_contexts_for_trades", lambda trades: []))
         self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: compact_chart_fixture({})))
         self.enterContext(patch.object(self.ai_review_v2, "_call_openai_review", fake_call))
-        result = self.ai_review_v2.build_advanced_ai_review([{
+        trades = [{
             "id": 1,
             "trade_date": "2026-06-19T10:30",
             "ticker": "005930",
@@ -499,11 +497,23 @@ class AiReviewOpenAiClientTest(unittest.TestCase):
             "side": "buy",
             "price": 70000,
             "quantity": 1,
-         'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}])
-
-        self.assertEqual("ready", result["status"])
-        self.assertEqual("fallback-advanced-model", result["model"])
-        self.assertEqual(["primary-advanced-model", "fallback-advanced-model"], captured)
+         'fee': 0, 'tax': 0, 'memo': '', 'source': 'manual'}]
+        for primary, fallback, effort, expected_effort in (
+            ("", "", "", "low"),
+            ("primary-advanced-model", "fallback-advanced-model", "low", "low"),
+            ("primary-advanced-model", "fallback-advanced-model", "medium", "medium"),
+            ("primary-advanced-model", "fallback-advanced-model", "invalid", "low"),
+        ):
+            with self.subTest(primary=primary, fallback=fallback, effort=effort), patch.dict(os.environ, {
+                "OPENAI_ADVANCED_REVIEW_MODEL": primary, "OPENAI_ADVANCED_REVIEW_FALLBACK_MODEL": fallback,
+                "OPENAI_BASIC_REVIEW_MODEL": "", "OPENAI_ADVANCED_REVIEW_FALLBACK_REASONING_EFFORT": effort,
+            }):
+                captured.clear()
+                result = self.ai_review_v2.build_advanced_ai_review(trades)
+                self.assertEqual("ready", result["status"])
+                self.assertEqual(fallback or "gpt-6-luna", result["model"])
+                self.assertEqual([(primary or "gpt-6.1-sol", None),
+                                  (fallback or "gpt-6-luna", expected_effort)], captured)
 
     def test_successful_openai_review_results_expose_plain_string_summaries(self):
         self.enterContext(patch.object(self.ai_review_v2, "_compact_chart_snapshot", lambda trades: compact_chart_fixture({})))

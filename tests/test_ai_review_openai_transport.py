@@ -124,16 +124,20 @@ class AiReviewOpenAiTransportTest(unittest.TestCase):
 
         self.ai_review_v2.urllib.request.urlopen = fake_urlopen
         self.ai_review_v2._call_openai_review(
-            {"review_type": "basic"}, model="gpt-5.6-luna", instructions="test"
+            {"review_type": "basic"}, model="gpt-6-luna", instructions="test"
         )
         self.ai_review_v2._call_openai_review(
-            {"review_type": "advanced"}, model="gpt-5.6-luna", instructions="test"
+            {"review_type": "advanced"}, model="gpt-6.1-sol", instructions="test"
+        )
+        self.ai_review_v2._call_openai_review(
+            {"review_type": "advanced"}, model="gpt-6-luna", instructions="test", reasoning_effort="low"
         )
 
         self.assertEqual(
             [
-                ("gpt-5.6-luna", "none", 1000),
-                ("gpt-5.6-luna", "medium", 3000),
+                ("gpt-6-luna", "none", 1000),
+                ("gpt-6.1-sol", "medium", 3000),
+                ("gpt-6-luna", "low", 3000),
             ],
             captured,
         )

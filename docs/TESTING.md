@@ -31,10 +31,10 @@ TestOnly 호출 구조:
 3. 같은 Python으로 `-I -X utf8 -B tests/run_isolated_tests.py --node-all --node-executable <approved absolute node.exe>`.
 Python coordinator와 module child는 모두 `-I -X utf8`로 실행되어 UTF-8 stdout/stderr를 사용합니다.
 
-2026-10-19 source inventory는 manifest와 testcase declaration에서 재계산한다: Python direct **1079** (108 modules) = baseline **36 / 1005 / 22** (A1/foundation/helper / migrated / OUT) + Stage 1 **16** 별도 cohort.
+2026-10-22 source inventory는 manifest와 testcase declaration에서 재계산한다: Python direct **1082** (108 modules) = baseline **36 / 1008 / 22** (A1/foundation/helper / migrated / OUT) + Stage 1 **16** 별도 cohort.
 2026-09-23 historical baseline은 Python direct **464** = **35 / 393 / 22** + Stage 1 **14**였다. 아래 closeout 결과와 구분한다.
 Child probe **18**은 direct와 별도 집계합니다.
-Node **24 entrypoint / 281 direct testcase**, `test:ai-chart-source`, `test:broker-import`, `test:broker-pdf-extraction`, `test:canonical-review-renderer`, `test:mobile-bundle` 포함.
+Node **24 entrypoint / 285 direct testcase**, `test:ai-chart-source`, `test:broker-import`, `test:broker-pdf-extraction`, `test:canonical-review-renderer`, `test:mobile-bundle` 포함.
 `test:broker-pdf-extraction`은 lockfile의 PDF.js 6.2.108 package/parser/local worker 3개 파일을 SHA 고정 snapshot으로 복사한다. PDF bytes는 H4 메모리에서 생성하며 Node text extraction의 실제 PDF.js/fake-worker 경로를 실행한다. Canvas API는 사용 시 실패하는 platform sentinel이며 렌더링·브라우저 Worker·실기기 증거로 취급하지 않는다. Guard/network 권한은 확장하지 않는다.
 Manifest/source/execution 누락·중복·extra 및 예상 밖 skip은 실패입니다. Nested evidence는 direct에 중복 합산하지 않습니다.
 
@@ -74,7 +74,7 @@ npm lifecycle/build 설정의 부작용을 먼저 검토해야 하며 필요한 
 
 ## 검증 상태와 범위
 
-아래 closeout 결과는 2026-09-23, 검증 HEAD `9fff3f3e84ce26f663f41619d37a4eb101bfbc32`의 historical baseline입니다. 현재 source inventory는 Python 1079 direct / 18 child probe, Node 24 / 281입니다. 이전 Phase 6 전체 TestOnly 결과는 [당시 실행 계획](exec-plans/active/phase6-testonly-blockers.md), 현재 Slice 6 focused 통합 검증은 [migration plan](exec-plans/active/review-display-v2-migration.md)에 구분해 기록합니다.
+아래 closeout 결과는 2026-09-23, 검증 HEAD `9fff3f3e84ce26f663f41619d37a4eb101bfbc32`의 historical baseline입니다. 현재 source inventory는 Python 1082 direct / 18 child probe, Node 24 / 285입니다. 이전 Phase 6 전체 TestOnly 결과는 [당시 실행 계획](exec-plans/active/phase6-testonly-blockers.md), 현재 Slice 6 focused 통합 검증은 [migration plan](exec-plans/active/review-display-v2-migration.md)에 구분해 기록합니다.
 
 ### Phase 2D-4 client display compatibility gate — 2026-10-05
 

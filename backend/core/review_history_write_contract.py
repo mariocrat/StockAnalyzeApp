@@ -58,12 +58,12 @@ _ACCESS = {
 }
 _SOURCES = {
     "free": {
-        "basic": {"signup_basic", "free_daily_basic", "rewarded_ad_basic", "purchased_basic", "purchased_advanced_as_basic"},
-        "advanced": {"signup_advanced", "weekly_ad_advanced", "purchased_advanced"},
+        "basic": {"signup_basic", "free_daily_basic", "rewarded_ad_basic", "purchased_basic", "purchased_advanced_as_basic", "debug_tester_basic"},
+        "advanced": {"signup_advanced", "weekly_ad_advanced", "purchased_advanced", "debug_tester_advanced"},
     },
     "pro": {
-        "basic": {"pro_monthly_basic", "purchased_basic"},
-        "advanced": {"pro_monthly_advanced", "purchased_advanced", "signup_advanced", "weekly_ad_advanced"},
+        "basic": {"pro_monthly_basic", "purchased_basic", "debug_tester_basic"},
+        "advanced": {"pro_monthly_advanced", "purchased_advanced", "signup_advanced", "weekly_ad_advanced", "debug_tester_advanced"},
     },
 }
 _EXPIRY = re.compile(

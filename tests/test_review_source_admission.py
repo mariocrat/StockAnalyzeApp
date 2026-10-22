@@ -312,7 +312,7 @@ class ReviewSourceAdmissionTest(unittest.TestCase):
     def test_primary_model_failure_still_uses_existing_fallback_model_once(self):
         models = []
 
-        def call(payload, *, model, instructions):
+        def call(payload, *, model, instructions, reasoning_effort=None):
             models.append(model)
             if len(models) == 1:
                 raise RuntimeError("synthetic provider failure")

@@ -743,9 +743,9 @@ _AI_REVIEW_CACHE_ACCESS = {
 }
 _AI_REVIEW_CACHE_ACCESS_SOURCES = {
     "basic": {"signup_basic", "free_daily_basic", "rewarded_ad_basic", "pro_monthly_basic",
-              "purchased_basic", "purchased_advanced_as_basic", "review_basic"},
+              "purchased_basic", "purchased_advanced_as_basic", "review_basic", "debug_tester_basic"},
     "advanced": {"signup_advanced", "weekly_ad_advanced", "pro_monthly_advanced",
-                 "purchased_advanced", "review_advanced"},
+                 "purchased_advanced", "review_advanced", "debug_tester_advanced"},
 }
 
 
@@ -770,6 +770,7 @@ def _validate_ai_review_cached_access(access: dict, *, review_type: str, status:
             or access["review_type"] != review_type
             or access["source"] not in _AI_REVIEW_CACHE_ACCESS_SOURCES[review_type]
             or access["source"].startswith("review_") != review_mode
+            or (access["source"].startswith("debug_tester_") and access["auth_mode"] != "session")
             or (review_mode and access["plan"] != "pro")
             or (not review_mode and access["plan"] != wallet["plan"])
             or access["quota"] != {key: wallet[key] for key in ("basic", "advanced")}
@@ -1921,10 +1922,12 @@ def remove_journal_review_history(
 def get_journal_entitlements(
     authorization: Optional[str] = Header(default=None),
     entitlement_token: Optional[str] = None,
+    x_stockboda_client: Optional[str] = Header(default=None, alias="X-StockBoda-Client"),
 ):
     return get_user_entitlements(
         authorization=authorization,
         entitlement_token=entitlement_token,
+        client_marker=x_stockboda_client,
     )
 
 
@@ -2018,6 +2021,7 @@ def get_journal_ai_review_once(
     authorization: Optional[str] = Header(default=None),
     x_idempotency_key: Optional[str] = Header(default=None, alias="X-Idempotency-Key"),
     x_review_display_contract: Optional[list[str]] = Header(default=None, alias=REVIEW_DISPLAY_CONTRACT_HEADER),
+    x_stockboda_client: Optional[str] = Header(default=None, alias="X-StockBoda-Client"),
 ):
     display_capability = require_review_display_client(x_review_display_contract)
     _enforce_journal_batch_limit(batch, max_trades=_ai_review_max_trades(), label="AI 복기")
@@ -2054,6 +2058,7 @@ def get_journal_ai_review_once(
             entitlement_token=batch.entitlement_token,
             privacy_consent=batch.privacy_consent,
             review_type=batch.review_type,
+            client_marker=x_stockboda_client,
         )
         if batch.privacy_consent and authorization:
             record_privacy_consent(authorization=authorization)

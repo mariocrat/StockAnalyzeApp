@@ -157,6 +157,7 @@ function renderLiveResult(aiReview, aiLoading = false) {
   const view = compile(`const view = ${liveExpression};`, {
     React, aiReview, aiLoading, aiChartSource: aiReviewChartSource(aiReview), reviewAccessText: () => '',
     basicReviewInput, aiReviewSource: null, adLoading: false, aiConsentAccepted: true,
+    selectedReviewTrades: [], startSelectedReview: () => assert.fail('rendering must not execute retry'),
     deepenBasicReview: () => assert.fail('rendering must not execute advanced review'),
     CanonicalReviewRenderer: canonicalProbe(observed),
     ReviewBodyRenderer: bodyProbe(observed),
@@ -672,16 +673,16 @@ test('transport failures use fixed frontend notice and recover to the approved p
   h.axios.post = async () => { throw { response: { status: 500, data: { detail: 'UNAPPROVED' } } }; };
   await h.run([{ id: 1 }]);
   assert.deepEqual(h.state.aiReview, { status: 'request_error' });
-  assert.equal(h.state.message, 'AI 분석을 불러오지 못했습니다.');
+  assert.equal(h.state.message, 'AI/서버 오류로 복기를 완료하지 못했습니다. 차감된 복기권은 실패 처리 시 환불됩니다. 응답을 받지 못했다면 이용권 상태를 먼저 확인해 주세요.');
   const failed = renderLiveResult(h.state.aiReview);
   assert.equal(failed.body, undefined);
-  assert.equal(renderEvidence(failed.html).text, 'AI 복기 분석을 불러오지 못했습니다.');
+  assert.match(renderEvidence(failed.html).text, /^AI 복기를 완료하지 못했습니다\.[\s\S]*안내와 이용권 상태를 확인해 주세요\.[\s\S]*다시 시도$/);
   assert.equal(renderImmediate(h.state.aiReview).html, '');
   for (const data of [null, undefined]) {
     h.axios.post = async () => ({ data });
     await h.run([{ id: 1 }]);
     assert.deepEqual(h.state.aiReview, { status: 'request_error' });
-    assert.equal(renderEvidence(renderLiveResult(h.state.aiReview).html).text, 'AI 복기 분석을 불러오지 못했습니다.');
+    assert.match(renderEvidence(renderLiveResult(h.state.aiReview).html).text, /^AI 복기를 완료하지 못했습니다\.[\s\S]*안내와 이용권 상태를 확인해 주세요\.[\s\S]*다시 시도$/);
     assert.equal(renderImmediate(h.state.aiReview).html, '');
   }
   h.axios.post = post;
