@@ -42,6 +42,7 @@ from core.review_display_client import REVIEW_DISPLAY_CONTRACT_HEADER, require_r
 from core.review_display_capability import V1_CAPABILITY, DUAL_CAPABILITY, require_display_capability, select_admitted_body
 from core.review_approval_bundle import validate_bundle
 from core.review_execution_cache import approve_cached_execution, validate_cached_execution
+from core import review_diagnostics
 from core.journal_chart import build_journal_charts, initialize_yfinance_cache
 from core.review_history import (
     add_review_history, list_review_history, get_review_history, delete_review_history,
@@ -1106,7 +1107,7 @@ async def limit_public_market_requests(request: Request, call_next):
 @app.middleware("http")
 async def log_failed_api_requests(request: Request, call_next):
     path = request.url.path
-    request_id = _request_id_from_header(request.headers.get(REQUEST_ID_HEADER))
+    request_id = getattr(request.state, "review_request_id", None) or _request_id_from_header(request.headers.get(REQUEST_ID_HEADER))
     if not path.startswith("/api/"):
         response = await call_next(request)
         response.headers[REQUEST_ID_HEADER] = request_id
@@ -1116,6 +1117,7 @@ async def log_failed_api_requests(request: Request, call_next):
     try:
         response = await call_next(request)
     except Exception as exc:
+        review_diagnostics.fail(exc)
         record_api_exception(
             method=request.method,
             path=path,
@@ -1139,6 +1141,9 @@ async def log_failed_api_requests(request: Request, call_next):
             },
         )
     return response
+
+
+app.add_middleware(review_diagnostics.ReviewDiagnosticsMiddleware, record=record_event)
 
 
 @app.get("/healthz")
@@ -2023,9 +2028,13 @@ def get_journal_ai_review_once(
     x_review_display_contract: Optional[list[str]] = Header(default=None, alias=REVIEW_DISPLAY_CONTRACT_HEADER),
     x_stockboda_client: Optional[str] = Header(default=None, alias="X-StockBoda-Client"),
 ):
+    review_diagnostics.update(review_type=batch.review_type)
+    review_diagnostics.stage("access")
     display_capability = require_review_display_client(x_review_display_contract)
     _enforce_journal_batch_limit(batch, max_trades=_ai_review_max_trades(), label="AI 복기")
     batch.review_type = _normalize_ai_review_type(batch.review_type)
+    review_diagnostics.update(review_type=batch.review_type)
+    review_diagnostics.stage("cache")
     idempotency_cache_key, idempotent_result = _begin_ai_review_idempotency(
         authorization,
         x_idempotency_key,
@@ -2033,8 +2042,13 @@ def get_journal_ai_review_once(
         display_capability=display_capability,
     )
     if idempotent_result is not None:
+        review_diagnostics.stage("cache")
+        review_diagnostics.update(internal_status=idempotent_result.get("status"),
+                                  display_generated="display_snapshot" in idempotent_result,
+                                  access_source=idempotent_result.get("access", {}).get("source"))
         return idempotent_result
 
+    review_diagnostics.stage("access")
     _enforce_ai_review_rate_limit(authorization)
     _acquire_ai_review_capacity()
     access = None
@@ -2049,7 +2063,9 @@ def get_journal_ai_review_once(
         if access is None or refund_attempted:
             return access.product_balances if access is not None else None
         refund_attempted = True
-        return refund_ai_review_access(access)
+        wallet = refund_ai_review_access(access)
+        review_diagnostics.update(refunded=True)
+        return wallet
 
     try:
         access = verify_ai_review_access(
@@ -2060,9 +2076,12 @@ def get_journal_ai_review_once(
             review_type=batch.review_type,
             client_marker=x_stockboda_client,
         )
+        review_diagnostics.update(access_source=access.source)
+        review_diagnostics.stage("trade_context")
         if batch.privacy_consent and authorization:
             record_privacy_consent(authorization=authorization)
         trades = _journal_batch_payload(batch)
+        review_diagnostics.stage("history")
         history_state = _prepare_ai_review_history_state(
             authorization=authorization, batch=batch, trades=trades,
         )
@@ -2079,7 +2098,12 @@ def get_journal_ai_review_once(
                 **history_kwargs,
             )
         history_result = result
+        review_diagnostics.stage("canonical_finalizer")
         result = _normalize_ai_review_result(result, snapshot=approval_state.get("snapshot"))
+        review_diagnostics.update(display_generated="display_snapshot" in result,
+                                  internal_status=result.get("internal_status") or result.get("status"))
+        if result.get("status") == "error":
+            review_diagnostics.fail(status=result.get("internal_status") or "error")
         bundle = approval_state.get("bundle")
         selected_body = None
         if bundle is not None:
@@ -2110,6 +2134,7 @@ def get_journal_ai_review_once(
         # History admits the original finalizer content, before the separate API
         # projection can supply a missing chart or replace equal numeric types.
         history_result["access"] = result["access"]
+        review_diagnostics.stage("history")
         review_history_id = _save_ai_review_history_if_enabled(
             history_state=history_state,
             result=history_result,
@@ -2119,12 +2144,14 @@ def get_journal_ai_review_once(
         completion = {"snapshot": approval_state.get("snapshot")}
         if bundle is not None:
             completion["bundle"] = bundle
+        review_diagnostics.stage("cache")
         _finish_ai_review_idempotency(idempotency_cache_key, result, **completion)
         if selected_body is not None:
             result = copy.deepcopy(result)
             result["display_snapshot"] = selected_body
         return result
     except Exception as error:
+        review_diagnostics.fail(error)
         if isinstance(error, PairedHistoryCommitUnknown):
             # Preserve pending identity and access until reconciliation: a row
             # may be committed. No blind retry/second INSERT/refund on uncertainty.

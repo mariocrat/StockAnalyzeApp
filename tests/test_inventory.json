@@ -1225,6 +1225,23 @@
       "skips": {}
     },
     {
+      "module": "tests.test_review_diagnostics",
+      "h4_classification": "migrated",
+      "execution_role": "guarded",
+      "cohort": "baseline",
+      "cases": [
+        "ReviewDiagnosticsTest.test_actual_invalid_model_response_is_openai_response_stage",
+        "ReviewDiagnosticsTest.test_actual_route_failure_stage_matrix_without_ai_or_private_data",
+        "ReviewDiagnosticsTest.test_actual_urlopen_attempt_and_response_decode_are_tracked",
+        "ReviewDiagnosticsTest.test_all_stages_and_fallback_recovery_are_request_local",
+        "ReviewDiagnosticsTest.test_http_success_401_402_500_have_generated_id_without_body_changes",
+        "ReviewDiagnosticsTest.test_metadata_rejects_private_values_and_keeps_first_failure",
+        "ReviewDiagnosticsTest.test_telemetry_and_logger_failure_do_not_escape_or_leave_context",
+        "ReviewDiagnosticsTest.test_telemetry_failure_still_emits_allowlisted_application_log"
+      ],
+      "skips": {}
+    },
+    {
       "module": "tests.test_review_display_client_gate",
       "h4_classification": "migrated",
       "execution_role": "guarded",

@@ -10,6 +10,7 @@ import urllib.request
 from core.ai_review import _env_value, _fmt8, _parse_date, _chart_context_for_trade
 from core.data_fetcher import get_review_stock_ohlcv
 from core.event_log import record_event
+from core import review_diagnostics
 from core.journal import build_review
 from core.journal_chart import build_journal_charts, _prepare_review_ohlcv
 from core.trade_review_schema import (
@@ -298,6 +299,7 @@ def _record_openai_usage(data: dict, *, payload: dict, model: str) -> None:
 
 
 def _record_openai_failure(error: BaseException, *, payload: dict, model: str, attempt: int) -> None:
+    review_diagnostics.fail(error, status="request_error")
     status_code = error.code if isinstance(error, urllib.error.HTTPError) else 0
     details = {
         "review_type": str(payload.get("review_type") or "unknown"),
@@ -350,6 +352,8 @@ def _filter_openai_review_safety(
 
 
 def _call_openai_review(payload: dict, *, model: str, instructions: str, reasoning_effort: str | None = None) -> str:
+    review_diagnostics.stage("openai_request")
+    review_diagnostics.update(model=model)
     api_key = _env_value("OPENAI_API_KEY") or _env_value("ALPHAMATE_OPENAI_API_KEY")
     if not api_key:
         return ""
@@ -388,7 +392,9 @@ def _call_openai_review(payload: dict, *, model: str, instructions: str, reasoni
     last_error = None
     for attempt in range(max_retries + 1):
         try:
+            review_diagnostics.update(openai_attempted=True)
             with urllib.request.urlopen(req, timeout=timeout_seconds) as res:
+                review_diagnostics.stage("openai_response")
                 data = json.loads(res.read().decode("utf-8"))
             _record_openai_usage(data, payload=payload, model=model)
             break
@@ -1306,6 +1312,7 @@ def _finalize_ai_review(
     Source failure is sticky and skips both model parsing and default fallback.
     The sealed snapshot remains internal; legacy route keys stay unchanged.
     """
+    review_diagnostics.stage("canonical_finalizer")
     if history_state is not None:
         history_state["approved"] = None
     if approval_state is not None:
@@ -1326,9 +1333,11 @@ def _finalize_ai_review(
                 source_failure = "invalid_structured_output"
             internal_status = source_failure
     if source_failure is None and had_model_output:
+        review_diagnostics.stage("openai_response")
         try:
             semantic, rule_ids, _rejected = _prepare_structured_model_output(raw_response, payload=payload, model=model)
         except _StructuredModelDecodeError:
+            review_diagnostics.fail(status="invalid_structured_output")
             return _legacy_compatibility_rejection(review_type)
         except (TypeError, ValueError, RecursionError, OverflowError):
             semantic, rule_ids = None, []
@@ -1337,6 +1346,7 @@ def _finalize_ai_review(
         elif semantic is None:
             internal_status = "invalid_structured_output"
         else:
+            review_diagnostics.stage("canonical_finalizer")
             # Raw/decode/admitted normalized safety is decided before the
             # existing low-confidence fallback can replace model semantics.
             semantic_review = _normalized_semantic_review(semantic, review_type)
@@ -1350,11 +1360,16 @@ def _finalize_ai_review(
                     # body. Admission generates no wire before sealing.
                     validate_legacy_body(normalized_display)
             except LegacyCompatibilityContractError:
+                review_diagnostics.fail(status="invalid_structured_output")
                 return _legacy_compatibility_rejection(review_type, internal_status)
             except (TypeError, KeyError, ValueError, RecursionError) as error:
                 issue = "safety_rejected" if "unsupported legacy display annotation" in str(error) else "invalid_structured_output"
             if issue:
                 internal_status, semantic = issue, None
+
+    if internal_status:
+        review_diagnostics.fail(status=internal_status)
+    review_diagnostics.stage("canonical_finalizer")
 
     history_metadata_json = None
     history_prepared_content = None
@@ -1438,10 +1453,12 @@ def _finalize_ai_review(
                 paired_source = selected
             return result, snapshot, None
         except LegacyCompatibilityContractError:
+            review_diagnostics.fail(status="invalid_structured_output")
             # Terminal admission failure, including fallback/fixed variants.
             # Do not retry another template or publish an approved snapshot.
             return _legacy_compatibility_rejection(review_type, internal_status), None, None
         except (TypeError, KeyError, ValueError, RecursionError, OverflowError) as error:
+            review_diagnostics.fail(error, status="invalid_structured_output")
             if "unsupported legacy display annotation" in str(error):
                 return None, None, "safety_rejected"
             if structured is not None:
@@ -1486,6 +1503,8 @@ def _finalize_ai_review(
                                      "prepared_content": history_prepared_content}
         if paired_capture is not None:
             history_state["approved"]["paired_capture"] = paired_capture
+    review_diagnostics.update(display_generated="display_snapshot" in result,
+                              internal_status=result.get("internal_status") or result.get("status"))
     return copy.deepcopy(result)
 
 
@@ -1564,6 +1583,7 @@ def _admission_failure_status(value, review_type):
 def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_focus: str = "balanced", *,
                           history_state: dict | None = None, approval_state: dict | None = None) -> dict:
     admission_inputs = trades
+    review_diagnostics.stage("trade_context")
     try:
         admitted_trades = admit_trade_sources(trades, memo_max_chars=_source_memo_limit())
         target = _target_trade(admitted_trades, target_trade_id)
@@ -1577,10 +1597,12 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
         context_inputs = [] if type(chart) is CompactChartSource else _contexts_for_trades(prompt_episode)
         admission_inputs = context_inputs
         context_sources = _admitted_contexts(context_inputs)
+        review_diagnostics.stage("source_build")
         source = compose_review_source(review_type="basic", trades=episode,
                                        objective=_objective_review_snapshot(episode), charts=(chart,),
                                        analysis_contexts=context_sources)
-    except (SourceAdmissionError, TypeError, KeyError, ValueError, OverflowError):
+    except (SourceAdmissionError, TypeError, KeyError, ValueError, OverflowError) as error:
+        review_diagnostics.fail(error, status="invalid_structured_output")
         return _finalize_ai_review("", source=None, review_type="basic", payload={"review_type": "basic"}, model="none",
                                    source_failure=_admission_failure_status(admission_inputs, "basic"),
                                    history_state=history_state, approval_state=approval_state)
@@ -1636,12 +1658,17 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
     )
     source_issue = _source_safety_issue(source, payload=payload, model=model, history_state=history_state)
     if source_issue:
+        review_diagnostics.fail(status=source_issue)
         return _finalize_ai_review("", source=source, review_type="basic", payload=payload, model=model,
                                    source_failure=source_issue, history_state=history_state, approval_state=approval_state)
     request_failed = False
+    review_diagnostics.stage("openai_request")
+    review_diagnostics.update(model=model)
     try:
         ai_text = _call_openai_review(payload, model=model, instructions=instructions)
-    except RuntimeError:
+        review_diagnostics.stage("openai_response")
+    except RuntimeError as error:
+        review_diagnostics.fail(error, status="request_error")
         ai_text = ""
         request_failed = True
     return _finalize_ai_review(
@@ -1660,6 +1687,7 @@ def build_advanced_ai_review(
     approval_state: dict | None = None,
 ) -> dict:
     admission_inputs = trades
+    review_diagnostics.stage("trade_context")
     try:
         admitted_trades = admit_trade_sources(trades, memo_max_chars=_source_memo_limit())
         target = _target_trade(admitted_trades, target_trade_id)
@@ -1679,10 +1707,12 @@ def build_advanced_ai_review(
         context_inputs = [] if any(type(chart) is CompactChartSource for chart in charts) else _contexts_for_trades(prompt_recent)
         admission_inputs = context_inputs
         context_sources = _admitted_contexts(context_inputs)
+        review_diagnostics.stage("source_build")
         source = compose_review_source(review_type="advanced", trades=recent,
                                        objective=_objective_review_snapshot(recent), charts=chart_sources,
                                        analysis_contexts=context_sources)
-    except (SourceAdmissionError, TypeError, KeyError, ValueError, OverflowError):
+    except (SourceAdmissionError, TypeError, KeyError, ValueError, OverflowError) as error:
+        review_diagnostics.fail(error, status="invalid_structured_output")
         return _finalize_ai_review("", source=None, review_type="advanced", payload={"review_type": "advanced"}, model="none",
                                    source_failure=_admission_failure_status(admission_inputs, "advanced"),
                                    history_state=history_state, approval_state=approval_state)
@@ -1743,12 +1773,17 @@ def build_advanced_ai_review(
     )
     source_issue = _source_safety_issue(source, payload=payload, model=model, history_state=history_state)
     if source_issue:
+        review_diagnostics.fail(status=source_issue)
         return _finalize_ai_review("", source=source, review_type="advanced", payload=payload, model=model,
                                    source_failure=source_issue, history_state=history_state, approval_state=approval_state)
     request_failed = False
+    review_diagnostics.stage("openai_request")
+    review_diagnostics.update(model=model)
     try:
         ai_text = _call_openai_review(payload, model=model, instructions=instructions)
-    except RuntimeError:
+        review_diagnostics.stage("openai_response")
+    except RuntimeError as error:
+        review_diagnostics.fail(error, status="request_error")
         request_failed = True
         if allow_fallback and fallback_model and fallback_model != model:
             try:
@@ -1760,6 +1795,9 @@ def build_advanced_ai_review(
                 model = fallback_model
                 if ai_text:
                     request_failed = False
+                    review_diagnostics.recovered()
+                    review_diagnostics.update(model=model)
+                    review_diagnostics.stage("openai_response")
             except RuntimeError:
                 ai_text = ""
         else:
