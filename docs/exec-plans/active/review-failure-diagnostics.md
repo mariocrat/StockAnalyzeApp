@@ -1,5 +1,28 @@
 # Review failure diagnostics
 
+## Context refinement (2026-10-23)
+
+- Base 75703a47cb9d027672569b37f1ab43c8f39dc894; isolated branch
+  fix/review-context-diagnostics. Prior implementation/verification below is historical.
+- Production reproduction identified trade_context / ValueError before OpenAI.
+  Refine only instrumentation; preserve all original calls, admission, results and effects.
+- Ordered context_steps record entered/completed and elapsed_ms for trade_admission,
+  trade_selection (target then episode), chart_build, chart_admission, context_build,
+  context_admission. Repeated advanced chart steps remain separate ordered entries.
+- Fixed operation codes: invalid_trade_shape, invalid_trade_selection,
+  chart_build_failed, invalid_chart_shape, context_build_failed, invalid_context_shape.
+  These identify the failing call boundary, not an inferred underlying data defect.
+  Never inspect or record exception messages, inputs or outputs. A handled provider
+  failure inside a builder retains its existing behavior; only escaping failures
+  mark that boundary failed. First failure remains sticky through finalization.
+- Official diagnostics H4 8/8 PASS, including 14 basic/advanced call-boundary
+  injection subcases, success/completion timing, HTTP ID/body and telemetry fallback.
+  Violations/unexpected 0; restoration/patch restoration/cleanup true.
+- Inventory 1090 direct / 109 modules, missing/duplicates 0; unchanged testcase
+  declarations require no inventory/hash edits. Python AST/tabnanny and diff-check PASS.
+- Next: scoped commit, independent verification, then separately authorized
+  merge/deploy and a single reproduction. No real AI call or deploy in this step.
+
 ## Scope
 
 Diagnose the next single authorized reproduction without changing review content,

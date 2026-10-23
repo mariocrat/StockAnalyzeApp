@@ -27,7 +27,7 @@ class ReviewDiagnosticsTest(unittest.TestCase):
             self.assertEqual(value.error_class, "ValueError")
             self.assertEqual(set(value.metadata()), {"request_id", "stage", "review_type", "internal_status",
                 "error_class", "openai_attempted", "model", "access_source", "refunded",
-                "display_generated", "elapsed_ms"})
+                "display_generated", "elapsed_ms", "error_code", "context_steps"})
         finally:
             diagnostic.finish(value, token, Mock())
 
@@ -58,6 +58,23 @@ class ReviewDiagnosticsTest(unittest.TestCase):
             self.assertFalse(value.failed)
             self.assertEqual(value.stage, "openai_response")
             self.assertEqual(value.error_class, "none")
+            for name, code in diagnostic.CONTEXT_ERRORS.items():
+                with diagnostic.context_step(name):
+                    pass
+                completed = value.context_steps[-1]
+                self.assertTrue(completed["entered"] and completed["completed"])
+                self.assertGreaterEqual(completed["elapsed_ms"], 0)
+                with self.assertRaises(ValueError):
+                    with diagnostic.context_step(name):
+                        raise ValueError("PRIVATE")
+                self.assertEqual(value.stage, name)
+                self.assertEqual(value.error_code, code)
+                self.assertFalse(value.context_steps[-1]["completed"])
+                diagnostic.stage("history")
+                self.assertEqual(value.stage, name)
+                self.assertNotIn("PRIVATE", json.dumps(value.metadata()))
+                diagnostic.recovered()
+                self.assertEqual(value.error_code, "none")
         finally:
             diagnostic.finish(value, token, Mock())
 
@@ -95,9 +112,40 @@ class ReviewDiagnosticsTest(unittest.TestCase):
         self.addCleanup(fixture.doCleanups)
         fixture.setUp()
         main, ai, case = fixture.main, fixture.ai, fixture.case
+        boundaries = {
+            "admit_trade_sources": "trade_admission",
+            "_target_trade": "trade_selection",
+            "_trade_episode": "trade_selection",
+            "_compact_chart_snapshot": "chart_build",
+            "_admitted_chart": "chart_admission",
+            "_contexts_for_trades": "context_build",
+            "_admitted_contexts": "context_admission",
+        }
+        from contextlib import ExitStack
+        for review_type in ("basic", "advanced"):
+            for name, expected in boundaries.items():
+                value, token = diagnostic.begin()
+                try:
+                    with self.subTest(review_type=review_type, boundary=name), ExitStack() as stack:
+                        provider = stack.enter_context(patch.object(ai, "_call_openai_review"))
+                        if expected.startswith("context_"):
+                            stack.enter_context(patch.object(ai, "_compact_chart_snapshot", return_value=
+                                ai.admit_chart_source({"kind": "unavailable", "reason": "no_market_data"})))
+                        stack.enter_context(patch.object(ai, name, side_effect=ValueError("PRIVATE")))
+                        result = getattr(ai, f"build_{review_type}_ai_review")(
+                            main._journal_batch_payload(case.batch(review_type)))
+                        self.assertEqual(result["status"], "error")
+                        self.assertEqual(value.stage, expected)
+                        self.assertEqual(value.error_code, diagnostic.CONTEXT_ERRORS[expected])
+                        self.assertFalse(value.context_steps[-1]["completed"])
+                        self.assertTrue(all(step["completed"] for step in value.context_steps[:-1]))
+                        self.assertNotIn("PRIVATE", json.dumps(value.metadata()))
+                        provider.assert_not_called()
+                finally:
+                    diagnostic.finish(value, token, Mock())
         cases = [
             (main, "verify_ai_review_access", "access", RuntimeError("PRIVATE")),
-            (ai, "admit_trade_sources", "trade_context", ValueError("PRIVATE")),
+            (ai, "admit_trade_sources", "trade_admission", ValueError("PRIVATE")),
             (ai, "compose_review_source", "source_build", ValueError("PRIVATE")),
             (ai, "_call_openai_review", "openai_request", RuntimeError("PRIVATE")),
             (main, "_normalize_ai_review_result", "canonical_finalizer", ValueError("PRIVATE")),

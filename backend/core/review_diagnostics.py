@@ -1,5 +1,6 @@
 """Request-local, allowlisted diagnostics; never retain review inputs or errors."""
 from contextvars import ContextVar
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 import logging
 import re
@@ -8,8 +9,16 @@ import uuid
 from starlette.middleware.errors import ServerErrorMiddleware
 
 _current = ContextVar("review_diagnostics", default=None)
+CONTEXT_ERRORS = {
+    "trade_admission": "invalid_trade_shape",
+    "trade_selection": "invalid_trade_selection",
+    "chart_build": "chart_build_failed",
+    "chart_admission": "invalid_chart_shape",
+    "context_build": "context_build_failed",
+    "context_admission": "invalid_context_shape",
+}
 STAGES = frozenset({"access", "trade_context", "source_build", "openai_request",
-                    "openai_response", "canonical_finalizer", "history", "cache"})
+                    "openai_response", "canonical_finalizer", "history", "cache", *CONTEXT_ERRORS})
 STATUSES = frozenset({"ready", "error", "request_error", "missing_key", "empty",
                       "invalid_structured_output", "safety_rejected"})
 
@@ -23,6 +32,8 @@ class ReviewDiagnostic:
     review_type: str = "unknown"
     internal_status: str = "unknown"
     error_class: str = "none"
+    error_code: str = "none"
+    context_steps: list = field(default_factory=list)
     openai_attempted: bool = False
     model: str = "none"
     access_source: str = "unknown"
@@ -31,7 +42,7 @@ class ReviewDiagnostic:
 
     def metadata(self):
         return {key: getattr(self, key) for key in (
-            "request_id", "stage", "review_type", "internal_status", "error_class",
+            "request_id", "stage", "review_type", "internal_status", "error_class", "error_code", "context_steps",
             "openai_attempted", "model", "access_source", "refunded", "display_generated"
         )} | {"elapsed_ms": round((time.monotonic() - self.started) * 1000, 2)}
 
@@ -69,12 +80,33 @@ def update(**fields):
             diagnostic.access_source = value
 
 
+@contextmanager
+def context_step(name):
+    diagnostic = _current.get()
+    if diagnostic is None or name not in CONTEXT_ERRORS or diagnostic.failed:
+        yield
+        return
+    stage(name)
+    started = time.monotonic()
+    step = {"stage": name, "entered": True, "completed": False}
+    diagnostic.context_steps.append(step)
+    try:
+        yield
+        step["completed"] = True
+    except Exception as error:
+        fail(error)
+        raise
+    finally:
+        step["elapsed_ms"] = round((time.monotonic() - started) * 1000, 2)
+
+
 def fail(error=None, *, status=None):
     diagnostic = _current.get()
     if diagnostic is None:
         return
     if not diagnostic.failed:
         diagnostic.failed = True
+        diagnostic.error_code = CONTEXT_ERRORS.get(diagnostic.stage, "none")
         # Exception messages and arbitrary class names can contain caller data.
         diagnostic.error_class = next((name for cls, name in (
             (ValueError, "ValueError"), (TypeError, "TypeError"), (KeyError, "KeyError"),
@@ -88,6 +120,7 @@ def recovered():
     if diagnostic is not None:
         diagnostic.failed = False
         diagnostic.error_class = "none"
+        diagnostic.error_code = "none"
         diagnostic.internal_status = "unknown"
 
 

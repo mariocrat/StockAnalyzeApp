@@ -1585,18 +1585,25 @@ def build_basic_ai_review(trades: list[dict], target_trade_id=None, analysis_foc
     admission_inputs = trades
     review_diagnostics.stage("trade_context")
     try:
-        admitted_trades = admit_trade_sources(trades, memo_max_chars=_source_memo_limit())
-        target = _target_trade(admitted_trades, target_trade_id)
+        with review_diagnostics.context_step("trade_admission"):
+            admitted_trades = admit_trade_sources(trades, memo_max_chars=_source_memo_limit())
+        with review_diagnostics.context_step("trade_selection"):
+            target = _target_trade(admitted_trades, target_trade_id)
         if target is None:
             return _empty_review_result("basic", approval_state, history_state)
-        episode = _trade_episode(admitted_trades, target)
+        with review_diagnostics.context_step("trade_selection"):
+            episode = _trade_episode(admitted_trades, target)
         prompt_episode = episode[-20:]
-        chart_input = _compact_chart_snapshot(prompt_episode)
+        with review_diagnostics.context_step("chart_build"):
+            chart_input = _compact_chart_snapshot(prompt_episode)
         admission_inputs = chart_input
-        chart = _admitted_chart(chart_input)
-        context_inputs = [] if type(chart) is CompactChartSource else _contexts_for_trades(prompt_episode)
+        with review_diagnostics.context_step("chart_admission"):
+            chart = _admitted_chart(chart_input)
+        with review_diagnostics.context_step("context_build"):
+            context_inputs = [] if type(chart) is CompactChartSource else _contexts_for_trades(prompt_episode)
         admission_inputs = context_inputs
-        context_sources = _admitted_contexts(context_inputs)
+        with review_diagnostics.context_step("context_admission"):
+            context_sources = _admitted_contexts(context_inputs)
         review_diagnostics.stage("source_build")
         source = compose_review_source(review_type="basic", trades=episode,
                                        objective=_objective_review_snapshot(episode), charts=(chart,),
@@ -1689,24 +1696,31 @@ def build_advanced_ai_review(
     admission_inputs = trades
     review_diagnostics.stage("trade_context")
     try:
-        admitted_trades = admit_trade_sources(trades, memo_max_chars=_source_memo_limit())
-        target = _target_trade(admitted_trades, target_trade_id)
+        with review_diagnostics.context_step("trade_admission"):
+            admitted_trades = admit_trade_sources(trades, memo_max_chars=_source_memo_limit())
+        with review_diagnostics.context_step("trade_selection"):
+            target = _target_trade(admitted_trades, target_trade_id)
         if target is None:
             return _empty_review_result("advanced", approval_state, history_state)
-        recent = _trade_episode(admitted_trades, target)
+        with review_diagnostics.context_step("trade_selection"):
+            recent = _trade_episode(admitted_trades, target)
         prompt_recent = recent[-20:]
         by_ticker = {}
         for trade in prompt_recent:
             by_ticker.setdefault(trade.ticker or trade.name, []).append(trade)
         charts = []
         for ticker_trades in by_ticker.values():
-            chart_input = _compact_chart_snapshot(tuple(ticker_trades))
+            with review_diagnostics.context_step("chart_build"):
+                chart_input = _compact_chart_snapshot(tuple(ticker_trades))
             admission_inputs = chart_input
-            charts.append(_admitted_chart(chart_input))
+            with review_diagnostics.context_step("chart_admission"):
+                charts.append(_admitted_chart(chart_input))
         chart_sources = tuple(charts)
-        context_inputs = [] if any(type(chart) is CompactChartSource for chart in charts) else _contexts_for_trades(prompt_recent)
+        with review_diagnostics.context_step("context_build"):
+            context_inputs = [] if any(type(chart) is CompactChartSource for chart in charts) else _contexts_for_trades(prompt_recent)
         admission_inputs = context_inputs
-        context_sources = _admitted_contexts(context_inputs)
+        with review_diagnostics.context_step("context_admission"):
+            context_sources = _admitted_contexts(context_inputs)
         review_diagnostics.stage("source_build")
         source = compose_review_source(review_type="advanced", trades=recent,
                                        objective=_objective_review_snapshot(recent), charts=chart_sources,
