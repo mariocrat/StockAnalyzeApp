@@ -194,7 +194,7 @@ def _trade_outcomes(trades: list[dict]) -> dict:
     position_qty = 0.0
     position_cost = 0.0
     outcomes = {}
-    for trade in sorted(trades, key=lambda row: (row.get("trade_date", ""), row.get("id", 0))):
+    for index, trade in sorted(enumerate(trades), key=lambda pair: (pair[1].get("trade_date", ""), pair[1].get("id") or 0)):
         qty = _to_float(trade.get("quantity"))
         price = _to_float(trade.get("price"))
         costs = sum(_to_float(trade[key]) for key in ("fee", "tax") if trade.get(key) is not None)
@@ -207,7 +207,7 @@ def _trade_outcomes(trades: list[dict]) -> dict:
         matched_cost = avg_cost * matched_qty
         net_sell = price * qty - costs
         profit = net_sell - matched_cost if matched_qty > 0 else None
-        outcomes[str(trade.get("id"))] = {
+        outcomes[index] = {
             "profit_amount": round(profit, 0) if profit is not None else None,
             "return_rate": round((profit / matched_cost) * 100, 2) if profit is not None and matched_cost else None,
             "matched_cost": matched_cost if matched_qty > 0 else None,
@@ -221,7 +221,7 @@ def _trade_outcomes(trades: list[dict]) -> dict:
 def _markers_for_trades(trades: list[dict], candles: list[dict], timeframe: str):
     grouped = {}
     outcomes = _trade_outcomes(trades)
-    for trade in trades:
+    for index, trade in enumerate(trades):
         time_value = _marker_time(trade, candles, timeframe)
         if time_value is None:
             continue
@@ -242,7 +242,7 @@ def _markers_for_trades(trades: list[dict], candles: list[dict], timeframe: str)
             "date": trade.get("trade_date"),
             "price": _to_float(trade.get("price")),
             "quantity": _to_float(trade.get("quantity")),
-            **outcomes.get(str(trade.get("id")), {}),
+            **(outcomes.get(index, {}) if not is_buy else {}),
         })
 
     markers = []

@@ -10,6 +10,7 @@ import unittest
 with _import_state():
     from core.journal import build_review
     from core.journal_chart import _choose_intraday_interval, _markers_for_trades
+    from core.review_source_contract import admit_journal_chart_source
 
 
 class JournalChartDetailsTest(unittest.TestCase):
@@ -54,6 +55,27 @@ class JournalChartDetailsTest(unittest.TestCase):
 
         self.assertEqual(2, len(markers))
         self.assertEqual({"buy", "sell"}, {marker["side"] for marker in markers})
+
+        # Exercise real marker output and exact chart admission for every fill.
+        buy, sell = ({**row, "id": None} for row in self.trades)
+        cases = [self.trades, [buy, sell], [buy, dict(buy), sell, dict(sell)],
+                 [buy, dict(buy), sell, {**sell, "price": 120}]]
+        for rows in cases:
+            with self.subTest(count=len(rows), idless=rows[0]["id"] is None):
+                markers = _markers_for_trades(rows, self.candles, "intraday")
+                buy_marker = next(marker for marker in markers if marker["side"] == "buy")
+                sell_marker = next(marker for marker in markers if marker["side"] == "sell")
+                self.assertEqual(len([row for row in rows if row["side"] == "buy"]), len(buy_marker["trades"]))
+                self.assertEqual(len([row for row in rows if row["side"] == "sell"]), len(sell_marker["trades"]))
+                self.assertTrue(all(set(fill) == {"id", "date", "price", "quantity"} for fill in buy_marker["trades"]))
+                self.assertTrue(all(set(fill) == {"id", "date", "price", "quantity", "profit_amount", "return_rate"} for fill in sell_marker["trades"]))
+                if len(rows) == 4 and rows[-1]["price"] != rows[-2]["price"]:
+                    self.assertNotEqual(sell_marker["trades"][0]["profit_amount"], sell_marker["trades"][1]["profit_amount"])
+                candle = {**self.candles[0], "ma5": None, "ma20": None}
+                chart = {"ticker": "087010", "name": "펩트론", "timeframe": "intraday", "interval": "1m",
+                         "source": "1m intraday", "period_label": "2026-07-10", "candles": [candle],
+                         "markers": markers, "reviews": []}
+                admit_journal_chart_source(chart)
 
     def test_sell_marker_includes_realized_profit_and_return(self):
         markers = _markers_for_trades(self.trades, self.candles, "intraday")
